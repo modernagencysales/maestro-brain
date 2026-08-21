@@ -573,6 +573,12 @@ describe("Slack Convex ingress", () => {
       artifacts: await ctx.db.query("sourceArtifacts").collect(),
       revisions: await ctx.db.query("sourceRevisions").collect(),
       receipts: await ctx.db.query("providerEventReceipts").collect(),
+      lifecycleFences: await ctx.db
+        .query("retrievalEligibilityFences")
+        .withIndex("by_organization_kind_controller", (query) =>
+          query.eq("organizationKey", "org_1").eq("kind", "lifecycle"),
+        )
+        .take(10),
     }));
     expect(state.artifacts).toHaveLength(1);
     expect(state.artifacts[0]?.lifecycle).toMatchObject({
@@ -583,5 +589,12 @@ describe("Slack Convex ingress", () => {
       1, 2, 3, 4,
     ]);
     expect(state.receipts).toHaveLength(4);
+    expect(state.lifecycleFences).toEqual([
+      expect.objectContaining({
+        controllerKey: expect.stringMatching(/^slack-source:org_1:src_/),
+        eligibilityGeneration: 3,
+        eligible: true,
+      }),
+    ]);
   });
 });

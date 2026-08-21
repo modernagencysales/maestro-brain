@@ -8,6 +8,10 @@ import {
   retrievalPublicationJobKey,
   retrievalPublicationJobRow,
 } from "../../confect/brain/retrievalPublicationJob";
+import {
+  retrievalEligibilityFenceKey,
+  type RetrievalEligibilityFenceKind,
+} from "../../confect/brain/retrievalPublication";
 const MAX_ACTIVE_POLICIES_PER_CHANNEL = 1;
 const MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION = 26;
 const args = {
@@ -47,6 +51,54 @@ type IngressInput = Readonly<{
   payload: unknown;
 }>;
 type IngressDb = Pick<DatabaseWriter, "query" | "insert" | "patch">;
+type SlackArtifactFenceInput = {
+  readonly organizationKey: string;
+  readonly sourceKey: string;
+  readonly lifecycle: { readonly state: string };
+  readonly updatedAt: number;
+};
+const transitionSlackArtifactFence = async (
+  db: IngressDb,
+  artifact: SlackArtifactFenceInput,
+) => {
+  const kind: RetrievalEligibilityFenceKind = "lifecycle";
+  const controllerKey = `slack-source:${artifact.organizationKey}:${artifact.sourceKey}`;
+  const fenceKey = retrievalEligibilityFenceKey({
+    organizationKey: artifact.organizationKey,
+    kind,
+    controllerKey,
+  });
+  const rows = await db
+    .query("retrievalEligibilityFences")
+    .withIndex("by_organization_fence", (query) =>
+      query
+        .eq("organizationKey", artifact.organizationKey)
+        .eq("fenceKey", fenceKey),
+    )
+    .take(2);
+  if (rows.length > 1) throw new Error("SlackEligibilityFenceConflict");
+  const eligible = artifact.lifecycle.state === "active";
+  const stored = rows[0];
+  if (stored === undefined) {
+    await db.insert("retrievalEligibilityFences", {
+      schemaVersion: 1,
+      organizationKey: artifact.organizationKey,
+      fenceKey,
+      kind,
+      controllerKey,
+      eligibilityGeneration: 1,
+      eligible,
+      updatedAt: artifact.updatedAt,
+    });
+    return;
+  }
+  if (stored.eligible === eligible) return;
+  await db.patch(stored._id, {
+    eligibilityGeneration: stored.eligibilityGeneration + 1,
+    eligible,
+    updatedAt: artifact.updatedAt,
+  });
+};
 const runPublicationJob = makeFunctionReference<
   "mutation",
   {
@@ -284,12 +336,24 @@ export const receiveSlackEvent = internalMutation({
         findReplay: () => replayFor(ctx.db, i),
         findArtifact: (_channelKey, providerObjectId) =>
           artifactFor(ctx.db, i, providerObjectId),
-        insert: (t, r) => ctx.db.insert(t as never, r as never),
-        patchArtifact: (e, r) =>
-          ctx.db.patch(
+        insert: async (t, r) => {
+          if (t === "sourceArtifacts")
+            await transitionSlackArtifactFence(
+              ctx.db,
+              r as SlackArtifactFenceInput,
+            );
+          return await ctx.db.insert(t as never, r as never);
+        },
+        patchArtifact: async (e, r) => {
+          await transitionSlackArtifactFence(
+            ctx.db,
+            r as SlackArtifactFenceInput,
+          );
+          await ctx.db.patch(
             (e as { readonly _id: string })._id as never,
             r as never,
-          ),
+          );
+        },
       },
       i,
     );

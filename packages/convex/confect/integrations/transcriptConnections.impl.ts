@@ -15,6 +15,10 @@ import {
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
 import { recordAccessAuditEvent } from "../access/audit";
+import {
+  connectionFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { Forbidden, Unauthorized } from "../errors";
 import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import transcriptConnections, {
@@ -372,6 +376,14 @@ const revokeTranscriptConnection = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
+      yield* transitionEligibilityFenceEffect({
+        identity: connectionFenceIdentity({
+          organizationKey,
+          connectionKey: row.connectionKey,
+        }),
+        eligible: false,
+        now: input.now,
+      });
 
       const syncStates = yield* (yield* DatabaseReader)
         .table("connectorSyncStates")

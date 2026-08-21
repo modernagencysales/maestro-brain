@@ -18,6 +18,14 @@ import { SubsystemDisabled } from "../ops/brainOperations.spec";
 import { sha256Hex } from "../shared/sha256";
 import { requireBrainAccess, requireHeadlessBrainAccess } from "./pages.impl";
 import {
+  connectionFenceIdentity,
+  pageLifecycleFenceIdentity,
+  slackPolicyFenceIdentity,
+  slackSourceLifecycleFenceIdentity,
+  transcriptRouteFenceIdentity,
+  transcriptUnitLifecycleFenceIdentity,
+} from "./retrievalEligibility";
+import {
   buildRetrievalPassages,
   RETRIEVAL_CANDIDATE_LIMIT,
   RETRIEVAL_CONTEXT_ENTRY_LIMIT,
@@ -896,24 +904,71 @@ const publicationEligibilityMatches = (entry: RetrievalEntriesDoc) =>
       new Set(refs.map(({ kind }) => kind)).size !== refs.length
     )
       return false;
-    const expectedPageLifecycle =
-      entry.origin.kind === "page"
-        ? {
-            kind: "lifecycle" as const,
-            controllerKey: `page:${entry.workspaceId}:${entry.origin.pageKey}`,
-          }
-        : null;
+    const expectedIdentities = (() => {
+      if (entry.origin.kind === "page")
+        return [
+          pageLifecycleFenceIdentity({
+            organizationKey: entry.organizationKey,
+            workspaceId: String(entry.workspaceId),
+            pageKey: entry.origin.pageKey,
+          }),
+        ];
+      if (entry.origin.kind === "slack") {
+        if (
+          entry.connectorScopeKey === undefined ||
+          entry.connectionKey === undefined
+        )
+          return null;
+        return [
+          slackSourceLifecycleFenceIdentity({
+            organizationKey: entry.organizationKey,
+            sourceKey: entry.origin.sourceKey,
+          }),
+          slackPolicyFenceIdentity({
+            organizationKey: entry.organizationKey,
+            channelKey: entry.connectorScopeKey,
+            brainKey: entry.brainKey,
+          }),
+          connectionFenceIdentity({
+            organizationKey: entry.organizationKey,
+            connectionKey: entry.connectionKey,
+          }),
+        ];
+      }
+      if (entry.origin.kind === "transcript") {
+        if (entry.connectionKey === undefined) return null;
+        return [
+          transcriptUnitLifecycleFenceIdentity({
+            organizationKey: entry.organizationKey,
+            unitKey: entry.origin.unitKey,
+          }),
+          transcriptRouteFenceIdentity({
+            organizationKey: entry.organizationKey,
+            unitKey: entry.origin.unitKey,
+            brainKey: entry.brainKey,
+          }),
+          connectionFenceIdentity({
+            organizationKey: entry.organizationKey,
+            connectionKey: entry.connectionKey,
+          }),
+        ];
+      }
+      return [];
+    })();
+    if (expectedIdentities === null) return false;
+    const expected = expectedIdentities.map((identity) => ({
+      ...identity,
+      fenceKey: retrievalEligibilityFenceKey(identity),
+    }));
     if (
-      expectedPageLifecycle !== null &&
-      !refs.some(
-        (ref) =>
-          ref.kind === expectedPageLifecycle.kind &&
-          ref.fenceKey ===
-            retrievalEligibilityFenceKey({
-              organizationKey: entry.organizationKey,
-              ...expectedPageLifecycle,
-            }),
-      )
+      expected.length > 0 &&
+      (refs.length !== expected.length ||
+        !expected.every((identity) =>
+          refs.some(
+            (ref) =>
+              ref.kind === identity.kind && ref.fenceKey === identity.fenceKey,
+          ),
+        ))
     )
       return false;
     const fences = yield* Effect.all(
@@ -932,15 +987,18 @@ const publicationEligibilityMatches = (entry: RetrievalEntriesDoc) =>
     return refs.every((ref, index) => {
       const matches = fences[index];
       const fence = matches?.[0];
+      const expectedIdentity = expected.find(
+        ({ kind, fenceKey }) => kind === ref.kind && fenceKey === ref.fenceKey,
+      );
       return (
         matches?.length === 1 &&
         fence !== undefined &&
         fence.kind === ref.kind &&
         fence.eligibilityGeneration === ref.eligibilityGeneration &&
         fence.eligible &&
-        (expectedPageLifecycle === null ||
-          ref.kind !== "lifecycle" ||
-          fence.controllerKey === expectedPageLifecycle.controllerKey)
+        (expected.length === 0 ||
+          (expectedIdentity !== undefined &&
+            fence.controllerKey === expectedIdentity.controllerKey))
       );
     });
   });

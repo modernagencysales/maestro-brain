@@ -13,6 +13,12 @@ import {
   commitPreparedPublicationEffect,
   publishPageRevisionEffect,
 } from "../confect/brain/retrievalPublication.impl";
+import {
+  connectionFenceIdentity,
+  slackPolicyFenceIdentity,
+  transcriptRouteFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../confect/brain/retrievalEligibility";
 import { rebuildPageBatchEffect } from "../confect/brain/retrievalPublication.impl";
 import {
   RETRIEVAL_ELIGIBILITY_FENCE_MAX,
@@ -2205,6 +2211,87 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const eligibility = yield* confect.run(
+          Effect.gen(function* () {
+            if (published.outcome !== "published")
+              throw new Error("expected Slack publication");
+            const reader = yield* DatabaseReader;
+            const set = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_publication_set", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (set?.eligibilityFences === undefined)
+              throw new Error("missing Slack eligibility manifest");
+            const rows = yield* Effect.all(
+              set.eligibilityFences.map(({ fenceKey }) =>
+                reader
+                  .table("retrievalEligibilityFences")
+                  .index("by_organization_fence", (query) =>
+                    query
+                      .eq("organizationKey", organizationKey)
+                      .eq("fenceKey", fenceKey),
+                  )
+                  .take(2)
+                  .pipe(Effect.orDie),
+              ),
+            );
+            return { refs: set.eligibilityFences, rows: rows.flat() };
+          }),
+          resultSchema(),
+        );
+        const policyFenceId = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const fence = yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_kind_controller", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("kind", "policy")
+                  .eq(
+                    "controllerKey",
+                    `slack-policy:channel_sales:${brainKey}`,
+                  ),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (fence === null) throw new Error("missing Slack policy fence");
+            yield* writer
+              .table("retrievalEligibilityFences")
+              .patch(fence._id, {
+                controllerKey: `slack-policy:channel_other:${brainKey}`,
+              })
+              .pipe(Effect.orDie);
+            return fence._id;
+          }),
+          resultSchema(),
+        );
+        const wrongPolicyController = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "repeatable qualified pipeline",
+          },
+        );
+        yield* confect.run(
+          DatabaseWriter.pipe(
+            Effect.flatMap((writer) =>
+              writer.table("retrievalEligibilityFences").patch(policyFenceId, {
+                controllerKey: `slack-policy:channel_sales:${brainKey}`,
+              }),
+            ),
+            Effect.orDie,
+          ),
+          resultSchema(),
+        );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
           {
@@ -2314,6 +2401,15 @@ describe("retrieval publication persistence", () => {
               .first()
               .pipe(Effect.orDie);
             if (policy._tag === "None") throw new Error("missing policy");
+            yield* transitionEligibilityFenceEffect({
+              identity: slackPolicyFenceIdentity({
+                organizationKey,
+                channelKey: "channel_sales",
+                brainKey,
+              }),
+              eligible: false,
+              now: now + 2,
+            });
             yield* writer
               .table("channelRoutingPolicies")
               .patch(policy.value._id, { active: false })
@@ -2351,12 +2447,58 @@ describe("retrieval publication persistence", () => {
           .pipe(Effect.either);
         yield* confect.run(
           Effect.gen(function* () {
-            const reader = yield* DatabaseReader;
             const writer = yield* DatabaseWriter;
             yield* writer
               .table("channelRoutingPolicies")
               .patch(policyId, { active: true })
               .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const afterStalePolicyRestore = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "repeatable qualified pipeline",
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const connection = yield* reader
+              .table("providerConnections")
+              .index("by_connection_key", (query) =>
+                query.eq("connectionKey", "conn_slack"),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (connection._tag === "None")
+              throw new Error("missing connection");
+            yield* transitionEligibilityFenceEffect({
+              identity: connectionFenceIdentity({
+                organizationKey,
+                connectionKey: "conn_slack",
+              }),
+              eligible: false,
+              now: now + 3,
+            });
+            yield* writer
+              .table("providerConnections")
+              .patch(connection.value._id, {
+                status: "revoked",
+                updatedAt: now + 3,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
             const connection = yield* reader
               .table("providerConnections")
               .index("by_connection_key", (query) =>
@@ -2369,8 +2511,8 @@ describe("retrieval publication persistence", () => {
             yield* writer
               .table("providerConnections")
               .patch(connection.value._id, {
-                status: "revoked",
-                updatedAt: now + 2,
+                status: "active",
+                updatedAt: now + 4,
               })
               .pipe(Effect.orDie);
           }),
@@ -2405,6 +2547,8 @@ describe("retrieval publication persistence", () => {
           .pipe(Effect.either);
         return {
           published,
+          eligibility,
+          wrongPolicyController,
           policyOverflow,
           search,
           source,
@@ -2412,6 +2556,7 @@ describe("retrieval publication persistence", () => {
           afterPolicyRemoval,
           contextAfterPolicyRemoval,
           sourceAfterPolicyRemoval,
+          afterStalePolicyRestore,
           afterConnectionRevocation,
           contextAfterConnectionRevocation,
           sourceAfterConnectionRevocation,
@@ -2431,6 +2576,34 @@ describe("retrieval publication persistence", () => {
     if (result.published.outcome !== "published") {
       throw new Error("expected Slack publication");
     }
+    expect(result.eligibility.refs.map(({ kind }) => kind).sort()).toEqual([
+      "connection",
+      "lifecycle",
+      "policy",
+    ]);
+    expect(result.eligibility.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "lifecycle",
+          controllerKey: `slack-source:${organizationKey}:${sourceKey}`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+        expect.objectContaining({
+          kind: "policy",
+          controllerKey: `slack-policy:channel_sales:${brainKey}`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+        expect.objectContaining({
+          kind: "connection",
+          controllerKey: "connection:conn_slack",
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+      ]),
+    );
+    expect(result.wrongPolicyController.results).toEqual([]);
     expect(result.search.results).toEqual([
       expect.objectContaining({
         sourceRevisionKey,
@@ -2456,6 +2629,7 @@ describe("retrieval publication persistence", () => {
     expect(result.afterPolicyRemoval.results).toEqual([]);
     expect(result.contextAfterPolicyRemoval.entries).toEqual([]);
     expectCitationFailure(result.sourceAfterPolicyRemoval, "origin_mismatch");
+    expect(result.afterStalePolicyRestore.results).toEqual([]);
     expect(result.afterConnectionRevocation.results).toEqual([]);
     expect(result.contextAfterConnectionRevocation.entries).toEqual([]);
     expectCitationFailure(
@@ -2873,6 +3047,88 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const eligibility = yield* confect.run(
+          Effect.gen(function* () {
+            if (published.outcome !== "published")
+              throw new Error("expected transcript publication");
+            const reader = yield* DatabaseReader;
+            const set = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_publication_set", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (set?.eligibilityFences === undefined)
+              throw new Error("missing transcript eligibility manifest");
+            const rows = yield* Effect.all(
+              set.eligibilityFences.map(({ fenceKey }) =>
+                reader
+                  .table("retrievalEligibilityFences")
+                  .index("by_organization_fence", (query) =>
+                    query
+                      .eq("organizationKey", organizationKey)
+                      .eq("fenceKey", fenceKey),
+                  )
+                  .take(2)
+                  .pipe(Effect.orDie),
+              ),
+            );
+            return { refs: set.eligibilityFences, rows: rows.flat() };
+          }),
+          resultSchema(),
+        );
+        const routeFenceId = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const fence = yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_kind_controller", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("kind", "route")
+                  .eq(
+                    "controllerKey",
+                    `transcript-route:${unitKey}:${brainKey}`,
+                  ),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (fence === null)
+              throw new Error("missing transcript route fence");
+            yield* writer
+              .table("retrievalEligibilityFences")
+              .patch(fence._id, {
+                controllerKey: `transcript-route:${unitKey}:br_wrong`,
+              })
+              .pipe(Effect.orDie);
+            return fence._id;
+          }),
+          resultSchema(),
+        );
+        const wrongRouteController = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the qualified pipeline close-rate target?",
+          },
+        );
+        yield* confect.run(
+          DatabaseWriter.pipe(
+            Effect.flatMap((writer) =>
+              writer.table("retrievalEligibilityFences").patch(routeFenceId, {
+                controllerKey: `transcript-route:${unitKey}:${brainKey}`,
+              }),
+            ),
+            Effect.orDie,
+          ),
+          resultSchema(),
+        );
         const context = yield* confect.query(
           refs.internal.brain.readApi.headlessContextGet,
           {
@@ -2924,6 +3180,15 @@ describe("retrieval publication persistence", () => {
               .first()
               .pipe(Effect.orDie);
             if (route._tag === "None") throw new Error("missing route");
+            yield* transitionEligibilityFenceEffect({
+              identity: transcriptRouteFenceIdentity({
+                organizationKey,
+                unitKey,
+                brainKey,
+              }),
+              eligible: false,
+              now: now + 2,
+            });
             yield* writer
               .table("callRoutingProposals")
               .patch(route.value._id, {
@@ -2964,12 +3229,27 @@ describe("retrieval publication persistence", () => {
           .pipe(Effect.either);
         yield* confect.run(
           Effect.gen(function* () {
-            const reader = yield* DatabaseReader;
             const writer = yield* DatabaseWriter;
             yield* writer
               .table("callRoutingProposals")
               .patch(routeId, { status: "accepted", updatedAt: now + 3 })
               .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const afterStaleRouteRestore = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the qualified pipeline close-rate target?",
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
             const connection = yield* reader
               .table("providerConnections")
               .index("by_connection_key", (query) =>
@@ -2979,6 +3259,14 @@ describe("retrieval publication persistence", () => {
               .pipe(Effect.orDie);
             if (connection._tag === "None")
               throw new Error("missing connection");
+            yield* transitionEligibilityFenceEffect({
+              identity: connectionFenceIdentity({
+                organizationKey,
+                connectionKey: "conn_calls",
+              }),
+              eligible: false,
+              now: now + 3,
+            });
             yield* writer
               .table("providerConnections")
               .patch(connection.value._id, {
@@ -3018,12 +3306,15 @@ describe("retrieval publication persistence", () => {
           .pipe(Effect.either);
         return {
           published,
+          eligibility,
+          wrongRouteController,
           context,
           source,
           rebuilt,
           afterRouteRejection,
           searchAfterRouteRejection,
           sourceAfterRouteRejection,
+          afterStaleRouteRestore,
           afterGenerationChange,
           searchAfterGenerationChange,
           sourceAfterGenerationChange,
@@ -3037,6 +3328,34 @@ describe("retrieval publication persistence", () => {
     if (result.published.outcome !== "published") {
       throw new Error("expected transcript publication");
     }
+    expect(result.eligibility.refs.map(({ kind }) => kind).sort()).toEqual([
+      "connection",
+      "lifecycle",
+      "route",
+    ]);
+    expect(result.eligibility.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "lifecycle",
+          controllerKey: `transcript-unit:${organizationKey}:${unitKey}`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+        expect.objectContaining({
+          kind: "route",
+          controllerKey: `transcript-route:${unitKey}:${brainKey}`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+        expect.objectContaining({
+          kind: "connection",
+          controllerKey: "connection:conn_calls",
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+      ]),
+    );
+    expect(result.wrongRouteController.entries).toEqual([]);
     expect(result.context.entries).toEqual([
       expect.objectContaining({
         sourceRevisionKey: unitRevisionKey,
@@ -3068,6 +3387,7 @@ describe("retrieval publication persistence", () => {
     expect(result.afterRouteRejection.entries).toEqual([]);
     expect(result.searchAfterRouteRejection.results).toEqual([]);
     expectCitationFailure(result.sourceAfterRouteRejection, "origin_mismatch");
+    expect(result.afterStaleRouteRestore.entries).toEqual([]);
     expect(result.afterGenerationChange.entries).toEqual([]);
     expect(result.searchAfterGenerationChange.results).toEqual([]);
     expectCitationFailure(

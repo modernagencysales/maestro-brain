@@ -6,6 +6,10 @@ import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  transcriptUnitLifecycleFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { Unauthorized, ValidationFailed } from "../errors";
 import { buildCallSourceUnitRows } from "../sources/sourceUnit";
 import {
@@ -158,6 +162,14 @@ export const ingestSourceUnitEffect = ({
       createdAt: current?.createdAt ?? rows.unit.createdAt,
       lifecycle: { ...rows.unit.lifecycle, generation: lifecycleGeneration },
     };
+    yield* transitionEligibilityFenceEffect({
+      identity: transcriptUnitLifecycleFenceIdentity({
+        organizationKey: authority.organizationKey,
+        unitKey: rows.unit.unitKey,
+      }),
+      eligible: unit.lifecycle.state === "active",
+      now: receivedAt,
+    });
     if (current === null)
       yield* writer.table("sourceUnits").insert(unit).pipe(Effect.orDie);
     else

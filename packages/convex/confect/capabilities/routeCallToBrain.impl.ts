@@ -6,6 +6,10 @@ import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  transcriptRouteFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
 import { matchCall } from "../routing/callMatching";
@@ -133,7 +137,16 @@ export const routeCallToBrainEffect = ({
           workspace.brainKey === existing.brainKey &&
           workspace.status === "active",
       );
-      if (existing.outcome === "routed" && target !== undefined)
+      if (existing.outcome === "routed" && target !== undefined) {
+        yield* transitionEligibilityFenceEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey,
+            unitKey: existing.unitKey,
+            brainKey: existing.brainKey ?? "",
+          }),
+          eligible: true,
+          now: routedAt,
+        });
         yield* enqueueRetrievalPublicationJobEffect(
           {
             organizationKey,
@@ -146,6 +159,7 @@ export const routeCallToBrainEffect = ({
           },
           routedAt,
         );
+      }
       return {
         outcome: existing.outcome,
         proposalKey: existing.proposalKey,
@@ -192,6 +206,16 @@ export const routeCallToBrainEffect = ({
         updatedAt: routedAt,
       })
       .pipe(Effect.orDie);
+    if (route.outcome === "routed" && route.brainKey !== null)
+      yield* transitionEligibilityFenceEffect({
+        identity: transcriptRouteFenceIdentity({
+          organizationKey,
+          unitKey: unit.unitKey,
+          brainKey: route.brainKey,
+        }),
+        eligible: true,
+        now: routedAt,
+      });
 
     const jobs = yield* reader
       .table("sourceProcessingJobs")

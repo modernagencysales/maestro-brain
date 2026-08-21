@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import refs from "../confect/_generated/refs";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { buildCallSourceUnitRows } from "../confect/sources/sourceUnit";
 import { testConfectLayer } from "./support/confect";
 
@@ -163,7 +163,20 @@ describe("call routing persistence", () => {
           routedAt: now + 2,
         },
       );
-      return { first, duplicate };
+      const routeFences = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          return yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (query) =>
+              query.eq("organizationKey", organizationKey).eq("kind", "route"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      return { first, duplicate, routeFences };
     });
 
     await expect(
@@ -181,6 +194,13 @@ describe("call routing persistence", () => {
         reason: "participant_domain",
         routeGeneration: 1,
       },
+      routeFences: [
+        {
+          controllerKey: `transcript-route:${rows.unit.unitKey}:br_acme`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        },
+      ],
     });
   });
 

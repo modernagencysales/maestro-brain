@@ -20,8 +20,14 @@ import {
 import { Unauthorized, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import {
+  connectionFenceIdentity,
+  eligibilityFenceRefsCurrentEffect,
   ensureEligibilityFenceEffect,
   pageLifecycleFenceIdentity,
+  slackPolicyFenceIdentity,
+  slackSourceLifecycleFenceIdentity,
+  transcriptRouteFenceIdentity,
+  transcriptUnitLifecycleFenceIdentity,
 } from "./retrievalEligibility";
 import {
   buildRetrievalPassages,
@@ -29,6 +35,7 @@ import {
   retrievalEntryKey,
   retrievalPublicationSetKey,
   retrievalPublicationSubjectKey,
+  type RetrievalEligibilityFenceRef,
   type RetrievalOrigin,
 } from "./retrievalPublication";
 import retrievalPublicationGroup, {
@@ -277,6 +284,7 @@ export const commitPreparedPublicationEffect = (input: {
   readonly policyGeneration: number;
   readonly lifecycleGeneration: number;
   readonly routeGeneration: number;
+  readonly eligibilityFences?: readonly RetrievalEligibilityFenceRef[];
   readonly revoked: boolean;
   readonly passages: readonly PreparedPassage[];
   readonly now: number;
@@ -284,6 +292,67 @@ export const commitPreparedPublicationEffect = (input: {
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
+    const expectedEligibilityIdentities =
+      input.kind === "slack" &&
+      input.connectorScopeKey !== undefined &&
+      input.connectionKey !== undefined
+        ? [
+            slackSourceLifecycleFenceIdentity({
+              organizationKey: input.organizationKey,
+              sourceKey: input.sourceKey,
+            }),
+            slackPolicyFenceIdentity({
+              organizationKey: input.organizationKey,
+              channelKey: input.connectorScopeKey,
+              brainKey: input.brainKey,
+            }),
+            connectionFenceIdentity({
+              organizationKey: input.organizationKey,
+              connectionKey: input.connectionKey,
+            }),
+          ]
+        : input.kind === "transcript" && input.connectionKey !== undefined
+          ? [
+              transcriptUnitLifecycleFenceIdentity({
+                organizationKey: input.organizationKey,
+                unitKey: input.sourceKey,
+              }),
+              transcriptRouteFenceIdentity({
+                organizationKey: input.organizationKey,
+                unitKey: input.sourceKey,
+                brainKey: input.brainKey,
+              }),
+              connectionFenceIdentity({
+                organizationKey: input.organizationKey,
+                connectionKey: input.connectionKey,
+              }),
+            ]
+          : [];
+    if (!input.revoked && expectedEligibilityIdentities.length > 0) {
+      if (
+        input.eligibilityFences === undefined ||
+        !(yield* eligibilityFenceRefsCurrentEffect({
+          organizationKey: input.organizationKey,
+          refs: input.eligibilityFences,
+          expectedIdentities: expectedEligibilityIdentities,
+        }))
+      )
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey:
+            input.eligibilityFences?.[0]?.fenceKey ?? input.sourceRevisionKey,
+        });
+    } else if (
+      !input.revoked &&
+      input.eligibilityFences !== undefined &&
+      !(yield* eligibilityFenceRefsCurrentEffect({
+        organizationKey: input.organizationKey,
+        refs: input.eligibilityFences,
+      }))
+    )
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          input.eligibilityFences[0]?.fenceKey ?? input.sourceRevisionKey,
+      });
     const subject = yield* loadPublicationSubject({
       organizationKey: input.organizationKey,
       workspaceId: input.workspaceId,
@@ -496,6 +565,9 @@ export const commitPreparedPublicationEffect = (input: {
         routeGeneration: input.routeGeneration,
         lifecycleGeneration: input.lifecycleGeneration,
         policyGeneration: input.policyGeneration,
+        ...(input.eligibilityFences === undefined
+          ? {}
+          : { eligibilityFences: [...input.eligibilityFences] }),
         expectedEntryCount: entries.length,
         expectedTokenCount: tokens.length,
         manifestHash: manifestHash({
@@ -1067,6 +1139,41 @@ export const publishSlackRevisionEffect = (
       !currentConnection ||
       policy === undefined ||
       !eligibleByCutoff;
+    const eligibilityFences = revoked
+      ? undefined
+      : yield* Effect.all([
+          ensureEligibilityFenceEffect({
+            identity: slackSourceLifecycleFenceIdentity({
+              organizationKey: args.organizationKey,
+              sourceKey: revision.sourceKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+          ensureEligibilityFenceEffect({
+            identity: slackPolicyFenceIdentity({
+              organizationKey: args.organizationKey,
+              channelKey: revision.channelKey,
+              brainKey: args.brainKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+          ensureEligibilityFenceEffect({
+            identity: connectionFenceIdentity({
+              organizationKey: args.organizationKey,
+              connectionKey: revision.connectionKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+        ]);
+    if (eligibilityFences?.some(({ eligible }) => !eligible) === true)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          eligibilityFences.find(({ eligible }) => !eligible)?.ref.fenceKey ??
+          revision.sourceRevisionKey,
+      });
     const passages = buildRetrievalPassages(
       revision.normalizedText,
       revision.sourceRevisionKey,
@@ -1104,6 +1211,9 @@ export const publishSlackRevisionEffect = (
       policyGeneration: policy?.policyEpoch ?? 1,
       lifecycleGeneration: artifact.lifecycle.generation,
       routeGeneration: policy?.policyEpoch ?? 1,
+      ...(eligibilityFences === undefined
+        ? {}
+        : { eligibilityFences: eligibilityFences.map(({ ref }) => ref) }),
       revoked,
       passages,
       now: args.now,
@@ -1205,6 +1315,46 @@ export const publishTranscriptRevisionEffect = (
         observedAt: revision.createdAt,
       })),
     );
+    const revoked =
+      revision.tombstone ||
+      unit.lifecycle.state !== "active" ||
+      !currentConnection ||
+      route === undefined;
+    const eligibilityFences = revoked
+      ? undefined
+      : yield* Effect.all([
+          ensureEligibilityFenceEffect({
+            identity: transcriptUnitLifecycleFenceIdentity({
+              organizationKey: args.organizationKey,
+              unitKey: revision.unitKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+          ensureEligibilityFenceEffect({
+            identity: transcriptRouteFenceIdentity({
+              organizationKey: args.organizationKey,
+              unitKey: revision.unitKey,
+              brainKey: args.brainKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+          ensureEligibilityFenceEffect({
+            identity: connectionFenceIdentity({
+              organizationKey: args.organizationKey,
+              connectionKey: unit.connectionKey,
+            }),
+            eligible: true,
+            now: args.now,
+          }),
+        ]);
+    if (eligibilityFences?.some(({ eligible }) => !eligible) === true)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          eligibilityFences.find(({ eligible }) => !eligible)?.ref.fenceKey ??
+          revision.unitRevisionKey,
+      });
     return yield* commitPreparedPublicationEffect({
       organizationKey: args.organizationKey,
       workspaceId: args.workspaceId,
@@ -1221,11 +1371,10 @@ export const publishTranscriptRevisionEffect = (
       policyGeneration: 1,
       lifecycleGeneration: unit.lifecycle.generation,
       routeGeneration: route?.routeGeneration ?? 1,
-      revoked:
-        revision.tombstone ||
-        unit.lifecycle.state !== "active" ||
-        !currentConnection ||
-        route === undefined,
+      ...(eligibilityFences === undefined
+        ? {}
+        : { eligibilityFences: eligibilityFences.map(({ ref }) => ref) }),
+      revoked,
       passages,
       now: args.now,
     });

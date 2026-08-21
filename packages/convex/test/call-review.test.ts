@@ -472,6 +472,15 @@ describe("call routing and maintenance review", () => {
               )
               .take(5)
               .pipe(Effect.orDie),
+            routeFences: yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_kind_controller", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("kind", "route"),
+              )
+              .take(10)
+              .pipe(Effect.orDie),
           };
         }),
         Schema.Any,
@@ -531,6 +540,18 @@ describe("call routing and maintenance review", () => {
               sourceRevisionKey: rows.revision.unitRevisionKey,
             },
           ],
+          routeFences: expect.arrayContaining([
+            expect.objectContaining({
+              controllerKey: `transcript-route:${rows.unit.unitKey}:${brainKey}`,
+              eligibilityGeneration: 2,
+              eligible: false,
+            }),
+            expect.objectContaining({
+              controllerKey: `transcript-route:${rows.unit.unitKey}:${betaBrainKey}`,
+              eligibilityGeneration: 1,
+              eligible: true,
+            }),
+          ]),
         },
       });
       expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(

@@ -808,7 +808,19 @@ describe("Slack channel policy contract", () => {
               .take(5)
               .pipe(Effect.orDie),
           ]);
-          return { routing, removedTargetJobs, addedTargetJobs };
+          const policyFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (query) =>
+              query.eq("organizationKey", "agency_acme").eq("kind", "policy"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          return {
+            routing,
+            removedTargetJobs,
+            addedTargetJobs,
+            policyFences,
+          };
         }),
         Schema.Any,
       );
@@ -841,6 +853,20 @@ describe("Slack channel policy contract", () => {
         rebuild: { limit: 5 },
       }),
     ]);
+    expect(result.rows.policyFences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controllerKey: `slack-policy:${joinedChannel.channelKey}:brain_alpha`,
+          eligibilityGeneration: 2,
+          eligible: false,
+        }),
+        expect.objectContaining({
+          controllerKey: `slack-policy:${joinedChannel.channelKey}:brain_beta`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+      ]),
+    );
     expect(result.denied._tag).toBe("Left");
     if (result.denied._tag === "Left") {
       expect(result.denied.left).toMatchObject({

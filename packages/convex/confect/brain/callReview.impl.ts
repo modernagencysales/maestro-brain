@@ -13,12 +13,16 @@ import {
   DatabaseWriter,
   Scheduler,
 } from "../_generated/services";
-import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
 import { NotFound, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import callReviewGroup from "./callReview.spec";
 import { requireBrainAccess } from "./pages.impl";
 import { LifecycleRevoked, PageNotFound, StaleRevision } from "./pageTree";
+import {
+  transcriptRouteFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "./retrievalEligibility";
+import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
 
 const unsafeClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
@@ -262,6 +266,31 @@ const reviewCallRoute = FunctionImpl.make(
         args.action === "reject"
           ? ("rejected" as const)
           : ("accepted" as const);
+      if (
+        route.outcome === "routed" &&
+        route.brainKey !== null &&
+        route.brainKey !== undefined &&
+        route.brainKey !== routedBrainKey
+      )
+        yield* transitionEligibilityFenceEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey,
+            unitKey: route.unitKey,
+            brainKey: route.brainKey,
+          }),
+          eligible: false,
+          now: reviewedAt,
+        });
+      if (routed && routedBrainKey !== null && routedBrainKey !== undefined)
+        yield* transitionEligibilityFenceEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey,
+            unitKey: route.unitKey,
+            brainKey: routedBrainKey,
+          }),
+          eligible: true,
+          now: reviewedAt,
+        });
       yield* writer
         .table("callRoutingProposals")
         .patch(route._id, {

@@ -19,6 +19,10 @@ import {
 } from "../access/audit";
 import { loadCurrentUser } from "../access/handlerContext";
 import { roleAtLeast, type Role } from "../access/roles";
+import {
+  slackPolicyFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import type { ChannelDeliveryPolicyRowValue } from "../tables/channelDeliveryPolicies";
 import type { ChannelRoutingPolicyRowValue } from "../tables/channelRoutingPolicies";
@@ -323,6 +327,31 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
           .table("channelRoutingPolicies")
           .insert(routingPolicy)
           .pipe(Effect.orDie);
+        const priorTargets = new Set(
+          priorActiveRouting.get(routingPolicy.channelKey)?.mode ===
+            "capture_only"
+            ? []
+            : (priorActiveRouting.get(routingPolicy.channelKey)
+                ?.targetBrainKeys ?? []),
+        );
+        const currentTargets = new Set(
+          routingPolicy.mode === "capture_only"
+            ? []
+            : routingPolicy.targetBrainKeys,
+        );
+        for (const targetBrainKey of new Set([
+          ...priorTargets,
+          ...currentTargets,
+        ]))
+          yield* transitionEligibilityFenceEffect({
+            identity: slackPolicyFenceIdentity({
+              organizationKey: input.organizationKey,
+              channelKey: routingPolicy.channelKey,
+              brainKey: targetBrainKey,
+            }),
+            eligible: currentTargets.has(targetBrainKey),
+            now,
+          });
         const targetBrainKeys = new Set([
           ...(priorActiveRouting.get(routingPolicy.channelKey)
             ?.targetBrainKeys ?? []),

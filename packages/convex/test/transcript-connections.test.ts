@@ -277,6 +277,24 @@ describe("transcript connection capability", () => {
           ),
           Schema.Any,
         );
+      const connectionFences = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("retrievalEligibilityFences")
+                .index("by_organization_kind_controller", (q) =>
+                  q
+                    .eq("organizationKey", "agency_acme")
+                    .eq("kind", "connection")
+                    .eq("controllerKey", "connection:fireflies_agency_acme"),
+                )
+                .take(2)
+                .pipe(Effect.orDie),
+            ),
+          ),
+          Schema.Any,
+        );
       const publicationJobs = () =>
         confect.run(
           DatabaseReader.pipe(
@@ -499,6 +517,13 @@ describe("transcript connection capability", () => {
           originKind: "transcript_rebuild",
           status: "pending",
           sourceKey: "fireflies_agency_acme",
+        }),
+      ]);
+      expect(yield* connectionFences()).toEqual([
+        expect.objectContaining({
+          controllerKey: "connection:fireflies_agency_acme",
+          eligibilityGeneration: 1,
+          eligible: false,
         }),
       ]);
       const reconnectWhileCleanupPending = yield* Effect.either(

@@ -8,6 +8,10 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  connectionFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import { currentAdminOrganizationKey } from "./transcriptConnections.impl";
 import transcriptSync, {
@@ -404,6 +408,15 @@ const claimTranscriptSyncPageImpl = FunctionImpl.make(
             updatedAt: input.now,
           })
           .pipe(Effect.orDie);
+      if (connection.status === "verifying")
+        yield* transitionEligibilityFenceEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: connection.organizationKey,
+            connectionKey: connection.connectionKey,
+          }),
+          eligible: true,
+          now: input.now,
+        });
       if (existing === null)
         yield* writer
           .table("connectorSyncStates")

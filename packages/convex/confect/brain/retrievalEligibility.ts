@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import {
+  RETRIEVAL_ELIGIBILITY_FENCE_MAX,
   retrievalEligibilityFenceKey,
   type RetrievalEligibilityFenceKind,
   type RetrievalEligibilityFenceRef,
@@ -24,19 +25,79 @@ export const pageLifecycleFenceIdentity = (input: {
   controllerKey: `page:${input.workspaceId}:${input.pageKey}`,
 });
 
+export const slackSourceLifecycleFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly sourceKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "lifecycle",
+  controllerKey: `slack-source:${input.organizationKey}:${input.sourceKey}`,
+});
+
+export const slackPolicyFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly channelKey: string;
+  readonly brainKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "policy",
+  controllerKey: `slack-policy:${input.channelKey}:${input.brainKey}`,
+});
+
+export const transcriptUnitLifecycleFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly unitKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "lifecycle",
+  controllerKey: `transcript-unit:${input.organizationKey}:${input.unitKey}`,
+});
+
+export const transcriptRouteFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly unitKey: string;
+  readonly brainKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "route",
+  controllerKey: `transcript-route:${input.unitKey}:${input.brainKey}`,
+});
+
+export const connectionFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly connectionKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "connection",
+  controllerKey: `connection:${input.connectionKey}`,
+});
+
 const loadEligibilityFence = (identity: EligibilityFenceIdentity) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const fenceKey = retrievalEligibilityFenceKey(identity);
-    const stored = yield* reader
+    const rows = yield* reader
       .table("retrievalEligibilityFences")
       .index("by_organization_fence", (query) =>
         query
           .eq("organizationKey", identity.organizationKey)
           .eq("fenceKey", fenceKey),
       )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      .take(2)
+      .pipe(Effect.orDie);
+    if (rows.length > 1)
+      return yield* Effect.die(
+        new Error(`EligibilityFenceDuplicate:${fenceKey}`),
+      );
+    const stored = Option.fromNullable(rows[0]).pipe(Option.getOrNull);
+    if (
+      stored !== null &&
+      (stored.kind !== identity.kind ||
+        stored.controllerKey !== identity.controllerKey)
+    )
+      return yield* Effect.die(
+        new Error(`EligibilityFenceControllerMismatch:${fenceKey}`),
+      );
     return { fenceKey, stored };
   });
 
@@ -49,6 +110,69 @@ const toFenceRef = (input: {
   fenceKey: input.fenceKey,
   eligibilityGeneration: input.eligibilityGeneration,
 });
+
+export const eligibilityFenceRefsCurrentEffect = (input: {
+  readonly organizationKey: string;
+  readonly refs: readonly RetrievalEligibilityFenceRef[];
+  readonly expectedIdentities?: readonly EligibilityFenceIdentity[];
+}) =>
+  Effect.gen(function* () {
+    if (
+      input.refs.length === 0 ||
+      input.refs.length > RETRIEVAL_ELIGIBILITY_FENCE_MAX ||
+      new Set(input.refs.map(({ fenceKey }) => fenceKey)).size !==
+        input.refs.length ||
+      new Set(input.refs.map(({ kind }) => kind)).size !== input.refs.length
+    )
+      return false;
+    const expected = (input.expectedIdentities ?? []).map((identity) => ({
+      ...identity,
+      fenceKey: retrievalEligibilityFenceKey(identity),
+    }));
+    if (
+      expected.length > 0 &&
+      (expected.length !== input.refs.length ||
+        !expected.every((identity) =>
+          input.refs.some(
+            (ref) =>
+              ref.kind === identity.kind && ref.fenceKey === identity.fenceKey,
+          ),
+        ))
+    )
+      return false;
+    const reader = yield* DatabaseReader;
+    const rows = yield* Effect.all(
+      input.refs.map(({ fenceKey }) =>
+        reader
+          .table("retrievalEligibilityFences")
+          .index("by_organization_fence", (query) =>
+            query
+              .eq("organizationKey", input.organizationKey)
+              .eq("fenceKey", fenceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ),
+    );
+    return input.refs.every((ref, index) => {
+      const matches = rows[index];
+      const stored = matches?.[0];
+      const expectedIdentity = expected.find(
+        (identity) =>
+          identity.kind === ref.kind && identity.fenceKey === ref.fenceKey,
+      );
+      return (
+        matches?.length === 1 &&
+        stored !== undefined &&
+        stored.kind === ref.kind &&
+        stored.eligibilityGeneration === ref.eligibilityGeneration &&
+        stored.eligible &&
+        (expected.length === 0 ||
+          (expectedIdentity !== undefined &&
+            stored.controllerKey === expectedIdentity.controllerKey))
+      );
+    });
+  });
 
 export const ensureEligibilityFenceEffect = (input: {
   readonly identity: EligibilityFenceIdentity;

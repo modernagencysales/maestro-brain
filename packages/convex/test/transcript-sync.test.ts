@@ -336,7 +336,17 @@ describe("transcript sync persistence", () => {
             )
             .first()
             .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-          return { syncRows, connection };
+          const connectionFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (q) =>
+              q
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "connection")
+                .eq("controllerKey", "connection:fireflies_agency_acme"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          return { syncRows, connection, connectionFences };
         }),
         Schema.Any,
       );
@@ -364,6 +374,13 @@ describe("transcript sync persistence", () => {
       status: "active",
       connectionGeneration: 1,
     });
+    expect(result.rows.connectionFences).toEqual([
+      expect.objectContaining({
+        controllerKey: "connection:fireflies_agency_acme",
+        eligibilityGeneration: 1,
+        eligible: true,
+      }),
+    ]);
   });
 
   it("rejects an old generation after replacement", async () => {

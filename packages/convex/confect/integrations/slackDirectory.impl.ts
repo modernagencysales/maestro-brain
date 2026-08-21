@@ -14,6 +14,10 @@ import {
   MutationRunner,
   QueryRunner,
 } from "../_generated/services";
+import {
+  connectionFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import type { ProviderConnectionRow } from "./slackConnections.impl";
 import slackDirectory, {
@@ -585,6 +589,14 @@ const applyReplacementRevocation = (input: {
         )
         .pipe(Effect.orDie);
     }
+    yield* transitionEligibilityFenceEffect({
+      identity: connectionFenceIdentity({
+        organizationKey: input.connection.organizationKey,
+        connectionKey: input.connection.connectionKey,
+      }),
+      eligible: false,
+      now: input.now,
+    });
     const sourceRows = (yield* reader
       .table("sourceChannels")
       .index("by_connection_generation", (q) =>
@@ -717,6 +729,18 @@ const commitReconcileIdentityImpl = FunctionImpl.make(
           .pipe(Effect.orDie);
       }
       if (
+        connection.status === "verifying" ||
+        connection.status === "reauthorizing"
+      )
+        yield* transitionEligibilityFenceEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: connection.organizationKey,
+            connectionKey: connection.connectionKey,
+          }),
+          eligible: true,
+          now,
+        });
+      if (
         activated.right.connection.connectionGeneration !==
         connection.connectionGeneration
       )
@@ -800,6 +824,18 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
           )
           .pipe(Effect.orDie);
       }
+      if (
+        connection.status === "verifying" ||
+        connection.status === "reauthorizing"
+      )
+        yield* transitionEligibilityFenceEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: connection.organizationKey,
+            connectionKey: connection.connectionKey,
+          }),
+          eligible: true,
+          now,
+        });
       if (
         activated.right.connection.connectionGeneration !==
         connection.connectionGeneration

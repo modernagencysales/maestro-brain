@@ -439,14 +439,31 @@ describe("source-unit ingestion persistence", () => {
             )
             .first()
             .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+          const fence = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (query) =>
+              query
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "lifecycle")
+                .eq(
+                  "controllerKey",
+                  `transcript-unit:agency_acme:${unit.unitKey}`,
+                ),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
           return {
             currentUnitRevisionKey: unit.currentUnitRevisionKey,
             lifecycleState: unit.lifecycle.state,
+            eligibilityGeneration: fence.eligibilityGeneration,
+            eligible: fence.eligible,
           };
         }),
         Schema.Struct({
           currentUnitRevisionKey: Schema.String,
           lifecycleState: Schema.String,
+          eligibilityGeneration: Schema.Number,
+          eligible: Schema.Boolean,
         }),
       );
       return { tombstone, delayed, recreated, state };
@@ -461,6 +478,8 @@ describe("source-unit ingestion persistence", () => {
     expect(result.state).toEqual({
       currentUnitRevisionKey: result.recreated.unitRevisionKey,
       lifecycleState: "active",
+      eligibilityGeneration: 3,
+      eligible: true,
     });
   });
 
