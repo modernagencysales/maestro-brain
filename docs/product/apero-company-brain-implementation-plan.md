@@ -54,7 +54,8 @@ post-pilot hardening unless real pilot use proves one is immediately required.
 ## 3. Execution Principles
 
 1. Ship the smallest complete data flow before adding source breadth.
-2. Use one canonical context operation on every surface.
+2. Use one canonical source-ledger retrieval and context-assembly path on every
+   surface.
 3. Store exact source revisions before model work.
 4. Treat normalized text, search indexes, summaries, and embeddings as derived
    projections of the source ledger.
@@ -118,8 +119,8 @@ Each layer measures:
 | Milestone | Outcome                                                        | Packages  |
 | --------- | -------------------------------------------------------------- | --------- |
 | M0        | Current Ask Apero contents and real user questions inventoried | WP00-WP01 |
-| M1        | One canonical context path works on every read surface         | WP02      |
-| M2        | Real existing Apero evidence passes E0                         | WP03      |
+| M1        | Source-ledger evidence reaches one canonical retrieval path    | WP02      |
+| M2        | Snapshot, Slack, and transcript evidence pass E0               | WP03      |
 | M3        | Ask Apero works for one to two users in both runtimes          | WP04      |
 | M4        | First new provider passes the complete data-flow contract      | WP05-WP06 |
 | M5        | Highest-value structured source passes E2                      | WP07      |
@@ -144,6 +145,11 @@ Inventory, without committing sensitive exports:
 - known stale, duplicate, or untrusted material;
 - context that exists only inside the Project;
 - gaps that currently require manual lookup.
+
+For every approved file or instruction that exists only in Claude, identify the
+temporary snapshot-import destination as well as the long-term authoritative
+source. The snapshot makes the first Ask Apero useful; it does not become a
+second permanent system of record.
 
 Produce `docs/product/apero-company-brain-migration-matrix.md` with:
 
@@ -174,15 +180,23 @@ block M0.
 **Exit gate:** E0 can be run reproducibly and each question names the evidence
 required to judge it.
 
-### WP02 — Make `brain.context.get` Canonical
+### WP02 — Build Canonical Retrieval And Context Assembly
 
 **Timebox:** 3-5 engineering days
 
-**Outcome:** web, API, CLI, and MCP use one deterministic context operation.
+**Outcome:** active source-ledger segments and Brain-page revisions reach one
+deterministic retrieval and context-assembly path used by every read surface.
 
 Write a short contract ADR that:
 
-- selects `brain.context.get` as the canonical read projection;
+- selects `sourceUnits`, `sourceUnitRevisions`, and `sourceSegments` as the
+  canonical live-source retrieval corpus;
+- retains Brain pages and their revisions as the canonical curated-context
+  corpus;
+- treats `brainSources` as a legacy/manual-note intake path rather than the
+  destination for every connector;
+- defines a shared retrieval-and-assembly function used by `brain.sources.*`,
+  `brain.context.get`, and `brain.answers.ask`;
 - keeps `capabilities.sourceGroundedBrief` separate as a generated-brief
   mutation, outside the pilot critical path;
 - makes the pilot contract one-Brain-scoped;
@@ -191,14 +205,26 @@ Write a short contract ADR that:
 
 Then:
 
-1. make the legacy headless path delegate to the canonical implementation or
+1. retrieve only current, active source-unit revisions and their segments;
+2. retrieve current active Brain-page revisions alongside live evidence;
+3. implement initial lexical segment retrieval with query normalization, title
+   and heading boosts, freshness/authority signals, and per-source limits;
+4. pin exact candidate revision and segment keys before context assembly;
+5. make the legacy headless path delegate to the canonical implementation or
    remove it;
-2. add parity tests for the human and headless paths;
-3. stop hard-coding freshness as `current`;
-4. return exact revision and passage identifiers;
-5. return entry-level source/observed/indexed timestamps;
-6. report truncation and omitted entry counts;
-7. use the existing viewer read role.
+6. add parity tests for the human and headless paths;
+7. stop hard-coding freshness as `current`;
+8. return exact revision and passage identifiers;
+9. return entry-level source/observed/indexed timestamps;
+10. report truncation, omission reasons, and omitted entry counts;
+11. use the existing viewer read role.
+
+`brain.context.get` exposes a bounded assembled pack; it is not itself the
+retrieval engine. For the pilot it accepts a question, invokes the shared
+retrieval function, and returns the assembled pack without model generation.
+`brain.answers.ask` invokes that same function and answers only from the pinned
+manifest. `brain.sources.search` exposes the same ranked candidates without
+answer generation.
 
 The pilot ContextPack should contain at least:
 
@@ -230,24 +256,28 @@ gate and a repository integration gate at the package boundary.
 **Exit gate:** the same request through web/API/CLI/MCP returns the same active
 revision set, freshness state, citations, and truncation metadata.
 
-### WP03 — Prove Existing Apero Evidence
+### WP03 — Bootstrap And Prove Existing Apero Evidence
 
 **Timebox:** 2-4 engineering days, depending on existing data state
 
-**Outcome:** E0 passes on real Brain pages, Slack, and transcripts before a new
-connector is built.
+**Outcome:** E0 passes on an approved Ask Apero snapshot, real Brain pages,
+Slack, and transcripts before a new connector is completed.
 
 Tasks:
 
-1. inventory actual Apero sources currently stored;
-2. confirm routing into the agency Brain;
-3. identify fake, fixture, unpublished, or empty sources;
-4. perform the required approved backfill;
-5. validate source revisions and passage citations;
-6. verify that one new and one edited Slack/transcript observation becomes
-   retrievable;
-7. verify deletion/unpublication behavior;
-8. record current coverage and gaps.
+1. import approved Claude-only files/instructions as a clearly labeled snapshot
+   into the Brain, never into Git;
+2. segment and publish that snapshot through the same canonical retrieval path;
+3. inventory actual Apero sources currently stored;
+4. confirm Slack/transcript routing into the agency Brain;
+5. identify fake, fixture, unpublished, empty, or stranded source-ledger rows;
+6. perform the required approved backfill;
+7. validate source revisions and passage citations;
+8. verify that one new and one edited Slack/transcript observation becomes
+   retrievable without copying it into `brainSources`;
+9. verify deletion/unpublication behavior;
+10. record current coverage and gaps by discovered, observed, normalized,
+    published, failed, and stale counts.
 
 **Exit gate:** a real-data receipt demonstrates at least ten E0 questions using
 resolvable citations, and no fixture is represented as live evidence.
@@ -287,6 +317,9 @@ write tools for this milestone.
 
 **Default source:** one dedicated Shared Drive folder, unless WP00 proves a
 different source is more valuable and similarly bounded.
+
+**Dependencies:** the WP02 source-unit, revision, segment, and publication
+contract is frozen. Adapter work may overlap WP03-WP04 after that point.
 
 Implement the smallest complete connector lifecycle:
 
@@ -434,16 +467,21 @@ receipt.
 
 Indicative ranges assume one primary engineer with timely business decisions:
 
-| Sequence | Work                               | Indicative elapsed time |
-| -------- | ---------------------------------- | ----------------------- |
-| 1        | WP00-WP01 inventory and evaluation | 2-3 business days       |
-| 2        | WP02 canonical context path        | 3-5 engineering days    |
-| 3        | WP03 existing evidence proof       | 2-4 engineering days    |
-| 4        | WP04 Ask Apero thin slice          | 2-3 engineering days    |
-| 5        | WP05-WP06 first provider           | 1-2 engineering weeks   |
-| 6        | WP07 structured source             | 1-2 engineering weeks   |
-| 7        | WP08 two-user dogfood              | 1-2 calendar weeks      |
-| 8        | WP09 five-user pilot               | 1 calendar week         |
+| Sequence | Work                                         | Indicative elapsed time |
+| -------- | -------------------------------------------- | ----------------------- |
+| 1        | WP00-WP01 inventory and evaluation           | 2-3 business days       |
+| 2        | WP02 canonical retrieval contract and path   | 3-5 engineering days    |
+| 3A       | WP03 snapshot and existing-evidence proof    | 2-4 engineering days    |
+| 3B       | WP05 first-provider adapter walking skeleton | 3-5 engineering days    |
+| 4        | WP04 Ask Apero thin slice                    | 2-3 engineering days    |
+| 5        | WP06 first-provider production coverage      | 3-5 engineering days    |
+| 6        | WP07 structured source                       | 1-2 engineering weeks   |
+| 7        | WP08 two-user dogfood                        | 1-2 calendar weeks      |
+| 8        | WP09 five-user pilot                         | 1 calendar week         |
+
+Sequences 3A and 3B may run in parallel once WP02 freezes the source ledger and
+retrieval contracts. Ask Apero packaging may begin during both and closes after
+E0 evidence is available.
 
 OAuth approval, provider sandbox access, source-owner review, or CRM custom
 field mapping may dominate elapsed time. Each package should name an engineering
@@ -454,14 +492,15 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
 1. Inventory the Claude Ask Apero Project and build the migration matrix.
 2. Capture and classify the E0 recurring questions.
 3. Name the context owner, engineer, and first two users.
-4. Write the ADR selecting `brain.context.get` as the canonical context pack.
-5. Add web/headless context parity tests.
-6. Remove or delegate the divergent legacy headless implementation.
-7. Replace hard-coded freshness and silent truncation.
-8. Prove real Apero Brain-page, Slack, and transcript evidence with E0.
-9. Package Ask Apero and dogfood it in Codex and Claude Code.
-10. Connect one dedicated shared provider container and pass the complete
-    create-to-delete lifecycle before expanding its scope.
+4. Write the ADR selecting the source ledger and Brain revisions as the
+   canonical retrieval corpus.
+5. Build shared segment retrieval and bounded context assembly.
+6. Add web/headless context parity tests and delegate the legacy implementation.
+7. Import the approved Claude snapshot into the Brain and run E0.
+8. Prove live Slack/transcript data reaches the same retrieval path.
+9. Package Ask Apero while building one dedicated Drive walking skeleton.
+10. Pass the complete provider create-to-delete lifecycle before expanding its
+    scope.
 
 ## 10. Deferred Hardening Register
 

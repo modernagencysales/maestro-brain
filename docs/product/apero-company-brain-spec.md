@@ -99,8 +99,10 @@ provider access by default.
 - one Ask Apero skill that works in Codex and Claude Code;
 - individual read-only Brain credentials for five pilot users;
 - current Slack and transcript evidence;
-- selected Shared Drive folders;
-- one selected CRM with typed account and opportunity projections;
+- selected Shared Drive folders or the highest-value equivalent document source
+  identified by migration inventory;
+- one selected structured source, normally the CRM, with typed projections for
+  the facts needed by pilot questions;
 - a versioned evaluation set based on real Ask Apero questions;
 - web health and source-freshness visibility;
 - no broad agent write authority.
@@ -146,7 +148,8 @@ reimplemented:
 - Slack/Nango connection, channel policy, capture, routing, and private answer
   paths;
 - transcript provider normalization and sync;
-- workspace-scoped search and cited Ask contracts;
+- workspace-scoped search and cited Ask contracts whose current retrieval
+  implementations remain pilot primitives requiring source-ledger integration;
 - API keys, CLI, stateless MCP transport, and headless operation policy;
 - lifecycle fencing, audit events, model receipts, and idempotency patterns.
 
@@ -157,6 +160,13 @@ The following are not yet production capabilities:
 - a general context-pack operation shaped for agent use;
 - write-capable provider actions;
 - semantic retrieval as a proven production dependency.
+
+The source ledger and the current read surfaces are not yet a single general
+pipeline. Connector ingestion writes source artifacts, units, revisions, and
+segments, while legacy/manual reads also use `brainSources` and Brain pages. The
+pilot must make active source-ledger segments and current Brain-page revisions
+the canonical retrieval corpus instead of copying every provider into
+`brainSources`.
 
 The existing `capabilities.sourceGroundedBrief` implementation is a contract
 fixture. It authorizes an editor, synthesizes source content, and calls a fake
@@ -305,7 +315,18 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 
 ## 9. Retrieval Specification
 
-### 9.1 Retrieval stages
+### 9.1 Canonical retrieval corpus
+
+- Live provider evidence is retrieved from active `sourceUnits`, their current
+  `sourceUnitRevisions`, and matching `sourceSegments`.
+- Curated context is retrieved from active Brain pages and their current page
+  revisions.
+- `brainSources` remains a legacy/manual intake path and is not the canonical
+  storage destination for provider connectors.
+- All public read surfaces share one retrieval and bounded context-assembly
+  implementation.
+
+### 9.2 Retrieval stages
 
 1. Resolve the authenticated principal and allowed Brains.
 2. Parse explicit scope, source type, entity, owner, status, and time filters.
@@ -316,7 +337,7 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 7. Generate or return an answer over the pinned manifest.
 8. Return citations, freshness, scope, and abstention/conflict state.
 
-### 9.2 Retrieval invariants
+### 9.3 Retrieval invariants
 
 - Every query has an explicit Brain set; no query means “all Brains.”
 - A caller cannot expand scope with a prompt or model-selected Brain key.
@@ -325,7 +346,7 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - Semantic indexes, when present, are tenant- and lifecycle-scoped derived data.
 - The answer model receives only the authorized candidate manifest.
 
-### 9.3 Ranking order
+### 9.4 Ranking order
 
 The initial ranking signal order is:
 
@@ -364,22 +385,26 @@ The agent-facing context-pack operation should return:
 type ContextPack = {
   requestId: string;
   organizationKey: string;
-  brainKeys: string[];
+  brainKey: string;
   question: string;
   asOf: number;
-  freshness: Array<{
-    sourceType: string;
-    status: "current" | "stale" | "unknown";
-    observedAt?: number;
-  }>;
   entries: Array<{
     kind: "source" | "page" | "projection";
+    brainKey: string;
     title: string;
     excerpt: string;
     sourceKey: string;
     revisionKey: string;
+    unitKey?: string;
+    segmentKey?: string;
     locator?: string;
-    authority: string;
+    contentHash?: string;
+    authority: "authoritative" | "derived" | "advisory";
+    sourceModifiedAt?: number;
+    observedAt?: number;
+    indexedAt?: number;
+    freshness: "current" | "stale" | "unknown";
+    truncated: boolean;
   }>;
   conflicts: Array<{
     subject: string;
@@ -388,6 +413,8 @@ type ContextPack = {
   limits: {
     truncated: boolean;
     maxBytes: number;
+    omittedEntryCount: number;
+    omissionReasons: string[];
   };
 };
 ```
@@ -403,7 +430,8 @@ The read-oriented external surface is:
 - `brain.sources.get`
 - `brain.pages.list`
 - `brain.pages.get`
-- `brain.context.get` or its reviewed context-pack successor
+- `brain.context.get`, accepting a question and exposing the bounded pack
+  assembled by the canonical retrieval path without model generation
 - `brain.answers.ask`
 
 Operations remain one-Brain-scoped until a separately reviewed multi-Brain
