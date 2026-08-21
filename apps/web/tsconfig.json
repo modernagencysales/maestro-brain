@@ -31,5 +31,6 @@
     "test/**/*.ts",
     "test/**/*.tsx",
     "test/**/*.mts"
-  ]
+  ],
+  "exclude": ["src/**/*.stories.ts", "src/**/*.stories.tsx"]
 }
