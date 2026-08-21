@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
-import type { GenericId } from "convex/values";
+import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -27,9 +28,11 @@ const organizationKey = `ag_${brainKey.slice(3)}`;
 const pageKey = "pag_company_context";
 const revisionKey = "rev_company_context_1";
 
-// TestConfect decodes heterogeneous setup/effect payloads through this harness.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AnyResult = Schema.Any as unknown as Schema.Schema<any>;
+// TestConfect needs a Convex-value encoder while the handler determines the
+// decoded result type. Preserve that inferred type instead of widening every
+// setup/effect result to `any`.
+const resultSchema = <Result>(): Schema.Schema<Result, Value> =>
+  Schema.Any as unknown as Schema.Schema<Result, Value>;
 
 const seedPage = Effect.gen(function* () {
   const writer = yield* DatabaseWriter;
@@ -178,15 +181,15 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         const first = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         const duplicate = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -259,7 +262,7 @@ describe("retrieval publication persistence", () => {
               .pipe(Effect.orDie);
             return { sets, entries };
           }),
-          AnyResult,
+          resultSchema(),
         );
         return {
           first,
@@ -340,13 +343,13 @@ describe("retrieval publication persistence", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        const { workspaceId } = yield* confect.run(seedPage, AnyResult);
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
         return yield* confect.run(
           publishPageRevisionEffect({
             ...publicationArgs(workspaceId),
             revisionKey: "rev_not_current",
           }),
-          AnyResult,
+          resultSchema(),
         );
       }).pipe(Effect.provide(testConfectLayer())),
     );
@@ -362,11 +365,11 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         const first = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -419,7 +422,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const second = yield* confect.run(
           publishPageRevisionEffect({
@@ -427,7 +430,7 @@ describe("retrieval publication persistence", () => {
             revisionKey: nextRevisionKey,
             now: now + 1,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -453,7 +456,7 @@ describe("retrieval publication persistence", () => {
               .collect()
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         return { first, second, search, sets };
       }).pipe(Effect.provide(testConfectLayer())),
@@ -480,11 +483,11 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         const first = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         const second = yield* confect.run(
           publishPageRevisionEffect({
@@ -494,7 +497,7 @@ describe("retrieval publication persistence", () => {
             policyGeneration: 2,
             now: now + 1,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -546,7 +549,7 @@ describe("retrieval publication persistence", () => {
               .pipe(Effect.orDie);
             return { tokens, entries };
           }),
-          AnyResult,
+          resultSchema(),
         );
         return { first, second, search, currentSource, retiredSource, stored };
       }).pipe(Effect.provide(testConfectLayer())),
@@ -601,11 +604,11 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -639,7 +642,7 @@ describe("retrieval publication persistence", () => {
               .patch(stored.value._id, { text: "corrupted projection text" })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         return yield* confect
           .query(refs.internal.brain.readApi.headlessSourcesGet, {
@@ -667,7 +670,7 @@ describe("retrieval publication persistence", () => {
         );
         const { workspaceId, organizationId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -688,7 +691,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const jobKey = yield* confect.run(
           enqueueRetrievalPublicationJobEffect(
@@ -708,7 +711,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           ),
-          AnyResult,
+          resultSchema(),
         );
         const swept = yield* confect.run(
           sweepPublicationJobsEffect({
@@ -720,7 +723,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const first = yield* confect.run(
           runPublicationJobEffect({
@@ -732,7 +735,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -784,7 +787,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const second = yield* confect.run(
           runPublicationJobEffect({
@@ -796,7 +799,7 @@ describe("retrieval publication persistence", () => {
             },
             now: first.nextAttemptAt,
           }),
-          AnyResult,
+          resultSchema(),
         );
         return { swept, first, second };
       }).pipe(Effect.provide(testConfectLayer())),
@@ -825,11 +828,11 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -856,14 +859,14 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const revoked = yield* confect.run(
           publishPageRevisionEffect({
             ...publicationArgs(workspaceId),
             now: now + 1,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -891,7 +894,7 @@ describe("retrieval publication persistence", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        const { workspaceId } = yield* confect.run(seedPage, AnyResult);
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
         return yield* confect.run(
           rebuildPageBatchEffect({
             organizationKey,
@@ -905,7 +908,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
       }).pipe(Effect.provide(testConfectLayer())),
     );
@@ -927,7 +930,7 @@ describe("retrieval publication persistence", () => {
         );
         const { workspaceId, organizationId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -982,7 +985,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const firstJobKey = yield* confect.run(
           enqueueRetrievalPublicationJobEffect(
@@ -998,7 +1001,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           ),
-          AnyResult,
+          resultSchema(),
         );
         const first = yield* confect.run(
           runPublicationJobEffect({
@@ -1010,7 +1013,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const nextJobKey = yield* confect.run(
           Effect.gen(function* () {
@@ -1030,7 +1033,7 @@ describe("retrieval publication persistence", () => {
             if (pending === undefined) throw new Error("missing continuation");
             return pending.jobKey;
           }),
-          AnyResult,
+          resultSchema(),
         );
         const second = yield* confect.run(
           runPublicationJobEffect({
@@ -1042,7 +1045,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const state = yield* confect.run(
           Effect.gen(function* () {
@@ -1070,7 +1073,7 @@ describe("retrieval publication persistence", () => {
               .pipe(Effect.orDie);
             return { publishedEntries, health };
           }),
-          AnyResult,
+          resultSchema(),
         );
         return { first, second, ...state };
       }).pipe(Effect.provide(testConfectLayer())),
@@ -1091,6 +1094,7 @@ describe("retrieval publication persistence", () => {
         ),
       ),
     ).toEqual(new Set([pageKey, secondPageKey]));
+    if (Option.isNone(result.health)) throw new Error("missing corpus health");
     expect(result.health.value).toMatchObject({
       coverageStatus: "complete",
       reconciliationGeneration: 1,
@@ -1108,7 +1112,7 @@ describe("retrieval publication persistence", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        const { workspaceId } = yield* confect.run(seedPage, AnyResult);
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1128,7 +1132,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const jobKey = yield* confect.run(
           enqueueRetrievalPublicationJobEffect(
@@ -1148,7 +1152,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           ),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1165,7 +1169,7 @@ describe("retrieval publication persistence", () => {
               .patch(job.value._id, { maxAttempts: 1 })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const failed = yield* confect.run(
           runPublicationJobEffect({
@@ -1177,7 +1181,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const health = yield* confect.run(
           Effect.gen(function* () {
@@ -1194,7 +1198,7 @@ describe("retrieval publication persistence", () => {
               .first()
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         return { failed, health };
       }).pipe(Effect.provide(testConfectLayer())),
@@ -1203,6 +1207,7 @@ describe("retrieval publication persistence", () => {
       status: "dead_letter",
       lastErrorTag: "RetrievalOriginUnavailable",
     });
+    if (Option.isNone(result.health)) throw new Error("missing corpus health");
     expect(result.health.value).toMatchObject({
       coverageStatus: "partial",
       failedCount: 1,
@@ -1220,7 +1225,7 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1318,7 +1323,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const published = yield* confect.run(
           publishSlackRevisionEffect({
@@ -1333,7 +1338,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -1369,7 +1374,7 @@ describe("retrieval publication persistence", () => {
             },
             now: now + 1,
           }),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1392,7 +1397,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const revoked = yield* confect.run(
           publishSlackRevisionEffect({
@@ -1407,7 +1412,7 @@ describe("retrieval publication persistence", () => {
             },
             now: now + 2,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const afterRevocation = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
@@ -1432,6 +1437,9 @@ describe("retrieval publication persistence", () => {
       outcome: "published",
       entryCount: 1,
     });
+    if (result.published.outcome !== "published") {
+      throw new Error("expected Slack publication");
+    }
     expect(result.search.results).toEqual([
       expect.objectContaining({
         sourceRevisionKey,
@@ -1469,7 +1477,7 @@ describe("retrieval publication persistence", () => {
         );
         const { organizationId, workspaceId } = yield* confect.run(
           seedPage,
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1579,7 +1587,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const published = yield* confect.run(
           publishTranscriptRevisionEffect({
@@ -1594,7 +1602,7 @@ describe("retrieval publication persistence", () => {
             },
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const context = yield* confect.query(
           refs.internal.brain.readApi.headlessContextGet,
@@ -1631,7 +1639,7 @@ describe("retrieval publication persistence", () => {
             },
             now: now + 1,
           }),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1654,7 +1662,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const revoked = yield* confect.run(
           publishTranscriptRevisionEffect({
@@ -1669,7 +1677,7 @@ describe("retrieval publication persistence", () => {
             },
             now: now + 2,
           }),
-          AnyResult,
+          resultSchema(),
         );
         const afterGenerationChange = yield* confect.query(
           refs.internal.brain.readApi.headlessContextGet,
@@ -1694,6 +1702,9 @@ describe("retrieval publication persistence", () => {
       outcome: "published",
       entryCount: 1,
     });
+    if (result.published.outcome !== "published") {
+      throw new Error("expected transcript publication");
+    }
     expect(result.context.entries).toEqual([
       expect.objectContaining({
         sourceRevisionKey: unitRevisionKey,
@@ -1729,7 +1740,7 @@ describe("retrieval publication persistence", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        const { organizationId } = yield* confect.run(seedPage, AnyResult);
+        const { organizationId } = yield* confect.run(seedPage, resultSchema());
         yield* confect.run(
           Effect.gen(function* () {
             const writer = yield* DatabaseWriter;
@@ -1766,7 +1777,7 @@ describe("retrieval publication persistence", () => {
                 })
                 .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const jobKeys = yield* confect.run(
           enqueueOrganizationCorpusRebuildsEffect({
@@ -1777,7 +1788,7 @@ describe("retrieval publication persistence", () => {
             requestGeneration: 1,
             now,
           }),
-          AnyResult,
+          resultSchema(),
         );
         yield* confect.run(
           Effect.gen(function* () {
@@ -1798,7 +1809,7 @@ describe("retrieval publication persistence", () => {
               })
               .pipe(Effect.orDie);
           }),
-          AnyResult,
+          resultSchema(),
         );
         const overflow = yield* confect.run(
           enqueueOrganizationCorpusRebuildsEffect({
@@ -1821,7 +1832,7 @@ describe("retrieval publication persistence", () => {
               }),
             }),
           ),
-          AnyResult,
+          resultSchema(),
         );
         return { jobKeys, overflow };
       }).pipe(Effect.provide(testConfectLayer())),

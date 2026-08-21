@@ -1,5 +1,6 @@
-import { internalMutationGeneric, makeFunctionReference } from "convex/server";
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
+import { internalMutation } from "../_generated/server";
 import type { DatabaseWriter } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 import {
@@ -101,7 +102,7 @@ const artifactFor = async (db: IngressDb, i: IngressInput) => {
     )
     .unique();
 };
-export const receiveSlackEvent = internalMutationGeneric({
+export const receiveSlackEvent = internalMutation({
   args,
   returns: v.object({
     outcome: v.string(),
