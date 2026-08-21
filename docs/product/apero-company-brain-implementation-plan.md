@@ -118,21 +118,20 @@ it cannot be deployed into the pilot while the full gate is red.
 As of 2026-08-21, the original mixed worktree has been separated into two
 default-branch-derived streams:
 
-- backend: `codex/company-brain-backend` at committed checkpoint `1a5ed461`,
-  with BE1-S2A staged in the worktree;
+- backend: `codex/company-brain-backend` at committed checkpoint `d858b68e`;
 - UI: `codex/canonical-saas-ui-clean` at `7bcb635e`.
 
 The split is complete, but neither stream is release-ready. BE1-S1 at `1a5ed461`
 passed the full gate with 1,688 coverage tests, 84.96% line coverage, and 99.71%
 type coverage. BE1-S2A has passed its expanded 25-test focused suite and the
 full backend gate with 817 Convex tests, 1,696 coverage tests, 85.02% line
-coverage, and 99.71% type coverage; its commit is pending. This is engineering
-evidence, not a staging promotion receipt. The UI stream still passes lint and
-tests but, as rechecked on 2026-08-21, fails web typecheck with exactly 264
-errors from the incomplete template transplant. The backend stack also combines
-additive schema, publication workers, and callable projection reads; BE1-S3 must
-make compatibility the default before BE1 can be deployed, so row presence
-cannot switch reads before backfill and validation. Backend correctness work may
+coverage, and 99.71% type coverage at `d858b68e`. This is engineering evidence,
+not a staging promotion receipt. The UI stream still passes lint and tests but,
+as rechecked on 2026-08-21, fails web typecheck with exactly 264 errors from the
+incomplete template transplant. The backend stack also combines additive schema,
+publication workers, and callable projection reads; BE1-S3 must make
+compatibility the default before BE1 can be deployed, so row presence cannot
+switch reads before backfill and validation. Backend correctness work may
 continue behind focused gates. Merge requires a green full gate for each phase,
 and promotion requires a green integrated-tip gate and a receipt from the same
 SHA.
@@ -1249,12 +1248,12 @@ pre-cap ranking as separate intentions.
 
 **Classification:** `template-gap` (`CB-TG-01`)
 
-**Status:** implemented and verified on the backend branch; commit pending. The
-focused publication suite passes 25/25, and `just verify-full` passes with 817
-Convex tests, 1,696 coverage tests, 85.02% line coverage, and 99.71% type
-coverage. This slice proves the fence substrate and page lifecycle behavior
-only. Policy, route, scope, allowlist, and connection controllers follow in
-BE1-S2B; projection reads remain disabled.
+**Status:** implemented and verified at backend commit `d858b68e`. The focused
+publication suite passes 25/25, and `just verify-full` passes with 817 Convex
+tests, 1,696 coverage tests, 85.02% line coverage, and 99.71% type coverage.
+This slice proves the fence substrate and page lifecycle behavior only. Policy,
+route, scope, allowlist, and connection controllers follow in BE1-S2B;
+projection reads remain disabled.
 
 **Dependency:** BE1-S1 at `1a5ed461`.
 
