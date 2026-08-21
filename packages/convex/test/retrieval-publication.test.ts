@@ -10,8 +10,13 @@ import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { publishPageRevisionEffect } from "../confect/brain/retrievalPublication.impl";
 import { rebuildPageBatchEffect } from "../confect/brain/retrievalPublication.impl";
 import {
+  enqueueRetrievalPublicationJobEffect,
   publishSlackRevisionEffect,
   publishTranscriptRevisionEffect,
+  rebuildSlackBatchEffect,
+  rebuildTranscriptBatchEffect,
+  runPublicationJobEffect,
+  sweepPublicationJobsEffect,
 } from "../confect/brain/retrievalPublication.impl";
 import { testConfectLayer } from "./support/confect";
 
@@ -469,6 +474,165 @@ describe("retrieval publication persistence", () => {
     expect(result.stored.entries).toHaveLength(2);
   });
 
+  it("persists a missing-origin failure and succeeds on a later sweep retry", async () => {
+    const delayedRevisionKey = "rev_company_context_delayed";
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId, organizationId } = yield* confect.run(
+          seedPage,
+          AnyResult,
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (page._tag === "None") throw new Error("missing page");
+            yield* writer
+              .table("brainPages")
+              .patch(page.value._id, {
+                currentRevisionKey: delayedRevisionKey,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const jobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "page",
+              sourceKey: pageKey,
+              sourceRevisionKey: delayedRevisionKey,
+              requestGeneration: 2,
+              page: {
+                authority: "derived",
+                authorityPolicyKey: "company-pages",
+                policyGeneration: 1,
+              },
+            },
+            now,
+          ),
+          AnyResult,
+        );
+        const swept = yield* confect.run(
+          sweepPublicationJobsEffect({
+            limit: 5,
+            caller: {
+              kind: "system",
+              name: "publication-sweeper-test",
+              surface: "internal",
+            },
+            now,
+          }),
+          AnyResult,
+        );
+        const first = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey,
+            caller: {
+              kind: "system",
+              name: "publication-job-test",
+              surface: "internal",
+            },
+            now,
+          }),
+          AnyResult,
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (page._tag === "None") throw new Error("missing page");
+            const lifecycle = {
+              state: "active" as const,
+              generation: 2,
+              updatedAt: now + 1,
+              purgeAfter: null,
+            };
+            yield* writer
+              .table("pageRevisions")
+              .insert({
+                workspaceId,
+                organizationId,
+                pageKey,
+                revisionKey: delayedRevisionKey,
+                priorRevisionKey: revisionKey,
+                blockNoteJson: "",
+                markdown:
+                  "# ICP\n\nDelayed evidence is now durable and searchable.",
+                contentHash: "page-hash-delayed",
+                causation: "human-edit",
+                actor: { kind: "user", id: "publisher" },
+                modelReceiptKey: null,
+                effectKey: "page-edit:delayed",
+                state: "published",
+                lifecycle,
+                createdAt: now + 1,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("brainPages")
+              .patch(page.value._id, {
+                markdown:
+                  "# ICP\n\nDelayed evidence is now durable and searchable.",
+                lifecycle,
+                updatedAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const second = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey,
+            caller: {
+              kind: "system",
+              name: "publication-job-test",
+              surface: "internal",
+            },
+            now: first.nextAttemptAt,
+          }),
+          AnyResult,
+        );
+        return { swept, first, second };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.swept).toEqual({
+      scheduled: 1,
+      jobKeys: [result.first.jobKey],
+    });
+    expect(result.first).toMatchObject({
+      status: "retry_wait",
+      attemptCount: 1,
+      lastErrorTag: "RetrievalOriginUnavailable",
+    });
+    expect(result.second).toMatchObject({
+      status: "succeeded",
+      attemptCount: 2,
+    });
+  });
+
   it("revokes current retrieval when the page is archived", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -682,7 +846,22 @@ describe("retrieval publication persistence", () => {
             query: "repeatable qualified pipeline",
           },
         );
-        return { published, search };
+        const rebuilt = yield* confect.run(
+          rebuildSlackBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 1,
+            caller: {
+              kind: "system",
+              name: "slack-rebuild-test",
+              surface: "internal",
+            },
+            now: now + 1,
+          }),
+          AnyResult,
+        );
+        return { published, search, rebuilt };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -697,6 +876,13 @@ describe("retrieval publication persistence", () => {
         authority: "advisory",
       }),
     ]);
+    expect(result.rebuilt).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+      nextAfterSourceKey: sourceKey,
+    });
   });
 
   it("publishes every segment from an accepted transcript route", async () => {
@@ -825,7 +1011,22 @@ describe("retrieval publication persistence", () => {
             question: "What is the qualified pipeline close-rate target?",
           },
         );
-        return { published, context };
+        const rebuilt = yield* confect.run(
+          rebuildTranscriptBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 1,
+            caller: {
+              kind: "system",
+              name: "transcript-rebuild-test",
+              surface: "internal",
+            },
+            now: now + 1,
+          }),
+          AnyResult,
+        );
+        return { published, context, rebuilt };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -840,5 +1041,12 @@ describe("retrieval publication persistence", () => {
         locator: `https://calls.example/call_1#segment=${segmentKey}`,
       }),
     ]);
+    expect(result.rebuilt).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+      nextAfterSourceKey: unitKey,
+    });
   });
 });

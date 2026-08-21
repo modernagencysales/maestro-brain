@@ -1,7 +1,6 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -35,6 +34,7 @@ import {
 } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
+import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind =
@@ -340,25 +340,22 @@ const writePageRevision = (args: {
         schemaVersion: 1,
       })
       .pipe(Effect.orDie);
-    yield* (yield* Scheduler).runAfter(
-      Duration.zero,
-      refs.internal.brain.retrievalPublication.publishPageRevision,
+    yield* enqueueRetrievalPublicationJobEffect(
       {
         organizationKey: args.brain.organizationKey,
         workspaceId: args.brain.workspaceId,
         brainKey: args.brain.brainKey,
-        pageKey: args.page.pageKey,
-        revisionKey: args.revisionKey,
-        authority: "derived",
-        authorityPolicyKey: "company-pages",
-        policyGeneration: 1,
-        caller: {
-          kind: "system",
-          name: "brain-pages",
-          surface: "internal",
+        originKind: "page",
+        sourceKey: args.page.pageKey,
+        sourceRevisionKey: args.revisionKey,
+        requestGeneration: 1,
+        page: {
+          authority: "derived",
+          authorityPolicyKey: "company-pages",
+          policyGeneration: 1,
         },
-        now: args.at,
       },
+      args.at,
     );
     if (args.audit !== false && args.kind !== "snapshot") {
       yield* writer

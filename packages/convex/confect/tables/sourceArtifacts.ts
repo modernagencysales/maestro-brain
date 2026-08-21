@@ -11,6 +11,7 @@ export default Table.make(() => SourceArtifactRow)
     "channelKey",
     "providerObjectId",
   ])
+  .index("by_org_source_key", ["organizationKey", "sourceKey"])
   .index("by_source_key", ["sourceKey"])
   .index("by_thread_key", ["organizationKey", "threadKey"])
   .index("by_lifecycle_purge_after", [

@@ -11,4 +11,5 @@ export default Table.make(() => SourceUnitRow)
     "externalCallId",
   ])
   .index("by_unit_key", ["organizationKey", "unitKey"])
+  .index("by_org_unit_key", ["organizationKey", "unitKey"])
   .index("by_org_current_state", ["organizationKey", "lifecycle.state"]);

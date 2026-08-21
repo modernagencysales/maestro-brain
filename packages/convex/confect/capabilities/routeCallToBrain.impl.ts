@@ -1,17 +1,12 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
-import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
-import refs from "../_generated/refs";
-import {
-  DatabaseReader,
-  DatabaseWriter,
-  Scheduler,
-} from "../_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
 import { matchCall } from "../routing/callMatching";
 import { sha256Hex } from "../shared/sha256";
@@ -139,21 +134,17 @@ export const routeCallToBrainEffect = ({
           workspace.status === "active",
       );
       if (existing.outcome === "routed" && target !== undefined)
-        yield* (yield* Scheduler).runAfter(
-          Duration.zero,
-          refs.internal.brain.retrievalPublication.publishTranscriptRevision,
+        yield* enqueueRetrievalPublicationJobEffect(
           {
             organizationKey,
             workspaceId: target._id,
             brainKey: existing.brainKey ?? "",
+            originKind: "transcript",
+            sourceKey: existing.unitKey,
             sourceRevisionKey: unitRevisionKey,
-            caller: {
-              kind: "system",
-              name: "call-router",
-              surface: "internal",
-            },
-            now: routedAt,
+            requestGeneration: existing.routeGeneration,
           },
+          routedAt,
         );
       return {
         outcome: existing.outcome,
@@ -235,21 +226,17 @@ export const routeCallToBrainEffect = ({
         workspace.brainKey === route.brainKey && workspace.status === "active",
     );
     if (route.outcome === "routed" && target !== undefined)
-      yield* (yield* Scheduler).runAfter(
-        Duration.zero,
-        refs.internal.brain.retrievalPublication.publishTranscriptRevision,
+      yield* enqueueRetrievalPublicationJobEffect(
         {
           organizationKey,
           workspaceId: target._id,
           brainKey: route.brainKey ?? "",
+          originKind: "transcript",
+          sourceKey: unit.unitKey,
           sourceRevisionKey: unitRevisionKey,
-          caller: {
-            kind: "system",
-            name: "call-router",
-            surface: "internal",
-          },
-          now: routedAt,
+          requestGeneration: routeGeneration,
         },
+        routedAt,
       );
 
     return {

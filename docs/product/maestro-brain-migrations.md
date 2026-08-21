@@ -101,16 +101,22 @@ Execute-mode component failures follow the same durable failure receipt path.
 ## Brain-scoped retrieval publication
 
 - **Expand:** add `retrievalPublicationSets`, `retrievalEntries`,
-  `retrievalTokens`, and `brainCorpusHealth`. Writers continue preserving Brain
-  pages, Slack revisions, and transcript ledgers as the source of truth.
+  `retrievalTokens`, `retrievalPublicationJobs`, and `brainCorpusHealth`.
+  Writers continue preserving Brain pages, Slack revisions, and transcript
+  ledgers as the source of truth. Source mutations enqueue deterministic
+  publication jobs transactionally; a bounded sweeper retries pending and
+  retry-wait jobs that were not delivered by the initial scheduler invocation.
 - **Backfill:** run `brain.retrievalPublication.rebuildPageBatch` in batches of
   at most five pages, persisting `nextAfterPageKey` until `hasMore` is false.
-  Slack and transcript revisions republish through their idempotent publisher
-  after routing; provider re-ingestion is not required. Record counts and the
-  final current publication-set keys as the deployment receipt.
+  Run `rebuildSlackBatch` and `rebuildTranscriptBatch` in batches of at most
+  five source objects, persisting `nextAfterSourceKey` until `hasMore` is false.
+  Provider re-ingestion is not required. Record processed, published, revoked,
+  retry-wait, and dead-letter counts plus final current publication-set keys as
+  the deployment receipt.
 - **Verify:** require exact UTF-8 passage round trips, bounded passages, stable
-  keys, idempotent retry, stale-revision rejection, atomic current-set
-  replacement, route/lifecycle revocation, projection search, ContextPack
+  keys, durable retry after missing scheduler delivery, stale-revision
+  rejection, atomic current-set replacement, removal of retired postings,
+  route/lifecycle revocation, all-corpus rebuild, projection search, ContextPack
   assembly, and headless parity. A named Vitest path that reports zero tests is
   not a passing receipt.
 - **Read switch:** deploy additive tables and publishers first. Complete the

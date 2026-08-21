@@ -1,12 +1,20 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
+import * as Cause from "effect/Cause";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import refs from "../_generated/refs";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  Scheduler,
+} from "../_generated/services";
 import { Unauthorized, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import {
@@ -19,18 +27,33 @@ import {
 import retrievalPublicationGroup, {
   PublishPageRevisionArgs,
   RebuildPageBatchArgs,
+  RebuildRoutedCorpusBatchArgs,
   PublishSlackRevisionArgs,
   PublishTranscriptRevisionArgs,
+  RunPublicationJobArgs,
+  RunPublicationJobReturns,
+  SweepPublicationJobsArgs,
   RetrievalOriginUnavailable,
   RetrievalPublicationCapacityExceeded,
   RetrievalPublicationConflict,
 } from "./retrievalPublication.spec";
+import {
+  retrievalPublicationJobKey,
+  retrievalPublicationJobRow,
+  type RetrievalPublicationJobInput,
+} from "./retrievalPublicationJob";
 import type { RetrievalOriginReference } from "./retrievalSchemas";
 
 const MAX_PUBLICATION_WRITES = 7_000;
 const MAX_PRIOR_PUBLICATION_SETS = 100;
 const MAX_ENTRIES_PER_PUBLICATION_SET = 512;
 const MAX_ACTIVE_PUBLICATION_ROWS = 3_300;
+const PUBLICATION_RETRY_BASE_MS = 1_000;
+
+type RunPublicationJobInput = Schema.Schema.Type<typeof RunPublicationJobArgs>;
+type RunPublicationJobOutput = Schema.Schema.Type<
+  typeof RunPublicationJobReturns
+>;
 
 const manifestHash = (input: {
   readonly entryKeys: readonly string[];
@@ -998,6 +1021,335 @@ export const publishTranscriptRevisionEffect = (
     });
   });
 
+const terminalPublicationJobStatuses = new Set([
+  "succeeded",
+  "superseded",
+  "revoked",
+  "dead_letter",
+]);
+
+const publicationJobResult = (row: {
+  readonly jobKey: string;
+  readonly status:
+    | "pending"
+    | "retry_wait"
+    | "succeeded"
+    | "superseded"
+    | "revoked"
+    | "dead_letter";
+  readonly attemptCount: number;
+  readonly nextAttemptAt: number;
+  readonly lastErrorTag?: string | undefined;
+}): RunPublicationJobOutput => ({
+  jobKey: row.jobKey,
+  status: row.status,
+  attemptCount: row.attemptCount,
+  nextAttemptAt: row.nextAttemptAt,
+  ...(row.lastErrorTag === undefined ? {} : { lastErrorTag: row.lastErrorTag }),
+});
+
+export const enqueueRetrievalPublicationJobEffect = (
+  input: Omit<RetrievalPublicationJobInput, "workspaceId"> & {
+    readonly workspaceId: GenericId<"workspaces">;
+  },
+  now: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const scheduler = yield* Scheduler;
+    const jobKey = retrievalPublicationJobKey({
+      ...input,
+      workspaceId: String(input.workspaceId),
+    });
+    const existing = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", jobKey))
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (existing === null)
+      yield* writer
+        .table("retrievalPublicationJobs")
+        .insert({
+          ...retrievalPublicationJobRow(
+            { ...input, workspaceId: String(input.workspaceId) },
+            now,
+          ),
+          workspaceId: input.workspaceId,
+        })
+        .pipe(Effect.orDie);
+    if (
+      existing === null ||
+      existing.status === "pending" ||
+      existing.status === "retry_wait"
+    )
+      yield* scheduler.runAfter(
+        Duration.zero,
+        refs.internal.brain.retrievalPublication.runPublicationJob,
+        {
+          jobKey,
+          caller: {
+            kind: "system",
+            name: "retrieval-publication-job",
+            surface: "internal",
+          },
+          now,
+        },
+      );
+    return jobKey;
+  });
+
+export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
+  Effect.gen(function* () {
+    if (args.caller.kind !== "system") return yield* new Unauthorized();
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const job = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", args.jobKey))
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (job === null)
+      return yield* new ValidationFailed({
+        field: "jobKey",
+        message: "Publication job does not exist.",
+      });
+    if (
+      terminalPublicationJobStatuses.has(job.status) ||
+      job.nextAttemptAt > args.now
+    )
+      return publicationJobResult(job);
+
+    const caller = {
+      kind: "system" as const,
+      name: "retrieval-publication-job",
+      surface: "internal" as const,
+    };
+    const publication =
+      job.originKind === "page"
+        ? job.page === undefined
+          ? Effect.fail(
+              new ValidationFailed({
+                field: "page",
+                message: "Page publication policy is required.",
+              }),
+            )
+          : publishPageRevisionEffect({
+              organizationKey: job.organizationKey,
+              workspaceId: job.workspaceId,
+              brainKey: job.brainKey,
+              pageKey: job.sourceKey,
+              revisionKey: job.sourceRevisionKey,
+              authority: job.page.authority,
+              authorityPolicyKey: job.page.authorityPolicyKey,
+              policyGeneration: job.page.policyGeneration,
+              caller,
+              now: args.now,
+            })
+        : job.originKind === "slack"
+          ? publishSlackRevisionEffect({
+              organizationKey: job.organizationKey,
+              workspaceId: job.workspaceId,
+              brainKey: job.brainKey,
+              sourceRevisionKey: job.sourceRevisionKey,
+              caller,
+              now: args.now,
+            })
+          : publishTranscriptRevisionEffect({
+              organizationKey: job.organizationKey,
+              workspaceId: job.workspaceId,
+              brainKey: job.brainKey,
+              sourceRevisionKey: job.sourceRevisionKey,
+              caller,
+              now: args.now,
+            });
+    const exit = yield* Effect.exit(publication);
+    const attemptCount = job.attemptCount + 1;
+    if (Exit.isSuccess(exit)) {
+      const status =
+        exit.value.outcome === "stale"
+          ? ("superseded" as const)
+          : exit.value.outcome === "revoked"
+            ? ("revoked" as const)
+            : ("succeeded" as const);
+      const completed = {
+        status,
+        attemptCount,
+        nextAttemptAt: args.now,
+        completedAt: args.now,
+        lastErrorTag: undefined,
+        updatedAt: args.now,
+      };
+      yield* writer
+        .table("retrievalPublicationJobs")
+        .patch(job._id, completed)
+        .pipe(Effect.orDie);
+      return publicationJobResult({ ...job, ...completed });
+    }
+
+    const failure = Cause.failureOption(exit.cause);
+    const lastErrorTag =
+      failure._tag === "Some" &&
+      typeof failure.value === "object" &&
+      failure.value !== null &&
+      "_tag" in failure.value
+        ? String(failure.value._tag)
+        : "RetrievalPublicationDefect";
+    const retryable =
+      lastErrorTag === "RetrievalOriginUnavailable" ||
+      lastErrorTag === "RetrievalPublicationConflict" ||
+      lastErrorTag === "RetrievalPublicationDefect";
+    const deadLetter = !retryable || attemptCount >= job.maxAttempts;
+    const failed = {
+      status: deadLetter ? ("dead_letter" as const) : ("retry_wait" as const),
+      attemptCount,
+      nextAttemptAt: deadLetter
+        ? args.now
+        : args.now +
+          PUBLICATION_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
+      lastErrorTag,
+      ...(deadLetter ? { completedAt: args.now } : {}),
+      updatedAt: args.now,
+    };
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, failed)
+      .pipe(Effect.orDie);
+    return publicationJobResult({ ...job, ...failed });
+  });
+
+export const sweepPublicationJobsEffect = (
+  args: Schema.Schema.Type<typeof SweepPublicationJobsArgs>,
+) =>
+  Effect.gen(function* () {
+    if (args.caller.kind !== "system") return yield* new Unauthorized();
+    const reader = yield* DatabaseReader;
+    const scheduler = yield* Scheduler;
+    const [pending, retryWait] = yield* Effect.all([
+      reader
+        .table("retrievalPublicationJobs")
+        .index("by_status_due_job", (query) =>
+          query.eq("status", "pending").lte("nextAttemptAt", args.now),
+        )
+        .take(args.limit)
+        .pipe(Effect.orDie),
+      reader
+        .table("retrievalPublicationJobs")
+        .index("by_status_due_job", (query) =>
+          query.eq("status", "retry_wait").lte("nextAttemptAt", args.now),
+        )
+        .take(args.limit)
+        .pipe(Effect.orDie),
+    ]);
+    const jobs = [...pending, ...retryWait]
+      .sort(
+        (left, right) =>
+          left.nextAttemptAt - right.nextAttemptAt ||
+          left.jobKey.localeCompare(right.jobKey),
+      )
+      .slice(0, args.limit);
+    for (const job of jobs)
+      yield* scheduler.runAfter(
+        Duration.zero,
+        refs.internal.brain.retrievalPublication.runPublicationJob,
+        {
+          jobKey: job.jobKey,
+          caller: args.caller,
+          now: args.now,
+        },
+      );
+    return {
+      scheduled: jobs.length,
+      jobKeys: jobs.map(({ jobKey }) => jobKey),
+    };
+  });
+
+export const rebuildSlackBatchEffect = (
+  args: Schema.Schema.Type<typeof RebuildRoutedCorpusBatchArgs>,
+) =>
+  Effect.gen(function* () {
+    if (args.caller.kind !== "system") return yield* new Unauthorized();
+    yield* validatePublicationTarget(args);
+    const reader = yield* DatabaseReader;
+    const artifacts = yield* reader
+      .table("sourceArtifacts")
+      .index("by_org_source_key", (query) => {
+        const scoped = query.eq("organizationKey", args.organizationKey);
+        return args.afterSourceKey === undefined
+          ? scoped
+          : scoped.gt("sourceKey", args.afterSourceKey);
+      })
+      .take(args.limit + 1)
+      .pipe(Effect.orDie);
+    const batch = artifacts.slice(0, args.limit);
+    let published = 0;
+    let revoked = 0;
+    for (const artifact of batch) {
+      const result = yield* publishSlackRevisionEffect({
+        organizationKey: args.organizationKey,
+        workspaceId: args.workspaceId,
+        brainKey: args.brainKey,
+        sourceRevisionKey: artifact.latestSourceRevisionKey,
+        caller: args.caller,
+        now: args.now,
+      });
+      if (result.outcome === "published" || result.outcome === "duplicate")
+        published += 1;
+      if (result.outcome === "revoked") revoked += 1;
+    }
+    const nextAfterSourceKey = batch.at(-1)?.sourceKey;
+    return {
+      processed: batch.length,
+      published,
+      revoked,
+      ...(nextAfterSourceKey === undefined ? {} : { nextAfterSourceKey }),
+      hasMore: artifacts.length > args.limit,
+    };
+  });
+
+export const rebuildTranscriptBatchEffect = (
+  args: Schema.Schema.Type<typeof RebuildRoutedCorpusBatchArgs>,
+) =>
+  Effect.gen(function* () {
+    if (args.caller.kind !== "system") return yield* new Unauthorized();
+    yield* validatePublicationTarget(args);
+    const reader = yield* DatabaseReader;
+    const units = yield* reader
+      .table("sourceUnits")
+      .index("by_org_unit_key", (query) => {
+        const scoped = query.eq("organizationKey", args.organizationKey);
+        return args.afterSourceKey === undefined
+          ? scoped
+          : scoped.gt("unitKey", args.afterSourceKey);
+      })
+      .take(args.limit + 1)
+      .pipe(Effect.orDie);
+    const batch = units.slice(0, args.limit);
+    let published = 0;
+    let revoked = 0;
+    for (const unit of batch) {
+      const result = yield* publishTranscriptRevisionEffect({
+        organizationKey: args.organizationKey,
+        workspaceId: args.workspaceId,
+        brainKey: args.brainKey,
+        sourceRevisionKey: unit.currentUnitRevisionKey,
+        caller: args.caller,
+        now: args.now,
+      });
+      if (result.outcome === "published" || result.outcome === "duplicate")
+        published += 1;
+      if (result.outcome === "revoked") revoked += 1;
+    }
+    const nextAfterSourceKey = batch.at(-1)?.unitKey;
+    return {
+      processed: batch.length,
+      published,
+      revoked,
+      ...(nextAfterSourceKey === undefined ? {} : { nextAfterSourceKey }),
+      hasMore: units.length > args.limit,
+    };
+  });
+
 const publishSlackRevision = FunctionImpl.make(
   databaseSchema,
   retrievalPublicationGroup,
@@ -1009,6 +1361,30 @@ const publishTranscriptRevision = FunctionImpl.make(
   retrievalPublicationGroup,
   "publishTranscriptRevision",
   publishTranscriptRevisionEffect,
+);
+const rebuildSlackBatch = FunctionImpl.make(
+  databaseSchema,
+  retrievalPublicationGroup,
+  "rebuildSlackBatch",
+  rebuildSlackBatchEffect,
+);
+const rebuildTranscriptBatch = FunctionImpl.make(
+  databaseSchema,
+  retrievalPublicationGroup,
+  "rebuildTranscriptBatch",
+  rebuildTranscriptBatchEffect,
+);
+const runPublicationJob = FunctionImpl.make(
+  databaseSchema,
+  retrievalPublicationGroup,
+  "runPublicationJob",
+  runPublicationJobEffect,
+);
+const sweepPublicationJobs = FunctionImpl.make(
+  databaseSchema,
+  retrievalPublicationGroup,
+  "sweepPublicationJobs",
+  sweepPublicationJobsEffect,
 );
 
 export const rebuildPageBatchEffect = (
@@ -1069,6 +1445,10 @@ export default GroupImpl.make(databaseSchema, retrievalPublicationGroup).pipe(
   Layer.provide(publishPageRevision),
   Layer.provide(publishSlackRevision),
   Layer.provide(publishTranscriptRevision),
+  Layer.provide(rebuildSlackBatch),
+  Layer.provide(rebuildTranscriptBatch),
+  Layer.provide(runPublicationJob),
+  Layer.provide(sweepPublicationJobs),
   Layer.provide(rebuildPageBatch),
   GroupImpl.finalize,
 );

@@ -47,6 +47,7 @@ import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
 import retrievalEntries from "./tables/retrievalEntries";
+import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
@@ -124,6 +125,7 @@ export default $defineSchema({
   providerConnections: providerConnections.tableDefinition,
   providerEventReceipts: providerEventReceipts.tableDefinition,
   retrievalEntries: retrievalEntries.tableDefinition,
+  retrievalPublicationJobs: retrievalPublicationJobs.tableDefinition,
   retrievalPublicationSets: retrievalPublicationSets.tableDefinition,
   retrievalTokens: retrievalTokens.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,

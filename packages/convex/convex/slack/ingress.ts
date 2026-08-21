@@ -2,6 +2,10 @@ import { internalMutationGeneric, makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { DatabaseWriter } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
+import {
+  retrievalPublicationJobKey,
+  retrievalPublicationJobRow,
+} from "../../confect/brain/retrievalPublicationJob";
 const args = {
   organizationKey: v.string(),
   connectionKey: v.string(),
@@ -39,13 +43,10 @@ type IngressInput = Readonly<{
   payload: unknown;
 }>;
 type IngressDb = Pick<DatabaseWriter, "query" | "insert" | "patch">;
-const publishSlackRevision = makeFunctionReference<
+const runPublicationJob = makeFunctionReference<
   "mutation",
   {
-    organizationKey: string;
-    workspaceId: string;
-    brainKey: string;
-    sourceRevisionKey: string;
+    jobKey: string;
     caller: {
       kind: "system";
       name: string;
@@ -54,7 +55,7 @@ const publishSlackRevision = makeFunctionReference<
     now: number;
   },
   unknown
->("brain/retrievalPublication:publishSlackRevision");
+>("brain/retrievalPublication:runPublicationJob");
 const receiptFor = async (db: IngressDb, i: IngressInput) =>
   await db
     .query("providerEventReceipts")
@@ -141,30 +142,58 @@ export const receiveSlackEvent = internalMutationGeneric({
         )
         .take(26),
     ]);
-    const targetBrainKeys = new Set(
-      policies
-        .filter((policy) => policy.active && policy.mode !== "capture_only")
-        .flatMap(({ targetBrainKeys }) => targetBrainKeys),
-    );
+    const targetGenerations = new Map<string, number>();
+    for (const policy of policies) {
+      if (!policy.active || policy.mode === "capture_only") continue;
+      for (const targetBrainKey of policy.targetBrainKeys)
+        targetGenerations.set(
+          targetBrainKey,
+          Math.max(
+            policy.policyEpoch,
+            targetGenerations.get(targetBrainKey) ?? 0,
+          ),
+        );
+    }
     for (const workspace of workspaces) {
       if (
         workspace.status !== "active" ||
         workspace.brainKey === undefined ||
-        !targetBrainKeys.has(workspace.brainKey)
+        !targetGenerations.has(workspace.brainKey)
       )
         continue;
-      await ctx.scheduler.runAfter(0, publishSlackRevision, {
+      const jobInput = {
         organizationKey: i.organizationKey,
-        workspaceId: workspace._id,
+        workspaceId: String(workspace._id),
         brainKey: workspace.brainKey,
+        originKind: "slack" as const,
+        sourceKey: result.sourceKey ?? result.sourceRevisionKey,
         sourceRevisionKey: result.sourceRevisionKey,
-        caller: {
-          kind: "system",
-          name: "slack-ingress",
-          surface: "internal",
-        },
-        now: i.receivedAt,
-      });
+        requestGeneration: targetGenerations.get(workspace.brainKey) ?? 1,
+      };
+      const jobKey = retrievalPublicationJobKey(jobInput);
+      const existing = await ctx.db
+        .query("retrievalPublicationJobs")
+        .withIndex("by_job_key", (q) => q.eq("jobKey", jobKey))
+        .unique();
+      if (existing === null)
+        await ctx.db.insert("retrievalPublicationJobs", {
+          ...retrievalPublicationJobRow(jobInput, i.receivedAt),
+          workspaceId: workspace._id,
+        });
+      if (
+        existing === null ||
+        existing.status === "pending" ||
+        existing.status === "retry_wait"
+      )
+        await ctx.scheduler.runAfter(0, runPublicationJob, {
+          jobKey,
+          caller: {
+            kind: "system",
+            name: "slack-ingress",
+            surface: "internal",
+          },
+          now: i.receivedAt,
+        });
     }
     return result;
   },
