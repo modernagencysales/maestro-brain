@@ -242,7 +242,9 @@ type CaptureValidationOptions = {
   readonly existingArtifact?: {
     readonly sourceKey: string;
     readonly latestProviderOrder: string;
-    readonly lifecycleGeneration: number;
+    readonly lifecycle: {
+      readonly generation: number;
+    };
     readonly createdAt: number;
   };
   readonly verifiedBinding?: VerifiedSlackEnvelope;
@@ -355,17 +357,9 @@ export const assertValidSourceLedgerCapture = (
   if (options.existingArtifact && !knownObservationDuplicate) {
     if (options.existingArtifact.sourceKey !== keys.sourceKey)
       throw new DuplicateKeyConflict("DuplicateKeyConflict");
-    const nextPrimary = providerPrimarySortKeyFor(decoded);
-    const currentPrimary = options.existingArtifact.latestProviderOrder
-      .split("|")
-      .slice(0, 2)
-      .join("|");
-    if (
-      nextPrimary < currentPrimary ||
-      (nextPrimary === currentPrimary &&
-        providerSortKeyFor(decoded) >=
-          options.existingArtifact.latestProviderOrder)
-    )
+    const currentProviderOrder =
+      options.existingArtifact.latestProviderOrder.split("|", 1)[0] ?? "";
+    if (decoded.observation.providerOrder <= currentProviderOrder)
       throw new DuplicateKeyConflict("DuplicateKeyConflict");
   }
   const deliveryKey = `delivery_${digest([decoded.envelope.organizationKey, decoded.envelope.connectionKey, decoded.envelope.connectionGeneration, decoded.envelope.transport, decoded.envelope.transportDeliveryId])}`;
@@ -413,10 +407,9 @@ export const assertValidSourceLedgerCapture = (
 const providerPrimarySortKeyFor = (
   input: typeof SourceLedgerCaptureInput.Type,
 ) =>
-  [
-    input.observation.sourceTimestamp,
-    input.observation.providerRevisionId,
-  ].join("|");
+  [input.observation.providerOrder, input.observation.providerRevisionId].join(
+    "|",
+  );
 const providerSortKeyFor = (input: typeof SourceLedgerCaptureInput.Type) =>
   [
     providerPrimarySortKeyFor(input),
@@ -476,7 +469,7 @@ export const buildSourceLedgerRows = (
     state: input.observation.tombstone
       ? ("deleted_tombstone" as const)
       : ("active" as const),
-    generation: (options.existingArtifact?.lifecycleGeneration ?? 0) + 1,
+    generation: (options.existingArtifact?.lifecycle.generation ?? 0) + 1,
     updatedAt: input.envelope.receivedAt,
     purgeAfter: null,
   };
@@ -510,7 +503,7 @@ export const buildSourceLedgerRows = (
       observationKey: keys.observationKey,
       providerOrder: input.observation.providerOrder,
       providerRevisionId: input.observation.providerRevisionId,
-      sourceCreatedAt: input.envelope.receivedAt,
+      sourceCreatedAt: Date.parse(input.observation.sourceTimestamp),
       sourceTimestamp: input.observation.sourceTimestamp,
       authorSnapshot: input.observation.author,
       normalizedText: input.observation.text,

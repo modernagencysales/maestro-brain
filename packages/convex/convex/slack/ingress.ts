@@ -70,35 +70,31 @@ const receiptFor = async (db: IngressDb, i: IngressInput) =>
     )
     .unique();
 const replayFor = async (db: IngressDb, i: IngressInput) => {
-  const r = await db
+  return await db
     .query("providerEventReceipts")
-    .withIndex("by_received_at", (q) =>
-      q.eq("organizationKey", i.organizationKey),
+    .withIndex("by_connection_generation_provider_event", (q) =>
+      q
+        .eq("organizationKey", i.organizationKey)
+        .eq("connectionKey", i.connectionKey)
+        .eq("connectionGeneration", i.connectionGeneration)
+        .eq("providerEventId", i.providerEventId),
     )
-    .collect();
-  return (
-    r.find((x) => {
-      const receipt = x as Record<string, unknown>;
-      return (
-        receipt.connectionKey === i.connectionKey &&
-        receipt.connectionGeneration === i.connectionGeneration &&
-        receipt.providerEventId === i.providerEventId
-      );
-    }) ?? null
-  );
+    .first();
 };
-const artifactFor = async (db: IngressDb, i: IngressInput) => {
-  const payload = i.payload as {
-    event?: { ts?: unknown; deleted_ts?: unknown };
-  };
-  const e = payload.event,
-    t = e?.ts ?? e?.deleted_ts ?? "";
+const artifactFor = async (
+  db: IngressDb,
+  i: IngressInput,
+  providerObjectId: string,
+) => {
   return await db
     .query("sourceArtifacts")
-    .withIndex("by_channel_provider_object", (q) =>
+    .withIndex("by_org_connection_generation_channel_provider_object", (q) =>
       q
+        .eq("organizationKey", i.organizationKey)
+        .eq("connectionKey", i.connectionKey)
+        .eq("connectionGeneration", i.connectionGeneration)
         .eq("channelKey", i.channelKey)
-        .eq("providerObjectId", `${i.externalChannelId}:${String(t)}`),
+        .eq("providerObjectId", providerObjectId),
     )
     .unique();
 };
@@ -115,7 +111,8 @@ export const receiveSlackEvent = internalMutation({
         findReceipt: (d) =>
           receiptFor(ctx.db, { ...i, transportDeliveryId: d }),
         findReplay: () => replayFor(ctx.db, i),
-        findArtifact: () => artifactFor(ctx.db, i),
+        findArtifact: (_channelKey, providerObjectId) =>
+          artifactFor(ctx.db, i, providerObjectId),
         insert: (t, r) => ctx.db.insert(t as never, r as never),
         patchArtifact: (e, r) =>
           ctx.db.patch(

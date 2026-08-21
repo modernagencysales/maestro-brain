@@ -11,5 +11,11 @@ export default Table.make(() => ProviderEventReceiptRow)
     "transportDeliveryId",
   ])
   .index("by_observation_key", ["organizationKey", "observationKey"])
+  .index("by_connection_generation_provider_event", [
+    "organizationKey",
+    "connectionKey",
+    "connectionGeneration",
+    "providerEventId",
+  ])
   .index("by_received_at", ["organizationKey", "receivedAt"])
   .index("by_outcome", ["organizationKey", "outcome"]);

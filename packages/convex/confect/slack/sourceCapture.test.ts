@@ -94,6 +94,7 @@ describe("Slack source capture", () => {
         type: "message",
         subtype: "message_deleted",
         channel: "C1",
+        event_ts: "1700000100.000001",
         deleted_ts: "1700000000.123456",
         previous_message: {
           ts: "1700000000.123456",
@@ -108,12 +109,148 @@ describe("Slack source capture", () => {
       observation: {
         providerObjectId: "C1:1700000000.123456",
         threadKey: "C1:1700000000.000001",
+        providerOrder: "1700000100.000001",
         providerRevisionId: "Ev124",
         text: "",
         blocksJson: "[]",
         permalink: "",
         tombstone: true,
       },
+    });
+  });
+
+  it("orders edits and tombstones by Slack event time instead of event id", () => {
+    const changed = {
+      event_id: "Ev900",
+      event: {
+        type: "message",
+        subtype: "message_changed",
+        channel: "C1",
+        event_ts: "1700000200.000001",
+        message: {
+          ts: "1700000000.123456",
+          thread_ts: "1700000000.000001",
+          user: "U2",
+          username: "Ada",
+          text: "Edited text.",
+          blocks: [],
+          permalink: "https://example.test/slack/p/1",
+        },
+      },
+    };
+    const deleted = {
+      event_id: "Ev001",
+      event: {
+        type: "message",
+        subtype: "message_deleted",
+        channel: "C1",
+        event_ts: "1700000300.000001",
+        deleted_ts: "1700000000.123456",
+        previous_message: {
+          ts: "1700000000.123456",
+          thread_ts: "1700000000.000001",
+        },
+      },
+    };
+    const delayedEdit = {
+      ...changed,
+      event_id: "Ev999",
+      event: { ...changed.event, event_ts: "1700000250.000001" },
+    };
+    const sameTimeEdit = {
+      ...changed,
+      event_id: "Ev000",
+    };
+    const recreated = {
+      ...changed,
+      event_id: "Ev002",
+      event: {
+        ...changed.event,
+        event_ts: "1700000400.000001",
+        message: {
+          ...changed.event.message,
+          text: "Recreated text.",
+        },
+      },
+    };
+    const createRows = captureAdmittedSlackEvent(binding, event, {
+      envelope,
+      routing,
+    });
+    if (createRows.artifact === null)
+      throw new Error("missing create artifact");
+    const editRows = captureAdmittedSlackEvent(
+      { ...binding, providerEventId: changed.event_id },
+      changed,
+      {
+        envelope: { ...envelope, transportDeliveryId: "delivery_edit" },
+        routing,
+        existingArtifact: createRows.artifact,
+      },
+    );
+    if (editRows.artifact === null) throw new Error("missing edit artifact");
+    const deleteRows = captureAdmittedSlackEvent(
+      { ...binding, providerEventId: deleted.event_id },
+      deleted,
+      {
+        envelope: { ...envelope, transportDeliveryId: "delivery_delete" },
+        routing,
+        existingArtifact: editRows.artifact,
+      },
+    );
+    if (deleteRows.artifact === null)
+      throw new Error("missing tombstone artifact");
+
+    expect(editRows.revision?.providerOrder).toBe("1700000200.000001");
+    expect(deleteRows.revision?.providerOrder).toBe("1700000300.000001");
+    expect(createRows.artifact.lifecycle.generation).toBe(1);
+    expect(editRows.artifact.lifecycle.generation).toBe(2);
+    expect(deleteRows.artifact.lifecycle.generation).toBe(3);
+    expect(deleteRows.artifact.lifecycle.state).toBe("deleted_tombstone");
+    expect(() =>
+      captureAdmittedSlackEvent(
+        { ...binding, providerEventId: delayedEdit.event_id },
+        delayedEdit,
+        {
+          envelope: {
+            ...envelope,
+            transportDeliveryId: "delivery_delayed_edit",
+          },
+          routing,
+          existingArtifact: deleteRows.artifact ?? undefined,
+        },
+      ),
+    ).toThrow("DuplicateKeyConflict");
+    expect(() =>
+      captureAdmittedSlackEvent(
+        { ...binding, providerEventId: sameTimeEdit.event_id },
+        sameTimeEdit,
+        {
+          envelope: {
+            ...envelope,
+            transportDeliveryId: "delivery_same_time_edit",
+          },
+          routing,
+          existingArtifact: editRows.artifact,
+        },
+      ),
+    ).toThrow("DuplicateKeyConflict");
+
+    const recreateRows = captureAdmittedSlackEvent(
+      { ...binding, providerEventId: recreated.event_id },
+      recreated,
+      {
+        envelope: {
+          ...envelope,
+          transportDeliveryId: "delivery_recreate",
+        },
+        routing,
+        existingArtifact: deleteRows.artifact,
+      },
+    );
+    expect(recreateRows.artifact?.lifecycle).toMatchObject({
+      state: "active",
+      generation: 4,
     });
   });
 

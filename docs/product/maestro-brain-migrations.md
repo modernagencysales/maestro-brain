@@ -169,6 +169,28 @@ Execute-mode component failures follow the same durable failure receipt path.
   rows may be retained for diagnosis and rebuilt later; rollback never deletes
   source revisions.
 
+## Slack provider event ordering and replay lookup
+
+- **Expand:** add the `by_connection_generation_provider_event` index to
+  `providerEventReceipts`. Existing receipt rows already contain every indexed
+  field, so no row backfill is required.
+- **Ordering:** new Slack message edits and tombstones use Slack `event_ts` as
+  their provider order. The original message `ts` remains the object identity
+  and source-created timestamp. Provider event IDs remain identity data, never a
+  monotonic edit version. Two distinct observations at the same provider order
+  fail as an explicit conflict instead of being ordered lexically by opaque
+  event ID. Artifact lifecycle generation advances from the persisted nested
+  lifecycle on every accepted revision.
+- **Verify:** deliver newer edit/delete events with lexically smaller event IDs,
+  then a delayed older edit. The tombstone remains current and indexed replay
+  lookup resolves the exact connection generation without a table scan. The
+  existence lookup is bounded to its exact index prefix and tolerates duplicate
+  historical receipts, which may predate enforcement of the replay invariant;
+  duplicates still cause the incoming event to be rejected as a replay.
+- **Rollback:** the additive index may remain. Reverting the reader is safe for
+  schema compatibility but restores an unbounded scan and is therefore not an
+  approved operational rollback.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.
