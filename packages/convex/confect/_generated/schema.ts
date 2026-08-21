@@ -49,6 +49,7 @@ import providerEventReceipts from "./tables/providerEventReceipts";
 import retrievalEntries from "./tables/retrievalEntries";
 import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
+import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
@@ -128,6 +129,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof retrievalEntries |
   typeof retrievalPublicationJobs |
   typeof retrievalPublicationSets |
+  typeof retrievalPublicationSubjects |
   typeof retrievalTokens |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
@@ -206,6 +208,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   retrievalEntries,
   retrievalPublicationJobs,
   retrievalPublicationSets,
+  retrievalPublicationSubjects,
   retrievalTokens,
   servicePrincipals,
   slackIdentityBindings,

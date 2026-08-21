@@ -24,6 +24,7 @@ import {
   buildRetrievalTokenRows,
   retrievalEntryKey,
   retrievalPublicationSetKey,
+  retrievalPublicationSubjectKey,
   type RetrievalOrigin,
 } from "./retrievalPublication";
 import retrievalPublicationGroup, {
@@ -126,7 +127,136 @@ type PreparedPassage = {
   readonly observedAt: number;
 };
 
-const commitPreparedPublication = (input: {
+type PublicationSubjectIdentity = {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly corpusKey: string;
+  readonly kind: "page" | "slack" | "transcript" | "document" | "projection";
+  readonly originTable: string;
+  readonly sourceKey: string;
+  readonly connectorScopeKey?: string | undefined;
+  readonly now: number;
+};
+
+const loadPublicationSubject = (input: PublicationSubjectIdentity) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const publicationSubjectKey = retrievalPublicationSubjectKey({
+      workspaceId: String(input.workspaceId),
+      brainKey: input.brainKey,
+      corpusKey: input.corpusKey,
+      originTable: input.originTable,
+      kind: input.kind,
+      sourceKey: input.sourceKey,
+      ...(input.connectorScopeKey === undefined
+        ? {}
+        : { connectorScopeKey: input.connectorScopeKey }),
+    });
+    const stored = yield* reader
+      .table("retrievalPublicationSubjects")
+      .index("by_workspace_subject", (query) =>
+        query
+          .eq("workspaceId", input.workspaceId)
+          .eq("publicationSubjectKey", publicationSubjectKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (stored !== null) {
+      const currentPublicationSetKey = stored.currentPublicationSetKey;
+      const current =
+        currentPublicationSetKey === null
+          ? null
+          : yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_publication_set", (query) =>
+                query
+                  .eq("workspaceId", input.workspaceId)
+                  .eq("publicationSetKey", currentPublicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        currentPublicationSetKey !== null &&
+        (current === null || current.state !== "current")
+      )
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: currentPublicationSetKey,
+        });
+      return {
+        publicationSubjectKey,
+        subjectId: stored._id,
+        lastPublicationGeneration: stored.lastPublicationGeneration,
+        currentSets: current === null ? [] : [current],
+      };
+    }
+
+    const legacyCandidates = yield* reader
+      .table("retrievalPublicationSets")
+      .index("by_workspace_brain_source_state_generation", (query) =>
+        query
+          .eq("workspaceId", input.workspaceId)
+          .eq("brainKey", input.brainKey)
+          .eq("originTable", input.originTable)
+          .eq("sourceKey", input.sourceKey),
+      )
+      .take(MAX_PRIOR_PUBLICATION_SETS + 1)
+      .pipe(Effect.orDie);
+    if (legacyCandidates.length > MAX_PRIOR_PUBLICATION_SETS)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          legacyCandidates[0]?.publicationSetKey ?? publicationSubjectKey,
+      });
+    const legacySets = legacyCandidates.filter(
+      ({ connectorScopeKey, corpusKey, originKind }) =>
+        corpusKey === input.corpusKey &&
+        originKind === input.kind &&
+        (connectorScopeKey === input.connectorScopeKey ||
+          (connectorScopeKey === undefined &&
+            input.connectorScopeKey === undefined)),
+    );
+    const currentSets = legacySets.filter(({ state }) => state === "current");
+    if (currentSets.length > 1)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          currentSets[0]?.publicationSetKey ?? publicationSubjectKey,
+      });
+    const lastPublicationGeneration = Math.max(
+      0,
+      ...legacySets.map(({ publicationGeneration }) => publicationGeneration),
+    );
+    const currentPublicationSetKey = currentSets[0]?.publicationSetKey ?? null;
+    const subjectId = yield* writer
+      .table("retrievalPublicationSubjects")
+      .insert({
+        schemaVersion: 1,
+        organizationKey: input.organizationKey,
+        workspaceId: input.workspaceId,
+        brainKey: input.brainKey,
+        corpusKey: input.corpusKey,
+        publicationSubjectKey,
+        originKind: input.kind,
+        originTable: input.originTable,
+        sourceKey: input.sourceKey,
+        ...(input.connectorScopeKey === undefined
+          ? {}
+          : { connectorScopeKey: input.connectorScopeKey }),
+        currentPublicationSetKey,
+        lastPublicationGeneration,
+        createdAt: input.now,
+        updatedAt: input.now,
+      })
+      .pipe(Effect.orDie);
+    return {
+      publicationSubjectKey,
+      subjectId,
+      lastPublicationGeneration,
+      currentSets,
+    };
+  });
+
+export const commitPreparedPublicationEffect = (input: {
   readonly organizationKey: string;
   readonly workspaceId: GenericId<"workspaces">;
   readonly brainKey: string;
@@ -150,25 +280,21 @@ const commitPreparedPublication = (input: {
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
-    const currentSets = yield* reader
-      .table("retrievalPublicationSets")
-      .index("by_workspace_brain_source_state_generation", (query) =>
-        query
-          .eq("workspaceId", input.workspaceId)
-          .eq("brainKey", input.brainKey)
-          .eq("originTable", input.originTable)
-          .eq("sourceKey", input.sourceKey)
-          .eq("state", "current"),
-      )
-      .take(MAX_PRIOR_PUBLICATION_SETS + 1)
-      .pipe(Effect.orDie);
-    if (currentSets.length > MAX_PRIOR_PUBLICATION_SETS)
-      return yield* new RetrievalPublicationConflict({
-        publicationSetKey: currentSets[0]?.publicationSetKey ?? "unknown",
-      });
-    const current = [...currentSets].sort(
-      (left, right) => right.publicationGeneration - left.publicationGeneration,
-    )[0];
+    const subject = yield* loadPublicationSubject({
+      organizationKey: input.organizationKey,
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+      corpusKey: input.corpusKey,
+      kind: input.kind,
+      originTable: input.originTable,
+      sourceKey: input.sourceKey,
+      ...(input.connectorScopeKey === undefined
+        ? {}
+        : { connectorScopeKey: input.connectorScopeKey }),
+      now: input.now,
+    });
+    const currentSets = subject.currentSets;
+    const current = currentSets[0];
     const currentTokens = yield* loadCurrentPublicationTokens({
       workspaceId: input.workspaceId,
       brainKey: input.brainKey,
@@ -188,6 +314,13 @@ const commitPreparedPublication = (input: {
           .table("retrievalPublicationSets")
           .patch(prior._id, { state: "retired", retiredAt: input.now })
           .pipe(Effect.orDie);
+      yield* writer
+        .table("retrievalPublicationSubjects")
+        .patch(subject.subjectId, {
+          currentPublicationSetKey: null,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
       return {
         outcome: "revoked" as const,
         entryCount: 0,
@@ -213,13 +346,7 @@ const commitPreparedPublication = (input: {
         sourceKey: input.sourceKey,
         revisionKey: input.sourceRevisionKey,
       });
-    const publicationGeneration =
-      Math.max(
-        0,
-        ...currentSets.map(
-          ({ publicationGeneration }) => publicationGeneration,
-        ),
-      ) + 1;
+    const publicationGeneration = subject.lastPublicationGeneration + 1;
     const keyOrigin: RetrievalOrigin = {
       organizationKey: input.organizationKey,
       workspaceId: String(input.workspaceId),
@@ -268,6 +395,7 @@ const commitPreparedPublication = (input: {
         organizationKey: input.organizationKey,
         workspaceId: input.workspaceId,
         brainKey: input.brainKey,
+        publicationSubjectKey: subject.publicationSubjectKey,
         entryKey: retrievalEntryKey(entryOrigin, {
           passageKey: passage.passageKey,
           ordinal: 0,
@@ -351,10 +479,14 @@ const commitPreparedPublication = (input: {
         workspaceId: input.workspaceId,
         brainKey: input.brainKey,
         corpusKey: input.corpusKey,
+        publicationSubjectKey: subject.publicationSubjectKey,
         publicationSetKey,
         publicationGeneration,
         originKind: input.kind,
         originTable: input.originTable,
+        ...(input.connectorScopeKey === undefined
+          ? {}
+          : { connectorScopeKey: input.connectorScopeKey }),
         sourceKey: input.sourceKey,
         sourceRevisionKey: input.sourceRevisionKey,
         routeGeneration: input.routeGeneration,
@@ -394,6 +526,14 @@ const commitPreparedPublication = (input: {
     yield* writer
       .table("retrievalPublicationSets")
       .patch(insertedSet._id, { state: "current", activatedAt: input.now })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalPublicationSubjects")
+      .patch(subject.subjectId, {
+        currentPublicationSetKey: publicationSetKey,
+        lastPublicationGeneration: publicationGeneration,
+        updatedAt: input.now,
+      })
       .pipe(Effect.orDie);
     const health = yield* reader
       .table("brainCorpusHealth")
@@ -512,25 +652,18 @@ export const publishPageRevisionEffect = (
         revisionKey: args.revisionKey,
       });
 
-    const currentSets = yield* reader
-      .table("retrievalPublicationSets")
-      .index("by_workspace_brain_source_state_generation", (query) =>
-        query
-          .eq("workspaceId", args.workspaceId)
-          .eq("brainKey", args.brainKey)
-          .eq("originTable", "pageRevisions")
-          .eq("sourceKey", args.pageKey)
-          .eq("state", "current"),
-      )
-      .take(MAX_PRIOR_PUBLICATION_SETS + 1)
-      .pipe(Effect.orDie);
-    if (currentSets.length > MAX_PRIOR_PUBLICATION_SETS)
-      return yield* new RetrievalPublicationConflict({
-        publicationSetKey: currentSets[0]?.publicationSetKey ?? "unknown",
-      });
-    const current = [...currentSets].sort(
-      (left, right) => right.publicationGeneration - left.publicationGeneration,
-    )[0];
+    const subject = yield* loadPublicationSubject({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      corpusKey: "brain-pages",
+      kind: "page",
+      originTable: "pageRevisions",
+      sourceKey: args.pageKey,
+      now: args.now,
+    });
+    const currentSets = subject.currentSets;
+    const current = currentSets[0];
     const currentTokens = yield* loadCurrentPublicationTokens({
       workspaceId: args.workspaceId,
       brainKey: args.brainKey,
@@ -555,6 +688,13 @@ export const publishPageRevisionEffect = (
           .table("retrievalPublicationSets")
           .patch(prior._id, { state: "retired", retiredAt: args.now })
           .pipe(Effect.orDie);
+      yield* writer
+        .table("retrievalPublicationSubjects")
+        .patch(subject.subjectId, {
+          currentPublicationSetKey: null,
+          updatedAt: args.now,
+        })
+        .pipe(Effect.orDie);
       return {
         outcome: "revoked" as const,
         entryCount: 0,
@@ -574,13 +714,7 @@ export const publishPageRevisionEffect = (
         tokenCount: current.expectedTokenCount,
       };
 
-    const publicationGeneration =
-      Math.max(
-        0,
-        ...currentSets.map(
-          ({ publicationGeneration }) => publicationGeneration,
-        ),
-      ) + 1;
+    const publicationGeneration = subject.lastPublicationGeneration + 1;
     const origin: RetrievalOrigin = {
       organizationKey: args.organizationKey,
       workspaceId: String(args.workspaceId),
@@ -617,6 +751,7 @@ export const publishPageRevisionEffect = (
       organizationKey: origin.organizationKey,
       workspaceId: args.workspaceId,
       brainKey: origin.brainKey,
+      publicationSubjectKey: subject.publicationSubjectKey,
       entryKey: retrievalEntryKey(origin, passage),
       publicationSetKey,
       publicationGeneration,
@@ -683,6 +818,7 @@ export const publishPageRevisionEffect = (
         workspaceId: args.workspaceId,
         brainKey: origin.brainKey,
         corpusKey: origin.corpusKey,
+        publicationSubjectKey: subject.publicationSubjectKey,
         publicationSetKey,
         publicationGeneration,
         originKind: origin.kind,
@@ -723,6 +859,14 @@ export const publishPageRevisionEffect = (
     yield* writer
       .table("retrievalPublicationSets")
       .patch(insertedSet._id, { state: "current", activatedAt: args.now })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalPublicationSubjects")
+      .patch(subject.subjectId, {
+        currentPublicationSetKey: publicationSetKey,
+        lastPublicationGeneration: publicationGeneration,
+        updatedAt: args.now,
+      })
       .pipe(Effect.orDie);
     const health = yield* reader
       .table("brainCorpusHealth")
@@ -925,7 +1069,7 @@ export const publishSlackRevisionEffect = (
       sourceModifiedAt: revision.sourceModifiedAt ?? revision.sourceCreatedAt,
       observedAt: revision.createdAt,
     }));
-    return yield* commitPreparedPublication({
+    return yield* commitPreparedPublicationEffect({
       organizationKey: args.organizationKey,
       workspaceId: args.workspaceId,
       brainKey: args.brainKey,
@@ -1043,7 +1187,7 @@ export const publishTranscriptRevisionEffect = (
         observedAt: revision.createdAt,
       })),
     );
-    return yield* commitPreparedPublication({
+    return yield* commitPreparedPublicationEffect({
       organizationKey: args.organizationKey,
       workspaceId: args.workspaceId,
       brainKey: args.brainKey,

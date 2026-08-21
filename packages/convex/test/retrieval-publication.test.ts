@@ -9,8 +9,16 @@ import { describe, expect, it } from "vitest";
 import databaseSchema from "../confect/_generated/schema";
 import refs from "../confect/_generated/refs";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import { publishPageRevisionEffect } from "../confect/brain/retrievalPublication.impl";
+import {
+  commitPreparedPublicationEffect,
+  publishPageRevisionEffect,
+} from "../confect/brain/retrievalPublication.impl";
 import { rebuildPageBatchEffect } from "../confect/brain/retrievalPublication.impl";
+import {
+  retrievalEntryKey,
+  retrievalPublicationSubjectKey,
+  type RetrievalOrigin,
+} from "../confect/brain/retrievalPublication";
 import {
   enqueueOrganizationCorpusRebuildsEffect,
   enqueueRetrievalPublicationJobEffect,
@@ -183,6 +191,202 @@ const publicationArgs = (workspaceId: GenericId<"workspaces">) => ({
 });
 
 describe("retrieval publication persistence", () => {
+  it("derives a revision-independent publication subject per connector scope", () => {
+    const origin = {
+      organizationKey,
+      workspaceId: "workspace-1",
+      brainKey,
+      corpusKey: "documents",
+      originTable: "documentSourceRevisions",
+      kind: "document",
+      origin: {
+        kind: "document",
+        connectionKey: "drive-connection",
+        connectorScopeKey: "scope-a",
+        objectKey: "drive-object-1",
+        revisionKey: "drive-revision-1",
+      },
+      connectionKey: "drive-connection",
+      connectionGeneration: 1,
+      connectorScopeKey: "scope-a",
+      sourceKey: "drive-object-1",
+      sourceRevisionKey: "drive-revision-1",
+      title: "Operating plan",
+      observedAt: now,
+      indexedAt: now,
+      authority: "authoritative",
+      authorityPolicyKey: "drive-approved",
+      policyGeneration: 1,
+      lifecycleGeneration: 1,
+      routeGeneration: 1,
+    } satisfies RetrievalOrigin;
+    const revisedOrigin = {
+      ...origin,
+      origin: { ...origin.origin, revisionKey: "drive-revision-2" },
+      sourceRevisionKey: "drive-revision-2",
+      connectionGeneration: 2,
+      policyGeneration: 2,
+      lifecycleGeneration: 2,
+      routeGeneration: 2,
+    } satisfies RetrievalOrigin;
+    const otherScopeOrigin = {
+      ...origin,
+      origin: { ...origin.origin, connectorScopeKey: "scope-b" },
+      connectorScopeKey: "scope-b",
+    } satisfies RetrievalOrigin;
+
+    expect(retrievalPublicationSubjectKey(origin)).toBe(
+      retrievalPublicationSubjectKey(revisedOrigin),
+    );
+    expect(retrievalPublicationSubjectKey(origin)).not.toBe(
+      retrievalPublicationSubjectKey(otherScopeOrigin),
+    );
+    const passage = {
+      passageKey: "rpass_stable",
+      ordinal: 0,
+      headingPath: null,
+      text: "Stable passage",
+      startOffset: 0,
+      endOffset: 14,
+      contentHash: "sha256:stable",
+    };
+    const eligibilityOnlyChange = {
+      ...revisedOrigin,
+      origin: origin.origin,
+      sourceRevisionKey: origin.sourceRevisionKey,
+    } satisfies RetrievalOrigin;
+    expect(retrievalEntryKey(origin, passage)).toBe(
+      retrievalEntryKey(eligibilityOnlyChange, passage),
+    );
+    expect(retrievalEntryKey(origin, passage)).not.toBe(
+      retrievalEntryKey(otherScopeOrigin, passage),
+    );
+  });
+
+  it("owns an independent current pointer for each document connector scope", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const publish = (
+          connectorScopeKey: string,
+          revisionKey: string,
+          at: number,
+        ) =>
+          commitPreparedPublicationEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            corpusKey: "documents",
+            kind: "document",
+            originTable: "documentSourceRevisions",
+            sourceKey: "drive-object-1",
+            sourceRevisionKey: revisionKey,
+            connectionKey: "drive-connection",
+            connectionGeneration: 1,
+            connectorScopeKey,
+            authority: "authoritative",
+            authorityPolicyKey: "drive-approved",
+            policyGeneration: 1,
+            lifecycleGeneration: 1,
+            routeGeneration: 1,
+            revoked: false,
+            passages: [
+              {
+                origin: {
+                  kind: "document",
+                  connectionKey: "drive-connection",
+                  connectorScopeKey,
+                  objectKey: "drive-object-1",
+                  revisionKey,
+                },
+                passageKey: `rpass_${(revisionKey === "revision-a"
+                  ? "a"
+                  : revisionKey === "revision-b"
+                    ? "b"
+                    : "c"
+                ).repeat(64)}`,
+                startOffset: 0,
+                endOffset: 10,
+                title: "Operating plan",
+                headingPath: null,
+                text: "ICP plan 1",
+                contentHash: `sha256:${"a".repeat(64)}`,
+                observedAt: at,
+              },
+            ],
+            now: at,
+          });
+        const firstA = yield* confect.run(
+          publish("scope-a", "revision-a", now),
+          resultSchema(),
+        );
+        const firstB = yield* confect.run(
+          publish("scope-b", "revision-b", now + 1),
+          resultSchema(),
+        );
+        const secondA = yield* confect.run(
+          publish("scope-a", "revision-c", now + 2),
+          resultSchema(),
+        );
+        const stored = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const subjects = yield* reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_subject", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            const currentSets = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_brain_state_publication_set", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("state", "current"),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            return { subjects, currentSets };
+          }),
+          resultSchema(),
+        );
+        return { firstA, firstB, secondA, stored };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.firstA).toMatchObject({ publicationGeneration: 1 });
+    expect(result.firstB).toMatchObject({ publicationGeneration: 1 });
+    expect(result.secondA).toMatchObject({ publicationGeneration: 2 });
+    expect(result.stored.subjects).toHaveLength(2);
+    expect(
+      new Set(
+        result.stored.subjects.map(
+          ({ connectorScopeKey }) => connectorScopeKey,
+        ),
+      ),
+    ).toEqual(new Set(["scope-a", "scope-b"]));
+    expect(
+      new Set(
+        result.stored.subjects.map(({ currentPublicationSetKey }) => {
+          if (currentPublicationSetKey === null)
+            throw new Error("missing current publication pointer");
+          return currentPublicationSetKey;
+        }),
+      ),
+    ).toEqual(
+      new Set([
+        result.secondA.publicationSetKey,
+        result.firstB.publicationSetKey,
+      ]),
+    );
+    expect(result.stored.currentSets).toHaveLength(2);
+  });
+
   it("atomically publishes an exact page revision and is idempotent", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -641,6 +845,140 @@ describe("retrieval publication persistence", () => {
     ).toEqual(new Set([result.search.results[0]?.entryKey]));
   });
 
+  it("keeps one subject and monotonic generations through revoke and restore", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const first = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        const second = yield* confect.run(
+          publishPageRevisionEffect({
+            ...publicationArgs(workspaceId),
+            policyGeneration: 2,
+            now: now + 1,
+          }),
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (page === null) throw new Error("missing page");
+            yield* writer
+              .table("brainPages")
+              .patch(page._id, {
+                status: "archived",
+                lifecycle: {
+                  state: "archived",
+                  generation: 2,
+                  updatedAt: now + 2,
+                  purgeAfter: null,
+                },
+                updatedAt: now + 2,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const revoked = yield* confect.run(
+          publishPageRevisionEffect({
+            ...publicationArgs(workspaceId),
+            policyGeneration: 2,
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (page === null) throw new Error("missing page");
+            yield* writer
+              .table("brainPages")
+              .patch(page._id, {
+                status: "active",
+                lifecycle: {
+                  state: "active",
+                  generation: 3,
+                  updatedAt: now + 3,
+                  purgeAfter: null,
+                },
+                updatedAt: now + 3,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const restored = yield* confect.run(
+          publishPageRevisionEffect({
+            ...publicationArgs(workspaceId),
+            policyGeneration: 2,
+            now: now + 3,
+          }),
+          resultSchema(),
+        );
+        const sets = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            return yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_brain_source_state_generation", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("originTable", "pageRevisions")
+                  .eq("sourceKey", pageKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        return { first, second, revoked, restored, sets };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.first).toMatchObject({ publicationGeneration: 1 });
+    expect(result.second).toMatchObject({ publicationGeneration: 2 });
+    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.restored).toMatchObject({
+      outcome: "published",
+      publicationGeneration: 3,
+    });
+    expect(
+      new Set(
+        result.sets.map(({ publicationSubjectKey }) => publicationSubjectKey),
+      ),
+    ).toEqual(new Set([expect.stringMatching(/^rsub_[a-f0-9]{64}$/)]));
+    expect(
+      result.sets
+        .map(
+          ({ publicationGeneration }: { publicationGeneration: number }) =>
+            publicationGeneration,
+        )
+        .sort((left, right) => left - right),
+    ).toEqual([1, 2, 3]);
+  });
+
   it("rejects copied projection text that no longer matches the page ledger", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -875,7 +1213,58 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return { swept, first, second };
+        const duplicateJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "page",
+              sourceKey: pageKey,
+              sourceRevisionKey: delayedRevisionKey,
+              requestGeneration: 2,
+              page: {
+                authority: "derived",
+                authorityPolicyKey: "company-pages",
+                policyGeneration: 1,
+              },
+            },
+            now + 2,
+          ),
+          resultSchema(),
+        );
+        const duplicate = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: duplicateJobKey,
+            caller: {
+              kind: "system",
+              name: "publication-job-test",
+              surface: "internal",
+            },
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const stored = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const jobs = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) => query.eq("jobKey", jobKey))
+              .collect()
+              .pipe(Effect.orDie);
+            const subjects = yield* reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_subject", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            return { jobs, subjects };
+          }),
+          resultSchema(),
+        );
+        return { swept, first, second, duplicateJobKey, duplicate, stored };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -892,6 +1281,11 @@ describe("retrieval publication persistence", () => {
       status: "succeeded",
       attemptCount: 2,
     });
+    expect(result.duplicateJobKey).toBe(result.first.jobKey);
+    expect(result.duplicate).toEqual(result.second);
+    expect(result.stored.jobs).toHaveLength(1);
+    expect(result.stored.subjects).toHaveLength(1);
+    expect(result.stored.subjects[0]?.currentPublicationSetKey).not.toBeNull();
   });
 
   it("fails page retrieval closed immediately when cleanup is lost", async () => {

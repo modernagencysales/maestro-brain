@@ -20,6 +20,9 @@ export const RetrievalPassageKey = Schema.String.pipe(
 export const RetrievalPublicationSetKey = Schema.String.pipe(
   Schema.pattern(/^rset_[a-f0-9]{64}$/),
 );
+export const RetrievalPublicationSubjectKey = Schema.String.pipe(
+  Schema.pattern(/^rsub_[a-f0-9]{64}$/),
+);
 
 export const RetrievalOriginReference = Schema.Union(
   Schema.Struct({

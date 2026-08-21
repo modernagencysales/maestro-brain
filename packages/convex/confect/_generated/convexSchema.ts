@@ -49,6 +49,7 @@ import providerEventReceipts from "./tables/providerEventReceipts";
 import retrievalEntries from "./tables/retrievalEntries";
 import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
+import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
@@ -128,6 +129,7 @@ export default $defineSchema({
   retrievalEntries: retrievalEntries.tableDefinition,
   retrievalPublicationJobs: retrievalPublicationJobs.tableDefinition,
   retrievalPublicationSets: retrievalPublicationSets.tableDefinition,
+  retrievalPublicationSubjects: retrievalPublicationSubjects.tableDefinition,
   retrievalTokens: retrievalTokens.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   slackIdentityBindings: slackIdentityBindings.tableDefinition,

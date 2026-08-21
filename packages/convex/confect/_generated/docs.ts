@@ -50,6 +50,7 @@ export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition
 export type RetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "retrievalEntries">;
 export type RetrievalPublicationJobsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationJobs">;
 export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSets">;
+export type RetrievalPublicationSubjectsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSubjects">;
 export type RetrievalTokensDoc = Document.Document<typeof schemaDefinition, "retrievalTokens">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
@@ -129,6 +130,7 @@ export interface Docs {
   retrievalEntries: RetrievalEntriesDoc;
   retrievalPublicationJobs: RetrievalPublicationJobsDoc;
   retrievalPublicationSets: RetrievalPublicationSetsDoc;
+  retrievalPublicationSubjects: RetrievalPublicationSubjectsDoc;
   retrievalTokens: RetrievalTokensDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;

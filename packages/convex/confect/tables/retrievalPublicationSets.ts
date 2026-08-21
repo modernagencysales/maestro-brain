@@ -7,6 +7,7 @@ import {
   NonNegativeInteger,
   PositiveInteger,
   RetrievalPublicationSetKey,
+  RetrievalPublicationSubjectKey,
 } from "../brain/retrievalSchemas";
 
 export const RetrievalPublicationSetRow = Schema.Struct({
@@ -15,6 +16,7 @@ export const RetrievalPublicationSetRow = Schema.Struct({
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
   corpusKey: Schema.String,
+  publicationSubjectKey: Schema.optional(RetrievalPublicationSubjectKey),
   publicationSetKey: RetrievalPublicationSetKey,
   publicationGeneration: PositiveInteger,
   originKind: Schema.Literal(
@@ -25,6 +27,7 @@ export const RetrievalPublicationSetRow = Schema.Struct({
     "projection",
   ),
   originTable: Schema.String,
+  connectorScopeKey: Schema.optional(Schema.String),
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
   routeGeneration: PositiveInteger,
@@ -42,6 +45,11 @@ export const RetrievalPublicationSetRow = Schema.Struct({
 
 export default Table.make(() => RetrievalPublicationSetRow)
   .index("by_workspace_publication_set", ["workspaceId", "publicationSetKey"])
+  .index("by_workspace_subject_generation", [
+    "workspaceId",
+    "publicationSubjectKey",
+    "publicationGeneration",
+  ])
   .index("by_workspace_brain_source_state_generation", [
     "workspaceId",
     "brainKey",

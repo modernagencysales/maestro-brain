@@ -10,6 +10,7 @@ import {
   RetrievalOriginReference,
   RetrievalPassageKey,
   RetrievalPublicationSetKey,
+  RetrievalPublicationSubjectKey,
 } from "../brain/retrievalSchemas";
 
 export const RetrievalEntryRow = Schema.Struct({
@@ -17,6 +18,7 @@ export const RetrievalEntryRow = Schema.Struct({
   organizationKey: Schema.String,
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
+  publicationSubjectKey: Schema.optional(RetrievalPublicationSubjectKey),
   entryKey: RetrievalEntryKey,
   publicationSetKey: RetrievalPublicationSetKey,
   publicationGeneration: PositiveInteger,

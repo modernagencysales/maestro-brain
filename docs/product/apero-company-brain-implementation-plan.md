@@ -500,6 +500,15 @@ is not a delivery guarantee. Register a recurring internal sweeper, name its
 interval and deployment owner, and prove that a pending job converges when its
 initial scheduler invocation never runs.
 
+Every publish, retire, revoke, and cleanup effect rechecks its recorded subject
+pointer, controlling configuration and eligibility generations, and a
+non-reusable subject-incarnation epoch in the transaction that mutates derived
+state. A delayed effect whose fence no longer matches becomes `superseded`; it
+cannot retire a restored publication or change current health. Final origin
+purge preserves a content-free subject/fence tombstone containing allocator and
+incarnation history, so purge/recreate cannot reset publication generation or
+make a pre-purge effect authoritative again.
+
 Provider capture and publication-target resolution are separate durable effects.
 Once an admitted event is normalized, routing ambiguity, fan-out capacity, or
 downstream scheduling failure must not roll back its immutable receipt and
@@ -553,7 +562,9 @@ target-diff reconciliation that publishes added targets and retires removed
 targets. Source lifecycle cleanup includes every derived retrieval table so a
 purged origin cannot leave retrievable copied text. Cleanup retires or deletes
 retrieval entries and tokens before deleting the final origin/index row needed
-to discover them; rebuild enumeration alone is not a purge mechanism.
+to discover them, but preserves the content-free subject/fence tombstone and
+monotonic allocator described above; rebuild enumeration alone is not a purge
+mechanism.
 
 The required enqueue hooks are the Slack channel-policy mutation, the call-route
 review/acceptance mutation, and each provider-connection lifecycle or generation
@@ -666,6 +677,13 @@ deactivation of live policy, route, connection, and scope rows. Such a scope
 remains expected and unavailable/degraded until an explicit owner-approved
 decommission generation removes the intent. Revocation can never make the health
 report improve by making a required scope disappear.
+
+The mutation that activates or restores the owning policy, route, connection, or
+scope atomically creates or advances its required-intent generation. An
+owner-approved decommission compares and removes only the exact expected intent
+and controlling configuration generation. A stale decommission from an earlier
+generation cannot remove a restored requirement, and a crash cannot leave an
+active required scope without durable intent.
 
 Do not overload one timestamp or generation across four different facts. Keep
 explicit records for:
@@ -1165,6 +1183,11 @@ Use this merge train rather than promoting the current combined backend stack:
 
 **Classification:** `template-gap` (`CB-TG-01`)
 
+**Status:** implemented and verified on the current backend worktree. The
+focused publication suite passes 17/17, and `just verify-full` passes with 809
+Convex tests, 1,688 coverage tests, 84.96% line coverage, and 99.71% type
+coverage. This completes BE1-S1 only; it does not authorize the BE3 read switch.
+
 **Intention:** add revision-independent publication subjects and preserve one
 monotonic generation sequence across publish, replace, revoke, and restore.
 Projection reads remain disabled. This slice does not add reconciliation,
@@ -1352,6 +1375,10 @@ Implementation is not complete without explicit tests for:
 - evidence freshness deriving from provider/source modification time rather than
   ingestion or rebuild time;
 - publication generations remaining monotonic across revoke and restore;
+- a delayed revoke/cleanup effect from generation G1 executing after restore G2,
+  proving it becomes superseded without retiring G2 or changing health;
+- final purge followed by recreation plus replay of a pre-purge effect, proving
+  the content-free subject tombstone preserves allocator/incarnation fencing;
 - more than one revision-only lookup page of retired/ineligible matches before a
   current match, with deterministic pagination or typed overflow;
 - dead-letter repair recording the failed effect it resolves;
@@ -1363,6 +1390,8 @@ Implementation is not complete without explicit tests for:
   legacy evidence cannot reappear;
 - required scope deletion/deactivation remaining unavailable until an explicit
   decommission generation;
+- atomic required-intent creation at activation/restore and stale G1
+  decommission after G2 restore, including the activation crash boundary;
 - WP02 reads with legacy compatibility explicitly disabled;
 - cross-runtime candidate-manifest parity;
 - coverage reporting when a required corpus or connector is unavailable.
@@ -1386,6 +1415,7 @@ until every required row and the clean-branch gates pass.
 | Public `(publicationSetKey, entryKey)` identity                                | `test/retrieval-publication.test.ts`, `confect/brain/readApi.spec.ts`                                                    | Implemented                                                                    |
 | Origin-ledger hash/offset verification and corruption rejection                | `test/retrieval-publication.test.ts`                                                                                     | Current corpora implemented; document/projection resolvers await their ledgers |
 | Derived-table cleanup before final-origin purge                                | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                                         | Required                                                                       |
+| Stale effects cannot revoke a restored/recreated subject after purge           | `test/retrieval-publication-races.test.ts`, `test/data-lifecycle.test.ts`                                                | Required                                                                       |
 | Successful-close-only provider coverage and inferred removals                  | `test/provider-reconciliation.test.ts`                                                                                   | Required                                                                       |
 | Atomic provider-page cursor/observation/seen-marker commit                     | `test/provider-reconciliation.test.ts`                                                                                   | Required                                                                       |
 | Reconciliation high-water fence, resumable removal apply, and derived drain    | `test/provider-reconciliation.test.ts`, `test/retrieval-publication-races.test.ts`                                       | Required                                                                       |
@@ -1396,6 +1426,7 @@ until every required row and the clean-branch gates pass.
 | Health freshness and failures remain scoped to the affected corpus/connector   | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                                    | Required                                                                       |
 | Missing expected corpus is unavailable/unknown                                 | `test/headless-context.test.ts`                                                                                          | Implemented                                                                    |
 | Required scope intent survives deactivation until explicit decommission        | `test/headless-context.test.ts`, `test/provider-reconciliation.test.ts`                                                  | Required                                                                       |
+| Required-intent activation/restore is atomic and stale decommission is fenced  | `test/headless-context.test.ts`, `test/provider-reconciliation.test.ts`                                                  | Required                                                                       |
 | Organization rebuild beyond one enumeration page                               | `test/retrieval-publication.test.ts`                                                                                     | Implemented with explicit active-Brain capacity failure                        |
 | Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts`, `test/slack-ingress-runtime.test.ts`, `test/retrieval-publication-crons.test.ts`        | Implemented with durable capture, typed retry, sweeper, and complete resume    |
 | Provider replay lookup is indexed and bounded                                  | `test/slack-ingress-runtime.test.ts`                                                                                     | Implemented                                                                    |
@@ -1408,7 +1439,7 @@ until every required row and the clean-branch gates pass.
 | Full declared score is applied before the 40-candidate cap                     | `test/brain-pilot.test.ts`                                                                                               | Required                                                                       |
 | Slack historical cutoff excludes rebuild and delayed pre-cutoff evidence       | `test/retrieval-publication.test.ts`, `test/channel-policies.test.ts`                                                    | Implemented                                                                    |
 | Evidence freshness uses source modification time, not ingestion/rebuild time   | `test/retrieval-publication.test.ts`                                                                                     | Implemented                                                                    |
-| Publication generation remains monotonic through revoke/restore                | `test/retrieval-publication.test.ts`                                                                                     | Required                                                                       |
+| Publication generation remains monotonic through revoke/restore                | `test/retrieval-publication.test.ts`                                                                                     | Implemented                                                                    |
 | Terminal dead-letter repair is attributable and health reflects unresolved set | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                                         | Required                                                                       |
 | Read switch CAS rejects stale receipt or unresolved required effects           | `test/brain-rollout-operations.test.ts`, `test/retrieval-publication-races.test.ts`                                      | Required                                                                       |
 | Read switch CAS rejects claimed, leased, or running required effects           | `test/brain-rollout-operations.test.ts`, `test/retrieval-publication-races.test.ts`                                      | Required                                                                       |

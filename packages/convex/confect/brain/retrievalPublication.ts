@@ -38,6 +38,28 @@ export type RetrievalOrigin = {
   readonly routeGeneration: number;
 };
 
+export const retrievalPublicationSubjectKey = (
+  origin: Pick<
+    RetrievalOrigin,
+    | "workspaceId"
+    | "brainKey"
+    | "corpusKey"
+    | "originTable"
+    | "kind"
+    | "sourceKey"
+    | "connectorScopeKey"
+  >,
+) =>
+  `rsub_${hash({
+    workspaceId: origin.workspaceId,
+    brainKey: origin.brainKey,
+    corpusKey: origin.corpusKey,
+    originTable: origin.originTable,
+    kind: origin.kind,
+    sourceKey: origin.sourceKey,
+    connectorScopeKey: origin.connectorScopeKey ?? null,
+  })}`;
+
 export type RetrievalPassage = {
   readonly passageKey: string;
   readonly ordinal: number;
@@ -245,13 +267,9 @@ export const retrievalEntryKey = (
   passage: RetrievalPassage,
 ) =>
   `rent_${hash({
-    workspaceId: origin.workspaceId,
-    brainKey: origin.brainKey,
-    corpusKey: origin.corpusKey,
-    originTable: origin.originTable,
+    publicationSubjectKey: retrievalPublicationSubjectKey(origin),
     sourceRevisionKey: origin.sourceRevisionKey,
     passageKey: passage.passageKey,
-    routeGeneration: origin.routeGeneration,
   })}`;
 
 export const retrievalPublicationSetKey = (
@@ -259,6 +277,7 @@ export const retrievalPublicationSetKey = (
   publicationGeneration: number,
 ) =>
   `rset_${hash({
+    publicationSubjectKey: retrievalPublicationSubjectKey(origin),
     workspaceId: origin.workspaceId,
     brainKey: origin.brainKey,
     corpusKey: origin.corpusKey,

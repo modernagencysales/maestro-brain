@@ -139,6 +139,15 @@ Execute-mode component failures follow the same durable failure receipt path.
   publication jobs transactionally. The Confect cron owned by the backend
   platform runs every minute and schedules at most 20 due pending or retry-wait
   jobs, recovering work not delivered by the initial scheduler invocation.
+- **Publication-subject expand:** add `retrievalPublicationSubjects` with one
+  current-set pointer and monotonic generation allocator per stable Brain,
+  corpus, source/object, route target, and connector scope. Add optional
+  `publicationSubjectKey` to populated publication-set and entry tables, plus
+  optional `connectorScopeKey` to publication sets. New writers populate these
+  fields immediately. On the first post-expand publish or revoke for a legacy
+  source, the writer uses the existing indexed, bounded publication history to
+  initialize the subject before allocating another generation; BE2 performs the
+  complete bounded backfill before narrowing optional fields.
 - **Backfill:** enqueue `page_rebuild`, `slack_rebuild`, or `transcript_rebuild`
   publication jobs with batches of at most five source objects. Each successful
   non-final batch transactionally creates the next cursor-keyed job; provider
@@ -157,6 +166,10 @@ Execute-mode component failures follow the same durable failure receipt path.
   route/lifecycle revocation, all-corpus rebuild, projection search, ContextPack
   assembly, and headless parity. A named Vitest path that reports zero tests is
   not a passing receipt.
+- **Publication-subject verify:** require distinct subjects/current pointers for
+  one stable document object in two connector scopes, idempotent duplicate
+  publication, and generations `1 -> 2 -> revoke -> restore -> 3` without a
+  current-pointer reset.
 - **Read switch:** deploy additive tables and publishers first. Complete the
   page rebuild, verify corpus-health counts, then enable question-based
   `brain.context.get`. The temporary page-list compatibility path remains only
@@ -164,10 +177,16 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Contract:** remove the compatibility path only after all installed CLI/MCP
   manifests send a question and the E0 receipt proves the projection contains
   every approved page, Slack route, and transcript route.
+- **Publication-subject contract:** keep new fields optional until BE2 has
+  backfilled every legacy set/entry and proved one subject row per expected
+  logical publication. Only then narrow the schema in a separate migration.
 - **Rollback:** stop publication scheduling and route reads to the compatibility
   page path. The provider/page ledgers remain untouched. Derived publication
   rows may be retained for diagnosis and rebuilt later; rollback never deletes
   source revisions.
+- **Publication-subject rollback:** older readers ignore the additive subject
+  table and optional keys. Preserve subject rows and generation history; never
+  delete them during rollback because doing so can reset a later restore.
 
 ## Slack provider event ordering and replay lookup
 
