@@ -92,6 +92,8 @@ provider access by default.
 ### 4.1 Pilot scope
 
 - one Apero organization and agency Brain;
+- one trusted internal cohort, starting with one to two users and expanding to
+  five;
 - existing client Brains remain separate retrieval boundaries;
 - a reviewed `company-context/` bootstrap and policy folder;
 - one Ask Apero skill that works in Codex and Claude Code;
@@ -102,6 +104,12 @@ provider access by default.
 - a versioned evaluation set based on real Ask Apero questions;
 - web health and source-freshness visibility;
 - no broad agent write authority.
+
+The pilot optimizes first for correct data flow and retrieval quality. Selected
+source containers must be suitable for the full trusted cohort. It does not
+replicate provider-native per-document ACLs; mixed or private containers are
+excluded. Granular source permissions and delegated identity are post-pilot
+hardening unless actual pilot use makes them necessary.
 
 ### 4.2 Post-pilot scope
 
@@ -412,10 +420,14 @@ selector proves authorization for every requested Brain.
 
 ### 11.2 Agent credentials
 
-- Every installed agent/runtime receives a separate service identity.
+- During the pilot, each installed runtime receives a separate existing
+  read-only service identity for the Apero Brain.
 - Credentials are independently scoped, rotated, expired, and revoked.
 - Credentials are never committed to `company-context/`.
 - A credential identifies its intended surface and audience.
+
+Interactive delegated-user identity, device binding, and provider-native ACL
+mapping are not pilot dependencies.
 
 ### 11.3 Tool grants
 
