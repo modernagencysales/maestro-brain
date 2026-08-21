@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -371,6 +372,21 @@ describe("retrieval publication persistence", () => {
           publishPageRevisionEffect(publicationArgs(workspaceId)),
           resultSchema(),
         );
+        if (first.outcome !== "published") {
+          throw new Error("expected initial page publication");
+        }
+        const beforeUpdate = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline economics",
+          },
+        );
+        const originalEntry = beforeUpdate.results[0];
+        if (originalEntry === undefined)
+          throw new Error("missing original entry");
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -441,6 +457,16 @@ describe("retrieval publication persistence", () => {
             query: "durable pipeline economics",
           },
         );
+        const originalSource = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: first.publicationSetKey,
+            entryKey: originalEntry.entryKey,
+          },
+        );
         const sets = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -458,7 +484,7 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return { first, second, search, sets };
+        return { first, second, search, originalSource, sets };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -470,6 +496,14 @@ describe("retrieval publication persistence", () => {
     expect(result.search.results).toEqual([
       expect.objectContaining({ sourceRevisionKey: nextRevisionKey }),
     ]);
+    expect(result.originalSource).toMatchObject({
+      publicationSetKey: result.first.publicationSetKey,
+      sourceRevisionKey: revisionKey,
+      status: "superseded",
+      excerpt: expect.stringContaining(
+        "Apero helps agencies build qualified pipeline",
+      ),
+    });
     expect(
       result.sets.map(({ state }: { state: string }) => state).sort(),
     ).toEqual(["current", "retired"]);
@@ -521,15 +555,16 @@ describe("retrieval publication persistence", () => {
             entryKey: currentResult.entryKey,
           },
         );
-        const retiredSource = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+        const retiredSource = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesGet,
+          {
             organizationId,
             workspaceId,
             brainKey,
             publicationSetKey: first.publicationSetKey,
             entryKey: currentResult.entryKey,
-          })
-          .pipe(Effect.flip);
+          },
+        );
         const stored = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -575,8 +610,9 @@ describe("retrieval publication persistence", () => {
       result.second.publicationSetKey,
     );
     expect(result.retiredSource).toMatchObject({
-      _tag: "ValidationFailed",
-      field: "publicationSetKey",
+      publicationSetKey: result.first.publicationSetKey,
+      sourceRevisionKey: revisionKey,
+      status: "superseded",
     });
     expect(
       new Set(
@@ -606,10 +642,13 @@ describe("retrieval publication persistence", () => {
           seedPage,
           resultSchema(),
         );
-        yield* confect.run(
+        const published = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
           resultSchema(),
         );
+        if (published.outcome !== "published") {
+          throw new Error("expected page publication");
+        }
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
           {
@@ -644,7 +683,7 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return yield* confect
+        const sourceAttempt = yield* confect
           .query(refs.internal.brain.readApi.headlessSourcesGet, {
             organizationId,
             workspaceId,
@@ -652,13 +691,39 @@ describe("retrieval publication persistence", () => {
             publicationSetKey: entry.publicationSetKey,
             entryKey: entry.entryKey,
           })
-          .pipe(Effect.flip);
+          .pipe(Effect.either);
+        const searchAttempt = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesSearch, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline",
+          })
+          .pipe(Effect.either);
+        const contextAttempt = yield* confect
+          .query(refs.internal.brain.readApi.headlessContextGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the qualified pipeline?",
+          })
+          .pipe(Effect.either);
+        return { sourceAttempt, searchAttempt, contextAttempt };
       }).pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result).toMatchObject({
-      _tag: "CitationIntegrityFailure",
-      reason: "content_mismatch",
-    });
+    for (const attempt of [
+      result.sourceAttempt,
+      result.searchAttempt,
+      result.contextAttempt,
+    ]) {
+      expect(attempt).toMatchObject({
+        _tag: "Left",
+        left: {
+          _tag: "CitationIntegrityFailure",
+          reason: "content_mismatch",
+        },
+      });
+    }
   });
 
   it("persists a missing-origin failure and succeeds on a later sweep retry", async () => {
@@ -820,7 +885,7 @@ describe("retrieval publication persistence", () => {
     });
   });
 
-  it("revokes current retrieval when the page is archived", async () => {
+  it("fails page retrieval closed immediately when cleanup is lost", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const confect = yield* Effect.serviceOptional(
@@ -830,10 +895,24 @@ describe("retrieval publication persistence", () => {
           seedPage,
           resultSchema(),
         );
-        yield* confect.run(
+        const published = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
           resultSchema(),
         );
+        if (published.outcome !== "published") {
+          throw new Error("expected page publication");
+        }
+        const beforeArchive = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline",
+          },
+        );
+        const entryKey = beforeArchive.results[0]?.entryKey;
+        if (entryKey === undefined) throw new Error("missing page entry");
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -861,13 +940,6 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const revoked = yield* confect.run(
-          publishPageRevisionEffect({
-            ...publicationArgs(workspaceId),
-            now: now + 1,
-          }),
-          resultSchema(),
-        );
         const search = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
           {
@@ -877,15 +949,27 @@ describe("retrieval publication persistence", () => {
             query: "qualified pipeline",
           },
         );
-        return { revoked, search };
+        const sourceAttempt = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: published.publicationSetKey,
+            entryKey,
+          })
+          .pipe(Effect.either);
+        return { search, sourceAttempt };
       }).pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.revoked).toEqual({
-      outcome: "revoked",
-      entryCount: 0,
-      tokenCount: 0,
-    });
     expect(result.search.results).toEqual([]);
+    expect(Either.isLeft(result.sourceAttempt)).toBe(true);
+    if (Either.isRight(result.sourceAttempt)) {
+      throw new Error("expected archived citation to fail closed");
+    }
+    expect(result.sourceAttempt.left).toMatchObject({
+      _tag: "CitationIntegrityFailure",
+      reason: "origin_mismatch",
+    });
   });
 
   it("rebuilds active pages in bounded batches", async () => {

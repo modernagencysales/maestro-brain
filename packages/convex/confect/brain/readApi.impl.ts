@@ -663,6 +663,10 @@ const searchProjection = (
     }
     const active: Array<{
       entry: RetrievalEntriesDoc;
+      evidence: {
+        readonly text: string;
+        readonly locator?: string | undefined;
+      };
       score: number;
     }> = [];
     for (
@@ -699,9 +703,14 @@ const searchProjection = (
           (yield* publicationSetStateFor(entry.publicationSetKey)) !== "current"
         )
           continue;
+        if (!(yield* currentEntryEligible(entry))) continue;
+        const evidence = yield* verifyCitationEvidence(entry, brain, {
+          requireCurrentRevision: true,
+        });
         const freshness = freshnessFor(entry, at, healthByCorpus);
         active.push({
           entry,
+          evidence,
           score: retrievalScore({
             queryTokens,
             postings:
@@ -719,12 +728,21 @@ const searchProjection = (
           right.score - left.score ||
           left.entry.entryKey.localeCompare(right.entry.entryKey),
       )
-      .flatMap(({ entry }) => {
+      .flatMap(({ entry, evidence }) => {
         const count = perRevision.get(entry.sourceRevisionKey) ?? 0;
         if (count >= 3) return [];
         perRevision.set(entry.sourceRevisionKey, count + 1);
         return [
-          toRetrievalResult(entry, freshnessFor(entry, at, healthByCorpus)),
+          toRetrievalResult(
+            {
+              ...entry,
+              text: evidence.text,
+              ...(evidence.locator === undefined
+                ? { locator: undefined }
+                : { locator: evidence.locator }),
+            },
+            freshnessFor(entry, at, healthByCorpus),
+          ),
         ];
       })
       .slice(0, entryLimit);
@@ -849,6 +867,28 @@ const verifiedPassage = (
   return Effect.succeed(passage.text);
 };
 
+const currentEntryEligible = (entry: RetrievalEntriesDoc) =>
+  Effect.gen(function* () {
+    if (entry.origin.kind !== "page") return true;
+    const origin = entry.origin;
+    const reader = yield* DatabaseReader;
+    const page = yield* reader
+      .table("brainPages")
+      .index("by_workspace_page_key", (index) =>
+        index
+          .eq("workspaceId", entry.workspaceId)
+          .eq("pageKey", origin.pageKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    return (
+      page !== null &&
+      page.status === "active" &&
+      page.lifecycle?.state === "active" &&
+      page.currentRevisionKey === origin.revisionKey
+    );
+  });
+
 const verifyCitationEvidence = (
   entry: RetrievalEntriesDoc,
   brain: {
@@ -856,24 +896,41 @@ const verifyCitationEvidence = (
     readonly organizationKey: string;
     readonly workspaceId: string;
   },
+  options: { readonly requireCurrentRevision: boolean },
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const origin = entry.origin;
     if (origin.kind === "page") {
-      const revision = yield* reader
-        .table("pageRevisions")
-        .index("by_workspace_revision_key", (index) =>
-          index
-            .eq("workspaceId", brain.workspaceId)
-            .eq("revisionKey", origin.revisionKey),
-        )
-        .first()
-        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (revision === null)
+      const [page, revision] = yield* Effect.all([
+        reader
+          .table("brainPages")
+          .index("by_workspace_page_key", (index) =>
+            index
+              .eq("workspaceId", entry.workspaceId)
+              .eq("pageKey", origin.pageKey),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+        reader
+          .table("pageRevisions")
+          .index("by_workspace_revision_key", (index) =>
+            index
+              .eq("workspaceId", entry.workspaceId)
+              .eq("revisionKey", origin.revisionKey),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+      ]);
+      if (page === null || revision === null)
         return yield* citationFailure(entry, "origin_missing");
       if (
         String(revision.organizationId) !== String(brain.organizationId) ||
+        page.status !== "active" ||
+        page.lifecycle?.state !== "active" ||
+        page.pageKey !== origin.pageKey ||
+        (options.requireCurrentRevision &&
+          page.currentRevisionKey !== origin.revisionKey) ||
         entry.kind !== "page" ||
         entry.originTable !== "pageRevisions" ||
         entry.sourceKey !== origin.pageKey ||
@@ -955,7 +1012,8 @@ const verifyCitationEvidence = (
         entry.kind !== "transcript" ||
         entry.originTable !== "sourceUnitRevisions" ||
         entry.sourceKey !== origin.unitKey ||
-        unit.currentUnitRevisionKey !== origin.unitRevisionKey ||
+        (options.requireCurrentRevision &&
+          unit.currentUnitRevisionKey !== origin.unitRevisionKey) ||
         unit.lifecycle.state !== "active" ||
         revision.unitKey !== origin.unitKey ||
         revision.unitRevisionKey !== origin.unitRevisionKey ||
@@ -976,6 +1034,8 @@ const verifyCitationEvidence = (
         locator: `${revision.sourceUrl}#segment=${segment.segmentKey}`,
       };
     }
+    if (origin.kind === "document" || origin.kind === "projection")
+      return { text: entry.text, locator: entry.locator };
     return yield* citationFailure(entry, "unsupported_origin");
   });
 
@@ -1045,13 +1105,16 @@ const getSource = (
           .pipe(Effect.map(Option.getOrNull), Effect.orDie),
       ),
     );
-    const entry =
-      candidates.find(
-        (candidate, index) =>
-          candidate.state === "published" &&
+    const entryIndex = candidates.findIndex((candidate, index) =>
+      exactLookup
+        ? (candidate.state === "published" || candidate.state === "revoked") &&
+          (candidateSets[index]?.state === "current" ||
+            candidateSets[index]?.state === "retired")
+        : candidate.state === "published" &&
           candidateSets[index]?.state === "current",
-      ) ?? null;
-    if (entry === null || entry.state !== "published") {
+    );
+    const entry = entryIndex < 0 ? null : (candidates[entryIndex] ?? null);
+    if (entry === null) {
       if (exactLookup)
         return yield* new ValidationFailed({
           field: "publicationSetKey",
@@ -1092,7 +1155,9 @@ const getSource = (
       healthRows.map((row) => [row.corpusKey, row] as const),
     );
     const evidence = exactLookup
-      ? yield* verifyCitationEvidence(entry, brain)
+      ? yield* verifyCitationEvidence(entry, brain, {
+          requireCurrentRevision: false,
+        })
       : { text: entry.text, locator: entry.locator };
     return {
       brainKey: brain.brainKey,
@@ -1107,7 +1172,10 @@ const getSource = (
         freshnessFor(entry, at, healthByCorpus),
       ),
       revisionKey: entry.sourceRevisionKey,
-      status: "published",
+      status:
+        exactLookup && candidateSets[entryIndex]?.state === "retired"
+          ? "superseded"
+          : "published",
     };
   });
 
