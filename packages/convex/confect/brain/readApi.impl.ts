@@ -1,4 +1,5 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -173,6 +174,15 @@ const legacyTranscriptResult = (citation: ResolvedTranscriptCitation) => ({
 });
 
 const PER_TOKEN_POSTING_LIMIT = 1_000;
+const CORPUS_HEALTH_LIMIT = 512;
+const ACTIVE_SLACK_POLICY_LIMIT = 100;
+const ACTIVE_PROVIDER_CONNECTION_LIMIT = 20;
+
+const transcriptProviderConfigKeys = new Set(
+  Object.values(transcriptProviders).map(({ providerConfigKey }) =>
+    String(providerConfigKey),
+  ),
+);
 
 const freshnessFor = (
   entry: {
@@ -194,19 +204,44 @@ const freshnessFor = (
     : ("stale" as const);
 };
 
+type CorpusHealthRow = {
+  readonly corpusKey: string;
+  readonly coverageStatus: "complete" | "partial" | "unavailable" | "unknown";
+  readonly lastObservedAt?: number | undefined;
+  readonly lastPublishedAt?: number | undefined;
+  readonly lastReconciledAt?: number | undefined;
+  readonly freshnessThresholdMs: number;
+  readonly degradedReason?: string | undefined;
+};
+
+type CorpusCoverage = {
+  readonly sourceKind: string;
+  readonly status: "complete" | "partial" | "unavailable" | "unknown";
+  readonly freshness: "current" | "stale" | "unknown";
+  readonly lastSuccessfulAt?: number | undefined;
+  readonly reason?: string | undefined;
+};
+
+const coverageStatusRank: Record<CorpusCoverage["status"], number> = {
+  complete: 0,
+  partial: 1,
+  unknown: 2,
+  unavailable: 3,
+};
+
+const freshnessRank: Record<CorpusCoverage["freshness"], number> = {
+  current: 0,
+  unknown: 1,
+  stale: 2,
+};
+
 const coverageFor = (
-  rows: readonly {
-    readonly corpusKey: string;
-    readonly coverageStatus: "complete" | "partial" | "unavailable" | "unknown";
-    readonly lastObservedAt?: number | undefined;
-    readonly lastPublishedAt?: number | undefined;
-    readonly lastReconciledAt?: number | undefined;
-    readonly freshnessThresholdMs: number;
-    readonly degradedReason?: string | undefined;
-  }[],
+  rows: readonly CorpusHealthRow[],
+  expectedCorpora: ReadonlySet<string>,
   at: number,
-) =>
-  rows.map((row) => {
+) => {
+  const coverageByCorpus = new Map<string, CorpusCoverage>();
+  for (const row of rows) {
     const lastSuccessfulAt = Math.max(
       row.lastObservedAt ?? 0,
       row.lastPublishedAt ?? 0,
@@ -219,7 +254,7 @@ const coverageFor = (
         : at - freshnessVerifiedAt <= row.freshnessThresholdMs
           ? ("current" as const)
           : ("stale" as const);
-    return {
+    const candidate: CorpusCoverage = {
       sourceKind: row.corpusKey,
       status: row.coverageStatus,
       freshness,
@@ -228,6 +263,129 @@ const coverageFor = (
         ? {}
         : { reason: row.degradedReason }),
     };
+    const current = coverageByCorpus.get(row.corpusKey);
+    if (current === undefined) {
+      coverageByCorpus.set(row.corpusKey, candidate);
+      continue;
+    }
+    const reasons = [...new Set([current.reason, candidate.reason])].filter(
+      (reason): reason is string => reason !== undefined,
+    );
+    coverageByCorpus.set(row.corpusKey, {
+      sourceKind: row.corpusKey,
+      status:
+        coverageStatusRank[candidate.status] >
+        coverageStatusRank[current.status]
+          ? candidate.status
+          : current.status,
+      freshness:
+        freshnessRank[candidate.freshness] > freshnessRank[current.freshness]
+          ? candidate.freshness
+          : current.freshness,
+      ...((candidate.lastSuccessfulAt ?? 0) > 0 ||
+      (current.lastSuccessfulAt ?? 0) > 0
+        ? {
+            lastSuccessfulAt: Math.max(
+              candidate.lastSuccessfulAt ?? 0,
+              current.lastSuccessfulAt ?? 0,
+            ),
+          }
+        : {}),
+      ...(reasons.length === 0 ? {} : { reason: reasons.join("; ") }),
+    });
+  }
+  for (const corpusKey of expectedCorpora)
+    if (!coverageByCorpus.has(corpusKey))
+      coverageByCorpus.set(corpusKey, {
+        sourceKind: corpusKey,
+        status: "unavailable",
+        freshness: "unknown",
+        reason: "Expected corpus has no health record.",
+      });
+  return [...coverageByCorpus.values()].sort((left, right) =>
+    left.sourceKind.localeCompare(right.sourceKind),
+  );
+};
+
+const expectedCorporaFor = (brain: {
+  readonly organizationKey: string;
+  readonly brainKey: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const [
+      slackPolicies,
+      transcriptConnections,
+      currentRoutes,
+      acceptedRoutes,
+    ] = yield* Effect.all([
+      reader
+        .table("channelRoutingPolicies")
+        .index("by_organization_active", (index) =>
+          index.eq("organizationKey", brain.organizationKey).eq("active", true),
+        )
+        .take(ACTIVE_SLACK_POLICY_LIMIT + 1)
+        .pipe(Effect.orDie),
+      reader
+        .table("providerConnections")
+        .index("by_organization_status", (index) =>
+          index
+            .eq("organizationKey", brain.organizationKey)
+            .eq("status", "active"),
+        )
+        .take(ACTIVE_PROVIDER_CONNECTION_LIMIT + 1)
+        .pipe(Effect.orDie),
+      reader
+        .table("callRoutingProposals")
+        .index("by_org_outcome_status_brain", (index) =>
+          index
+            .eq("organizationKey", brain.organizationKey)
+            .eq("outcome", "routed")
+            .eq("status", "current")
+            .eq("brainKey", brain.brainKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+      reader
+        .table("callRoutingProposals")
+        .index("by_org_outcome_status_brain", (index) =>
+          index
+            .eq("organizationKey", brain.organizationKey)
+            .eq("outcome", "routed")
+            .eq("status", "accepted")
+            .eq("brainKey", brain.brainKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+    ]);
+    if (slackPolicies.length > ACTIVE_SLACK_POLICY_LIMIT)
+      return yield* new ValidationFailed({
+        field: "coverage.slack",
+        message: "Active Slack policy capacity exceeded.",
+      });
+    if (transcriptConnections.length > ACTIVE_PROVIDER_CONNECTION_LIMIT)
+      return yield* new ValidationFailed({
+        field: "coverage.transcripts",
+        message: "Active provider connection capacity exceeded.",
+      });
+    const expected = new Set<string>(["brain-pages"]);
+    if (
+      slackPolicies.some(
+        (policy) =>
+          policy.mode !== "capture_only" &&
+          policy.targetBrainKeys.includes(brain.brainKey),
+      )
+    )
+      expected.add("slack");
+    if (
+      transcriptConnections.some((connection) =>
+        transcriptProviderConfigKeys.has(connection.providerConfigKey),
+      ) ||
+      currentRoutes !== null ||
+      acceptedRoutes !== null
+    )
+      expected.add("transcripts");
+    return expected;
   });
 
 const contextFreshnessFor = (
@@ -352,7 +510,7 @@ const searchProjection = (
     const brain = yield* resolveReadBrain(selector);
     const reader = yield* DatabaseReader;
     const at = yield* now();
-    const [postingGroups, healthRows] = yield* Effect.all([
+    const [postingGroups, healthRows, expectedCorpora] = yield* Effect.all([
       Effect.all(
         queryTokens.map((token) =>
           reader
@@ -374,9 +532,15 @@ const searchProjection = (
             .eq("workspaceId", brain.workspaceId)
             .eq("brainKey", brain.brainKey),
         )
-        .take(100)
+        .take(CORPUS_HEALTH_LIMIT + 1)
         .pipe(Effect.orDie),
+      expectedCorporaFor(brain),
     ]);
+    if (healthRows.length > CORPUS_HEALTH_LIMIT)
+      return yield* new ValidationFailed({
+        field: "coverage",
+        message: "Corpus health capacity exceeded.",
+      });
     const omissions: Array<{ reason: string; count: number }> = [];
     const boundedGroups = postingGroups
       .map((postings, index) => ({
@@ -443,9 +607,20 @@ const searchProjection = (
           candidateKey,
         };
       });
-    const healthByCorpus = new Map(
-      healthRows.map((row) => [row.corpusKey, row] as const),
-    );
+    const healthByCorpus = new Map<
+      string,
+      { readonly freshnessThresholdMs: number }
+    >();
+    for (const row of healthRows) {
+      const current = healthByCorpus.get(row.corpusKey);
+      if (
+        current === undefined ||
+        row.freshnessThresholdMs < current.freshnessThresholdMs
+      )
+        healthByCorpus.set(row.corpusKey, {
+          freshnessThresholdMs: row.freshnessThresholdMs,
+        });
+    }
     const active: Array<{
       entry: RetrievalEntriesDoc;
       score: number;
@@ -523,7 +698,7 @@ const searchProjection = (
       brain,
       at,
       results,
-      coverage: coverageFor(healthRows, at),
+      coverage: coverageFor(healthRows, expectedCorpora, at),
       omissions,
     };
   });

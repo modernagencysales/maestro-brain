@@ -19,6 +19,10 @@ const contextGet = makeFunctionReference<
   {
     brainKey: string;
     entries: Array<{ sourceKey: string; excerpt: string }>;
+    coverage: Array<{
+      sourceKind: string;
+      status: "complete" | "partial" | "unavailable" | "unknown";
+    }>;
   }
 >("brain/readApi:headlessContextGet");
 const sourcesSearch = makeFunctionReference<
@@ -212,6 +216,38 @@ describe("headless Brain context", () => {
           inTitle: false,
           inHeading: false,
         });
+      await ctx.db.insert("channelRoutingPolicies", {
+        organizationKey: "ag_01J0000000000000000000000A",
+        connectionKey: "slack_headless_context",
+        connectionGeneration: 1,
+        channelKey: "channel_headless_context",
+        policyEpoch: 1,
+        active: true,
+        mode: "direct",
+        targetBrainKeys: ["br_01J0000000000000000000000B"],
+        statusAfterApply: "streaming",
+        pendingSourceInterval: null,
+        createdByRole: "owner",
+        createdAt: 1,
+      });
+      await ctx.db.insert("providerConnections", {
+        provider: "nango",
+        providerConfigKey: "fireflies",
+        organizationKey: "ag_01J0000000000000000000000A",
+        connectionKey: "fireflies_headless_context",
+        connectionGeneration: 1,
+        status: "active",
+        connectSessionId: "session_headless_context",
+        nangoConnectionId: "connection_headless_context",
+        nangoEndUserId: "end_user_headless_context",
+        nangoOrganizationId: "organization_headless_context",
+        correlationTag: "headless-context",
+        attemptId: "attempt_headless_context",
+        attemptExpiresAt: 2,
+        completedAt: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      });
       await ctx.db.insert("brainCorpusHealth", {
         schemaVersion: 1,
         organizationKey: "ag_01J0000000000000000000000A",
@@ -251,6 +287,31 @@ describe("headless Brain context", () => {
           excerpt: "verified source from the installed CLI",
         },
       ],
+      coverage: expect.arrayContaining([
+        expect.objectContaining({
+          sourceKind: "test-projection",
+          status: "partial",
+          freshness: "stale",
+        }),
+        {
+          sourceKind: "brain-pages",
+          status: "unavailable",
+          freshness: "unknown",
+          reason: "Expected corpus has no health record.",
+        },
+        {
+          sourceKind: "slack",
+          status: "unavailable",
+          freshness: "unknown",
+          reason: "Expected corpus has no health record.",
+        },
+        {
+          sourceKind: "transcripts",
+          status: "unavailable",
+          freshness: "unknown",
+          reason: "Expected corpus has no health record.",
+        },
+      ]),
     });
     await expect(
       t.query(sourcesSearch, { ...principal, query: "installed CLI" }),

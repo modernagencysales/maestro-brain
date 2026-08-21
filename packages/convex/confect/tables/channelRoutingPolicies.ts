@@ -42,5 +42,6 @@ export default Table.make(() => ChannelRoutingPolicyRow)
   .index("by_channel_epoch", ["channelKey", "policyEpoch"])
   .index("by_channel_active", ["channelKey", "active"])
   .index("by_organization_created", ["organizationKey", "createdAt"])
+  .index("by_organization_active", ["organizationKey", "active"])
   .index("by_organization_mode", ["organizationKey", "mode"])
   .index("by_connection_generation", ["connectionKey", "connectionGeneration"]);

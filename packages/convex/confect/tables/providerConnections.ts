@@ -42,6 +42,7 @@ export type ProviderConnectionRowValue = typeof ProviderConnectionRow.Type;
 
 export default Table.make(() => ProviderConnectionRow)
   .index("by_organization", ["organizationKey"])
+  .index("by_organization_status", ["organizationKey", "status"])
   .index("by_connection_key", ["connectionKey"])
   .index("by_connect_session", ["connectSessionId"])
   .index("by_attempt", ["attemptId"])
