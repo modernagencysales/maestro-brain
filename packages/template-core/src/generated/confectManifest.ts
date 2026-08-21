@@ -18,6 +18,7 @@ export const confectManifest = {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.answersAsk.args",
@@ -37,6 +38,7 @@ export const confectManifest = {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.contextGet.args",
@@ -340,6 +342,7 @@ export const confectManifest = {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesGet.args",
@@ -359,6 +362,7 @@ export const confectManifest = {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesSearch.args",
@@ -1786,6 +1790,7 @@ const sharedConfectJsonSchemas = {
             "sourceKey",
             "sourceRevisionKey",
             "entryKey",
+            "publicationSetKey",
             "passageKey",
             "startOffset",
             "endOffset",
@@ -1810,6 +1815,9 @@ const sharedConfectJsonSchemas = {
               type: "string",
             },
             entryKey: {
+              type: "string",
+            },
+            publicationSetKey: {
               type: "string",
             },
             passageKey: {
@@ -1938,6 +1946,9 @@ const sharedConfectJsonSchemas = {
       entryKey: {
         type: "string",
       },
+      publicationSetKey: {
+        type: "string",
+      },
     },
     additionalProperties: false,
   },
@@ -1948,6 +1959,7 @@ const sharedConfectJsonSchemas = {
       "sourceKey",
       "sourceRevisionKey",
       "entryKey",
+      "publicationSetKey",
       "passageKey",
       "startOffset",
       "endOffset",
@@ -1975,6 +1987,9 @@ const sharedConfectJsonSchemas = {
         type: "string",
       },
       entryKey: {
+        type: "string",
+      },
+      publicationSetKey: {
         type: "string",
       },
       passageKey: {
@@ -2086,6 +2101,7 @@ const sharedConfectJsonSchemas = {
             "sourceKey",
             "sourceRevisionKey",
             "entryKey",
+            "publicationSetKey",
             "passageKey",
             "startOffset",
             "endOffset",
@@ -2110,6 +2126,9 @@ const sharedConfectJsonSchemas = {
               type: "string",
             },
             entryKey: {
+              type: "string",
+            },
+            publicationSetKey: {
               type: "string",
             },
             passageKey: {

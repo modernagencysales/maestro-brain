@@ -14,6 +14,20 @@ import { Id } from "../_generated/id";
 
 const BrainKey = Schema.String;
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
+export class CitationIntegrityFailure extends Schema.TaggedError<CitationIntegrityFailure>()(
+  "CitationIntegrityFailure",
+  {
+    publicationSetKey: Schema.String,
+    entryKey: Schema.String,
+    reason: Schema.Literal(
+      "origin_missing",
+      "origin_mismatch",
+      "passage_missing",
+      "content_mismatch",
+      "unsupported_origin",
+    ),
+  },
+) {}
 const Errors = Schema.Union(
   Unauthorized,
   Forbidden,
@@ -22,6 +36,7 @@ const Errors = Schema.Union(
   PageNotFound,
   ValidationFailed,
   SubsystemDisabled,
+  CitationIntegrityFailure,
 );
 const SearchArgs = Schema.extend(
   BrainSelector,
@@ -31,6 +46,7 @@ export const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
   entryKey: Schema.String,
+  publicationSetKey: Schema.String,
   passageKey: Schema.String,
   startOffset: Schema.Number,
   endOffset: Schema.Number,
@@ -72,6 +88,7 @@ const SourceGetArgs = Schema.extend(
   Schema.Struct({
     sourceRevisionKey: Schema.optional(Schema.String),
     entryKey: Schema.optional(Schema.String),
+    publicationSetKey: Schema.optional(Schema.String),
   }),
 );
 const SourceGetReturns = Schema.extend(
@@ -154,6 +171,7 @@ const query = <
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       idempotent: true,
       argsSchemaName: `brain.readApi.${name}.args`,

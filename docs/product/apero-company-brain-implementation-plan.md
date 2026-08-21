@@ -71,13 +71,14 @@ post-pilot hardening unless real pilot use proves one is immediately required.
 
 ### Current Engineering Checkpoint
 
-Commits through `02fe9c12` establish the first retrieval-publication vertical
-slice. They provide current-publication identity, truthful freshness, durable
+The current backend branch establishes the first retrieval-publication vertical
+slice. It provides current-publication identity, truthful freshness, durable
 publication jobs, a registered one-minute recovery sweeper, bounded durable
 page/Slack/transcript rebuild continuations, Slack-policy and accepted-call
-target reconciliation, and provider-connection generation fencing. The worktree
-is clean; formatting, lint, the Convex package typecheck, focused backend tests,
-Confect contracts, and headless-surface contracts pass.
+target reconciliation, provider-connection generation fencing, transcript
+revision ordering, exact `(publicationSetKey, entryKey)` reads, and immutable
+page/Slack/transcript citation verification. Focused backend tests, the Convex
+package typecheck, Confect contracts, and headless-surface contracts pass.
 
 This remains an implementation checkpoint, not a rollout checkpoint. The full
 repository verification gate is red in the transplanted web application. Before
@@ -949,20 +950,20 @@ Keep this table current in every WP02 PR. “Implemented” means the named focu
 test passes on the current backend branch; it does not authorize the read switch
 until every required row and the clean-branch gates pass.
 
-| Acceptance behavior                                                             | Exact evidence location                                                                                      | Current status |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------- |
-| Durable jobs, lost-schedule recovery, cursor continuation                       | `test/retrieval-publication.test.ts`, `test/retrieval-publication-crons.test.ts`                             | Implemented    |
-| Slack policy and accepted call-route target diffs                               | `test/channel-policies.test.ts`, `test/call-review.test.ts`, `confect/capabilities/routeCallToBrain.test.ts` | Implemented    |
-| Connection-generation fencing and rebuild enqueue                               | `test/transcript-connections.test.ts`, `test/retrieval-publication.test.ts`                                  | Implemented    |
-| Delayed v2 after v3; equal-order conflict; tombstone/recreation                 | `test/source-unit-ingestion.test.ts`                                                                         | Implemented    |
-| Public `(publicationSetKey, entryKey)` identity and policy-only citation reopen | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required       |
-| Origin-ledger hash/offset verification and corruption rejection                 | `test/brain-pilot.test.ts`                                                                                   | Required       |
-| Derived-table cleanup before final-origin purge                                 | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required       |
-| Successful-close-only complete coverage and dead-letter health                  | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required       |
-| Missing expected corpus is unavailable/unknown                                  | `test/headless-context.test.ts`                                                                              | Required       |
-| Organization rebuild beyond one enumeration page                                | `test/retrieval-publication.test.ts`                                                                         | Required       |
-| Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Required       |
-| Compatibility disabled and Codex/Claude manifest parity                         | `test/headless-context.test.ts` plus pinned runtime fixture receipt                                          | Required       |
+| Acceptance behavior                                                             | Exact evidence location                                                                                      | Current status                                                                 |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Durable jobs, lost-schedule recovery, cursor continuation                       | `test/retrieval-publication.test.ts`, `test/retrieval-publication-crons.test.ts`                             | Implemented                                                                    |
+| Slack policy and accepted call-route target diffs                               | `test/channel-policies.test.ts`, `test/call-review.test.ts`, `confect/capabilities/routeCallToBrain.test.ts` | Implemented                                                                    |
+| Connection-generation fencing and rebuild enqueue                               | `test/transcript-connections.test.ts`, `test/retrieval-publication.test.ts`                                  | Implemented                                                                    |
+| Delayed v2 after v3; equal-order conflict; tombstone/recreation                 | `test/source-unit-ingestion.test.ts`                                                                         | Implemented                                                                    |
+| Public `(publicationSetKey, entryKey)` identity and policy-only citation reopen | `test/retrieval-publication.test.ts`, generated Confect contract, `check:headless-surface-contract`          | Implemented                                                                    |
+| Origin-ledger hash/offset verification and corruption rejection                 | `test/retrieval-publication.test.ts`                                                                         | Current corpora implemented; document/projection resolvers await their ledgers |
+| Derived-table cleanup before final-origin purge                                 | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required                                                                       |
+| Successful-close-only complete coverage and dead-letter health                  | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required                                                                       |
+| Missing expected corpus is unavailable/unknown                                  | `test/headless-context.test.ts`                                                                              | Required                                                                       |
+| Organization rebuild beyond one enumeration page                                | `test/retrieval-publication.test.ts`                                                                         | Required                                                                       |
+| Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Required                                                                       |
+| Compatibility disabled and Codex/Claude manifest parity                         | `test/headless-context.test.ts` plus pinned runtime fixture receipt                                          | Required                                                                       |
 
 Each required row gains an engineering owner in its PR. Real-provider receipts
 add the context owner and connector/access owner before WP03 or WP05 acceptance.

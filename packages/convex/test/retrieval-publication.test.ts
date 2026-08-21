@@ -70,6 +70,33 @@ const seedPage = Effect.gen(function* () {
       updatedAt: now,
     })
     .pipe(Effect.orDie);
+  yield* writer
+    .table("organizationMembers")
+    .insert({
+      organizationId,
+      userId,
+      role: "viewer",
+      status: "active",
+      acceptedAt: now,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("workspaceMembers")
+    .insert({
+      workspaceId,
+      userId,
+      role: "viewer",
+      status: "active",
+      acceptedAt: now,
+      revokedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
   const lifecycle = {
     state: "active" as const,
     generation: 1,
@@ -169,6 +196,16 @@ describe("retrieval publication persistence", () => {
             query: "qualified pipeline economics",
           },
         );
+        const publicReader = confect.withIdentity({
+          subject: "publisher",
+          email: "publisher@example.com",
+          emailVerified: true,
+          workosOrganizationId: "org_publisher",
+        });
+        const publicSearch = yield* publicReader.query(
+          refs.public.brain.readApi.sourcesSearch,
+          { brainKey, query: "qualified pipeline economics" },
+        );
         const context = yield* confect.query(
           refs.internal.brain.readApi.headlessContextGet,
           {
@@ -178,6 +215,24 @@ describe("retrieval publication persistence", () => {
             question: "What is the pipeline economics model?",
           },
         );
+        const firstResult = search.results[0];
+        if (firstResult === undefined) throw new Error("missing search result");
+        const source = yield* publicReader.query(
+          refs.public.brain.readApi.sourcesGet,
+          {
+            brainKey,
+            publicationSetKey: firstResult.publicationSetKey,
+            entryKey: firstResult.entryKey,
+          },
+        );
+        const missingTuple = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            entryKey: firstResult.entryKey,
+          })
+          .pipe(Effect.flip);
         const stored = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -205,7 +260,16 @@ describe("retrieval publication persistence", () => {
           }),
           AnyResult,
         );
-        return { first, duplicate, search, context, stored };
+        return {
+          first,
+          duplicate,
+          search,
+          publicSearch,
+          source,
+          missingTuple,
+          context,
+          stored,
+        };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -232,12 +296,26 @@ describe("retrieval publication persistence", () => {
         sourceKey: pageKey,
         sourceRevisionKey: revisionKey,
         entryKey: expect.stringMatching(/^rent_/),
+        publicationSetKey: result.first.publicationSetKey,
         passageKey: expect.stringMatching(/^rpass_/),
         contentHash: expect.stringMatching(/^sha256:/),
         authority: "derived",
         freshness: "stale",
+        citationKey: `citation:${result.first.publicationSetKey}:${result.search.results[0]?.entryKey}`,
       }),
     ]);
+    expect(result.publicSearch).toEqual(result.search);
+    expect(result.source).toMatchObject({
+      publicationSetKey: result.first.publicationSetKey,
+      entryKey: result.search.results[0]?.entryKey,
+      excerpt:
+        "# ICP\n\nApero helps agencies build qualified pipeline.\n\n## Economics\n\nRevenue follows close rate.",
+      status: "published",
+    });
+    expect(result.missingTuple).toMatchObject({
+      _tag: "ValidationFailed",
+      field: "publicationSetKey",
+    });
     expect(result.context).toMatchObject({
       organizationKey,
       brainKey,
@@ -247,6 +325,7 @@ describe("retrieval publication persistence", () => {
         {
           sourceRevisionKey: revisionKey,
           entryKey: result.search.results[0]?.entryKey,
+          publicationSetKey: result.first.publicationSetKey,
           passageKey: result.search.results[0]?.passageKey,
         },
       ],
@@ -425,6 +504,28 @@ describe("retrieval publication persistence", () => {
             query: "qualified pipeline economics",
           },
         );
+        const currentResult = search.results[0];
+        if (currentResult === undefined)
+          throw new Error("missing search result");
+        const currentSource = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: currentResult.publicationSetKey,
+            entryKey: currentResult.entryKey,
+          },
+        );
+        const retiredSource = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: first.publicationSetKey,
+            entryKey: currentResult.entryKey,
+          })
+          .pipe(Effect.flip);
         const stored = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -446,7 +547,7 @@ describe("retrieval publication persistence", () => {
           }),
           AnyResult,
         );
-        return { first, second, search, stored };
+        return { first, second, search, currentSource, retiredSource, stored };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -463,6 +564,16 @@ describe("retrieval publication persistence", () => {
         authorityPolicyKey: "company-pages-reviewed",
       }),
     ]);
+    expect(result.search.results[0]?.entryKey).toBe(
+      result.currentSource.entryKey,
+    );
+    expect(result.currentSource.publicationSetKey).toBe(
+      result.second.publicationSetKey,
+    );
+    expect(result.retiredSource).toMatchObject({
+      _tag: "ValidationFailed",
+      field: "publicationSetKey",
+    });
     expect(
       new Set(
         result.stored.tokens.map(
@@ -472,6 +583,78 @@ describe("retrieval publication persistence", () => {
       ),
     ).toEqual(new Set([result.second.publicationSetKey]));
     expect(result.stored.entries).toHaveLength(2);
+    expect(
+      new Set(
+        result.stored.entries.map(
+          ({ entryKey }: { entryKey: string }) => entryKey,
+        ),
+      ),
+    ).toEqual(new Set([result.search.results[0]?.entryKey]));
+  });
+
+  it("rejects copied projection text that no longer matches the page ledger", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          AnyResult,
+        );
+        yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          AnyResult,
+        );
+        const search = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline",
+          },
+        );
+        const entry = search.results[0];
+        if (entry === undefined) throw new Error("missing search result");
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const stored = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", entry.publicationSetKey)
+                  .eq("entryKey", entry.entryKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (stored._tag === "None") throw new Error("missing entry");
+            yield* writer
+              .table("retrievalEntries")
+              .patch(stored.value._id, { text: "corrupted projection text" })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        return yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: entry.publicationSetKey,
+            entryKey: entry.entryKey,
+          })
+          .pipe(Effect.flip);
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toMatchObject({
+      _tag: "CitationIntegrityFailure",
+      reason: "content_mismatch",
+    });
   });
 
   it("persists a missing-origin failure and succeeds on a later sweep retry", async () => {
@@ -1031,6 +1214,18 @@ describe("retrieval publication persistence", () => {
             query: "repeatable qualified pipeline",
           },
         );
+        const resultEntry = search.results[0];
+        if (resultEntry === undefined) throw new Error("missing Slack result");
+        const source = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          },
+        );
         const rebuilt = yield* confect.run(
           rebuildSlackBatchEffect({
             organizationKey,
@@ -1093,7 +1288,7 @@ describe("retrieval publication persistence", () => {
             query: "repeatable qualified pipeline",
           },
         );
-        return { published, search, rebuilt, revoked, afterRevocation };
+        return { published, search, source, rebuilt, revoked, afterRevocation };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -1108,6 +1303,13 @@ describe("retrieval publication persistence", () => {
         authority: "advisory",
       }),
     ]);
+    expect(result.source).toMatchObject({
+      publicationSetKey: result.published.publicationSetKey,
+      sourceRevisionKey,
+      excerpt: "Our ICP is agencies that need a repeatable qualified pipeline.",
+      locator: "https://slack.example/archives/C_SALES/p1",
+      status: "published",
+    });
     expect(result.rebuilt).toMatchObject({
       processed: 1,
       published: 1,
@@ -1266,6 +1468,19 @@ describe("retrieval publication persistence", () => {
             question: "What is the qualified pipeline close-rate target?",
           },
         );
+        const resultEntry = context.entries[0];
+        if (resultEntry === undefined)
+          throw new Error("missing transcript result");
+        const source = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          },
+        );
         const rebuilt = yield* confect.run(
           rebuildTranscriptBatchEffect({
             organizationKey,
@@ -1328,7 +1543,14 @@ describe("retrieval publication persistence", () => {
             question: "What is the qualified pipeline close-rate target?",
           },
         );
-        return { published, context, rebuilt, revoked, afterGenerationChange };
+        return {
+          published,
+          context,
+          source,
+          rebuilt,
+          revoked,
+          afterGenerationChange,
+        };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -1343,6 +1565,16 @@ describe("retrieval publication persistence", () => {
         locator: `https://calls.example/call_1#segment=${segmentKey}`,
       }),
     ]);
+    expect(result.source).toMatchObject({
+      publicationSetKey: result.published.publicationSetKey,
+      sourceRevisionKey: unitRevisionKey,
+      unitKey,
+      segmentKey,
+      excerpt:
+        "The close-rate target is thirty percent for qualified pipeline.",
+      locator: `https://calls.example/call_1#segment=${segmentKey}`,
+      status: "published",
+    });
     expect(result.rebuilt).toMatchObject({
       processed: 1,
       published: 1,
