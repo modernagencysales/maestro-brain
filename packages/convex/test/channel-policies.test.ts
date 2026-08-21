@@ -677,7 +677,7 @@ describe("Slack channel policy contract", () => {
               updatedAt: 1_000,
             })
             .pipe(Effect.orDie);
-          yield* writer
+          const seededWorkspaceId = yield* writer
             .table("workspaces")
             .insert({
               organizationId,
@@ -692,15 +692,37 @@ describe("Slack channel policy contract", () => {
               updatedAt: 1_000,
             })
             .pipe(Effect.orDie);
+          const betaWorkspaceId = yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "brain_beta",
+              slug: "beta",
+              name: "Beta",
+              kind: "client",
+              status: "active",
+              dataClassification: "confidential",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
           yield* writer
             .table("sourceChannels")
             .insert({ ...joinedChannel, organizationKey: "agency_acme" })
             .pipe(Effect.orDie);
-          return { organizationId, otherOrganizationId };
+          return {
+            organizationId,
+            otherOrganizationId,
+            seededWorkspaceId,
+            betaWorkspaceId,
+          };
         }),
         Schema.Struct({
           organizationId: Id("organizations"),
           otherOrganizationId: Id("organizations"),
+          seededWorkspaceId: Id("workspaces"),
+          betaWorkspaceId: Id("workspaces"),
         }),
       );
 
@@ -709,6 +731,23 @@ describe("Slack channel policy contract", () => {
         expectedConnectionGeneration: 4,
         expectedChannelAccessGeneration: 2,
         changes: baseRequest.changes,
+      });
+      const reassigned = yield* authed.mutation(bulkSetRef, {
+        organizationKey: "agency_acme",
+        expectedConnectionGeneration: 4,
+        expectedChannelAccessGeneration: 2,
+        changes: [
+          {
+            channelKey: joinedChannel.channelKey,
+            expectedRoutingPolicyEpoch: 1,
+            expectedDeliveryGeneration: 1,
+            routing: {
+              mode: "direct",
+              targetBrainKeys: ["brain_beta"],
+            },
+            delivery: { mode: "requester_private" },
+          },
+        ],
       });
       const denied = yield* Effect.either(
         authed.mutation(bulkSetRef, {
@@ -738,12 +777,42 @@ describe("Slack channel policy contract", () => {
             )
             .collect()
             .pipe(Effect.orDie);
-          return { routing };
+          const [removedTargetJobs, addedTargetJobs] = yield* Effect.all([
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.seededWorkspaceId)
+                  .eq("brainKey", "brain_alpha")
+                  .eq("originKind", "slack_rebuild")
+                  .eq(
+                    "sourceRevisionKey",
+                    `policy:${joinedChannel.channelKey}:2`,
+                  ),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.betaWorkspaceId)
+                  .eq("brainKey", "brain_beta")
+                  .eq("originKind", "slack_rebuild")
+                  .eq(
+                    "sourceRevisionKey",
+                    `policy:${joinedChannel.channelKey}:2`,
+                  ),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+          ]);
+          return { routing, removedTargetJobs, addedTargetJobs };
         }),
         Schema.Any,
       );
 
-      return { applied, denied, rows, seeded };
+      return { applied, reassigned, denied, rows, seeded };
     }).pipe(Effect.provide(channelPolicyTestConfectLayer()));
 
     const result = await Effect.runPromise(program);
@@ -752,7 +821,25 @@ describe("Slack channel policy contract", () => {
       applied: 1,
       auditAction: "channel_policy_bulk_update",
     });
-    expect(result.rows.routing).toHaveLength(1);
+    expect(result.reassigned).toEqual({
+      applied: 1,
+      auditAction: "channel_policy_bulk_update",
+    });
+    expect(result.rows.routing).toHaveLength(2);
+    expect(result.rows.removedTargetJobs).toEqual([
+      expect.objectContaining({
+        status: "pending",
+        sourceKey: joinedChannel.channelKey,
+        rebuild: { limit: 5 },
+      }),
+    ]);
+    expect(result.rows.addedTargetJobs).toEqual([
+      expect.objectContaining({
+        status: "pending",
+        sourceKey: joinedChannel.channelKey,
+        rebuild: { limit: 5 },
+      }),
+    ]);
     expect(result.denied._tag).toBe("Left");
     if (result.denied._tag === "Left") {
       expect(result.denied.left).toMatchObject({

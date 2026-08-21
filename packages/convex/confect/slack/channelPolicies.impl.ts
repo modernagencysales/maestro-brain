@@ -1,5 +1,6 @@
 import { Ref } from "@confect/core";
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import type * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -18,6 +19,7 @@ import {
 } from "../access/audit";
 import { loadCurrentUser } from "../access/handlerContext";
 import { roleAtLeast, type Role } from "../access/roles";
+import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import type { ChannelDeliveryPolicyRowValue } from "../tables/channelDeliveryPolicies";
 import type { ChannelRoutingPolicyRowValue } from "../tables/channelRoutingPolicies";
 import type { SourceChannelRowValue } from "../tables/sourceChannels";
@@ -102,6 +104,7 @@ const loadBrainTargets = (
     .take(26)
     .pipe(Effect.orDie) as Effect.Effect<
     readonly {
+      readonly _id: GenericId<"workspaces">;
       readonly brainKey?: string;
       readonly name?: string;
       readonly organizationId: string;
@@ -308,6 +311,7 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
       });
       if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
       const policyWriter = writer as unknown as PolicyWriter;
+      const priorActiveRouting = activeMap(policies.routing);
       for (const routingPolicy of planned.right.routingPolicies) {
         yield* deactivateActivePolicy(
           policyWriter,
@@ -319,6 +323,30 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
           .table("channelRoutingPolicies")
           .insert(routingPolicy)
           .pipe(Effect.orDie);
+        const targetBrainKeys = new Set([
+          ...(priorActiveRouting.get(routingPolicy.channelKey)
+            ?.targetBrainKeys ?? []),
+          ...routingPolicy.targetBrainKeys,
+        ]);
+        for (const target of workspaces.filter(
+          (workspace) =>
+            workspace.status === "active" &&
+            workspace.brainKey !== undefined &&
+            targetBrainKeys.has(workspace.brainKey),
+        ))
+          yield* enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey: input.organizationKey,
+              workspaceId: target._id,
+              brainKey: target.brainKey ?? "",
+              originKind: "slack_rebuild",
+              sourceKey: routingPolicy.channelKey,
+              sourceRevisionKey: `policy:${routingPolicy.channelKey}:${routingPolicy.policyEpoch}`,
+              requestGeneration: routingPolicy.policyEpoch,
+              rebuild: { limit: 5 },
+            },
+            now,
+          );
       }
       for (const deliveryPolicy of planned.right.deliveryPolicies) {
         yield* deactivateActivePolicy(
