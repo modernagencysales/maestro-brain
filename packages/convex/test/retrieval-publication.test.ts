@@ -237,6 +237,7 @@ describe("retrieval publication persistence", () => {
       organizationKey,
       brainKey,
       question: "What is the pipeline economics model?",
+      freshness: { status: "stale" },
       entries: [
         {
           sourceRevisionKey: revisionKey,

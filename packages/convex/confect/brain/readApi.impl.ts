@@ -207,10 +207,11 @@ const coverageFor = (
       row.lastPublishedAt ?? 0,
       row.lastReconciledAt ?? 0,
     );
+    const freshnessVerifiedAt = row.lastReconciledAt ?? row.lastObservedAt ?? 0;
     const freshness =
-      lastSuccessfulAt === 0
+      freshnessVerifiedAt === 0
         ? ("unknown" as const)
-        : at - lastSuccessfulAt <= row.freshnessThresholdMs
+        : at - freshnessVerifiedAt <= row.freshnessThresholdMs
           ? ("current" as const)
           : ("stale" as const);
     return {
@@ -223,6 +224,21 @@ const coverageFor = (
         : { reason: row.degradedReason }),
     };
   });
+
+const contextFreshnessFor = (
+  coverage: readonly {
+    readonly freshness: "current" | "stale" | "unknown";
+  }[],
+) => {
+  if (coverage.some(({ freshness }) => freshness === "stale"))
+    return "stale" as const;
+  if (
+    coverage.length === 0 ||
+    coverage.some(({ freshness }) => freshness === "unknown")
+  )
+    return "unknown" as const;
+  return "current" as const;
+};
 
 const toRetrievalResult = (
   entry: {
@@ -723,7 +739,7 @@ const getContext = (
         brainKey: projection.brain.brainKey,
         question,
         asOf: projection.at,
-        freshness: { status: "current" as const },
+        freshness: { status: contextFreshnessFor(projection.coverage) },
         coverage: projection.coverage,
         entries,
         omissions: [
