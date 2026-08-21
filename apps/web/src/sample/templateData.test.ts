@@ -48,6 +48,7 @@ describe("template sample data", () => {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
       ],
       authScope: "workspace member",
     });
