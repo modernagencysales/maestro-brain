@@ -1,7 +1,8 @@
 # Apero Company Brain Data-First Implementation Plan
 
-**Status:** reviewed execution plan; engineering may continue, but read switch,
-deployment, and pilot remain blocked by the WP02 completion gates below
+**Status:** execution-ready plan; engineering may continue, but the current
+implementation is not read-switch-, deployment-, or pilot-ready until the
+completion gates below pass
 
 **Date:** 2026-08-21
 
@@ -78,9 +79,11 @@ page/Slack/transcript rebuild continuations, Slack-policy and accepted-call
 target reconciliation, provider-connection generation fencing, transcript
 revision ordering, exact `(publicationSetKey, entryKey)` reads, and immutable
 page/Slack/transcript citation verification. Legacy reads require an explicit
-per-request opt-in and are disabled by default. Focused backend tests, the
-Convex package typecheck, Confect contracts, and headless-surface contracts
-pass.
+per-request opt-in and are disabled by default. The committed focused backend
+checkpoint, Convex package typecheck, Confect contracts, and headless-surface
+contracts pass. Retrieval now classifies current and retired postings before
+applying one bounded budget, supports optional pre-backfill token state, and
+fails visibly instead of returning a partial result above capacity.
 
 This remains an implementation checkpoint, not a rollout checkpoint. The full
 repository verification gate is red in the transplanted web application. Before
@@ -112,11 +115,12 @@ it cannot be deployed into the pilot while the full gate is red.
 - compatibility reads are explicitly gated and disabled in WP02 acceptance and
   pilot receipts, so an empty projection cannot be masked by legacy reads.
 
-As of 2026-08-21, `just verify` passes formatting and lint, then fails at the
-web package typecheck with the canonical SaaS UI transplant backlog. The mixed
-branch is not merge-, deploy-, or pilot-ready. Backend work may continue behind
-focused gates, but release requires a clean, default-branch-derived Brain PR and
-a separately reviewable UI repair stream that both pass their full gates.
+As of 2026-08-21, the fast `just verify` chain reaches the canonical SaaS UI
+transplant backlog and the complete `just verify-full` / `pnpm verify` gate is
+also red. The mixed branch is not merge-, deploy-, or pilot-ready. Backend work
+may continue behind focused gates, but release requires a clean,
+default-branch-derived Brain PR and a separately reviewable UI repair stream
+that both pass `just verify-full`.
 
 ## 4. Pilot Acceptance Contract
 
@@ -348,6 +352,8 @@ type RetrievalToken = {
   organizationKey: string;
   workspaceId: string;
   brainKey: string;
+  publicationSetKey: string;
+  publicationState?: "current" | "retired";
   tokenizerVersion: 1;
   token: string;
   entryKey: string;
@@ -868,11 +874,14 @@ Indicative ranges assume one primary engineer with timely business decisions:
 | C     | WP07 structured source only when measured gaps justify it | 1-2 engineering weeks   |
 | Pilot | WP08-WP09 dogfood closure and five-user pilot             | 2-3 calendar weeks      |
 
-Inventory, evaluation capture, snapshot review, and skill packaging begin
-immediately. Two-user dogfood begins only after B1-B3 pass; this avoids
-launching on a legacy page-read path that would later be replaced. Drive adapter
-unit work may overlap B2-B3 behind fixtures, but live ingestion begins only
-after WP02 is green. Track C is conditional.
+Before new feature work, complete B0: preserve the committed atomic
+retrieval-capacity slice, obtain a clean worktree, and extract the UI and
+backend phases onto default-branch-derived branches. Inventory, evaluation
+capture, snapshot review, and fixture-only skill packaging may continue in
+parallel. Two-user dogfood begins only after B1-B3 pass; this avoids launching
+on a legacy page-read path that would later be replaced. Drive adapter unit work
+may overlap B2-B3 behind fixtures, but live ingestion begins only after WP02 is
+green. Track C is conditional.
 
 Use a merge train rather than one mixed rollout commit:
 
@@ -882,10 +891,10 @@ Use a merge train rather than one mixed rollout commit:
 4. switch canonical reads and prove headless/runtime parity;
 5. remove compatibility paths only after rollback and parity receipts pass.
 
-Each step runs focused gates and `just verify`, and uses a phase-scoped branch
-or PR derived from the current default branch. UI transplant work and Company
-Brain rollout work must remain reviewable as separate intentions even if they
-are temporarily stacked locally.
+Each step runs focused gates and `just verify-full` (or the equivalent
+`pnpm verify`), and uses a phase-scoped branch or PR derived from the current
+default branch. UI transplant work and Company Brain rollout work must remain
+reviewable as separate intentions even if they are temporarily stacked locally.
 
 OAuth approval, provider sandbox access, source-owner review, or CRM custom
 field mapping may dominate elapsed time. Each package should name an engineering
@@ -893,27 +902,32 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
 
 ## 9. First Ten Actions
 
-1. Persist and enforce the transcript-provider ordering/fence contract,
-   including delayed revisions and tombstone/recreation.
-2. Carry `(publicationSetKey, entryKey)` through Search, ContextPack, citation
-   keys, and exact source-get; resolve citations to the immutable origin and
-   verify hash/offset integrity.
-3. Add lifecycle cleanup, paginated organization target enumeration,
-   successful-close-only reconciliation health, dead-letter health, and the
-   expected-corpus manifest.
-4. Gate legacy compatibility reads and prove WP02 with compatibility disabled.
-5. Build a WP02 evidence matrix mapping every acceptance row to an exact test,
-   integration receipt, owner, and status; close capacity and corruption cases.
-6. Extract backend/docs work into phase-scoped, default-branch-derived PRs and
-   regenerate contracts on the clean base.
-7. Repair the canonical SaaS UI in a separate reviewable stream and restore the
-   full-repository verification gate before merge/deploy/pilot.
-8. In parallel, inventory Ask Apero, capture E0, name owners/users, import the
+1. **Complete:** current retrieval capacity excludes classified retired
+   postings, supports bounded pre-backfill rows, and fails visibly above the
+   shared current-publication budget.
+2. Extract backend/docs work and UI work into phase-scoped,
+   default-branch-derived branches before adding Drive or runtime-package code.
+3. Make revocation fail closed immediately: a revoked page, route, policy, or
+   provider connection cannot remain readable while an async rebuild is lost or
+   delayed, and health degrades in the owning transaction.
+4. Add opened/closed provider reconciliation epochs for Slack and transcripts;
+   only a successful close may infer removals or report complete coverage.
+5. Close the remaining WP02 integrity cases: derived-row cleanup before final
+   origin purge, unresolved dead-letter preservation, all Slack target paths
+   beyond one enumeration window, scoped health/freshness, origin validation in
+   Search and ContextPack, public page-write conformance, rebuild races, and
+   non-exact revision-only source lookup.
+6. Repair the canonical SaaS UI in its separate stream, wire `/health` to real
+   corpus/connector state, and make `just verify-full` green.
+7. In parallel, inventory Ask Apero, capture E0, name owners/users, import the
    approved snapshot, and package the shared runtime skill without dogfood yet.
+8. Prove compatibility-disabled Codex/Claude candidate-manifest parity and
+   archive the exact runtime manifest and receipt.
 9. Freeze the provider-specific Drive identity, cursor, membership, export, and
    tombstone rules; build the adapter against fixtures.
-10. After WP02 backend gates pass, exercise the one-container live Drive slice;
-    begin dogfood only after the runtime package and full release gates pass.
+10. After WP02 and the full repository gate pass, exercise the one-container
+    live Drive slice; begin dogfood only after the runtime and staging receipt
+    packets pass.
 
 ## 10. Required Cross-Corpus And Connector Tests
 
@@ -937,7 +951,15 @@ Implementation is not complete without explicit tests for:
 - exact `(publicationSetKey, entryKey)` citation reopen after a policy-only
   republication that retains the logical entry key;
 - origin-ledger hash/offset verification and corrupted-projection rejection;
+- search and ContextPack integrity behavior when an immutable origin is missing
+  or corrupted;
+- every public page create, approve, update, archive, and restore surface
+  producing the same durable publication or revocation contract;
 - required corpus with no health row reported unavailable or unknown;
+- reconciliation freshness based on source observation, not merely a recent
+  rebuild timestamp, with health updates isolated to the affected scope;
+- rebuild closure under concurrent insert, update, and archive activity;
+- indexed, bounded provider-event replay detection;
 - WP02 reads with legacy compatibility explicitly disabled;
 - cross-runtime candidate-manifest parity;
 - coverage reporting when a required corpus or connector is unavailable.
@@ -961,14 +983,42 @@ until every required row and the clean-branch gates pass.
 | Public `(publicationSetKey, entryKey)` identity and policy-only citation reopen | `test/retrieval-publication.test.ts`, generated Confect contract, `check:headless-surface-contract`          | Implemented                                                                    |
 | Origin-ledger hash/offset verification and corruption rejection                 | `test/retrieval-publication.test.ts`                                                                         | Current corpora implemented; document/projection resolvers await their ledgers |
 | Derived-table cleanup before final-origin purge                                 | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required                                                                       |
-| Successful-close-only complete coverage and dead-letter health                  | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Page closure and all-corpus dead letters implemented; provider close required  |
+| Successful-close-only provider coverage and inferred removals                   | provider reconciliation tests for Slack and transcripts                                                      | Required                                                                       |
+| Revocation immediately blocks reads and degrades health                         | connection, policy, lifecycle, search, and lost-scheduler adversarial tests                                  | Required                                                                       |
+| Successful rebuild preserves unresolved dead-letter health                      | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required                                                                       |
+| Health freshness and failures remain scoped to the affected corpus/connector    | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                        | Required                                                                       |
 | Missing expected corpus is unavailable/unknown                                  | `test/headless-context.test.ts`                                                                              | Implemented                                                                    |
 | Organization rebuild beyond one enumeration page                                | `test/retrieval-publication.test.ts`                                                                         | Implemented with explicit active-Brain capacity failure                        |
-| Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Required                                                                       |
+| Slack ingress and policy targets beyond one enumeration window                  | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Required                                                                       |
+| Provider replay lookup is indexed and bounded                                   | Slack ingress tests                                                                                          | Required                                                                       |
+| Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Implemented with legacy-state compatibility and typed overflow                 |
+| Search and ContextPack reject copied text with a missing/corrupt origin         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
+| Revision-only source lookup never claims an arbitrary passage is exact          | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
+| Every public page write surface uses the durable publication contract           | page and pilot surface conformance tests                                                                     | Required                                                                       |
+| Rebuild close is fenced against concurrent ledger changes                       | adversarial rebuild/reconciliation race tests                                                                | Required                                                                       |
 | Compatibility disabled and Codex/Claude manifest parity                         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`, plus pinned runtime fixture receipt             | Compatibility gate implemented; runtime parity receipt required                |
 
 Each required row gains an engineering owner in its PR. Real-provider receipts
 add the context owner and connector/access owner before WP03 or WP05 acceptance.
+
+### Live Receipt Packet
+
+Every staged snapshot, provider, runtime, dogfood, and rollout gate stores one
+versioned receipt containing:
+
+- exact commit SHA, environment, Brain key, connector/config version, and
+  runtime manifest version;
+- named engineering DRI and business/context approver;
+- exact commands or workflow run IDs and timestamps;
+- discovered, normalized, published, retired, failed, and stale counts;
+- citation-open results and the relevant E0/E1 question-set version;
+- create/edit/move-or-unshare/delete/reconcile/rebuild observations where the
+  source supports them;
+- rollback command or procedure and its observed result.
+
+Receipts contain identifiers and aggregate evidence, not credentials or
+sensitive source bodies. A local passing test is not a substitute for a live
+receipt, and a receipt from a different commit does not authorize promotion.
 
 ## 11. Ready-To-Start Checklist
 
@@ -984,7 +1034,7 @@ packets only.
 - ten initial E0 questions are available;
 - the context owner, engineer, and first two users are named;
 - the snapshot is approved as reviewed Brain pages, not live synchronized data.
-- WP02A-WP02C completion gates and `just verify` are green;
+- WP02A-WP02C completion gates and `just verify-full` are green;
 - the snapshot is retrievable through `brain.context.get`, not a legacy page
   compatibility read.
 
