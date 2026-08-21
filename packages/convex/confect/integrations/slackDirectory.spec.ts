@@ -1,6 +1,8 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
+import { ValidationFailed } from "../errors";
+
 export class ConnectionNotFound extends Schema.TaggedError<ConnectionNotFound>()(
   "ConnectionNotFound",
   { connectionKey: Schema.String },
@@ -83,6 +85,7 @@ const slackDirectoryError = () =>
     BotIdentityMismatch,
     ProviderRateLimited,
     ProviderUnavailable,
+    ValidationFailed,
   );
 
 export const reconcileChannels = FunctionSpec.internalAction({

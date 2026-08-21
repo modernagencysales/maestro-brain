@@ -10,6 +10,7 @@ import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { publishPageRevisionEffect } from "../confect/brain/retrievalPublication.impl";
 import { rebuildPageBatchEffect } from "../confect/brain/retrievalPublication.impl";
 import {
+  enqueueOrganizationCorpusRebuildsEffect,
   enqueueRetrievalPublicationJobEffect,
   publishSlackRevisionEffect,
   publishTranscriptRevisionEffect,
@@ -1720,5 +1721,116 @@ describe("retrieval publication persistence", () => {
     });
     expect(result.revoked).toMatchObject({ outcome: "revoked" });
     expect(result.afterGenerationChange.entries).toEqual([]);
+  });
+
+  it("enumerates every active workspace or returns a visible capacity failure", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId } = yield* confect.run(seedPage, AnyResult);
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            for (let index = 0; index < 10; index += 1)
+              yield* writer
+                .table("workspaces")
+                .insert({
+                  organizationId,
+                  ownerUserId: "archived-owner",
+                  brainKey: `br_archived_${index}`,
+                  name: `Archived ${index}`,
+                  slug: `archived-${index}`,
+                  kind: "client",
+                  status: "archived",
+                  dataClassification: "internal",
+                  createdAt: now + index + 1,
+                  updatedAt: now + index + 1,
+                })
+                .pipe(Effect.orDie);
+            for (let index = 0; index < 25; index += 1)
+              yield* writer
+                .table("workspaces")
+                .insert({
+                  organizationId,
+                  ownerUserId: "active-owner",
+                  brainKey: `br_active_${index}`,
+                  name: `Active ${index}`,
+                  slug: `active-${index}`,
+                  kind: "client",
+                  status: "active",
+                  dataClassification: "internal",
+                  createdAt: now + index + 20,
+                  updatedAt: now + index + 20,
+                })
+                .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const jobKeys = yield* confect.run(
+          enqueueOrganizationCorpusRebuildsEffect({
+            organizationKey,
+            originKind: "transcript_rebuild",
+            sourceKey: "organization-rebuild",
+            sourceRevisionKey: "organization-rebuild-1",
+            requestGeneration: 1,
+            now,
+          }),
+          AnyResult,
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("workspaces")
+              .insert({
+                organizationId,
+                ownerUserId: "overflow-owner",
+                brainKey: "br_active_overflow",
+                name: "Active overflow",
+                slug: "active-overflow",
+                kind: "client",
+                status: "active",
+                dataClassification: "internal",
+                createdAt: now + 100,
+                updatedAt: now + 100,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const overflow = yield* confect.run(
+          enqueueOrganizationCorpusRebuildsEffect({
+            organizationKey,
+            originKind: "transcript_rebuild",
+            sourceKey: "organization-rebuild-overflow",
+            sourceRevisionKey: "organization-rebuild-overflow-1",
+            requestGeneration: 2,
+            now: now + 1,
+          }).pipe(
+            Effect.match({
+              onFailure: (error) => ({
+                kind: "failure" as const,
+                tag: error._tag,
+                field: error.field,
+              }),
+              onSuccess: (jobKeys) => ({
+                kind: "success" as const,
+                jobKeys,
+              }),
+            }),
+          ),
+          AnyResult,
+        );
+        return { jobKeys, overflow };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.jobKeys).toHaveLength(26);
+    expect(result.overflow).toMatchObject({
+      kind: "failure",
+      tag: "ValidationFailed",
+      field: "organizationKey",
+    });
   });
 });

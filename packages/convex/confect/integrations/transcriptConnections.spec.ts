@@ -1,7 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
-import { Forbidden, Unauthorized } from "../errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   ConnectSessionInvalid,
   ConnectionAlreadyExists,
@@ -47,6 +47,7 @@ const connectionError = () =>
     TenantMismatch,
     TranscriptConnectionNotFound,
     TranscriptPurgeNotReady,
+    ValidationFailed,
   );
 
 const connectResult = () =>

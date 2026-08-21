@@ -1,7 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
-import { Forbidden, Unauthorized } from "../errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   ConnectorSyncErrorTag,
   ConnectorSyncStateRow,
@@ -18,7 +18,11 @@ export class TranscriptSyncFenceError extends Schema.TaggedError<TranscriptSyncF
 ) {}
 
 const errors = () =>
-  Schema.Union(TranscriptSyncConnectionNotFound, TranscriptSyncFenceError);
+  Schema.Union(
+    TranscriptSyncConnectionNotFound,
+    TranscriptSyncFenceError,
+    ValidationFailed,
+  );
 const NonNegativeInteger = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),

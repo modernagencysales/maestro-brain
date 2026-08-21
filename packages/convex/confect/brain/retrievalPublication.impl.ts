@@ -1155,14 +1155,19 @@ export const enqueueOrganizationCorpusRebuildsEffect = (input: {
     if (organization === null) return [];
     const targets = yield* reader
       .table("workspaces")
-      .index("by_organization", (query) =>
-        query.eq("organizationId", organization._id),
+      .index("by_organization_status", (query) =>
+        query.eq("organizationId", organization._id).eq("status", "active"),
       )
-      .take(26)
+      .take(27)
       .pipe(Effect.orDie);
+    if (targets.length > 26)
+      return yield* new ValidationFailed({
+        field: "organizationKey",
+        message: "Active Brain rebuild target capacity exceeded.",
+      });
     const jobKeys: string[] = [];
     for (const target of targets) {
-      if (target.status !== "active" || target.brainKey === undefined) continue;
+      if (target.brainKey === undefined) continue;
       jobKeys.push(
         yield* enqueueRetrievalPublicationJobEffect(
           {
