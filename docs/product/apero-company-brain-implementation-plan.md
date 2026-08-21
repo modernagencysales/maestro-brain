@@ -118,20 +118,20 @@ it cannot be deployed into the pilot while the full gate is red.
 As of 2026-08-21, the original mixed worktree has been separated into two
 default-branch-derived streams:
 
-- backend: `codex/company-brain-backend` at `1ba01e7d`, with a later uncommitted
-  Slack fan-out slice under review;
+- backend: `codex/company-brain-backend` at `c2df9962`;
 - UI: `codex/canonical-saas-ui-clean` at `7bcb635e`.
 
 The split is complete, but neither stream is release-ready. The backend full
-gate passed on the current dirty worktree, including 99.71% type coverage; this
-is engineering evidence, not a clean-SHA promotion receipt. The UI stream passes
-lint and tests but fails web typecheck with 264 errors from the incomplete
-template transplant. The backend stack also combines additive schema,
-publication workers, and default projection reads; it must be separated or
-feature-gated so deployment cannot switch reads before backfill and validation.
-Backend correctness work may continue behind focused gates. Merge requires a
-green full gate for each phase, and promotion requires a green integrated-tip
-gate and a receipt from the same SHA.
+gate passed on the tree committed as `c2df9962`, including 805 Convex tests, 307
+web tests, 1,684 coverage tests, and 99.71% type coverage; this is engineering
+evidence, not a staging promotion receipt. The UI stream passes lint and tests
+but fails web typecheck with 264 errors from the incomplete template transplant.
+The backend stack also combines additive schema, publication workers, and
+default projection reads; it must be separated or feature-gated so deployment
+cannot switch reads before backfill and validation. Backend correctness work may
+continue behind focused gates. Merge requires a green full gate for each phase,
+and promotion requires a green integrated-tip gate and a receipt from the same
+SHA.
 
 ## 4. Pilot Acceptance Contract
 
@@ -1164,7 +1164,7 @@ until every required row and the clean-branch gates pass.
 | Health freshness and failures remain scoped to the affected corpus/connector   | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                        | Required                                                                       |
 | Missing expected corpus is unavailable/unknown                                 | `test/headless-context.test.ts`                                                                              | Implemented                                                                    |
 | Organization rebuild beyond one enumeration page                               | `test/retrieval-publication.test.ts`                                                                         | Implemented with explicit active-Brain capacity failure                        |
-| Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Explicit capacity detection implemented; durable capture/resume required       |
+| Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts`, `test/slack-ingress-runtime.test.ts`, target-intent cron test               | Implemented with durable capture, typed retry, sweeper, and complete resume    |
 | Provider replay lookup is indexed and bounded                                  | `test/slack-ingress-runtime.test.ts`                                                                         | Implemented                                                                    |
 | Retired postings above capacity cannot starve current results                  | `test/brain-pilot.test.ts`                                                                                   | Implemented with legacy-state compatibility and typed overflow                 |
 | Search and ContextPack reject copied text with a missing/corrupt origin        | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
