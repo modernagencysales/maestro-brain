@@ -896,7 +896,7 @@ const currentEntryEligible = (
       );
     }
     if (origin.kind === "slack") {
-      const [artifact, connection] = yield* Effect.all([
+      const [artifact, connection, revision] = yield* Effect.all([
         reader
           .table("sourceArtifacts")
           .index("by_org_source_key", (index) =>
@@ -915,10 +915,20 @@ const currentEntryEligible = (
               )
               .first()
               .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+        reader
+          .table("sourceRevisions")
+          .index("by_source_revision_key", (index) =>
+            index
+              .eq("organizationKey", entry.organizationKey)
+              .eq("sourceRevisionKey", origin.sourceRevisionKey),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie),
       ]);
       if (
         artifact === null ||
         connection === null ||
+        revision === null ||
         artifact.organizationKey !== entry.organizationKey ||
         artifact.sourceKey !== origin.sourceKey ||
         artifact.connectionKey !== entry.connectionKey ||
@@ -954,6 +964,8 @@ const currentEntryEligible = (
       const policy = eligiblePolicies[0];
       return (
         policy !== undefined &&
+        policy.historicalBackfillStartAt !== undefined &&
+        revision.sourceCreatedAt >= policy.historicalBackfillStartAt &&
         (!options.requireCurrentRevision ||
           (entry.routeGeneration === policy.policyEpoch &&
             entry.policyGeneration === policy.policyEpoch))

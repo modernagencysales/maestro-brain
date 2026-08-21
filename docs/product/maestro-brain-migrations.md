@@ -172,15 +172,19 @@ Execute-mode component failures follow the same durable failure receipt path.
 ## Slack provider event ordering and replay lookup
 
 - **Expand:** add the `by_connection_generation_provider_event` index to
-  `providerEventReceipts`. Existing receipt rows already contain every indexed
-  field, so no row backfill is required.
+  `providerEventReceipts` and optional `sourceModifiedAt` to `sourceRevisions`.
+  Existing receipt rows already contain every indexed field. Existing revisions
+  remain decodable and fall back to `sourceCreatedAt` until reconciliation or a
+  later evidence-preserving backfill supplies provider modification time.
 - **Ordering:** new Slack message edits and tombstones use Slack `event_ts` as
   their provider order. The original message `ts` remains the object identity
   and source-created timestamp. Provider event IDs remain identity data, never a
   monotonic edit version. Two distinct observations at the same provider order
   fail as an explicit conflict instead of being ordered lexically by opaque
-  event ID. Artifact lifecycle generation advances from the persisted nested
-  lifecycle on every accepted revision.
+  event ID. New revisions preserve original message time as `sourceCreatedAt`
+  and convert the accepted provider order into `sourceModifiedAt`. Artifact
+  lifecycle generation advances from the persisted nested lifecycle on every
+  accepted revision.
 - **Verify:** deliver newer edit/delete events with lexically smaller event IDs,
   then a delayed older edit. The tombstone remains current and indexed replay
   lookup resolves the exact connection generation without a table scan. The

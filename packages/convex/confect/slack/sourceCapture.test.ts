@@ -203,6 +203,18 @@ describe("Slack source capture", () => {
 
     expect(editRows.revision?.providerOrder).toBe("1700000200.000001");
     expect(deleteRows.revision?.providerOrder).toBe("1700000300.000001");
+    expect(createRows.revision).toMatchObject({
+      sourceCreatedAt: 1_700_000_000_123,
+      sourceModifiedAt: 1_700_000_000_123,
+    });
+    expect(editRows.revision).toMatchObject({
+      sourceCreatedAt: 1_700_000_000_123,
+      sourceModifiedAt: 1_700_000_200_000,
+    });
+    expect(deleteRows.revision).toMatchObject({
+      sourceCreatedAt: 1_700_000_000_123,
+      sourceModifiedAt: 1_700_000_300_000,
+    });
     expect(createRows.artifact.lifecycle.generation).toBe(1);
     expect(editRows.artifact.lifecycle.generation).toBe(2);
     expect(deleteRows.artifact.lifecycle.generation).toBe(3);

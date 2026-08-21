@@ -1692,6 +1692,277 @@ describe("retrieval publication persistence", () => {
     );
   });
 
+  it("enforces Slack cutoff during live publication, rebuild, and read-time eligibility", async () => {
+    const currentEvidenceAt = Date.now();
+    const cutoff = now - 30 * 24 * 60 * 60 * 1_000;
+    const revisions = [
+      {
+        label: "pre",
+        hex: "1",
+        sourceCreatedAt: cutoff - 1,
+        sourceModifiedAt: cutoff - 1,
+      },
+      {
+        label: "exact",
+        hex: "2",
+        sourceCreatedAt: cutoff,
+        sourceModifiedAt: currentEvidenceAt,
+      },
+      {
+        label: "post",
+        hex: "3",
+        sourceCreatedAt: cutoff + 1,
+        sourceModifiedAt: cutoff + 1,
+      },
+    ] as const;
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const policyId = yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("providerConnections")
+              .insert({
+                provider: "nango",
+                providerConfigKey: "slack",
+                organizationKey,
+                connectionKey: "conn_slack_cutoff",
+                connectionGeneration: 1,
+                status: "active",
+                connectSessionId: "session_slack_cutoff",
+                nangoConnectionId: "nango_slack_cutoff",
+                nangoEndUserId: "user_slack_cutoff",
+                nangoOrganizationId: "org_slack_cutoff",
+                correlationTag: "slack:cutoff:test",
+                attemptId: "attempt_slack_cutoff",
+                attemptExpiresAt: now + 60_000,
+                completedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+            for (const revision of revisions) {
+              const sourceKey = `src_slack.cutoff.${revision.label}`;
+              const sourceRevisionKey = `srev_${revision.hex.repeat(64)}`;
+              const lifecycle = {
+                state: "active" as const,
+                generation: 1,
+                updatedAt: now,
+                purgeAfter: null,
+              };
+              yield* writer
+                .table("sourceArtifacts")
+                .insert({
+                  schemaVersion: 1,
+                  organizationKey,
+                  connectionKey: "conn_slack_cutoff",
+                  connectionGeneration: 1,
+                  channelKey: "channel_cutoff",
+                  externalChannelId: "C_CUTOFF",
+                  providerObjectId: `C_CUTOFF:${revision.label}`,
+                  sourceKey,
+                  threadKey: `thread_${revision.label}`,
+                  latestSourceRevisionKey: sourceRevisionKey,
+                  latestProviderOrder: String(revision.sourceModifiedAt),
+                  lifecycle,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+                .pipe(Effect.orDie);
+              yield* writer
+                .table("sourceRevisions")
+                .insert({
+                  schemaVersion: 1,
+                  organizationKey,
+                  connectionKey: "conn_slack_cutoff",
+                  connectionGeneration: 1,
+                  channelKey: "channel_cutoff",
+                  sourceKey,
+                  sourceRevisionKey,
+                  observationKey: `observation_${revision.label}`,
+                  providerOrder: String(revision.sourceModifiedAt),
+                  providerRevisionId: `revision_${revision.label}`,
+                  sourceCreatedAt: revision.sourceCreatedAt,
+                  sourceModifiedAt: revision.sourceModifiedAt,
+                  sourceTimestamp: new Date(
+                    revision.sourceCreatedAt,
+                  ).toISOString(),
+                  authorSnapshot: {
+                    providerUserId: "U_CUTOFF",
+                    displayName: "Cutoff Tester",
+                  },
+                  normalizedText: `${revision.label} cutoffmarker evidence`,
+                  blocksJson: "[]",
+                  permalink: `https://slack.example/cutoff/${revision.label}`,
+                  contentHash: `sha256:${revision.hex.repeat(64)}`,
+                  tombstone: false,
+                  lifecycle,
+                  createdAt: now,
+                })
+                .pipe(Effect.orDie);
+            }
+            return yield* writer
+              .table("channelRoutingPolicies")
+              .insert({
+                organizationKey,
+                connectionKey: "conn_slack_cutoff",
+                connectionGeneration: 1,
+                channelKey: "channel_cutoff",
+                policyEpoch: 1,
+                active: true,
+                mode: "direct",
+                targetBrainKeys: [brainKey],
+                historicalBackfillStartAt: cutoff,
+                statusAfterApply: "streaming",
+                createdByRole: "owner",
+                createdAt: now,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const publish = (
+          label: (typeof revisions)[number]["label"],
+          at: number,
+        ) => {
+          const revision = revisions.find(
+            (candidate) => candidate.label === label,
+          );
+          if (revision === undefined) throw new Error("missing Slack revision");
+          return confect.run(
+            publishSlackRevisionEffect({
+              organizationKey,
+              workspaceId,
+              brainKey,
+              sourceRevisionKey: `srev_${revision.hex.repeat(64)}`,
+              caller: {
+                kind: "system",
+                name: "slack-cutoff-test",
+                surface: "internal",
+              },
+              now: at,
+            }),
+            resultSchema(),
+          );
+        };
+        const live = [];
+        for (const revision of revisions)
+          live.push(yield* publish(revision.label, now));
+        const delayedPreCutoff = yield* publish("pre", now + 10_000);
+        const beforeAdvance = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "cutoffmarker",
+          },
+        );
+        const exactEntry = beforeAdvance.results.find(
+          ({ sourceRevisionKey }) =>
+            sourceRevisionKey === `srev_${"2".repeat(64)}`,
+        );
+        if (exactEntry === undefined)
+          throw new Error("missing exact-cutoff row");
+        const rebuilt = yield* confect.run(
+          rebuildSlackBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 3,
+            caller: {
+              kind: "system",
+              name: "slack-cutoff-rebuild-test",
+              surface: "internal",
+            },
+            now: now + 20_000,
+          }),
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("channelRoutingPolicies")
+              .patch(policyId, {
+                historicalBackfillStartAt: cutoff + 1,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const afterAdvanceWithoutCleanup = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "cutoffmarker",
+          },
+        );
+        const exactAfterAdvance = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: exactEntry.publicationSetKey,
+            entryKey: exactEntry.entryKey,
+          })
+          .pipe(Effect.either);
+        const cleanup = yield* publish("exact", now + 30_000);
+        return {
+          live,
+          delayedPreCutoff,
+          beforeAdvance,
+          rebuilt,
+          afterAdvanceWithoutCleanup,
+          exactAfterAdvance,
+          cleanup,
+        };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.live.map(({ outcome }) => outcome)).toEqual([
+      "revoked",
+      "published",
+      "published",
+    ]);
+    expect(result.delayedPreCutoff).toMatchObject({ outcome: "revoked" });
+    expect(result.beforeAdvance.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceRevisionKey: `srev_${"2".repeat(64)}`,
+          sourceModifiedAt: currentEvidenceAt,
+          observedAt: now,
+          freshness: "current",
+        }),
+        expect.objectContaining({
+          sourceRevisionKey: `srev_${"3".repeat(64)}`,
+        }),
+      ]),
+    );
+    expect(result.beforeAdvance.results).toHaveLength(2);
+    expect(result.rebuilt).toMatchObject({
+      processed: 3,
+      published: 2,
+      revoked: 1,
+      hasMore: false,
+    });
+    expect(result.afterAdvanceWithoutCleanup.results).toEqual([
+      expect.objectContaining({
+        sourceRevisionKey: `srev_${"3".repeat(64)}`,
+      }),
+    ]);
+    expectCitationFailure(result.exactAfterAdvance, "origin_mismatch");
+    expect(result.cleanup).toMatchObject({ outcome: "revoked" });
+  });
+
   it("publishes every segment from an accepted transcript route", async () => {
     const unitKey = `sunit_${"c".repeat(64)}`;
     const unitRevisionKey = `surev_${"d".repeat(64)}`;
@@ -1759,8 +2030,8 @@ describe("retrieval publication persistence", () => {
                 unitRevisionKey,
                 externalRevisionId: "call_revision_1",
                 title: "Pipeline review",
-                startedAt: "2026-08-21T10:00:00.000Z",
-                endedAt: "2026-08-21T10:30:00.000Z",
+                startedAt: "2020-08-21T10:00:00.000Z",
+                endedAt: "2020-08-21T10:30:00.000Z",
                 durationMs: 1_800_000,
                 organizer: null,
                 participants: [],
@@ -2000,6 +2271,9 @@ describe("retrieval publication persistence", () => {
         unitKey,
         segmentKey,
         locator: `https://calls.example/call_1#segment=${segmentKey}`,
+        sourceModifiedAt: Date.parse("2020-08-21T10:30:00.000Z"),
+        observedAt: now,
+        freshness: "stale",
       }),
     ]);
     expect(result.source).toMatchObject({

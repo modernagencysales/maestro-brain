@@ -116,6 +116,7 @@ export const SourceRevisionRow = Schema.Struct({
   providerOrder: StableKey,
   providerRevisionId: StableKey,
   sourceCreatedAt: NonNegativeInteger,
+  sourceModifiedAt: Schema.optional(NonNegativeInteger),
   sourceTimestamp: IsoTimestamp,
   authorSnapshot: AuthorSnapshot,
   normalizedText: Schema.String.pipe(Schema.maxLength(32_000)),
@@ -473,6 +474,14 @@ export const buildSourceLedgerRows = (
     updatedAt: input.envelope.receivedAt,
     purgeAfter: null,
   };
+  const sourceCreatedAt = Date.parse(input.observation.sourceTimestamp);
+  const providerModifiedAt = Math.round(
+    Number(input.observation.providerOrder) * 1_000,
+  );
+  const sourceModifiedAt =
+    Number.isSafeInteger(providerModifiedAt) && providerModifiedAt >= 0
+      ? providerModifiedAt
+      : sourceCreatedAt;
   return {
     receipt,
     artifact: {
@@ -503,7 +512,8 @@ export const buildSourceLedgerRows = (
       observationKey: keys.observationKey,
       providerOrder: input.observation.providerOrder,
       providerRevisionId: input.observation.providerRevisionId,
-      sourceCreatedAt: Date.parse(input.observation.sourceTimestamp),
+      sourceCreatedAt,
+      sourceModifiedAt,
       sourceTimestamp: input.observation.sourceTimestamp,
       authorSnapshot: input.observation.author,
       normalizedText: input.observation.text,

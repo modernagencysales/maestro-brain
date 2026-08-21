@@ -895,12 +895,16 @@ export const publishSlackRevisionEffect = (
           candidate.targetBrainKeys.includes(args.brainKey),
       )
       .sort((left, right) => right.policyEpoch - left.policyEpoch)[0];
+    const eligibleByCutoff =
+      policy?.historicalBackfillStartAt !== undefined &&
+      revision.sourceCreatedAt >= policy.historicalBackfillStartAt;
     const revoked =
       revision.tombstone ||
       revision.lifecycle.state !== "active" ||
       artifact.lifecycle.state !== "active" ||
       !currentConnection ||
-      policy === undefined;
+      policy === undefined ||
+      !eligibleByCutoff;
     const passages = buildRetrievalPassages(
       revision.normalizedText,
       revision.sourceRevisionKey,
@@ -918,7 +922,7 @@ export const publishSlackRevisionEffect = (
       text: passage.text,
       contentHash: passage.contentHash,
       locator: revision.permalink,
-      sourceModifiedAt: revision.sourceCreatedAt,
+      sourceModifiedAt: revision.sourceModifiedAt ?? revision.sourceCreatedAt,
       observedAt: revision.createdAt,
     }));
     return yield* commitPreparedPublication({
@@ -1035,6 +1039,7 @@ export const publishTranscriptRevisionEffect = (
         text: passage.text,
         contentHash: passage.contentHash,
         locator: `${revision.sourceUrl}#segment=${segment.segmentKey}`,
+        sourceModifiedAt: Date.parse(revision.endedAt ?? revision.startedAt),
         observedAt: revision.createdAt,
       })),
     );
