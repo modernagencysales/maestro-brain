@@ -186,6 +186,7 @@ describe("Slack channel policy contract", () => {
       by_channel_epoch: ["channelKey", "policyEpoch"],
       by_channel_active: ["channelKey", "active"],
       by_organization_created: ["organizationKey", "createdAt"],
+      by_organization_active: ["organizationKey", "active"],
       by_organization_mode: ["organizationKey", "mode"],
       by_connection_generation: ["connectionKey", "connectionGeneration"],
     });
