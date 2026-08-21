@@ -25,6 +25,36 @@ export type WorkspaceFixture = {
   label: string;
   logo?: string;
   tags: readonly TagFixture[];
+  members: readonly WorkspaceMemberFixture[];
+  subscription: SubscriptionFixture;
+};
+
+export type WorkspaceMemberFixture = {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  roles: string[];
+  status: "active" | "suspended" | "invited";
+};
+
+export type SubscriptionFixture = {
+  accountId?: string;
+  status?:
+    | "active"
+    | "canceled"
+    | "past_due"
+    | "trialing"
+    | "unpaid"
+    | "incomplete"
+    | "incomplete_expired"
+    | "paused";
+  planId?: string;
+  startedAt?: Date;
+  trialEndsAt?: Date;
+  cancelAt?: Date;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: Date;
 };
 
 export type TagFixture = {
@@ -62,6 +92,8 @@ const workspace = {
   label: "Acme Inc.",
   logo: undefined,
   tags,
+  members: [],
+  subscription: {},
 } satisfies WorkspaceFixture;
 
 export const goldenFixtures = {
