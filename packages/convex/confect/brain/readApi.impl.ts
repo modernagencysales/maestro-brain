@@ -706,6 +706,7 @@ const searchProjection = (
         if (!(yield* currentEntryEligible(entry))) continue;
         const evidence = yield* verifyCitationEvidence(entry, brain, {
           requireCurrentRevision: true,
+          eligibilityVerified: true,
         });
         const freshness = freshnessFor(entry, at, healthByCorpus);
         active.push({
@@ -867,26 +868,162 @@ const verifiedPassage = (
   return Effect.succeed(passage.text);
 };
 
-const currentEntryEligible = (entry: RetrievalEntriesDoc) =>
+const currentEntryEligible = (
+  entry: RetrievalEntriesDoc,
+  options: { readonly requireCurrentRevision: boolean } = {
+    requireCurrentRevision: true,
+  },
+) =>
   Effect.gen(function* () {
-    if (entry.origin.kind !== "page") return true;
     const origin = entry.origin;
     const reader = yield* DatabaseReader;
-    const page = yield* reader
-      .table("brainPages")
-      .index("by_workspace_page_key", (index) =>
-        index
-          .eq("workspaceId", entry.workspaceId)
-          .eq("pageKey", origin.pageKey),
+    if (origin.kind === "page") {
+      const page = yield* reader
+        .table("brainPages")
+        .index("by_workspace_page_key", (index) =>
+          index
+            .eq("workspaceId", entry.workspaceId)
+            .eq("pageKey", origin.pageKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      return (
+        page !== null &&
+        page.status === "active" &&
+        page.lifecycle?.state === "active" &&
+        (!options.requireCurrentRevision ||
+          page.currentRevisionKey === origin.revisionKey)
+      );
+    }
+    if (origin.kind === "slack") {
+      const [artifact, connection] = yield* Effect.all([
+        reader
+          .table("sourceArtifacts")
+          .index("by_org_source_key", (index) =>
+            index
+              .eq("organizationKey", entry.organizationKey)
+              .eq("sourceKey", origin.sourceKey),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+        entry.connectionKey === undefined
+          ? Effect.succeed(null)
+          : reader
+              .table("providerConnections")
+              .index("by_connection_key", (index) =>
+                index.eq("connectionKey", entry.connectionKey ?? ""),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+      ]);
+      if (
+        artifact === null ||
+        connection === null ||
+        artifact.organizationKey !== entry.organizationKey ||
+        artifact.sourceKey !== origin.sourceKey ||
+        artifact.connectionKey !== entry.connectionKey ||
+        artifact.connectionGeneration !== entry.connectionGeneration ||
+        artifact.lifecycle.state !== "active" ||
+        connection.organizationKey !== entry.organizationKey ||
+        connection.connectionKey !== entry.connectionKey ||
+        connection.connectionGeneration !== entry.connectionGeneration ||
+        connection.status !== "active" ||
+        (options.requireCurrentRevision &&
+          artifact.latestSourceRevisionKey !== origin.sourceRevisionKey) ||
+        (options.requireCurrentRevision &&
+          artifact.lifecycle.generation !== entry.lifecycleGeneration)
       )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-    return (
-      page !== null &&
-      page.status === "active" &&
-      page.lifecycle?.state === "active" &&
-      page.currentRevisionKey === origin.revisionKey
-    );
+        return false;
+      const policies = yield* reader
+        .table("channelRoutingPolicies")
+        .index("by_channel_active", (index) =>
+          index.eq("channelKey", artifact.channelKey).eq("active", true),
+        )
+        .take(11)
+        .pipe(Effect.orDie);
+      if (policies.length > 10) return false;
+      const eligiblePolicies = policies.filter(
+        (policy) =>
+          policy.organizationKey === entry.organizationKey &&
+          policy.connectionKey === artifact.connectionKey &&
+          policy.connectionGeneration === artifact.connectionGeneration &&
+          policy.mode !== "capture_only" &&
+          policy.targetBrainKeys.includes(entry.brainKey),
+      );
+      if (eligiblePolicies.length !== 1) return false;
+      const policy = eligiblePolicies[0];
+      return (
+        policy !== undefined &&
+        (!options.requireCurrentRevision ||
+          (entry.routeGeneration === policy.policyEpoch &&
+            entry.policyGeneration === policy.policyEpoch))
+      );
+    }
+    if (origin.kind === "transcript") {
+      const unit = yield* reader
+        .table("sourceUnits")
+        .index("by_unit_key", (index) =>
+          index
+            .eq("organizationKey", entry.organizationKey)
+            .eq("unitKey", origin.unitKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        unit === null ||
+        entry.connectionKey === undefined ||
+        entry.connectionGeneration === undefined
+      )
+        return false;
+      const connection = yield* reader
+        .table("providerConnections")
+        .index("by_connection_key", (index) =>
+          index.eq("connectionKey", entry.connectionKey ?? ""),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        connection === null ||
+        unit.organizationKey !== entry.organizationKey ||
+        unit.connectionKey !== entry.connectionKey ||
+        unit.connectionGeneration !== entry.connectionGeneration ||
+        unit.lifecycle.state !== "active" ||
+        connection.organizationKey !== entry.organizationKey ||
+        connection.connectionKey !== entry.connectionKey ||
+        connection.connectionGeneration !== entry.connectionGeneration ||
+        connection.status !== "active" ||
+        (options.requireCurrentRevision &&
+          unit.currentUnitRevisionKey !== origin.unitRevisionKey) ||
+        (options.requireCurrentRevision &&
+          unit.lifecycle.generation !== entry.lifecycleGeneration)
+      )
+        return false;
+      const routes = yield* reader
+        .table("callRoutingProposals")
+        .index("by_org_revision", (index) =>
+          index
+            .eq("organizationKey", entry.organizationKey)
+            .eq("unitRevisionKey", unit.currentUnitRevisionKey),
+        )
+        .take(101)
+        .pipe(Effect.orDie);
+      if (routes.length > 100) return false;
+      const route = routes
+        .filter(
+          (candidate) =>
+            (candidate.status === "current" ||
+              candidate.status === "accepted") &&
+            candidate.outcome === "routed" &&
+            candidate.brainKey === entry.brainKey,
+        )
+        .sort((left, right) => right.routeGeneration - left.routeGeneration)[0];
+      return (
+        route !== undefined &&
+        (!options.requireCurrentRevision ||
+          entry.routeGeneration === route.routeGeneration)
+      );
+    }
+    return origin.kind === "document" || origin.kind === "projection";
   });
 
 const verifyCitationEvidence = (
@@ -896,9 +1033,17 @@ const verifyCitationEvidence = (
     readonly organizationKey: string;
     readonly workspaceId: string;
   },
-  options: { readonly requireCurrentRevision: boolean },
+  options: {
+    readonly requireCurrentRevision: boolean;
+    readonly eligibilityVerified?: boolean | undefined;
+  },
 ) =>
   Effect.gen(function* () {
+    if (
+      options.eligibilityVerified !== true &&
+      !(yield* currentEntryEligible(entry, options))
+    )
+      return yield* citationFailure(entry, "origin_mismatch");
     const reader = yield* DatabaseReader;
     const origin = entry.origin;
     if (origin.kind === "page") {
@@ -963,6 +1108,9 @@ const verifyCitationEvidence = (
         entry.kind !== "slack" ||
         entry.originTable !== "sourceRevisions" ||
         entry.sourceKey !== origin.sourceKey ||
+        revision.organizationKey !== brain.organizationKey ||
+        revision.connectionKey !== entry.connectionKey ||
+        revision.connectionGeneration !== entry.connectionGeneration ||
         revision.sourceKey !== origin.sourceKey ||
         revision.sourceRevisionKey !== entry.sourceRevisionKey ||
         revision.tombstone ||

@@ -35,6 +35,15 @@ const revisionKey = "rev_company_context_1";
 const resultSchema = <Result>(): Schema.Schema<Result, Value> =>
   Schema.Any as unknown as Schema.Schema<Result, Value>;
 
+const expectCitationFailure = (value: unknown, reason: string) =>
+  expect(value).toMatchObject({
+    _tag: "Left",
+    left: {
+      _tag: "CitationIntegrityFailure",
+      reason,
+    },
+  });
+
 const seedPage = Effect.gen(function* () {
   const writer = yield* DatabaseWriter;
   const userId = yield* writer
@@ -1460,10 +1469,61 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const policyId = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const policy = yield* reader
+              .table("channelRoutingPolicies")
+              .index("by_channel_active", (query) =>
+                query.eq("channelKey", "channel_sales").eq("active", true),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (policy._tag === "None") throw new Error("missing policy");
+            yield* writer
+              .table("channelRoutingPolicies")
+              .patch(policy.value._id, { active: false })
+              .pipe(Effect.orDie);
+            return policy.value._id;
+          }),
+          resultSchema(),
+        );
+        const afterPolicyRemoval = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "repeatable qualified pipeline",
+          },
+        );
+        const contextAfterPolicyRemoval = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the repeatable qualified pipeline?",
+          },
+        );
+        const sourceAfterPolicyRemoval = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          })
+          .pipe(Effect.either);
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
             const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("channelRoutingPolicies")
+              .patch(policyId, { active: true })
+              .pipe(Effect.orDie);
             const connection = yield* reader
               .table("providerConnections")
               .index("by_connection_key", (query) =>
@@ -1483,22 +1543,7 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const revoked = yield* confect.run(
-          publishSlackRevisionEffect({
-            organizationKey,
-            workspaceId,
-            brainKey,
-            sourceRevisionKey,
-            caller: {
-              kind: "system",
-              name: "slack-revoke-test",
-              surface: "internal",
-            },
-            now: now + 2,
-          }),
-          resultSchema(),
-        );
-        const afterRevocation = yield* confect.query(
+        const afterConnectionRevocation = yield* confect.query(
           refs.internal.brain.readApi.headlessSourcesSearch,
           {
             organizationId,
@@ -1507,13 +1552,35 @@ describe("retrieval publication persistence", () => {
             query: "repeatable qualified pipeline",
           },
         );
+        const contextAfterConnectionRevocation = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the repeatable qualified pipeline?",
+          },
+        );
+        const sourceAfterConnectionRevocation = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          })
+          .pipe(Effect.either);
         return {
           published,
           search,
           source,
           rebuilt,
-          revoked,
-          afterRevocation,
+          afterPolicyRemoval,
+          contextAfterPolicyRemoval,
+          sourceAfterPolicyRemoval,
+          afterConnectionRevocation,
+          contextAfterConnectionRevocation,
+          sourceAfterConnectionRevocation,
         };
       }).pipe(Effect.provide(testConfectLayer())),
     );
@@ -1546,8 +1613,15 @@ describe("retrieval publication persistence", () => {
       hasMore: false,
       nextAfterSourceKey: sourceKey,
     });
-    expect(result.revoked).toMatchObject({ outcome: "revoked" });
-    expect(result.afterRevocation.results).toEqual([]);
+    expect(result.afterPolicyRemoval.results).toEqual([]);
+    expect(result.contextAfterPolicyRemoval.entries).toEqual([]);
+    expectCitationFailure(result.sourceAfterPolicyRemoval, "origin_mismatch");
+    expect(result.afterConnectionRevocation.results).toEqual([]);
+    expect(result.contextAfterConnectionRevocation.entries).toEqual([]);
+    expectCitationFailure(
+      result.sourceAfterConnectionRevocation,
+      "origin_mismatch",
+    );
   });
 
   it("publishes every segment from an accepted transcript route", async () => {
@@ -1725,10 +1799,66 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const routeId = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const route = yield* reader
+              .table("callRoutingProposals")
+              .index("by_org_revision", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("unitRevisionKey", unitRevisionKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (route._tag === "None") throw new Error("missing route");
+            yield* writer
+              .table("callRoutingProposals")
+              .patch(route.value._id, {
+                status: "rejected",
+                updatedAt: now + 2,
+              })
+              .pipe(Effect.orDie);
+            return route.value._id;
+          }),
+          resultSchema(),
+        );
+        const afterRouteRejection = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the qualified pipeline close-rate target?",
+          },
+        );
+        const searchAfterRouteRejection = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline close-rate target",
+          },
+        );
+        const sourceAfterRouteRejection = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          })
+          .pipe(Effect.either);
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
             const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("callRoutingProposals")
+              .patch(routeId, { status: "accepted", updatedAt: now + 3 })
+              .pipe(Effect.orDie);
             const connection = yield* reader
               .table("providerConnections")
               .index("by_connection_key", (query) =>
@@ -1742,24 +1872,9 @@ describe("retrieval publication persistence", () => {
               .table("providerConnections")
               .patch(connection.value._id, {
                 connectionGeneration: 2,
-                updatedAt: now + 2,
+                updatedAt: now + 3,
               })
               .pipe(Effect.orDie);
-          }),
-          resultSchema(),
-        );
-        const revoked = yield* confect.run(
-          publishTranscriptRevisionEffect({
-            organizationKey,
-            workspaceId,
-            brainKey,
-            sourceRevisionKey: unitRevisionKey,
-            caller: {
-              kind: "system",
-              name: "transcript-generation-test",
-              surface: "internal",
-            },
-            now: now + 2,
           }),
           resultSchema(),
         );
@@ -1772,13 +1887,35 @@ describe("retrieval publication persistence", () => {
             question: "What is the qualified pipeline close-rate target?",
           },
         );
+        const searchAfterGenerationChange = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline close-rate target",
+          },
+        );
+        const sourceAfterGenerationChange = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: resultEntry.publicationSetKey,
+            entryKey: resultEntry.entryKey,
+          })
+          .pipe(Effect.either);
         return {
           published,
           context,
           source,
           rebuilt,
-          revoked,
+          afterRouteRejection,
+          searchAfterRouteRejection,
+          sourceAfterRouteRejection,
           afterGenerationChange,
+          searchAfterGenerationChange,
+          sourceAfterGenerationChange,
         };
       }).pipe(Effect.provide(testConfectLayer())),
     );
@@ -1814,8 +1951,15 @@ describe("retrieval publication persistence", () => {
       hasMore: false,
       nextAfterSourceKey: unitKey,
     });
-    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.afterRouteRejection.entries).toEqual([]);
+    expect(result.searchAfterRouteRejection.results).toEqual([]);
+    expectCitationFailure(result.sourceAfterRouteRejection, "origin_mismatch");
     expect(result.afterGenerationChange.entries).toEqual([]);
+    expect(result.searchAfterGenerationChange.results).toEqual([]);
+    expectCitationFailure(
+      result.sourceAfterGenerationChange,
+      "origin_mismatch",
+    );
   });
 
   it("enumerates every active workspace or returns a visible capacity failure", async () => {
