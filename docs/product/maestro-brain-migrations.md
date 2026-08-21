@@ -98,6 +98,33 @@ Execute-mode component failures follow the same durable failure receipt path.
   ignore grouped fields and the item table. Immutable source and receipt rows
   remain intact; no existing proposal needs rewriting.
 
+## Brain-scoped retrieval publication
+
+- **Expand:** add `retrievalPublicationSets`, `retrievalEntries`,
+  `retrievalTokens`, and `brainCorpusHealth`. Writers continue preserving Brain
+  pages, Slack revisions, and transcript ledgers as the source of truth.
+- **Backfill:** run `brain.retrievalPublication.rebuildPageBatch` in batches of
+  at most five pages, persisting `nextAfterPageKey` until `hasMore` is false.
+  Slack and transcript revisions republish through their idempotent publisher
+  after routing; provider re-ingestion is not required. Record counts and the
+  final current publication-set keys as the deployment receipt.
+- **Verify:** require exact UTF-8 passage round trips, bounded passages, stable
+  keys, idempotent retry, stale-revision rejection, atomic current-set
+  replacement, route/lifecycle revocation, projection search, ContextPack
+  assembly, and headless parity. A named Vitest path that reports zero tests is
+  not a passing receipt.
+- **Read switch:** deploy additive tables and publishers first. Complete the
+  page rebuild, verify corpus-health counts, then enable question-based
+  `brain.context.get`. The temporary page-list compatibility path remains only
+  for older callers that omit `question` and reports unknown coverage.
+- **Contract:** remove the compatibility path only after all installed CLI/MCP
+  manifests send a question and the E0 receipt proves the projection contains
+  every approved page, Slack route, and transcript route.
+- **Rollback:** stop publication scheduling and route reads to the compatibility
+  page path. The provider/page ledgers remain untouched. Derived publication
+  rows may be retained for diagnosis and rebuilt later; rollback never deletes
+  source revisions.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

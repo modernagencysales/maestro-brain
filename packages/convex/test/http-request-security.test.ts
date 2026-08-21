@@ -567,7 +567,7 @@ describe("headless HTTP bearer security", () => {
       operationId: "brain.context.get",
     });
     expect(dispatchedRefs.map(getFunctionName)).toEqual([
-      "headless/readApi:contextGet",
+      "brain/readApi:headlessContextGet",
     ]);
     expect(dispatchedInputs).toEqual([
       {

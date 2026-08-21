@@ -29,6 +29,7 @@ export const ChannelRoutingPolicyRow = Schema.Struct({
   active: Schema.Boolean,
   mode: ChannelRoutingMode,
   targetBrainKeys: Schema.Array(Schema.String),
+  historicalBackfillStartAt: Schema.optional(Schema.Number),
   statusAfterApply: ChannelRoutingStatus,
   pendingSourceInterval: Schema.optional(Schema.NullOr(PendingSourceInterval)),
   createdByRole: Schema.Literal("admin", "owner"),

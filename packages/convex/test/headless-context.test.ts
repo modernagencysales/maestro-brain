@@ -12,6 +12,7 @@ const contextGet = makeFunctionReference<
     organizationId: string;
     workspaceId: string;
     brainKey: string;
+    question?: string;
     pageKeys?: string[];
     maxBytes?: number;
   },
@@ -19,7 +20,7 @@ const contextGet = makeFunctionReference<
     brainKey: string;
     entries: Array<{ sourceKey: string; excerpt: string }>;
   }
->("headless/readApi:contextGet");
+>("brain/readApi:headlessContextGet");
 const sourcesSearch = makeFunctionReference<
   "query",
   {
@@ -138,6 +139,95 @@ describe("headless Brain context", () => {
         reviewedAt: 1,
         schemaVersion: 1,
       });
+      const publicationSetKey = `rset_${"c".repeat(64)}`;
+      const entryKey = `rent_${"a".repeat(64)}`;
+      await ctx.db.insert("retrievalPublicationSets", {
+        schemaVersion: 1,
+        organizationKey: "ag_01J0000000000000000000000A",
+        workspaceId,
+        brainKey: "br_01J0000000000000000000000B",
+        corpusKey: "test-projection",
+        publicationSetKey,
+        publicationGeneration: 1,
+        originKind: "projection",
+        originTable: "brainSources",
+        sourceKey: "src_launch_context",
+        sourceRevisionKey: "src_launch_context",
+        routeGeneration: 1,
+        lifecycleGeneration: 1,
+        policyGeneration: 1,
+        expectedEntryCount: 1,
+        expectedTokenCount: 2,
+        manifestHash: `sha256:${"d".repeat(64)}`,
+        state: "current",
+        createdAt: 1,
+        activatedAt: 1,
+      });
+      await ctx.db.insert("retrievalEntries", {
+        schemaVersion: 1,
+        organizationKey: "ag_01J0000000000000000000000A",
+        workspaceId,
+        brainKey: "br_01J0000000000000000000000B",
+        entryKey,
+        publicationSetKey,
+        publicationGeneration: 1,
+        kind: "projection",
+        corpusKey: "test-projection",
+        origin: {
+          kind: "projection",
+          projectionKey: "src_launch_context",
+          revisionKey: "src_launch_context",
+        },
+        originTable: "brainSources",
+        sourceKey: "src_launch_context",
+        sourceRevisionKey: "src_launch_context",
+        passageKey: `rpass_${"b".repeat(64)}`,
+        startOffset: 0,
+        endOffset: 45,
+        title: "Launch source",
+        headingPath: null,
+        text: "verified source from the installed CLI",
+        contentHash: `sha256:${"e".repeat(64)}`,
+        observedAt: 1,
+        indexedAt: 1,
+        authority: "derived",
+        authorityPolicyKey: "test",
+        policyGeneration: 1,
+        lifecycleGeneration: 1,
+        routeGeneration: 1,
+        state: "published",
+      });
+      for (const token of ["installed", "cli"])
+        await ctx.db.insert("retrievalTokens", {
+          schemaVersion: 1,
+          organizationKey: "ag_01J0000000000000000000000A",
+          workspaceId,
+          brainKey: "br_01J0000000000000000000000B",
+          publicationSetKey,
+          tokenizerVersion: 1,
+          token,
+          entryKey,
+          authorityRank: 2,
+          termFrequency: 1,
+          inTitle: false,
+          inHeading: false,
+        });
+      await ctx.db.insert("brainCorpusHealth", {
+        schemaVersion: 1,
+        organizationKey: "ag_01J0000000000000000000000A",
+        workspaceId,
+        brainKey: "br_01J0000000000000000000000B",
+        corpusKey: "test-projection",
+        policyGeneration: 1,
+        coverageStatus: "partial",
+        lastObservedAt: 1,
+        lastPublishedAt: 1,
+        freshnessThresholdMs: 1,
+        discoveredCount: 1,
+        publishedCount: 1,
+        failedCount: 0,
+        updatedAt: 1,
+      });
       return {
         organizationId,
         workspaceId,
@@ -151,12 +241,14 @@ describe("headless Brain context", () => {
       brainKey: "br_01J0000000000000000000000B",
     };
 
-    await expect(t.query(contextGet, principal)).resolves.toMatchObject({
+    await expect(
+      t.query(contextGet, { ...principal, question: "installed CLI" }),
+    ).resolves.toMatchObject({
       brainKey: "br_01J0000000000000000000000B",
       entries: [
         {
-          sourceKey: "pag_launch_context",
-          excerpt: "verified from the installed CLI",
+          sourceKey: "src_launch_context",
+          excerpt: "verified source from the installed CLI",
         },
       ],
     });

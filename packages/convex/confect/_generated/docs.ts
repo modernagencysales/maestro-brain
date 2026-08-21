@@ -8,6 +8,7 @@ export type ActionJobsDoc = Document.Document<typeof schemaDefinition, "actionJo
 export type ActionTriggersDoc = Document.Document<typeof schemaDefinition, "actionTriggers">;
 export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
+export type BrainCorpusHealthDoc = Document.Document<typeof schemaDefinition, "brainCorpusHealth">;
 export type BrainExportJobsDoc = Document.Document<typeof schemaDefinition, "brainExportJobs">;
 export type BrainMaintenanceProposalItemsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposalItems">;
 export type BrainMaintenanceProposalsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposals">;
@@ -46,6 +47,9 @@ export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition, "providerEventReceipts">;
+export type RetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "retrievalEntries">;
+export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSets">;
+export type RetrievalTokensDoc = Document.Document<typeof schemaDefinition, "retrievalTokens">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
 export type SlackQuestionReceiptsDoc = Document.Document<typeof schemaDefinition, "slackQuestionReceipts">;
@@ -81,6 +85,7 @@ export interface Docs {
   actionTriggers: ActionTriggersDoc;
   apiKeys: ApiKeysDoc;
   billingPlans: BillingPlansDoc;
+  brainCorpusHealth: BrainCorpusHealthDoc;
   brainExportJobs: BrainExportJobsDoc;
   brainMaintenanceProposalItems: BrainMaintenanceProposalItemsDoc;
   brainMaintenanceProposals: BrainMaintenanceProposalsDoc;
@@ -119,6 +124,9 @@ export interface Docs {
   promptRegistry: PromptRegistryDoc;
   providerConnections: ProviderConnectionsDoc;
   providerEventReceipts: ProviderEventReceiptsDoc;
+  retrievalEntries: RetrievalEntriesDoc;
+  retrievalPublicationSets: RetrievalPublicationSetsDoc;
+  retrievalTokens: RetrievalTokensDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;
   slackQuestionReceipts: SlackQuestionReceiptsDoc;

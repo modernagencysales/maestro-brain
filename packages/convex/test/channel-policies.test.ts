@@ -278,6 +278,38 @@ describe("Slack channel policy contract", () => {
     ).toBe("Left");
   });
 
+  it("allows an active agency Brain with a bounded history start", () => {
+    const planned = buildBulkPolicyPlan({
+      ...baseRequest,
+      allowedBrainTargets: [
+        ...baseRequest.allowedBrainTargets,
+        {
+          brainKey: "brain_agency",
+          organizationKey: "org_acme",
+          kind: "agency",
+          status: "active",
+        },
+      ],
+      changes: [
+        {
+          channelKey: joinedChannel.channelKey,
+          routing: {
+            mode: "direct",
+            targetBrainKeys: ["brain_agency"],
+            historicalBackfillStartAt: 50,
+          },
+          delivery: { mode: "capture_only" },
+        },
+      ],
+    });
+    expect(planned._tag).toBe("Right");
+    if (planned._tag === "Right")
+      expect(planned.right.routingPolicies[0]).toMatchObject({
+        targetBrainKeys: ["brain_agency"],
+        historicalBackfillStartAt: 50,
+      });
+  });
+
   it("rejects duplicate channel keys before planning active policies", () => {
     const planned = buildBulkPolicyPlan({
       ...baseRequest,

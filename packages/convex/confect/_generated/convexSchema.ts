@@ -7,6 +7,7 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainCorpusHealth from "./tables/brainCorpusHealth";
 import brainExportJobs from "./tables/brainExportJobs";
 import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
@@ -45,6 +46,9 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
+import retrievalEntries from "./tables/retrievalEntries";
+import retrievalPublicationSets from "./tables/retrievalPublicationSets";
+import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
 import slackQuestionReceipts from "./tables/slackQuestionReceipts";
@@ -80,6 +84,7 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
+  brainCorpusHealth: brainCorpusHealth.tableDefinition,
   brainExportJobs: brainExportJobs.tableDefinition,
   brainMaintenanceProposalItems: brainMaintenanceProposalItems.tableDefinition,
   brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
@@ -118,6 +123,9 @@ export default $defineSchema({
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
   providerEventReceipts: providerEventReceipts.tableDefinition,
+  retrievalEntries: retrievalEntries.tableDefinition,
+  retrievalPublicationSets: retrievalPublicationSets.tableDefinition,
+  retrievalTokens: retrievalTokens.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   slackIdentityBindings: slackIdentityBindings.tableDefinition,
   slackQuestionReceipts: slackQuestionReceipts.tableDefinition,

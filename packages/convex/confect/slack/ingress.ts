@@ -62,5 +62,14 @@ export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
     await db.insert("sourceRevisions", rows.revision);
     await db.insert("sourceProcessingJobs", rows.processingJob);
   }
-  return { outcome: (rows.receipt as { outcome: string }).outcome };
+  return {
+    outcome: (rows.receipt as { outcome: string }).outcome,
+    ...(rows.revision === null || rows.revision === undefined
+      ? {}
+      : {
+          sourceKey: (rows.revision as { sourceKey: string }).sourceKey,
+          sourceRevisionKey: (rows.revision as { sourceRevisionKey: string })
+            .sourceRevisionKey,
+        }),
+  };
 };

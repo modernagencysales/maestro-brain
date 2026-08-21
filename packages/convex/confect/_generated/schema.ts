@@ -7,6 +7,7 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainCorpusHealth from "./tables/brainCorpusHealth";
 import brainExportJobs from "./tables/brainExportJobs";
 import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
@@ -45,6 +46,9 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
+import retrievalEntries from "./tables/retrievalEntries";
+import retrievalPublicationSets from "./tables/retrievalPublicationSets";
+import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
 import slackQuestionReceipts from "./tables/slackQuestionReceipts";
@@ -80,6 +84,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof actionTriggers |
   typeof apiKeys |
   typeof billingPlans |
+  typeof brainCorpusHealth |
   typeof brainExportJobs |
   typeof brainMaintenanceProposalItems |
   typeof brainMaintenanceProposals |
@@ -118,6 +123,9 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof promptRegistry |
   typeof providerConnections |
   typeof providerEventReceipts |
+  typeof retrievalEntries |
+  typeof retrievalPublicationSets |
+  typeof retrievalTokens |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
   typeof slackQuestionReceipts |
@@ -152,6 +160,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   actionTriggers,
   apiKeys,
   billingPlans,
+  brainCorpusHealth,
   brainExportJobs,
   brainMaintenanceProposalItems,
   brainMaintenanceProposals,
@@ -190,6 +199,9 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   promptRegistry,
   providerConnections,
   providerEventReceipts,
+  retrievalEntries,
+  retrievalPublicationSets,
+  retrievalTokens,
   servicePrincipals,
   slackIdentityBindings,
   slackQuestionReceipts,

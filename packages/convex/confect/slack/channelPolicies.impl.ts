@@ -92,16 +92,14 @@ const loadChannels = (
   ).pipe(
     Effect.map((groups) => groups.flat() as readonly SourceChannelRowValue[]),
   );
-const loadClientBrains = (
+const loadBrainTargets = (
   reader: Context.Tag.Service<typeof DatabaseReader>,
   organizationId: string,
 ) =>
   reader
     .table("workspaces")
-    .index("by_organization_kind", (q) =>
-      q.eq("organizationId", organizationId).eq("kind", "client"),
-    )
-    .collect()
+    .index("by_organization", (q) => q.eq("organizationId", organizationId))
+    .take(26)
     .pipe(Effect.orDie) as Effect.Effect<
     readonly {
       readonly brainKey?: string;
@@ -216,7 +214,7 @@ const getChannelPolicyReadModelImpl = FunctionImpl.make(
       yield* loadPolicyActor(reader, organizationId);
       const [channels, workspaces, policies] = yield* Effect.all([
         loadChannels(reader, input.organizationKey),
-        loadClientBrains(reader, organizationId),
+        loadBrainTargets(reader, organizationId),
         loadPolicies(reader as unknown as PolicyReader, input.organizationKey),
       ] as const);
       const activeRouting = activeMap(policies.routing);
@@ -286,7 +284,7 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
       );
       const [channels, workspaces, policies] = yield* Effect.all([
         loadChannels(reader, input.organizationKey),
-        loadClientBrains(reader, organizationId),
+        loadBrainTargets(reader, organizationId),
         loadPolicies(reader as unknown as PolicyReader, input.organizationKey),
       ] as const);
       const planned = buildBulkPolicyPlan({

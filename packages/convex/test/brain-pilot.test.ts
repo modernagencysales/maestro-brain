@@ -771,7 +771,7 @@ describe("Brain pilot contract", () => {
       locator: "timestamp:12000-15400",
       citationLabel: "Alex · 00:12",
       permalink: "https://app.fireflies.ai/view/call_1",
-      freshness: "fresh",
+      freshness: "unknown",
       state: "resolved",
     };
     expect(result.apiSearch.results).toEqual([

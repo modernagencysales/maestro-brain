@@ -18,7 +18,7 @@ type Surface = ExternalSurface | "web" | "workflow" | "internal" | string;
 const servicePrincipalHttpRefs: Readonly<Record<string, string>> = {
   "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
   "brain.sources.get": "internal.brain.readApi.headlessSourcesGet",
-  "brain.context.get": "internal.headless.readApi.contextGet",
+  "brain.context.get": "internal.brain.readApi.headlessContextGet",
   "brain.answers.ask": "internal.brain.readApi.headlessAnswersAsk",
 };
 

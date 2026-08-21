@@ -59,7 +59,7 @@ const rows = buildCallSourceUnitRows(call, {
   receivedAt: now,
 });
 
-const seed = (withMapping = true) =>
+const seed = (withMapping = true, agencyBrainKey?: string) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
     const organizationId = yield* writer
@@ -79,6 +79,7 @@ const seed = (withMapping = true) =>
       .insert({
         organizationId,
         ownerUserId: "user_owner",
+        ...(agencyBrainKey === undefined ? {} : { brainKey: agencyBrainKey }),
         slug: "agency",
         name: "Agency",
         kind: "agency",
@@ -264,6 +265,49 @@ describe("call routing persistence", () => {
         outcome: "routed",
         brainKey: "br_acme",
         reason: "review_accept",
+      },
+    });
+  });
+
+  it("supersedes a no-match proposal when an approved agency Brain is named", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seed(false, "br_agency"), Id("workspaces"));
+      const initial = yield* confect.mutation(
+        refs.internal.capabilities.routeCallToBrain.routeCallToBrain,
+        {
+          organizationKey,
+          unitRevisionKey: rows.revision.unitRevisionKey,
+          agencyDomains: ["maestrogtm.com"],
+          caller,
+          routedAt: now + 1,
+        },
+      );
+      const rerouted = yield* confect.mutation(
+        refs.internal.capabilities.routeCallToBrain.routeCallToBrain,
+        {
+          organizationKey,
+          unitRevisionKey: rows.revision.unitRevisionKey,
+          explicitBrainKey: "br_agency",
+          agencyDomains: ["maestrogtm.com"],
+          caller,
+          routedAt: now + 2,
+        },
+      );
+      return { initial, rerouted };
+    });
+
+    await expect(
+      Effect.runPromise(program.pipe(Effect.provide(testConfectLayer()))),
+    ).resolves.toMatchObject({
+      initial: { outcome: "no_match", routeGeneration: 1 },
+      rerouted: {
+        outcome: "routed",
+        brainKey: "br_agency",
+        reason: "explicit",
+        routeGeneration: 2,
       },
     });
   });

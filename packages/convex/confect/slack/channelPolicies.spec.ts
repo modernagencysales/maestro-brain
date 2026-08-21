@@ -12,6 +12,7 @@ import {
 const RoutingChange = Schema.Struct({
   mode: Schema.Literal("direct", "classify", "capture_only"),
   targetBrainKeys: Schema.Array(Schema.String),
+  historicalBackfillStartAt: Schema.optional(Schema.Number),
 });
 
 const DeliveryChange = Schema.Struct({

@@ -29,23 +29,50 @@ const SearchArgs = Schema.extend(
 );
 const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
-  sourceRevisionKey: Schema.optional(Schema.String),
+  sourceRevisionKey: Schema.String,
+  entryKey: Schema.String,
+  passageKey: Schema.String,
+  startOffset: Schema.Number,
+  endOffset: Schema.Number,
+  contentHash: Schema.String,
+  kind: Schema.Literal("source", "page", "projection"),
+  unitKey: Schema.optional(Schema.String),
+  segmentKey: Schema.optional(Schema.String),
   citationKey: Schema.String,
   title: Schema.String,
   excerpt: Schema.String,
   locator: Schema.optional(Schema.String),
   citationLabel: Schema.optional(Schema.String),
   permalink: Schema.optional(Schema.String),
-  freshness: Schema.optional(Schema.Literal("fresh")),
-  state: Schema.optional(Schema.Literal("resolved")),
+  authority: Schema.Literal("authoritative", "derived", "advisory"),
+  authorityPolicyKey: Schema.String,
+  sourceModifiedAt: Schema.optional(Schema.Number),
+  observedAt: Schema.Number,
+  indexedAt: Schema.Number,
+  freshness: Schema.Literal("current", "stale", "unknown"),
+  truncated: Schema.Boolean,
+  state: Schema.Literal("resolved"),
 });
+const Coverage = Schema.Struct({
+  sourceKind: Schema.String,
+  status: Schema.Literal("complete", "partial", "unavailable", "unknown"),
+  freshness: Schema.Literal("current", "stale", "unknown"),
+  lastSuccessfulAt: Schema.optional(Schema.Number),
+  reason: Schema.optional(Schema.String),
+});
+const Omission = Schema.Struct({ reason: Schema.String, count: Schema.Number });
 const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
   results: Schema.Array(SearchResult),
+  coverage: Schema.Array(Coverage),
+  omissions: Schema.Array(Omission),
 });
 const SourceGetArgs = Schema.extend(
   BrainSelector,
-  Schema.Struct({ sourceRevisionKey: Schema.String }),
+  Schema.Struct({
+    sourceRevisionKey: Schema.optional(Schema.String),
+    entryKey: Schema.optional(Schema.String),
+  }),
 );
 const SourceGetReturns = Schema.extend(
   SearchResult,
@@ -58,15 +85,30 @@ const SourceGetReturns = Schema.extend(
 const ContextGetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({
+    question: Schema.optional(Schema.String),
     pageKeys: Schema.optional(Schema.Array(PageKey)),
     maxBytes: Schema.optional(Schema.Number),
   }),
 );
 const ContextReturns = Schema.Struct({
+  requestId: Schema.String,
+  organizationKey: Schema.String,
   brainKey: BrainKey,
+  question: Schema.String,
   asOf: Schema.Number,
-  freshness: Schema.Struct({ status: Schema.Literal("current") }),
+  freshness: Schema.optional(
+    Schema.Struct({ status: Schema.Literal("current", "stale", "unknown") }),
+  ),
+  coverage: Schema.Array(Coverage),
   entries: Schema.Array(SearchResult),
+  omissions: Schema.Array(Omission),
+  conflicts: Schema.Array(
+    Schema.Struct({
+      subject: Schema.String,
+      revisionKeys: Schema.Array(Schema.String),
+      reason: Schema.String,
+    }),
+  ),
 });
 const AskArgs = Schema.extend(
   BrainSelector,
@@ -158,6 +200,12 @@ const headlessSourcesGet = FunctionSpec.internalQuery({
   returns: () => SourceGetReturns,
   error: () => Errors,
 });
+const headlessContextGet = FunctionSpec.internalQuery({
+  name: "headlessContextGet",
+  args: () => Schema.extend(ContextGetArgs, HeadlessSelector),
+  returns: () => ContextReturns,
+  error: () => Errors,
+});
 const headlessAnswersAsk = FunctionSpec.internalQuery({
   name: "headlessAnswersAsk",
   args: () => Schema.extend(AskArgs, HeadlessSelector),
@@ -175,4 +223,5 @@ export default GroupSpec.make()
   .addFunction(answersAsk.spec)
   .addFunction(headlessSourcesSearch)
   .addFunction(headlessSourcesGet)
+  .addFunction(headlessContextGet)
   .addFunction(headlessAnswersAsk);

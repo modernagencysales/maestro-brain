@@ -1,11 +1,17 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
+import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import refs from "../_generated/refs";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  Scheduler,
+} from "../_generated/services";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
 import { matchCall } from "../routing/callMatching";
 import { sha256Hex } from "../shared/sha256";
@@ -82,7 +88,7 @@ export const routeCallToBrainEffect = ({
     const allowedBrainKeys = workspaces
       .flatMap((workspace) =>
         workspace.status === "active" &&
-        workspace.kind === "client" &&
+        (workspace.kind === "client" || workspace.kind === "agency") &&
         workspace.brainKey
           ? [workspace.brainKey]
           : [],
@@ -110,16 +116,45 @@ export const routeCallToBrainEffect = ({
       mappings,
     });
     const route = routeOutcomeFromMatch(match, allowedBrainKeys);
-    const existing = yield* reader
+    const existingRows = yield* reader
       .table("callRoutingProposals")
       .index("by_org_revision", (query) =>
         query
           .eq("organizationKey", organizationKey)
           .eq("unitRevisionKey", unitRevisionKey),
       )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-    if (existing !== null)
+      .take(100)
+      .pipe(Effect.orDie);
+    const existing = existingRows
+      .filter(({ status }) => status === "current" || status === "accepted")
+      .sort((left, right) => right.routeGeneration - left.routeGeneration)[0];
+    const supersedeExisting =
+      existing !== undefined &&
+      route.outcome === "routed" &&
+      existing.outcome !== "routed";
+    if (existing !== undefined && !supersedeExisting) {
+      const target = workspaces.find(
+        (workspace) =>
+          workspace.brainKey === existing.brainKey &&
+          workspace.status === "active",
+      );
+      if (existing.outcome === "routed" && target !== undefined)
+        yield* (yield* Scheduler).runAfter(
+          Duration.zero,
+          refs.internal.brain.retrievalPublication.publishTranscriptRevision,
+          {
+            organizationKey,
+            workspaceId: target._id,
+            brainKey: existing.brainKey ?? "",
+            sourceRevisionKey: unitRevisionKey,
+            caller: {
+              kind: "system",
+              name: "call-router",
+              surface: "internal",
+            },
+            now: routedAt,
+          },
+        );
       return {
         outcome: existing.outcome,
         proposalKey: existing.proposalKey,
@@ -130,6 +165,12 @@ export const routeCallToBrainEffect = ({
         reason: existing.reason,
         routeGeneration: existing.routeGeneration,
       };
+    }
+    if (supersedeExisting)
+      yield* writer
+        .table("callRoutingProposals")
+        .patch(existing._id, { status: "superseded", updatedAt: routedAt })
+        .pipe(Effect.orDie);
     const prior = yield* reader
       .table("callRoutingProposals")
       .index("by_org_unit_generation", (query) =>
@@ -188,6 +229,28 @@ export const routeCallToBrainEffect = ({
           updatedAt: routedAt,
         })
         .pipe(Effect.orDie);
+
+    const target = workspaces.find(
+      (workspace) =>
+        workspace.brainKey === route.brainKey && workspace.status === "active",
+    );
+    if (route.outcome === "routed" && target !== undefined)
+      yield* (yield* Scheduler).runAfter(
+        Duration.zero,
+        refs.internal.brain.retrievalPublication.publishTranscriptRevision,
+        {
+          organizationKey,
+          workspaceId: target._id,
+          brainKey: route.brainKey ?? "",
+          sourceRevisionKey: unitRevisionKey,
+          caller: {
+            kind: "system",
+            name: "call-router",
+            surface: "internal",
+          },
+          now: routedAt,
+        },
+      );
 
     return {
       ...route,

@@ -1,6 +1,7 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -16,6 +17,7 @@ import {
   DatabaseReader,
   DatabaseWriter,
   QueryRunner,
+  Scheduler,
 } from "../_generated/services";
 import { isStableAgencyKey } from "../identity/stableKeys";
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
@@ -48,7 +50,7 @@ type ReadPageError = AccessError | ValidationFailed | PageNotFound;
 type PageError =
   ReadPageError | PageTreeConflict | RevisionNotFound | StaleRevision;
 type ReadPageDeps = Auth | DatabaseReader | QueryRunner;
-type PageDeps = ReadPageDeps | DatabaseWriter;
+type PageDeps = ReadPageDeps | DatabaseWriter | Scheduler;
 const auditActions = {
   create: "page.created",
   rename: "page.renamed",
@@ -338,6 +340,26 @@ const writePageRevision = (args: {
         schemaVersion: 1,
       })
       .pipe(Effect.orDie);
+    yield* (yield* Scheduler).runAfter(
+      Duration.zero,
+      refs.internal.brain.retrievalPublication.publishPageRevision,
+      {
+        organizationKey: args.brain.organizationKey,
+        workspaceId: args.brain.workspaceId,
+        brainKey: args.brain.brainKey,
+        pageKey: args.page.pageKey,
+        revisionKey: args.revisionKey,
+        authority: "derived",
+        authorityPolicyKey: "company-pages",
+        policyGeneration: 1,
+        caller: {
+          kind: "system",
+          name: "brain-pages",
+          surface: "internal",
+        },
+        now: args.at,
+      },
+    );
     if (args.audit !== false && args.kind !== "snapshot") {
       yield* writer
         .table("brainPageAuditEvents")

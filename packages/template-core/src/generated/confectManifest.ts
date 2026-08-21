@@ -1692,6 +1692,9 @@ const sharedConfectJsonSchemas = {
       brainKey: {
         type: "string",
       },
+      question: {
+        type: "string",
+      },
       pageKeys: {
         type: "array",
         items: {
@@ -1710,9 +1713,28 @@ const sharedConfectJsonSchemas = {
   "brain.readApi.contextGet.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "asOf", "freshness", "entries"],
+    required: [
+      "requestId",
+      "organizationKey",
+      "brainKey",
+      "question",
+      "asOf",
+      "coverage",
+      "entries",
+      "omissions",
+      "conflicts",
+    ],
     properties: {
+      requestId: {
+        type: "string",
+      },
+      organizationKey: {
+        type: "string",
+      },
       brainKey: {
+        type: "string",
+      },
+      question: {
         type: "string",
       },
       asOf: {
@@ -1724,21 +1746,92 @@ const sharedConfectJsonSchemas = {
         properties: {
           status: {
             type: "string",
-            enum: ["current"],
+            enum: ["current", "stale", "unknown"],
           },
         },
         additionalProperties: false,
+      },
+      coverage: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["sourceKind", "status", "freshness"],
+          properties: {
+            sourceKind: {
+              type: "string",
+            },
+            status: {
+              type: "string",
+              enum: ["complete", "partial", "unavailable", "unknown"],
+            },
+            freshness: {
+              type: "string",
+              enum: ["current", "stale", "unknown"],
+            },
+            lastSuccessfulAt: {
+              type: "number",
+            },
+            reason: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
       },
       entries: {
         type: "array",
         items: {
           type: "object",
-          required: ["sourceKey", "citationKey", "title", "excerpt"],
+          required: [
+            "sourceKey",
+            "sourceRevisionKey",
+            "entryKey",
+            "passageKey",
+            "startOffset",
+            "endOffset",
+            "contentHash",
+            "kind",
+            "citationKey",
+            "title",
+            "excerpt",
+            "authority",
+            "authorityPolicyKey",
+            "observedAt",
+            "indexedAt",
+            "freshness",
+            "truncated",
+            "state",
+          ],
           properties: {
             sourceKey: {
               type: "string",
             },
             sourceRevisionKey: {
+              type: "string",
+            },
+            entryKey: {
+              type: "string",
+            },
+            passageKey: {
+              type: "string",
+            },
+            startOffset: {
+              type: "number",
+            },
+            endOffset: {
+              type: "number",
+            },
+            contentHash: {
+              type: "string",
+            },
+            kind: {
+              type: "string",
+              enum: ["source", "page", "projection"],
+            },
+            unitKey: {
+              type: "string",
+            },
+            segmentKey: {
               type: "string",
             },
             citationKey: {
@@ -1759,13 +1852,70 @@ const sharedConfectJsonSchemas = {
             permalink: {
               type: "string",
             },
+            authority: {
+              type: "string",
+              enum: ["authoritative", "derived", "advisory"],
+            },
+            authorityPolicyKey: {
+              type: "string",
+            },
+            sourceModifiedAt: {
+              type: "number",
+            },
+            observedAt: {
+              type: "number",
+            },
+            indexedAt: {
+              type: "number",
+            },
             freshness: {
               type: "string",
-              enum: ["fresh"],
+              enum: ["current", "stale", "unknown"],
+            },
+            truncated: {
+              type: "boolean",
             },
             state: {
               type: "string",
               enum: ["resolved"],
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      omissions: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["reason", "count"],
+          properties: {
+            reason: {
+              type: "string",
+            },
+            count: {
+              type: "number",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      conflicts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["subject", "revisionKeys", "reason"],
+          properties: {
+            subject: {
+              type: "string",
+            },
+            revisionKeys: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+            reason: {
+              type: "string",
             },
           },
           additionalProperties: false,
@@ -1777,12 +1927,15 @@ const sharedConfectJsonSchemas = {
   "brain.readApi.sourcesGet.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "sourceRevisionKey"],
+    required: ["brainKey"],
     properties: {
       brainKey: {
         type: "string",
       },
       sourceRevisionKey: {
+        type: "string",
+      },
+      entryKey: {
         type: "string",
       },
     },
@@ -1793,9 +1946,23 @@ const sharedConfectJsonSchemas = {
     type: "object",
     required: [
       "sourceKey",
+      "sourceRevisionKey",
+      "entryKey",
+      "passageKey",
+      "startOffset",
+      "endOffset",
+      "contentHash",
+      "kind",
       "citationKey",
       "title",
       "excerpt",
+      "authority",
+      "authorityPolicyKey",
+      "observedAt",
+      "indexedAt",
+      "freshness",
+      "truncated",
+      "state",
       "brainKey",
       "revisionKey",
       "status",
@@ -1805,6 +1972,31 @@ const sharedConfectJsonSchemas = {
         type: "string",
       },
       sourceRevisionKey: {
+        type: "string",
+      },
+      entryKey: {
+        type: "string",
+      },
+      passageKey: {
+        type: "string",
+      },
+      startOffset: {
+        type: "number",
+      },
+      endOffset: {
+        type: "number",
+      },
+      contentHash: {
+        type: "string",
+      },
+      kind: {
+        type: "string",
+        enum: ["source", "page", "projection"],
+      },
+      unitKey: {
+        type: "string",
+      },
+      segmentKey: {
         type: "string",
       },
       citationKey: {
@@ -1825,9 +2017,28 @@ const sharedConfectJsonSchemas = {
       permalink: {
         type: "string",
       },
+      authority: {
+        type: "string",
+        enum: ["authoritative", "derived", "advisory"],
+      },
+      authorityPolicyKey: {
+        type: "string",
+      },
+      sourceModifiedAt: {
+        type: "number",
+      },
+      observedAt: {
+        type: "number",
+      },
+      indexedAt: {
+        type: "number",
+      },
       freshness: {
         type: "string",
-        enum: ["fresh"],
+        enum: ["current", "stale", "unknown"],
+      },
+      truncated: {
+        type: "boolean",
       },
       state: {
         type: "string",
@@ -1862,7 +2073,7 @@ const sharedConfectJsonSchemas = {
   "brain.readApi.sourcesSearch.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "results"],
+    required: ["brainKey", "results", "coverage", "omissions"],
     properties: {
       brainKey: {
         type: "string",
@@ -1871,12 +2082,56 @@ const sharedConfectJsonSchemas = {
         type: "array",
         items: {
           type: "object",
-          required: ["sourceKey", "citationKey", "title", "excerpt"],
+          required: [
+            "sourceKey",
+            "sourceRevisionKey",
+            "entryKey",
+            "passageKey",
+            "startOffset",
+            "endOffset",
+            "contentHash",
+            "kind",
+            "citationKey",
+            "title",
+            "excerpt",
+            "authority",
+            "authorityPolicyKey",
+            "observedAt",
+            "indexedAt",
+            "freshness",
+            "truncated",
+            "state",
+          ],
           properties: {
             sourceKey: {
               type: "string",
             },
             sourceRevisionKey: {
+              type: "string",
+            },
+            entryKey: {
+              type: "string",
+            },
+            passageKey: {
+              type: "string",
+            },
+            startOffset: {
+              type: "number",
+            },
+            endOffset: {
+              type: "number",
+            },
+            contentHash: {
+              type: "string",
+            },
+            kind: {
+              type: "string",
+              enum: ["source", "page", "projection"],
+            },
+            unitKey: {
+              type: "string",
+            },
+            segmentKey: {
               type: "string",
             },
             citationKey: {
@@ -1897,13 +2152,75 @@ const sharedConfectJsonSchemas = {
             permalink: {
               type: "string",
             },
+            authority: {
+              type: "string",
+              enum: ["authoritative", "derived", "advisory"],
+            },
+            authorityPolicyKey: {
+              type: "string",
+            },
+            sourceModifiedAt: {
+              type: "number",
+            },
+            observedAt: {
+              type: "number",
+            },
+            indexedAt: {
+              type: "number",
+            },
             freshness: {
               type: "string",
-              enum: ["fresh"],
+              enum: ["current", "stale", "unknown"],
+            },
+            truncated: {
+              type: "boolean",
             },
             state: {
               type: "string",
               enum: ["resolved"],
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      coverage: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["sourceKind", "status", "freshness"],
+          properties: {
+            sourceKind: {
+              type: "string",
+            },
+            status: {
+              type: "string",
+              enum: ["complete", "partial", "unavailable", "unknown"],
+            },
+            freshness: {
+              type: "string",
+              enum: ["current", "stale", "unknown"],
+            },
+            lastSuccessfulAt: {
+              type: "number",
+            },
+            reason: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      omissions: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["reason", "count"],
+          properties: {
+            reason: {
+              type: "string",
+            },
+            count: {
+              type: "number",
             },
           },
           additionalProperties: false,

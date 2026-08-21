@@ -1,4 +1,4 @@
-import { internalMutationGeneric } from "convex/server";
+import { internalMutationGeneric, makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { DatabaseWriter } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
@@ -39,6 +39,22 @@ type IngressInput = Readonly<{
   payload: unknown;
 }>;
 type IngressDb = Pick<DatabaseWriter, "query" | "insert" | "patch">;
+const publishSlackRevision = makeFunctionReference<
+  "mutation",
+  {
+    organizationKey: string;
+    workspaceId: string;
+    brainKey: string;
+    sourceRevisionKey: string;
+    caller: {
+      kind: "system";
+      name: string;
+      surface: "internal";
+    };
+    now: number;
+  },
+  unknown
+>("brain/retrievalPublication:publishSlackRevision");
 const receiptFor = async (db: IngressDb, i: IngressInput) =>
   await db
     .query("providerEventReceipts")
@@ -86,9 +102,13 @@ const artifactFor = async (db: IngressDb, i: IngressInput) => {
 };
 export const receiveSlackEvent = internalMutationGeneric({
   args,
-  returns: v.object({ outcome: v.string() }),
-  handler: async (ctx, i) =>
-    await ingestSlackEvent(
+  returns: v.object({
+    outcome: v.string(),
+    sourceKey: v.optional(v.string()),
+    sourceRevisionKey: v.optional(v.string()),
+  }),
+  handler: async (ctx, i) => {
+    const result = await ingestSlackEvent(
       {
         findReceipt: (d) =>
           receiptFor(ctx.db, { ...i, transportDeliveryId: d }),
@@ -102,5 +122,50 @@ export const receiveSlackEvent = internalMutationGeneric({
           ),
       },
       i,
-    ),
+    );
+    if (result.sourceRevisionKey === undefined) return result;
+    const organization = await ctx.db
+      .query("organizations")
+      .withIndex("by_agency_key", (q) => q.eq("agencyKey", i.organizationKey))
+      .unique();
+    if (organization === null) return result;
+    const [policies, workspaces] = await Promise.all([
+      ctx.db
+        .query("channelRoutingPolicies")
+        .withIndex("by_channel_active", (q) => q.eq("channelKey", i.channelKey))
+        .take(10),
+      ctx.db
+        .query("workspaces")
+        .withIndex("by_organization", (q) =>
+          q.eq("organizationId", organization._id),
+        )
+        .take(26),
+    ]);
+    const targetBrainKeys = new Set(
+      policies
+        .filter((policy) => policy.active && policy.mode !== "capture_only")
+        .flatMap(({ targetBrainKeys }) => targetBrainKeys),
+    );
+    for (const workspace of workspaces) {
+      if (
+        workspace.status !== "active" ||
+        workspace.brainKey === undefined ||
+        !targetBrainKeys.has(workspace.brainKey)
+      )
+        continue;
+      await ctx.scheduler.runAfter(0, publishSlackRevision, {
+        organizationKey: i.organizationKey,
+        workspaceId: workspace._id,
+        brainKey: workspace.brainKey,
+        sourceRevisionKey: result.sourceRevisionKey,
+        caller: {
+          kind: "system",
+          name: "slack-ingress",
+          surface: "internal",
+        },
+        now: i.receivedAt,
+      });
+    }
+    return result;
+  },
 });
