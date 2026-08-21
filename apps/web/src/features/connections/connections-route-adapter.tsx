@@ -294,6 +294,7 @@ const lastErrorLabel = (
     | "ProviderRateLimited"
     | "ProviderUnavailable"
     | "PermanentDecodeFailure"
+    | "RevisionOrderConflict"
     | null,
 ): string | null => {
   switch (error) {
@@ -303,6 +304,8 @@ const lastErrorLabel = (
       return "Provider unavailable";
     case "PermanentDecodeFailure":
       return "Transcript response could not be decoded";
+    case "RevisionOrderConflict":
+      return "Transcript revision order conflict";
     case null:
       return null;
   }
