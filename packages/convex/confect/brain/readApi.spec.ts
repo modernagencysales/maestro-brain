@@ -14,6 +14,7 @@ import { Id } from "../_generated/id";
 
 const BrainKey = Schema.String;
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
+const CompatibilityMode = Schema.Literal("legacy");
 export class CitationIntegrityFailure extends Schema.TaggedError<CitationIntegrityFailure>()(
   "CitationIntegrityFailure",
   {
@@ -40,7 +41,10 @@ const Errors = Schema.Union(
 );
 const SearchArgs = Schema.extend(
   BrainSelector,
-  Schema.Struct({ query: Schema.String }),
+  Schema.Struct({
+    query: Schema.String,
+    compatibilityMode: Schema.optional(CompatibilityMode),
+  }),
 );
 export const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
@@ -89,6 +93,7 @@ const SourceGetArgs = Schema.extend(
     sourceRevisionKey: Schema.optional(Schema.String),
     entryKey: Schema.optional(Schema.String),
     publicationSetKey: Schema.optional(Schema.String),
+    compatibilityMode: Schema.optional(CompatibilityMode),
   }),
 );
 const SourceGetReturns = Schema.extend(
@@ -105,6 +110,7 @@ const ContextGetArgs = Schema.extend(
     question: Schema.optional(Schema.String),
     pageKeys: Schema.optional(Schema.Array(PageKey)),
     maxBytes: Schema.optional(Schema.Number),
+    compatibilityMode: Schema.optional(CompatibilityMode),
   }),
 );
 const ContextReturns = Schema.Struct({

@@ -77,8 +77,10 @@ publication jobs, a registered one-minute recovery sweeper, bounded durable
 page/Slack/transcript rebuild continuations, Slack-policy and accepted-call
 target reconciliation, provider-connection generation fencing, transcript
 revision ordering, exact `(publicationSetKey, entryKey)` reads, and immutable
-page/Slack/transcript citation verification. Focused backend tests, the Convex
-package typecheck, Confect contracts, and headless-surface contracts pass.
+page/Slack/transcript citation verification. Legacy reads require an explicit
+per-request opt-in and are disabled by default. Focused backend tests, the
+Convex package typecheck, Confect contracts, and headless-surface contracts
+pass.
 
 This remains an implementation checkpoint, not a rollout checkpoint. The full
 repository verification gate is red in the transplanted web application. Before
@@ -963,7 +965,7 @@ until every required row and the clean-branch gates pass.
 | Missing expected corpus is unavailable/unknown                                  | `test/headless-context.test.ts`                                                                              | Required                                                                       |
 | Organization rebuild beyond one enumeration page                                | `test/retrieval-publication.test.ts`                                                                         | Required                                                                       |
 | Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Required                                                                       |
-| Compatibility disabled and Codex/Claude manifest parity                         | `test/headless-context.test.ts` plus pinned runtime fixture receipt                                          | Required                                                                       |
+| Compatibility disabled and Codex/Claude manifest parity                         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`, plus pinned runtime fixture receipt             | Compatibility gate implemented; runtime parity receipt required                |
 
 Each required row gains an engineering owner in its PR. Real-provider receipts
 add the context owner and connector/access owner before WP03 or WP05 acceptance.

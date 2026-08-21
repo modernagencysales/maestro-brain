@@ -1711,6 +1711,10 @@ const sharedConfectJsonSchemas = {
       maxBytes: {
         type: "number",
       },
+      compatibilityMode: {
+        type: "string",
+        enum: ["legacy"],
+      },
     },
     additionalProperties: false,
   },
@@ -1949,6 +1953,10 @@ const sharedConfectJsonSchemas = {
       publicationSetKey: {
         type: "string",
       },
+      compatibilityMode: {
+        type: "string",
+        enum: ["legacy"],
+      },
     },
     additionalProperties: false,
   },
@@ -2081,6 +2089,10 @@ const sharedConfectJsonSchemas = {
       },
       query: {
         type: "string",
+      },
+      compatibilityMode: {
+        type: "string",
+        enum: ["legacy"],
       },
     },
     additionalProperties: false,

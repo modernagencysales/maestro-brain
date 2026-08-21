@@ -674,21 +674,33 @@ describe("Brain pilot contract", () => {
           brainKey,
           query: "launch",
         });
-        const apiSearch = yield* editor.query(
+        const apiSearchDisabled = yield* editor.query(
           refs.public.brain.readApi.sourcesSearch,
           { brainKey, query: "launch" },
+        );
+        const apiSearch = yield* editor.query(
+          refs.public.brain.readApi.sourcesSearch,
+          { brainKey, query: "launch", compatibilityMode: "legacy" },
         );
         const apiGet = yield* editor.query(
           refs.public.brain.readApi.sourcesGet,
           {
             brainKey,
             sourceRevisionKey: transcriptKeys.unitRevisionKey,
+            compatibilityMode: "legacy",
           },
         );
+        const apiGetDisabled = yield* editor
+          .query(refs.public.brain.readApi.sourcesGet, {
+            brainKey,
+            sourceRevisionKey: transcriptKeys.unitRevisionKey,
+          })
+          .pipe(Effect.flip);
         const legacySourceAvailable = yield* editor
           .query(refs.public.brain.readApi.sourcesGet, {
             brainKey,
             sourceRevisionKey: submitted.sourceKey,
+            compatibilityMode: "legacy",
           })
           .pipe(
             Effect.as(true),
@@ -699,8 +711,15 @@ describe("Brain pilot contract", () => {
           {
             brainKey,
             pageKeys: [page.pageKey],
+            compatibilityMode: "legacy",
           },
         );
+        const contextDisabled = yield* editor
+          .query(refs.public.brain.readApi.contextGet, {
+            brainKey,
+            pageKeys: [page.pageKey],
+          })
+          .pipe(Effect.flip);
         const apiAsk = yield* editor.query(
           refs.public.brain.readApi.answersAsk,
           {
@@ -727,15 +746,22 @@ describe("Brain pilot contract", () => {
         );
         const contextAfterRevoke = yield* editor.query(
           refs.public.brain.readApi.contextGet,
-          { brainKey, pageKeys: [page.pageKey] },
+          {
+            brainKey,
+            pageKeys: [page.pageKey],
+            compatibilityMode: "legacy",
+          },
         );
         return {
           search,
           ask,
           apiSearch,
+          apiSearchDisabled,
           apiGet,
+          apiGetDisabled,
           legacySourceAvailable,
           context,
+          contextDisabled,
           apiAsk,
           isolated,
           afterRevoke,
@@ -777,15 +803,24 @@ describe("Brain pilot contract", () => {
     expect(result.apiSearch.results).toEqual([
       expect.objectContaining(transcriptResult),
     ]);
+    expect(result.apiSearchDisabled.results).toEqual([]);
     expect(result.apiGet).toMatchObject({
       ...transcriptResult,
       revisionKey: transcriptKeys.unitRevisionKey,
       status: "published",
     });
+    expect(result.apiGetDisabled).toMatchObject({
+      _tag: "ValidationFailed",
+      field: "sourceRevisionKey",
+    });
     expect(result.legacySourceAvailable).toBe(false);
     expect(result.context.entries).toEqual([
       expect.objectContaining(transcriptResult),
     ]);
+    expect(result.contextDisabled).toMatchObject({
+      _tag: "ValidationFailed",
+      field: "question",
+    });
     expect(result.apiAsk).toMatchObject({
       response: {
         status: "answered",

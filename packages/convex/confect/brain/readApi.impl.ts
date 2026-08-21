@@ -529,7 +529,11 @@ const searchProjection = (
   });
 
 const searchSources = (
-  args: { readonly brainKey: string; readonly query: string },
+  args: {
+    readonly brainKey: string;
+    readonly query: string;
+    readonly compatibilityMode?: "legacy" | undefined;
+  },
   selector: ReadSelector,
 ) =>
   Effect.gen(function* () {
@@ -544,7 +548,7 @@ const searchSources = (
       selector,
       RETRIEVAL_CANDIDATE_LIMIT,
     );
-    if (projection.results.length > 0)
+    if (projection.results.length > 0 || args.compatibilityMode !== "legacy")
       return {
         brainKey: projection.brain.brainKey,
         results: projection.results,
@@ -772,6 +776,7 @@ const getSource = (
     readonly sourceRevisionKey?: string | undefined;
     readonly entryKey?: string | undefined;
     readonly publicationSetKey?: string | undefined;
+    readonly compatibilityMode?: "legacy" | undefined;
   },
   selector: ReadSelector,
 ) =>
@@ -843,6 +848,11 @@ const getSource = (
           field: "publicationSetKey",
           message: "Retrieval publication is unavailable or retired.",
         });
+      if (args.compatibilityMode !== "legacy")
+        return yield* new ValidationFailed({
+          field: "sourceRevisionKey",
+          message: "Source revision is unavailable.",
+        });
       const legacy = yield* loadTranscriptReadContext(selector);
       const transcript = legacy.transcripts.find(
         ({ sourceRevisionKey }) => sourceRevisionKey === requestedRevisionKey,
@@ -911,6 +921,7 @@ const getContext = (
     readonly question?: string | undefined;
     readonly pageKeys?: readonly string[] | undefined;
     readonly maxBytes?: number | undefined;
+    readonly compatibilityMode?: "legacy" | undefined;
   },
   selector: ReadSelector,
 ) =>
@@ -963,7 +974,13 @@ const getContext = (
       };
     }
 
-    // Compatibility only for pre-projection callers. Ask Apero always supplies a question.
+    if (args.compatibilityMode !== "legacy")
+      return yield* new ValidationFailed({
+        field: "question",
+        message: "question is required when compatibility mode is disabled.",
+      });
+
+    // Compatibility only for explicitly opted-in pre-projection callers.
     const { brain, pages, citations, transcripts } =
       yield* loadTranscriptReadContext(selector);
     const allowed = args.pageKeys === undefined ? null : new Set(args.pageKeys);
