@@ -153,8 +153,18 @@ Execute-mode component failures follow the same durable failure receipt path.
   bounded `eligibilityFences` manifests to the populated publication-set table.
   New page publishers populate a lifecycle reference immediately, and page
   archive advances that fence generation to ineligible in the same mutation as
-  the source lifecycle change. Policy, route, scope, allowlist, and connection
-  writers adopt the same substrate in BE1-S2B.
+  the source lifecycle change. Slack/transcript object lifecycle, policy/route,
+  and connection writers adopt the same substrate in BE1-S2B. Provider-neutral
+  scope and allowlist controllers arrive with their owning records in BE2-S1B;
+  BE1 does not invent placeholder controllers.
+- **Publication-job authority backfill:** new BE1-S2C writers persist the
+  origin-discriminated subject/incarnation, scope when applicable, controlling
+  generations, eligibility refs, observation/reconciliation fence, stable effect
+  key, and repair/supersession linkage. BE2-S1A resumably inspects legacy jobs.
+  Terminal-success rows remain historical; an actionable row is replaced by one
+  exactly linked complete-envelope job and marked superseded, or remains a typed
+  blocking conflict when authority cannot be derived. Missing fields are never
+  guessed in place.
 - **Backfill:** enqueue `page_rebuild`, `slack_rebuild`, or `transcript_rebuild`
   publication jobs with batches of at most five source objects. Each successful
   non-final batch transactionally creates the next cursor-keyed job; provider
