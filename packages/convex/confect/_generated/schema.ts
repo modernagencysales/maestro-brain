@@ -52,6 +52,7 @@ import retrievalPublicationSets from "./tables/retrievalPublicationSets";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackPublicationTargetIntents from "./tables/slackPublicationTargetIntents";
 import slackQuestionReceipts from "./tables/slackQuestionReceipts";
 import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
@@ -130,6 +131,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof retrievalTokens |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
+  typeof slackPublicationTargetIntents |
   typeof slackQuestionReceipts |
   typeof sourceArtifacts |
   typeof sourceChannels |
@@ -207,6 +209,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   retrievalTokens,
   servicePrincipals,
   slackIdentityBindings,
+  slackPublicationTargetIntents,
   slackQuestionReceipts,
   sourceArtifacts,
   sourceChannels,

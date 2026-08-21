@@ -53,6 +53,7 @@ export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinit
 export type RetrievalTokensDoc = Document.Document<typeof schemaDefinition, "retrievalTokens">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
+export type SlackPublicationTargetIntentsDoc = Document.Document<typeof schemaDefinition, "slackPublicationTargetIntents">;
 export type SlackQuestionReceiptsDoc = Document.Document<typeof schemaDefinition, "slackQuestionReceipts">;
 export type SourceArtifactsDoc = Document.Document<typeof schemaDefinition, "sourceArtifacts">;
 export type SourceChannelsDoc = Document.Document<typeof schemaDefinition, "sourceChannels">;
@@ -131,6 +132,7 @@ export interface Docs {
   retrievalTokens: RetrievalTokensDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;
+  slackPublicationTargetIntents: SlackPublicationTargetIntentsDoc;
   slackQuestionReceipts: SlackQuestionReceiptsDoc;
   sourceArtifacts: SourceArtifactsDoc;
   sourceChannels: SourceChannelsDoc;

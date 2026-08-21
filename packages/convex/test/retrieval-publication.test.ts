@@ -1469,6 +1469,67 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const policyOverflow = yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            const duplicatePolicyId = yield* writer
+              .table("channelRoutingPolicies")
+              .insert({
+                organizationKey,
+                connectionKey: "conn_slack",
+                connectionGeneration: 1,
+                channelKey: "channel_sales",
+                policyEpoch: 2,
+                active: true,
+                mode: "direct",
+                targetBrainKeys: [brainKey],
+                historicalBackfillStartAt: now - 1_000,
+                statusAfterApply: "streaming",
+                createdByRole: "owner",
+                createdAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+            const attempt = yield* publishSlackRevisionEffect({
+              organizationKey,
+              workspaceId,
+              brainKey,
+              sourceRevisionKey,
+              caller: {
+                kind: "system",
+                name: "slack-policy-overflow-test",
+                surface: "internal",
+              },
+              now: now + 1,
+            }).pipe(
+              Effect.match({
+                onFailure: (error) => ({
+                  outcome: "failure" as const,
+                  errorTag: error._tag,
+                  entryCount:
+                    error._tag === "RetrievalPublicationCapacityExceeded"
+                      ? error.entryCount
+                      : 0,
+                  tokenCount:
+                    error._tag === "RetrievalPublicationCapacityExceeded"
+                      ? error.tokenCount
+                      : 0,
+                }),
+                onSuccess: () => ({
+                  outcome: "success" as const,
+                  errorTag: null,
+                  entryCount: 0,
+                  tokenCount: 0,
+                }),
+              }),
+            );
+            yield* writer
+              .table("channelRoutingPolicies")
+              .patch(duplicatePolicyId, { active: false })
+              .pipe(Effect.orDie);
+            return attempt;
+          }),
+          resultSchema(),
+        );
         const policyId = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1572,6 +1633,7 @@ describe("retrieval publication persistence", () => {
           .pipe(Effect.either);
         return {
           published,
+          policyOverflow,
           search,
           source,
           rebuilt,
@@ -1587,6 +1649,12 @@ describe("retrieval publication persistence", () => {
     expect(result.published).toMatchObject({
       outcome: "published",
       entryCount: 1,
+    });
+    expect(result.policyOverflow).toEqual({
+      outcome: "failure",
+      errorTag: "RetrievalPublicationCapacityExceeded",
+      entryCount: 2,
+      tokenCount: 0,
     });
     if (result.published.outcome !== "published") {
       throw new Error("expected Slack publication");

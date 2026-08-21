@@ -191,6 +191,27 @@ Execute-mode component failures follow the same durable failure receipt path.
   schema compatibility but restores an unbounded scan and is therefore not an
   approved operational rollback.
 
+## Slack publication target-resolution intent
+
+- **Expand:** add `slackPublicationTargetIntents`, keyed uniquely by the
+  immutable provider-event receipt with a bounded status/due index. Existing
+  receipts remain unchanged and require no backfill.
+- **Flow:** every newly admitted Slack receipt records `pending` target
+  resolution in the same transaction as its immutable source revision. Target
+  enumeration and publication-job creation run as a separate resumable mutation.
+  Capacity or routing ambiguity changes the intent to `retry_wait`; it never
+  rolls back source capture and never creates a partial target subset.
+- **Backfill:** none for historical receipts. A later reconciliation/rebuild
+  covers historical source revisions; only receipts captured after this expand
+  participate in the intent sweeper.
+- **Verify:** force policy and workspace capacity failures, prove one receipt
+  and revision remain with zero publication jobs, remove the capacity condition,
+  and resume to the complete target set without provider redelivery. Duplicate
+  provider delivery creates no second receipt or resolution intent.
+- **Rollback:** pause the resolution sweeper before deploying an older writer.
+  The additive intent table may remain. Rebuild derived Slack publications from
+  the immutable ledger; never delete captured revisions.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

@@ -52,6 +52,7 @@ import retrievalPublicationSets from "./tables/retrievalPublicationSets";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackPublicationTargetIntents from "./tables/slackPublicationTargetIntents";
 import slackQuestionReceipts from "./tables/slackQuestionReceipts";
 import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
@@ -130,6 +131,7 @@ export default $defineSchema({
   retrievalTokens: retrievalTokens.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   slackIdentityBindings: slackIdentityBindings.tableDefinition,
+  slackPublicationTargetIntents: slackPublicationTargetIntents.tableDefinition,
   slackQuestionReceipts: slackQuestionReceipts.tableDefinition,
   sourceArtifacts: sourceArtifacts.tableDefinition,
   sourceChannels: sourceChannels.tableDefinition,

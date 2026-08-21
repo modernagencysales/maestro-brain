@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import crons from "../confect/crons";
+import convexCrons from "../convex/crons";
 
 describe("retrieval publication recovery cron", () => {
   it("registers the bounded internal publication sweeper", () => {
@@ -19,6 +20,23 @@ describe("retrieval publication recovery cron", () => {
       Object.keys(
         crons.convexCronJobs.crons as unknown as Record<string, unknown>,
       ),
-    ).toEqual(["recover Brain publication jobs"]);
+    ).toEqual([
+      "recover Brain publication jobs",
+      "recover Slack publication target resolution",
+    ]);
+  });
+
+  it("registers bounded recovery for Slack target-resolution intents", () => {
+    const registered = convexCrons.crons as unknown as Record<
+      string,
+      { args?: unknown }
+    >;
+    expect(Object.keys(registered)).toEqual([
+      "recover Brain publication jobs",
+      "recover Slack publication target resolution",
+    ]);
+    expect(
+      registered["recover Slack publication target resolution"]?.args,
+    ).toEqual([{ limit: 20 }]);
   });
 });

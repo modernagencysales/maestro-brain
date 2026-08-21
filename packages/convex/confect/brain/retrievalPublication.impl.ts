@@ -881,8 +881,13 @@ export const publishSlackRevisionEffect = (
       .index("by_channel_active", (query) =>
         query.eq("channelKey", revision.channelKey).eq("active", true),
       )
-      .take(10)
+      .take(2)
       .pipe(Effect.orDie);
+    if (policies.length > 1)
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: policies.length,
+        tokenCount: 0,
+      });
     const policy = policies
       .filter(
         (candidate) =>
