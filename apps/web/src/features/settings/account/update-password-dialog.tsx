@@ -5,15 +5,15 @@ import { Button, Dialog } from "@saas-ui/react";
 
 import { Form, useAppForm } from "@workspace/ui/form";
 
-import { updatePasswordSchema } from "./schema/update-password.schema.ts";
+import { updatePasswordSchema } from "./schema/update-password.schema";
 
 export interface UpdatePasswordFormProps extends Omit<
   Dialog.RootProps,
   "children"
 > {
-  onSuccess?: (data: any) => void;
-  onError?: (error: any) => void;
-  onValidationError?: (error: any) => void;
+  onSuccess?: (data: unknown) => void;
+  onError?: (error: unknown) => void;
+  onValidationError?: (error: unknown) => void;
 }
 
 export const UpdatePasswordDialog: React.FC<UpdatePasswordFormProps> = ({

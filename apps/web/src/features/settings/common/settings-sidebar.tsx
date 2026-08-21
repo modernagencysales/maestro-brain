@@ -20,7 +20,6 @@ import {
 import { useHelpCenter } from "@workspace/ui/help-center";
 
 import { LinkButton } from "#components/link-button";
-import { useWorkspaceSlug } from "#features/common/hooks/use-workspace-slug";
 import { useUserSettings } from "#lib/user-settings/use-user-settings";
 
 const SettingsLinkBase = React.forwardRef<
@@ -37,8 +36,6 @@ const SettingsLinkBase = React.forwardRef<
 const SettingsLink = createLink(SettingsLinkBase);
 
 export const SettingsSidebar = () => {
-  const workspace = useWorkspaceSlug();
-
   const navigate = useNavigate();
 
   const help = useHelpCenter();
@@ -49,10 +46,7 @@ export const SettingsSidebar = () => {
 
   useHotkeysShortcut("settings.close", () => {
     navigate({
-      to: "/$workspace",
-      params: {
-        workspace,
-      },
+      to: "/clients",
     });
   });
 
@@ -64,9 +58,8 @@ export const SettingsSidebar = () => {
 
   const getLinkOptions = (to: string) => {
     return linkOptions({
-      from: "/$workspace/settings",
-      to: `./${to}`,
-      params: { workspace },
+      to: "/settings",
+      hash: to,
       activeOptions: { exact: true },
       activeProps: {
         "data-active": true,
@@ -86,8 +79,7 @@ export const SettingsSidebar = () => {
       <Sidebar.Root borderRightWidth="1px">
         <Sidebar.Header>
           <LinkButton
-            to="/$workspace"
-            params={{ workspace }}
+            to="/clients"
             variant="ghost"
             size="sm"
             _hover={{

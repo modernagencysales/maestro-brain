@@ -65,10 +65,10 @@ export function MembersSettingsPage() {
         success: {
           title: `Invitation(s) have been sent.`,
         },
-        error: (err: any) => {
+        error: (err: unknown) => {
           return {
             title: "Failed to invite members",
-            description: err.message,
+            description: err instanceof Error ? err.message : "Unknown error",
           };
         },
       },
@@ -88,10 +88,10 @@ export function MembersSettingsPage() {
         success: {
           title: `Removed ${member.email}!`,
         },
-        error: (err: any) => {
+        error: (err: unknown) => {
           return {
             title: "Failed to remove member",
-            description: err.message,
+            description: err instanceof Error ? err.message : "Unknown error",
           };
         },
       },
@@ -121,10 +121,11 @@ export function MembersSettingsPage() {
             success: {
               title: `Removed ${member.email}!`,
             },
-            error: (err: any) => {
+            error: (err: unknown) => {
               return {
                 title: "Failed to remove member",
-                description: err.message,
+                description:
+                  err instanceof Error ? err.message : "Unknown error",
               };
             },
           },
@@ -160,11 +161,7 @@ export function MembersSettingsPage() {
                   Please upgrade your plan to invite more people.{" "}
                 </Alert.Description>
               </Alert.Content>
-              <Link
-                to="/$workspace/settings/plans"
-                params={{ workspace: workspace.slug }}
-                fontWeight="medium"
-              >
+              <Link to="/billing" fontWeight="medium">
                 Upgrade now
               </Link>
             </Alert.Root>
@@ -173,7 +170,7 @@ export function MembersSettingsPage() {
             allowInvite={!limitReached}
             members={members.map((member) => ({
               id: member.id,
-              email: member.email!,
+              email: member.email ?? "",
               roles: member.roles,
               status: member.status,
             }))}

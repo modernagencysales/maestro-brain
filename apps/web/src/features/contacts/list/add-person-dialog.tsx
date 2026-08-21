@@ -41,10 +41,9 @@ export function AddPersonDialog(props: AddPersonDialogProps) {
           label: "View person",
           onClick: () => {
             navigate({
-              to: "/$workspace/contacts/view/$id",
+              to: "/contacts/$contactId",
               params: {
-                workspace: workspace.id,
-                id: data!.id,
+                contactId: data.id,
               },
             });
           },

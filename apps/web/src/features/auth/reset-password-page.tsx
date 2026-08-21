@@ -3,7 +3,7 @@
 import { useAuth } from "@saas-ui/auth-provider";
 import { Container, Stack, toast } from "@saas-ui/react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { Form, useAppForm } from "@workspace/ui/form";
 
@@ -19,15 +19,15 @@ export const ResetPasswordPage = () => {
   const navigate = useNavigate();
 
   const auth = useAuth();
-  const search = useSearch({
-    from: "/_auth/reset-password",
-  });
+  const location = useLocation();
+  const token =
+    new URLSearchParams(location.searchStr).get("token") ?? undefined;
 
   const mutation = useMutation({
     mutationFn: (values: ResetPasswordFormInput) => {
       return auth.updatePassword({
         password: values.newPassword,
-        token: search.token,
+        token,
       });
     },
     onSuccess: () => {
@@ -37,7 +37,7 @@ export const ResetPasswordPage = () => {
       });
 
       navigate({
-        to: "/login",
+        to: "/sign-in",
       });
     },
     onError: (error) => {
@@ -77,7 +77,7 @@ export const ResetPasswordPage = () => {
         <Container maxW="sm" py="8">
           <AuthCard
             title="Choose a new password"
-            footer={<Link to="/login">Back to log in</Link>}
+            footer={<Link to="/sign-in">Back to log in</Link>}
           >
             <Form form={form}>
               <form.AppField name="newPassword">

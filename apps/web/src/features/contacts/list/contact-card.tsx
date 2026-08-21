@@ -6,15 +6,12 @@ import { createLink } from "@tanstack/react-router";
 import { ContactDTO } from "@workspace/api/types";
 import { useDataBoardContext } from "@workspace/ui/data-board";
 
-import { useWorkspaceSlug } from "#features/common/hooks/use-workspace-slug";
-
 import { ContactAvatar } from "../common/contact-avatar";
 import { ContactStatus } from "../common/contact-status";
 import { ContactTag } from "../common/contact-tag";
 import { ContactType } from "../common/contact-type";
 
 export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
-  const workspace = useWorkspaceSlug();
   const grid = useDataBoardContext();
 
   const state = grid.getState();
@@ -35,10 +32,9 @@ export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
 
   return (
     <CardLink
-      to="/$workspace/contacts/view/$id"
+      to="/contacts/$contactId"
       params={{
-        workspace,
-        id: contact.id,
+        contactId: contact.id,
       }}
       position="relative"
       w="full"

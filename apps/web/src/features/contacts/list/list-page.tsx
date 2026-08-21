@@ -153,8 +153,8 @@ export function ContactsListPage({
           <HStack gap="4">
             <ContactAvatar contact={cell.row.original} size="xs" />
             <Link
-              to="/$workspace/contacts/view/$id"
-              params={{ workspace: params.workspace, id: cell.row.original.id }}
+              to="/contacts/$contactId"
+              params={{ contactId: cell.row.original.id }}
             >
               {cell.getValue()}
             </Link>

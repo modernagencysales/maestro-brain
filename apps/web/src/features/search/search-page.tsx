@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   Avatar,
   Box,
@@ -11,36 +13,15 @@ import {
   Text,
 } from "@saas-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Link,
-  linkOptions,
-  useNavigate,
-  useSearch,
-} from "@tanstack/react-router";
+import { Link, linkOptions } from "@tanstack/react-router";
 import { LuSearch, LuX } from "react-icons/lu";
 
 import type { ContactDTO } from "@workspace/api/types";
 import { SearchInput } from "@workspace/ui/search-input";
 
 import { LinkButton } from "#components/link-button";
-import { useWorkspaceSlug } from "#features/common/hooks/use-workspace-slug";
-
 export function SearchPage() {
-  const navigate = useNavigate();
-
-  const { q } = useSearch({
-    from: "/_app/$workspace/_dashboard/search",
-  });
-
-  const setSearch = (q: string) => {
-    navigate({
-      from: "/$workspace/search",
-      to: ".",
-      search: {
-        q,
-      },
-    });
-  };
+  const [q, setSearch] = useState("");
 
   const { data } = useQuery({
     queryKey: ["search", q],
@@ -78,8 +59,6 @@ export function SearchPage() {
 function RecentSearches() {
   const queryClient = useQueryClient();
 
-  const workspace = useWorkspaceSlug();
-
   const { data, isLoading } = useQuery({
     queryKey: ["recent-searches"],
     queryFn: async () => {
@@ -95,13 +74,8 @@ function RecentSearches() {
 
   const getSearchLinkOptions = (q: string) =>
     linkOptions({
-      to: "/$workspace/search",
-      params: {
-        workspace,
-      },
-      search: {
-        q,
-      },
+      to: "/contacts",
+      hash: `search-${q}`,
     });
 
   if (!data?.length) {
@@ -152,14 +126,11 @@ function RecentSearches() {
 }
 
 function SearchResults(props: { data?: ContactDTO[]; search: string }) {
-  const workspace = useWorkspaceSlug();
-
   const getLinkOptions = (id: string) =>
     linkOptions({
-      to: "/$workspace/contacts/view/$id",
+      to: "/contacts/$contactId",
       params: {
-        workspace,
-        id,
+        contactId: id,
       },
     });
 
@@ -169,9 +140,7 @@ function SearchResults(props: { data?: ContactDTO[]; search: string }) {
         title="No results"
         description={`No results for for query "${props.search}"`}
       >
-        <LinkButton to="/$workspace/search" params={{ workspace }}>
-          Clear search
-        </LinkButton>
+        <LinkButton to="/contacts">Clear search</LinkButton>
       </EmptyState>
     );
   }

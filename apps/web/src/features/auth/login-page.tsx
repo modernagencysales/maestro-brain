@@ -7,7 +7,7 @@ import { useLocalStorageValue } from "@react-hookz/web";
 import { useAuth } from "@saas-ui/auth-provider";
 import { toast } from "@saas-ui/react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Form, useAppForm } from "@workspace/ui/form";
 
@@ -21,10 +21,6 @@ import { LoginFormInput, loginSchema } from "./schema/login.schema";
 export const LoginPage = () => {
   const navigate = useNavigate();
 
-  const search = useSearch({
-    from: "/_auth/login",
-  });
-
   const auth = useAuth();
 
   const lastUsed = useLocalStorageValue("lastUsedProvider", {
@@ -37,7 +33,7 @@ export const LoginPage = () => {
       lastUsed.set("credentials");
 
       navigate({
-        to: search.redirectTo ?? "/",
+        to: "/clients",
       });
     },
     onError: (error) => {
@@ -87,7 +83,7 @@ export const LoginPage = () => {
             footer={
               <Text color="fg.muted">
                 Don&apos;t have an account yet?{" "}
-                <Link to="/signup">Sign up</Link>.
+                <Link to="/sign-in">Sign up</Link>.
               </Text>
             }
           >
@@ -129,7 +125,7 @@ export const LoginPage = () => {
                   )}
                 </form.AppField>
 
-                <Link to="/forgot-password">Forgot your password?</Link>
+                <Link to="/sign-in">Forgot your password?</Link>
 
                 <form.SubmitButton>Log in</form.SubmitButton>
               </form.Layout>

@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import {
+  Button,
   ButtonGroup,
   HStack,
   Page,
@@ -20,10 +21,11 @@ import {
 
 import { Breadcrumbs } from "#components/breadcrumbs";
 import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
-import { useOpenState } from "#hooks/use-open-state.ts";
+import { useOpenState } from "#hooks/use-open-state";
 import { api } from "#lib/trpc/react";
 
 import { ActivitiesPanel } from "./activities-panel";
+import { ContactNotFound } from "./contact.not-found";
 import { ContactSidebar } from "./contact-sidebar";
 
 interface ContactPageProps {
@@ -63,12 +65,15 @@ export function ContactPage({ params, toolbarItems }: ContactPageProps) {
     }
   }, [isMobile]);
 
+  if (!data) {
+    return <ContactNotFound params={{ id: params.id }} />;
+  }
+
   const breadcrumbs = (
     <Breadcrumbs
       items={[
         {
-          to: "/$workspace/contacts",
-          params: { workspace: params.workspace },
+          to: "/contacts",
           title: "Contacts",
         },
         { title: data?.name },

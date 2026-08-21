@@ -37,12 +37,7 @@ function BillingPlan({ workspace }: { workspace: WorkspaceDTO }) {
           <Card.Body>
             <BillingStatus />
             <HStack mt="4">
-              <LinkButton
-                to="/$workspace/settings/plans"
-                params={{ workspace: workspace.slug }}
-              >
-                Update plan
-              </LinkButton>
+              <LinkButton to="/billing">Update plan</LinkButton>
 
               <ManageBillingButton workspaceId={workspace.id} variant="ghost" />
             </HStack>

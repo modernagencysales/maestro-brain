@@ -11,11 +11,8 @@ import {
 import { TagColor } from "@workspace/ui/tags-list";
 
 import { useTags } from "../hooks/use-tags";
-import { useWorkspaceSlug } from "../hooks/use-workspace-slug";
 
 export const AppSidebarTags = () => {
-  const workspace = useWorkspaceSlug();
-
   const tags = useTags();
 
   const getSortedTags = React.useCallback((tags: TagDTO[]) => {
@@ -46,13 +43,10 @@ export const AppSidebarTags = () => {
           key={tag.id}
           id={tag.id}
           my="0"
-          to="/$workspace/tag/$tag"
-          params={{
-            workspace,
-            tag: tag.id,
-          }}
+          to="/contacts"
+          hash={`tag-${tag.id}`}
           activeProps={{
-            isActive: true,
+            "data-active": true,
           }}
           icon={<TagColor color={tag.color ?? undefined} />}
         >

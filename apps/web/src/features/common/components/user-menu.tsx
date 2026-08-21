@@ -5,7 +5,7 @@ import { Menu } from "@saas-ui/react";
 import { useHotkeysShortcut } from "@saas-ui/use-hotkeys";
 import { Link, useNavigate } from "@tanstack/react-router";
 
-import { useColorMode } from "../../../components/color-mode.tsx";
+import { useColorMode } from "../../../components/color-mode";
 import { UserAvatar } from "../../../components/user-avatar";
 
 const currentUser = {

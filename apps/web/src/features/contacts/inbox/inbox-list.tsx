@@ -36,25 +36,13 @@ interface InboxListItemProps {
 
 const InboxListItem: React.FC<InboxListItemProps> = (props) => {
   const { item } = props;
-  const workspace = useWorkspaceSlug();
   const { onOpen } = useSplitPage();
 
   return (
     <ListLink
-      to="/$workspace/inbox/$id"
+      to="/contacts/$contactId"
       params={{
-        workspace,
-        id: item.id,
-      }}
-      search={{
         contactId: item.subjectId,
-      }}
-      mask={{
-        to: "/$workspace/contacts/view/$id",
-        params: {
-          workspace,
-          id: item.subjectId,
-        },
       }}
       activeProps={{
         "data-active": true,

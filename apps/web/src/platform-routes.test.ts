@@ -85,6 +85,29 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/dashboard.tsx")).toContain("DashboardPage");
   });
 
+  it("adapts reference screens to the generated route topology", () => {
+    expect(read("src/routes/_workspace.contacts.tsx")).toContain(
+      "component: ContactsRoute",
+    );
+    expect(read("src/routes/_workspace.contacts.$contactId.tsx")).toContain(
+      "Route.useParams()",
+    );
+    expect(read("src/routes/_workspace.inbox.tsx")).toContain(
+      "component: InboxRoute",
+    );
+
+    for (const feature of [
+      "src/features/contacts/inbox/inbox-list.tsx",
+      "src/features/contacts/list/add-person-dialog.tsx",
+      "src/features/contacts/list/contact-card.tsx",
+      "src/features/contacts/list/list-page.tsx",
+      "src/features/contacts/view/contact-page.tsx",
+      "src/features/settings/common/settings-sidebar.tsx",
+    ]) {
+      expect(read(feature)).not.toContain("/$workspace");
+    }
+  });
+
   it("ships starter-safe public assets", () => {
     const manifest = JSON.parse(read("public/manifest.webmanifest")) as Record<
       string,

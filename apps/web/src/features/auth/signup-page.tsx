@@ -4,7 +4,7 @@ import { Center, Container, Stack, Text } from "@chakra-ui/react";
 import { useAuth } from "@saas-ui/auth-provider";
 import { toast } from "@saas-ui/react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Form, useAppForm } from "@workspace/ui/form";
 
@@ -16,16 +16,13 @@ import { type SignupFormInput, signupSchema } from "./schema/signup.schema";
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const search = useSearch({
-    from: "/_auth/signup",
-  });
   const auth = useAuth();
 
   const { mutateAsync, isPending, isSuccess } = useMutation({
     mutationFn: (params: SignupFormInput) => auth.signUp(params),
     onSuccess: () => {
       navigate({
-        to: search.redirectTo ?? "/",
+        to: "/clients",
       });
     },
     onError: (error) => {
@@ -68,7 +65,7 @@ export const SignupPage = () => {
             title="Sign up"
             footer={
               <Text color="fg.muted">
-                Already have an account? <Link to="/login">Log in</Link>.
+                Already have an account? <Link to="/sign-in">Log in</Link>.
               </Text>
             }
           >
@@ -94,7 +91,7 @@ export const SignupPage = () => {
                   )}
                 </form.AppField>
 
-                <Link to="/forgot-password" mt="-2">
+                <Link to="/sign-in" mt="-2">
                   Forgot your password?
                 </Link>
 
@@ -110,8 +107,8 @@ export const SignupPage = () => {
 
           <Text textAlign="center" color="fg.muted" mt="4">
             By signing up, you agree to our{" "}
-            <Link to="/terms">Terms of Service</Link> and{" "}
-            <Link to="/privacy">Privacy Policy</Link>.
+            <Link to="/legal">Terms of Service</Link> and{" "}
+            <Link to="/legal">Privacy Policy</Link>.
           </Text>
         </Container>
       </Stack>

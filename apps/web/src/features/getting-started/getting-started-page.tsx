@@ -22,30 +22,26 @@ import { SubscribeStep } from "./subscribe";
 const recipe = defineSlotRecipe({
   className: "steps",
   slots: ["root", "list", "item", "indicator", "title"],
-  variants: {
-    variant: {
-      dots: {
-        list: {
-          display: "flex",
-          gap: 2,
-          justifyContent: "center",
-        },
-        indicator: {
-          boxSize: 2,
-          overflow: "hidden",
-          bg: "colorPalette.subtle",
-          rounded: "full",
-          _current: {
-            bg: "colorPalette.solid",
-          },
-          "& *": {
-            display: "none",
-          },
-        },
-        title: {
-          display: "none",
-        },
+  base: {
+    list: {
+      display: "flex",
+      gap: 2,
+      justifyContent: "center",
+    },
+    indicator: {
+      boxSize: 2,
+      overflow: "hidden",
+      bg: "colorPalette.subtle",
+      rounded: "full",
+      _current: {
+        bg: "colorPalette.solid",
       },
+      "& *": {
+        display: "none",
+      },
+    },
+    title: {
+      display: "none",
     },
   },
 });
@@ -60,7 +56,6 @@ export const GettingStartedPage: React.FC = () => {
       <Container maxW="container.md">
         <Center minH="calc(100vh - 100px)">
           <Steps.Root
-            variant={"dots" as any}
             recipe={recipe}
             defaultStep={defaultStep}
             count={4}
@@ -109,8 +104,6 @@ function OnboardingSteps() {
 const OnboardingCompleted = () => {
   const navigate = useNavigate();
 
-  const workspace = useSessionStorageValue<string>("getting-started.workspace");
-
   return (
     <LoadingOverlay.Root
       position="fixed"
@@ -118,10 +111,7 @@ const OnboardingCompleted = () => {
       bg="bg"
       ref={() => {
         navigate({
-          to: "/$workspace",
-          params: {
-            workspace: workspace.value!,
-          },
+          to: "/clients",
         });
       }}
     >
