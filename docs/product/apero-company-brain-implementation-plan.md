@@ -54,8 +54,8 @@ post-pilot hardening unless real pilot use proves one is immediately required.
 ## 3. Execution Principles
 
 1. Ship the smallest complete data flow before adding source breadth.
-2. Use one canonical source-ledger retrieval and context-assembly path on every
-   surface.
+2. Preserve provider-specific raw evidence and use one canonical retrieval
+   publication and context-assembly path on every surface.
 3. Store exact source revisions before model work.
 4. Treat normalized text, search indexes, summaries, and embeddings as derived
    projections of the source ledger.
@@ -119,11 +119,11 @@ Each layer measures:
 | Milestone | Outcome                                                        | Packages  |
 | --------- | -------------------------------------------------------------- | --------- |
 | M0        | Current Ask Apero contents and real user questions inventoried | WP00-WP01 |
-| M1        | Source-ledger evidence reaches one canonical retrieval path    | WP02      |
-| M2        | Snapshot, Slack, and transcript evidence pass E0               | WP03      |
-| M3        | Ask Apero works for one to two users in both runtimes          | WP04      |
-| M4        | First new provider passes the complete data-flow contract      | WP05-WP06 |
-| M5        | Highest-value structured source passes E2                      | WP07      |
+| M1        | Snapshot-backed Ask Apero starts two-user dogfood              | WP03-WP04 |
+| M2        | Pages, Slack, and transcripts share one retrieval projection   | WP02A-C   |
+| M3        | First new provider passes the complete data-flow contract      | WP05      |
+| M4        | First document source passes production-scope E1               | WP06      |
+| M5        | Measured gaps justify and accept a structured source           | WP07      |
 | M6        | Five-user pilot proves usefulness and adoption                 | WP08-WP09 |
 | Later     | More sources, granular controls, and narrow tool actions       | WP10-WP11 |
 
@@ -173,6 +173,17 @@ Decide only what blocks the read pilot:
 - E0/E1/E2 question sets and acceptance thresholds;
 - where restricted evaluation data is stored.
 
+Use these defaults unless the owners replace them before the first run:
+
+- 10-20 representative E0 questions;
+- at least 80% useful answers for questions whose required evidence exists;
+- 100% of displayed citations open the exact cited evidence;
+- zero invented citations;
+- 100% of controlled create, edit, move/unshare, and delete cases converge;
+- median context retrieval at or below two seconds and p95 at or below five
+  seconds, excluding model generation;
+- a recorded reason for every fallback to the Claude Project.
+
 Gmail, DocuSign document retention, write approval, granular permissions, and
 multi-Brain composition default to **not authorized for the pilot** and do not
 block M0.
@@ -180,107 +191,250 @@ block M0.
 **Exit gate:** E0 can be run reproducibly and each question names the evidence
 required to judge it.
 
-### WP02 — Build Canonical Retrieval And Context Assembly
+### WP02A — Add The Brain-Scoped Retrieval Publication Contract
 
-**Timebox:** 3-5 engineering days
+**Timebox:** 2-3 engineering days
 
-**Outcome:** active source-ledger segments and Brain-page revisions reach one
-deterministic retrieval and context-assembly path used by every read surface.
+**Outcome:** provider-specific evidence can publish into one replaceable,
+Brain-scoped retrieval projection without rewriting the working raw ledgers.
 
-Write a short contract ADR that:
+The repository currently has two incompatible raw evidence models:
 
-- selects `sourceUnits`, `sourceUnitRevisions`, and `sourceSegments` as the
-  canonical live-source retrieval corpus;
-- retains Brain pages and their revisions as the canonical curated-context
-  corpus;
-- treats `brainSources` as a legacy/manual-note intake path rather than the
-  destination for every connector;
-- defines a shared retrieval-and-assembly function used by `brain.sources.*`,
-  `brain.context.get`, and `brain.answers.ask`;
-- keeps `capabilities.sourceGroundedBrief` separate as a generated-brief
-  mutation, outside the pilot critical path;
-- makes the pilot contract one-Brain-scoped;
-- defines deterministic byte/candidate budgets and omission metadata;
-- defines stable errors for unavailable, stale, and insufficient evidence.
+- Slack observations use `sourceArtifacts` and `sourceRevisions`;
+- calls use transcript-shaped `sourceUnits`, `sourceUnitRevisions`, and
+  `sourceSegments`.
 
-Then:
-
-1. retrieve only current, active source-unit revisions and their segments;
-2. retrieve current active Brain-page revisions alongside live evidence;
-3. implement initial lexical segment retrieval with query normalization, title
-   and heading boosts, freshness/authority signals, and per-source limits;
-4. pin exact candidate revision and segment keys before context assembly;
-5. make the legacy headless path delegate to the canonical implementation or
-   remove it;
-6. add parity tests for the human and headless paths;
-7. stop hard-coding freshness as `current`;
-8. return exact revision and passage identifiers;
-9. return entry-level source/observed/indexed timestamps;
-10. report truncation, omission reasons, and omitted entry counts;
-11. use the existing viewer read role.
-
-`brain.context.get` exposes a bounded assembled pack; it is not itself the
-retrieval engine. For the pilot it accepts a question, invokes the shared
-retrieval function, and returns the assembled pack without model generation.
-`brain.answers.ask` invokes that same function and answers only from the pinned
-manifest. `brain.sources.search` exposes the same ranked candidates without
-answer generation.
-
-The pilot ContextPack should contain at least:
+Do not generalize either schema in place. Add a derived publication projection:
 
 ```ts
-type ContextEntry = {
+type RetrievalEntry = {
+  organizationKey: string;
+  workspaceId: string;
   brainKey: string;
-  kind: "page" | "source" | "projection";
+  entryKey: string;
+  kind: "page" | "slack" | "transcript" | "document" | "projection";
+  corpusKey: string;
+  originTable: string;
+  connectionKey?: string;
+  connectionGeneration?: number;
+  connectorScopeKey?: string;
   sourceKey: string;
-  revisionKey: string;
-  unitKey?: string;
-  segmentKey?: string;
+  sourceRevisionKey: string;
+  passageKey: string;
+  startOffset: number;
+  endOffset: number;
   title: string;
-  excerpt: string;
+  headingPath?: string;
+  text: string;
   locator?: string;
-  contentHash?: string;
-  authority: "authoritative" | "derived" | "advisory";
+  contentHash: string;
   sourceModifiedAt?: number;
-  observedAt?: number;
-  indexedAt?: number;
-  freshness: "current" | "stale" | "unknown";
-  truncated: boolean;
+  observedAt: number;
+  indexedAt: number;
+  authority: "authoritative" | "derived" | "advisory";
+  lifecycleGeneration: number;
+  routeGeneration: number;
+  state: "published" | "revoked";
+  tokenTruncated: boolean;
 };
 ```
 
-**Focused gates:** exact existing test files or newly created test files only.
-Focused commands must fail when zero tests match. Run the web/headless contract
-gate and a repository integration gate at the package boundary.
+Derive `passageKey` from the immutable origin revision, normalized passage
+offsets, and passage content hash. Derive `entryKey` from workspace, Brain,
+corpus, origin revision, passage key, and route generation. Rebuilds therefore
+produce the same keys.
 
-**Exit gate:** the same request through web/API/CLI/MCP returns the same active
-revision set, freshness state, citations, and truncation metadata.
+Add retrieval-entry indexes for:
+
+- `(workspaceId, entryKey)`;
+- `(workspaceId, brainKey, state, entryKey)`;
+- `(workspaceId, originTable, sourceRevisionKey, entryKey)`;
+- `(workspaceId, connectionKey, connectionGeneration, state)`;
+- `(workspaceId, connectorScopeKey, state)`.
+
+Default authority is corpus-specific: dated Claude snapshot pages and
+Slack/transcripts are `advisory`; reviewed Brain pages are `derived` unless page
+policy marks them authoritative; selected Drive operating documents use their
+container source policy; typed CRM fields may be `authoritative`. Store the
+resolved authority on every publication.
+
+Add a bounded token-posting projection keyed by Brain and normalized token for
+pilot lexical search. This avoids table scans and does not introduce semantic
+search. Every retrieval entry must point back to an immutable provider or page
+revision.
+
+```ts
+type RetrievalToken = {
+  organizationKey: string;
+  workspaceId: string;
+  brainKey: string;
+  tokenizerVersion: 1;
+  token: string;
+  entryKey: string;
+  termFrequency: number;
+  inTitle: boolean;
+  inHeading: boolean;
+};
+```
+
+Index postings by `(workspaceId, token, entryKey)` and by
+`(workspaceId, entryKey)`. Index every unique token in a bounded passage; do not
+silently truncate its vocabulary. Passage construction must keep a row within
+the declared token capacity or quarantine it as a publication error.
+
+This package also adds an explicit approved agency-Brain publication target.
+Update transcript routing and Slack channel policy so selected internal sources
+may target the active agency workspace instead of accepting only client Brains.
+An agency target is valid only when it is the organization's active agency
+workspace and the selected import/channel policy explicitly names it. With that
+policy, `agency_internal` calls route to the named agency Brain. Existing
+`agency_internal` or `no_match` proposals are superseded with a new route
+generation rather than returned unchanged. Slack channel activation names a
+bounded historical backfill start time; it never implies an unlimited history
+crawl.
+
+**Candidate files:**
+
+- `packages/convex/confect/tables/retrievalEntries.ts`
+- `packages/convex/confect/tables/retrievalTokens.ts`
+- `packages/convex/confect/brain/retrievalPublication.spec.ts`
+- `packages/convex/confect/brain/retrievalPublication.impl.ts`
+- `packages/convex/test/retrieval-publication.test.ts`
+- existing transcript and Slack routing files and tests
+
+**Focused gates:**
+
+```bash
+pnpm confect:codegen
+pnpm --dir packages/convex test test/retrieval-publication.test.ts
+pnpm --dir packages/convex test confect/capabilities/routeCallToBrain.test.ts
+pnpm --dir packages/convex test test/channel-policies.test.ts
+pnpm check:schema-migration-notes
+```
+
+**Exit gate:** an approved agency target accepts page, Slack, and transcript
+publication fixtures, while every row resolves to the exact originating
+revision.
+
+### WP02B — Publish And Rebuild Existing Corpora
+
+**Timebox:** 2-3 engineering days
+
+Implement idempotent publishers for:
+
+- current active Brain-page revisions;
+- current active Slack source revisions;
+- current active transcript segments with an accepted agency route.
+
+Publication is a derived step after ledger/page commit. A crash between commit
+and publication must be recoverable by retry. Add a Brain-scoped rebuild that
+recreates entries and tokens without provider re-ingestion. New revisions revoke
+the prior active publication; tombstones, route changes, and connection or
+lifecycle generation changes revoke affected entries.
+
+**Required tests:** current-revision replacement, stale out-of-order delivery,
+duplicate publication, crash/retry, route revocation, tombstone, and complete
+rebuild equivalence, plus existing-call rerouting and bounded Slack backfill.
+
+**Focused gate:**
+
+```bash
+pnpm --dir packages/convex test test/retrieval-publication.test.ts
+```
+
+**Exit gate:** separate receipts prove pages, Slack, and transcripts each
+publish, update, revoke, and rebuild correctly. Snapshot pages cannot mask a
+stranded live corpus.
+
+### WP02C — Add Lexical Retrieval And Typed Context Assembly
+
+**Timebox:** 3-4 engineering days
+
+Implement shared Brain-scoped retrieval over the publication projection:
+
+- normalize query tokens using one versioned tokenizer;
+- use at most 12 unique query tokens in first-occurrence order;
+- fetch the complete posting union for those tokens up to a hard 5,000-posting
+  pilot capacity; return an explicit capacity error instead of silently dropping
+  postings;
+- retrieve at most 40 candidates;
+- allow at most three entries from one source revision;
+- score token coverage, title/heading matches, authority, and freshness;
+- break ties by `entryKey` for deterministic results;
+- pin exact entry and source-revision keys before assembly;
+- assemble at most eight entries and 64 KiB of UTF-8 text;
+- cap each entry at 12 KiB using a query-centered passage window;
+- skip an oversized entry only after producing a bounded excerpt;
+- return omission counts and reasons.
+
+Token replacement is atomic with publication replacement. Revocation removes the
+entry's postings before the entry becomes unavailable. Tests must prove that
+stale postings cannot occupy or starve the active candidate set.
+
+Add a `brainCorpusHealth` projection keyed by workspace, Brain, corpus, and
+connector scope. It records coverage status, last successful observation,
+publication and reconciliation times, expected freshness threshold, counts, and
+degraded reason. Context coverage derives from these records, so zero search
+results can be distinguished from unavailable or stale data.
+
+`brain.context.get` accepts a question and returns the typed assembled pack
+without model generation. Codex and Claude Code synthesize the pilot answer from
+that pack. Keep `brain.answers.ask` as a deterministic compatibility/extractive
+operation until a separately reviewed model-backed action is needed.
+
+Add a Confect `headlessContextGet` internal query, route HTTP/MCP through it,
+and remove the plain duplicate. Update the generated manifest, OpenAPI, MCP,
+CLI, and contract tests together. `brain.sources.search`, `brain.sources.get`,
+and `brain.context.get` must use the same publication projection. Search, Get,
+and Context entries all expose `entryKey`, `passageKey`, normalized start/end
+offsets, origin revision, and content hash so citations resolve to the exact
+published passage.
+
+**Focused gates:**
+
+```bash
+pnpm --dir packages/convex test test/brain-pilot.test.ts
+pnpm --dir packages/convex test test/headless-context.test.ts
+pnpm --dir packages/convex test test/http-request-security.test.ts
+pnpm confect:manifest
+pnpm check:confect-contracts
+pnpm check:headless-surface-contract
+```
+
+**Exit gate:** web/API/CLI/MCP return the same candidate manifest, citations,
+freshness, coverage, and truncation metadata for the same question.
 
 ### WP03 — Bootstrap And Prove Existing Apero Evidence
 
 **Timebox:** 2-4 engineering days, depending on existing data state
 
-**Outcome:** E0 passes on an approved Ask Apero snapshot, real Brain pages,
-Slack, and transcripts before a new connector is completed.
+**Outcome:** approved current Ask Apero material produces immediate value while
+live Slack/transcript publication is completed in parallel.
 
 Tasks:
 
-1. import approved Claude-only files/instructions as a clearly labeled snapshot
-   into the Brain, never into Git;
-2. segment and publish that snapshot through the same canonical retrieval path;
-3. inventory actual Apero sources currently stored;
-4. confirm Slack/transcript routing into the agency Brain;
-5. identify fake, fixture, unpublished, empty, or stranded source-ledger rows;
-6. perform the required approved backfill;
-7. validate source revisions and passage citations;
-8. verify that one new and one edited Slack/transcript observation becomes
+1. import approved Claude-only files/instructions as reviewed Brain pages,
+   clearly labeled with snapshot provenance and date, never into Git;
+2. use `brain.pages.list`, `brain.pages.get`, and `brain.pages.history` for the
+   first thin slice; the skill selects pages, synthesizes locally, cites
+   `brainKey/pageKey/currentRevisionKey`, and displays the snapshot date without
+   claiming live freshness;
+3. have WP02B republish the same pages into the shared projection without
+   changing their authority;
+4. inventory actual Apero sources currently stored;
+5. confirm Slack/transcript routing into the agency Brain;
+6. identify fake, fixture, unpublished, empty, or stranded source-ledger rows;
+7. perform the required approved backfill;
+8. validate source revisions and passage citations;
+9. verify that one new and one edited Slack/transcript observation becomes
    retrievable without copying it into `brainSources`;
-9. verify deletion/unpublication behavior;
-10. record current coverage and gaps by discovered, observed, normalized,
+10. verify deletion/unpublication behavior;
+11. record current coverage and gaps by discovered, observed, normalized,
     published, failed, and stale counts.
 
-**Exit gate:** a real-data receipt demonstrates at least ten E0 questions using
-resolvable citations, and no fixture is represented as live evidence.
+**Exit gate:** the snapshot answers the page-backed E0 subset with resolvable
+citations, and separate receipts show whether Slack and transcript subsets are
+ready or still waiting on WP02B.
 
 ### WP04 — Ship The Ask Apero Thin Slice
 
@@ -311,6 +465,9 @@ write tools for this milestone.
 - every failure is classified as missing source, stale source, retrieval miss,
   answer failure, or usability failure.
 
+Start the two-user dogfood here. Agent-side answer synthesis is the pilot path;
+it does not wait for `brain.answers.ask` to become model-backed.
+
 ### WP05 — Build A One-Container Provider Walking Skeleton
 
 **Timebox:** 3-5 engineering days
@@ -318,8 +475,8 @@ write tools for this milestone.
 **Default source:** one dedicated Shared Drive folder, unless WP00 proves a
 different source is more valuable and similarly bounded.
 
-**Dependencies:** the WP02 source-unit, revision, segment, and publication
-contract is frozen. Adapter work may overlap WP03-WP04 after that point.
+**Dependencies:** the WP02A publication contract is frozen. Adapter work may
+overlap WP02B-WP04 after that point.
 
 Implement the smallest complete connector lifecycle:
 
@@ -340,9 +497,55 @@ Requirements:
 - connector health and last-success timestamps;
 - no personal Drive ingestion.
 
+The document connector owns a small immutable raw document ledger rather than
+reusing Slack or transcript schemas. Its revision includes connection/container
+identity, provider object and revision IDs, title, MIME type, normalized text,
+source/observed timestamps, content hash, source locator, and tombstone state.
+Only after that revision commits does its publisher create `RetrievalEntry`
+rows.
+
+Normalize long documents into deterministic heading-aware passages:
+
+- maximum 8 KiB of normalized UTF-8 text per passage;
+- split at heading, paragraph, then sentence boundaries in that order;
+- use at most 512 bytes of paragraph-aligned overlap;
+- derive stable passage keys from origin revision, heading path, ordinal,
+  normalized offsets, and content hash;
+- retain heading path, normalized byte offsets, and provider locator;
+- publish and tokenize every passage independently.
+
+**Candidate files:**
+
+- `packages/integrations/src/googleDrive/`
+- `packages/convex/confect/tables/documentSourceObjects.ts`
+- `packages/convex/confect/tables/documentSourceRevisions.ts`
+- `packages/convex/confect/tables/connectorScopes.ts`
+- `packages/convex/confect/tables/connectorReconciliationRuns.ts`
+- `packages/convex/confect/integrations/driveSource.spec.ts`
+- `packages/convex/confect/integrations/driveSource.impl.ts`
+- `packages/convex/test/drive-source.test.ts`
+
+Use a generalized reconciliation run contract rather than extending the
+transcript-only sync state:
+
+```text
+open generation -> enumerate every page -> mark every seen object
+                -> close traversal successfully -> infer removals
+```
+
+A partial or failed traversal never infers deletion. Incremental cursors and
+full-reconciliation generations are independent.
+
+Add provider-neutral connector scope and reconciliation-run records containing
+the organization, connection generation, provider/container key, allowlist
+generation, incremental cursor, reconciliation generation, run status, start and
+close timestamps, counts, and last error. Each observed provider object records
+the last completed generation in which it was seen.
+
 **Exit gate:** a dedicated test object passes create, edit, move out, unshare,
-delete, duplicate delivery, full resync, retrieval, and citation-open tests
-against the real provider.
+delete, duplicate delivery, stale out-of-order delivery, interrupted
+reconciliation, completed reconciliation, projection crash/retry, full rebuild,
+retrieval, and citation-open tests against the real provider.
 
 ### WP06 — Complete The First Document Source And E1
 
@@ -358,8 +561,22 @@ Expand the walking skeleton only enough to cover the approved migration matrix:
 - connection and container coverage shown in the UI;
 - E1 evaluation questions.
 
-Run the repository integration gate after this slice. Any known broad TypeScript
-baseline must be exact, non-expanding, and separate from new errors.
+Run this exact integration gate after the slice:
+
+```bash
+pnpm check:format
+pnpm lint
+pnpm --dir packages/integrations test
+pnpm --dir packages/convex typecheck
+pnpm --dir packages/convex test
+pnpm check:confect-contracts
+pnpm check:headless-surface-contract
+pnpm check:schema-migration-notes
+pnpm check:secret-canaries
+```
+
+Any known broad TypeScript baseline must be exact, non-expanding, and separate
+from new errors.
 
 **Exit gate:** E1 thresholds pass and a teammate can verify the cited passage in
 the source document.
@@ -388,9 +605,9 @@ gate after the structured-source slice.
 
 **Exit gate:** E2 passes with current typed values and exact source citations.
 
-### WP08 — Run Two-User Dogfood And Rehearse Rollback
+### WP08 — Continue And Close Two-User Dogfood
 
-**Timebox:** 1-2 calendar weeks, overlapping normal work
+**Timebox:** 1-2 calendar weeks beginning at WP04 and overlapping WP02B-WP07
 
 Track:
 
@@ -405,18 +622,13 @@ Track:
 Fix pipeline or retrieval problems against a new evaluation version. Do not add
 a connector merely to make the architecture look complete.
 
-Before expanding, rehearse:
-
-1. disable Ask Apero delivery;
-2. stop new connector sync;
-3. allow or cancel leased jobs deliberately;
-4. revoke pilot keys;
-5. verify the previous workflow still works;
-6. restore the pilot without a full re-ingestion when appropriate.
+The two-user rollback is intentionally small: disable Ask Apero, pause the new
+connector, and return users to Claude. Full queued-job, key, and rebuild
+recovery is rehearsed before WP09 expands to five users.
 
 **Exit gate:** both users choose Ask Apero for the covered question set, major
-data-flow failures are resolved, and rollback completes from the written
-runbook.
+data-flow failures are resolved, and measured gaps determine whether WP07 is
+needed.
 
 ### WP09 — Run The Five-User Read Pilot
 
@@ -424,6 +636,9 @@ runbook.
 
 Freeze the deployment revision, connector configuration, team manifest, and
 evaluation versions. Issue the remaining read-only credentials and run E0-E3.
+
+Before issuance, rehearse connector pause, leased-job handling, key revocation,
+projection rebuild, restoration, and return to the prior workflow.
 
 Accept when:
 
@@ -467,21 +682,23 @@ receipt.
 
 Indicative ranges assume one primary engineer with timely business decisions:
 
-| Sequence | Work                                         | Indicative elapsed time |
-| -------- | -------------------------------------------- | ----------------------- |
-| 1        | WP00-WP01 inventory and evaluation           | 2-3 business days       |
-| 2        | WP02 canonical retrieval contract and path   | 3-5 engineering days    |
-| 3A       | WP03 snapshot and existing-evidence proof    | 2-4 engineering days    |
-| 3B       | WP05 first-provider adapter walking skeleton | 3-5 engineering days    |
-| 4        | WP04 Ask Apero thin slice                    | 2-3 engineering days    |
-| 5        | WP06 first-provider production coverage      | 3-5 engineering days    |
-| 6        | WP07 structured source                       | 1-2 engineering weeks   |
-| 7        | WP08 two-user dogfood                        | 1-2 calendar weeks      |
-| 8        | WP09 five-user pilot                         | 1 calendar week         |
+| Track | Work                                                      | Indicative elapsed time |
+| ----- | --------------------------------------------------------- | ----------------------- |
+| A1    | WP00-WP01 inventory, decisions, and E0                    | 2-3 business days       |
+| A2    | WP03 snapshot as reviewed Brain pages                     | 1-2 business days       |
+| A3    | WP04 Ask Apero skill and start two-user dogfood           | 2-3 engineering days    |
+| B1    | WP02A publication schema and agency route                 | 2-3 engineering days    |
+| B2    | WP02B existing-corpus publishers and rebuild              | 2-3 engineering days    |
+| B3    | WP02C lexical retrieval, context, and surface convergence | 3-4 engineering days    |
+| B4    | WP05 Drive walking skeleton                               | 3-5 engineering days    |
+| B5    | WP06 Drive production coverage                            | 3-5 engineering days    |
+| C     | WP07 structured source only when measured gaps justify it | 1-2 engineering weeks   |
+| Pilot | WP08-WP09 dogfood closure and five-user pilot             | 2-3 calendar weeks      |
 
-Sequences 3A and 3B may run in parallel once WP02 freezes the source ledger and
-retrieval contracts. Ask Apero packaging may begin during both and closes after
-E0 evidence is available.
+Track A begins immediately and should produce a useful snapshot-backed Ask Apero
+within 3-5 business days. Track B begins once WP00 identifies the agency Brain
+and source requirements. WP05 adapter work begins after WP02A freezes the
+publication contract while WP02B-WP02C continue. Track C is conditional.
 
 OAuth approval, provider sandbox access, source-owner review, or CRM custom
 field mapping may dominate elapsed time. Each package should name an engineering
@@ -492,17 +709,69 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
 1. Inventory the Claude Ask Apero Project and build the migration matrix.
 2. Capture and classify the E0 recurring questions.
 3. Name the context owner, engineer, and first two users.
-4. Write the ADR selecting the source ledger and Brain revisions as the
-   canonical retrieval corpus.
-5. Build shared segment retrieval and bounded context assembly.
-6. Add web/headless context parity tests and delegate the legacy implementation.
-7. Import the approved Claude snapshot into the Brain and run E0.
-8. Prove live Slack/transcript data reaches the same retrieval path.
-9. Package Ask Apero while building one dedicated Drive walking skeleton.
-10. Pass the complete provider create-to-delete lifecycle before expanding its
-    scope.
+4. Import approved Claude material as dated, reviewed Brain pages.
+5. Package agent-side Ask Apero and start two-user dogfood.
+6. Add the provider-neutral retrieval publication schema and agency route.
+7. Publish and rebuild pages, Slack revisions, and transcript segments.
+8. Add token-posting lexical retrieval and typed context assembly.
+9. Converge web, HTTP, CLI, and MCP on the same candidate manifest.
+10. Build one Drive walking skeleton and pass the complete provider lifecycle.
 
-## 10. Deferred Hardening Register
+## 10. Required Cross-Corpus And Connector Tests
+
+Implementation is not complete without explicit tests for:
+
+- page, Slack, transcript, document, and structured publisher conformance;
+- current-revision replacement and stale out-of-order delivery;
+- tombstone, connection revocation, and route revocation;
+- crash between raw-ledger commit and publication;
+- idempotent retry and full projection rebuild;
+- partial reconciliation causing no deletion;
+- completed reconciliation causing correct deletion;
+- deterministic ranking, stable tie-breaking, and byte-budget truncation;
+- exact revision and segment citation resolution;
+- cross-runtime candidate-manifest parity;
+- coverage reporting when a required corpus or connector is unavailable.
+
+Every focused Vitest command names an exact file. Because the package test
+script permits zero tests, the named file must exist before the gate is treated
+as evidence.
+
+## 11. Ready-To-Start Checklist
+
+Start gates are track-specific:
+
+**WP00-WP01 may begin now.** They require access to the decision and migration
+packets only.
+
+**Track A snapshot/dogfood requires:**
+
+- access to the Claude Project instructions/files is available to the context
+  owner;
+- ten initial E0 questions are available;
+- the context owner, engineer, and first two users are named;
+- the snapshot is approved as reviewed Brain pages, not live synchronized data.
+
+**WP02A-WP02C requires:**
+
+- the engineering DRI and active agency Brain key are known;
+- the engineer can run Convex/Confect codegen and focused backend tests;
+- the retrieval publication projection decision in WP02A is accepted.
+
+**WP05 requires:**
+
+- WP02A's publication contract is frozen;
+- one dedicated Drive test folder exists and OAuth/provider setup has started.
+
+Use these execution packets:
+
+- [Apero Company Brain Pilot Decisions](./apero-company-brain-decisions.md)
+- [Apero Company Brain Migration Matrix](./apero-company-brain-migration-matrix.md)
+
+Unknown business names or credentials do not reopen architecture. They remain
+visible checklist items owned by WP00-WP01.
+
+## 12. Deferred Hardening Register
 
 The following are intentionally deferred, not forgotten:
 

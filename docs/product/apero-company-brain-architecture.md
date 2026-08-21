@@ -20,11 +20,11 @@ The useful split is:
 ```text
 systems of record             company context plane              agent runtimes
 -----------------             ---------------------              --------------
-CRM / Monday                  exact source ledger                Codex / Claude Code
-Drive / Gmail        --->     normalized source units     --->   approved skills
-DocuSign / Notion             curated Brain pages                agent-owned tool grants
-Slack / call tools            citations + revisions              task-specific execution
-                              retrieval + Ask API/MCP
+CRM / Monday                  provider-specific evidence          Codex / Claude Code
+Drive / Gmail        --->     Brain-scoped retrieval       --->   approved skills
+DocuSign / Notion             publications + Brain pages          agent-owned tool grants
+Slack / call tools            citations + exact revisions         task-specific execution
+                              context API/MCP
 ```
 
 Maestro Brain owns the middle. Source applications remain authoritative for
@@ -40,18 +40,20 @@ look:
   `viewer | editor | admin | owner` authorization;
 - stable page trees, immutable revisions, citations, review queues, restore,
   lifecycle generations, audit events, and deterministic export;
-- an exact source ledger (`brainSources`, `sourceArtifacts`, `sourceUnits`,
-  revisions, segments, processing jobs, and connector sync state);
-- workspace-scoped retrieval, cited Ask, API keys, CLI, and stateless MCP;
+- exact but provider-specific Slack and transcript evidence ledgers plus legacy
+  manual `brainSources`;
+- workspace-scoped read contracts, cited Ask primitives, API keys, CLI, and
+  stateless MCP;
 - one shared Slack/Nango control plane, channel policies, routing,
   classification review, private Slack answers, and transcript connectors;
 - provider boundaries for Nango and asynchronous search;
 - model receipts, budgets, idempotency, lifecycle fencing, and tenant-isolation
   checks.
 
-The staging evidence already proves the transcript pipeline, cited retrieval,
-workspace isolation, and temporary read-only CLI key path. That is real product
-infrastructure, not a vector-database sketch.
+The repository contains real transcript capture, citation resolution, workspace
+isolation, and read-only headless primitives. It does not yet prove that Slack,
+transcripts, documents, and structured projections publish into one general
+Brain-scoped retrieval path.
 
 ## What It Does Not Yet Have
 
@@ -91,15 +93,16 @@ This folder should contain vocabulary, source-routing policy, durable company
 rules, bootstrap instructions, and optional seed pages. It must not contain
 synced email, contracts, CRM exports, OAuth tokens, or copied Drive documents.
 
-Live context belongs in the Brain source ledger:
+Live context follows this boundary:
 
 1. A connector records an immutable provider observation.
-2. A deterministic adapter normalizes it to a typed source unit.
-3. Policy routes the unit to the company or client Brain.
-4. A search projection makes active evidence retrievable.
+2. A provider-specific adapter stores its exact revision and normalized content.
+3. Policy resolves the company or client Brain publication target.
+4. An idempotent publisher creates Brain-scoped retrieval entries and token
+   postings that retain the exact originating revision.
 5. A maintenance model may propose a change to a human-readable Brain page.
 6. Review or an explicit autopilot policy commits a new cited page revision.
-7. Every surface reads the same authorized retrieval/Ask capability.
+7. Every surface reads the same typed context-assembly capability.
 
 That separation prevents the common failure where a polished summary silently
 becomes more authoritative than the source that produced it.
@@ -157,10 +160,10 @@ Do not begin by choosing a vector database. The repository already makes the
 better foundational choices: exact sources, deterministic normalization,
 workspace-scoped projections, citations, freshness, and lifecycle revocation.
 
-Start with hybrid retrieval:
+Start with lexical retrieval:
 
 1. typed filters for tenant, source, account/client, status, owner, and time;
-2. full-text search over active source/page projections;
+2. bounded token-posting search over active Brain-scoped publications;
 3. recency and source-authority ranking;
 4. semantic candidates only when evaluation shows a recall gap;
 5. reranking and answer generation over a pinned candidate manifest.
@@ -176,8 +179,8 @@ Add sources in value order, not connector-count order:
 
 1. **Shared Drive** — high-signal operating docs and sales collateral; begin
    with selected shared drives/folders, not every user's Drive.
-2. **CRM** — accounts, opportunities, stages, ownership, notes, and economics;
-   keep the CRM authoritative.
+2. **Structured source when justified** — normally the CRM for accounts,
+   opportunities, ownership, notes, and economics; keep it authoritative.
 3. **Monday** — selected boards and updates that describe delivery status.
 4. **DocuSign** — envelope and agreement metadata first; ingest final signed
    documents only with an explicit retention and access policy.
@@ -212,18 +215,15 @@ every coding session universal company-tool access.
 
 ## Pilot Decision Register
 
-Four owner decisions are required before connector work begins:
+The pilot needs these owner inputs:
 
 1. Name one owner for agency context quality and one owner for connector and
    access policy. These may be the same person during the pilot, but the
    responsibilities remain distinct.
-2. Select the authoritative CRM and an allowlist of Shared Drive folders for the
-   first source cohort.
-3. Select five pilot users and turn the recurring questions they currently ask
-   in Claude Chat into a versioned evaluation set.
-4. Choose the default policy for agent writes: always require confirmation,
-   permit role-bound actions, or approve specific workflows. Read access does
-   not imply write authority.
+2. Select the first document provider/container; choose a structured source only
+   when the migration inventory or dogfood gaps require it.
+3. Select two initial and five eventual pilot users and turn recurring questions
+   they currently ask in Claude Chat into a versioned evaluation set.
 
 Do not use connector implementation to make these product and governance choices
 implicitly.
@@ -246,33 +246,33 @@ citable, revocable, and portable across agent runtimes.
 
 ## Recommended Delivery Sequence
 
-### Phase 0 — Use what is already real
+### Track A — Useful Ask Apero quickly
 
-- Finish the canonical SaaS UI migration and deploy the current product.
-- Confirm WorkOS users, agency/client switching, Brain editing, citations,
-  search/Ask, read-only MCP, and key revocation in the real environment.
-- Seed the six-page agency context structure and designate content owners.
+- Inventory the Claude Project and ten initial questions.
+- Import approved material as dated, reviewed Brain pages.
+- Package agent-side Ask Apero and begin two-user dogfood.
 
-### Phase 1 — Apero read path
+### Track B — Live evidence path
 
-- Add the reviewed `company-context/` policy folder.
-- Add an `Ask Apero` MCP/skill package with citations and freshness.
-- Issue individual read-only credentials to a small pilot group.
-- Define an evaluation set from real questions currently asked in Claude Chat.
+- Add the provider-neutral Brain-scoped retrieval publication projection.
+- Enable explicitly approved agency-Brain publication routes.
+- Publish and rebuild Brain pages, Slack revisions, and transcript segments.
+- Add deterministic lexical retrieval and typed context assembly.
+- Converge web, HTTP, CLI, and MCP on the same candidate manifest.
 
-### Phase 2 — Highest-value sources
+### Track C — Highest-value live sources
 
-- Add Shared Drive and the chosen CRM through source-specific adapters.
-- Add structured CRM projections without copying CRM workflow ownership.
+- Add one selected document source through a complete provider lifecycle.
+- Add a structured source only when measured gaps justify it.
 - Measure answer coverage, citation quality, freshness lag, and abstention.
 
-### Phase 3 — Delivery context
+### Later — Delivery context and actions
 
 - Add selected Monday boards and DocuSign agreement metadata/documents.
 - Add cross-source entity resolution through stable company/account IDs and
   reviewed aliases, not model-created identity joins.
 
-### Phase 4 — Sensitive communications and actions
+### Later — Sensitive communications and actions
 
 - Pilot narrow Gmail labels or forwarding addresses.
 - Add agent-side write tools one workflow at a time with explicit approval and

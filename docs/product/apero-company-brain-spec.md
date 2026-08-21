@@ -15,10 +15,10 @@
 Apero Company Brain is the shared context plane used by people and agents across
 Codex, Claude Code, the Maestro web app, Slack, CLI, API, and MCP.
 
-It connects approved systems of record, preserves exact source evidence,
-normalizes that evidence into permission-scoped source units, maintains
-human-readable company and client context, and returns current answers with
-citations and freshness.
+It connects approved systems of record, preserves exact source evidence in
+provider-specific ledgers, publishes normalized Brain-scoped retrieval entries,
+maintains human-readable company and client context, and returns current answers
+with citations and freshness.
 
 It is not:
 
@@ -34,7 +34,7 @@ The operating model is:
 systems of record              context plane                 agent runtimes
 -----------------              -------------                 --------------
 Drive / CRM / Monday           exact observations            Codex / Claude Code
-DocuSign / Gmail      ------>  normalized source units  ---> Ask Apero skill
+DocuSign / Gmail      ------>  retrieval publications   ---> Ask Apero skill
 Slack / calls                  curated Brain pages           role-specific tools
 Notion when needed             citations + revisions         approved write actions
                                search + Ask + MCP
@@ -101,8 +101,8 @@ provider access by default.
 - current Slack and transcript evidence;
 - selected Shared Drive folders or the highest-value equivalent document source
   identified by migration inventory;
-- one selected structured source, normally the CRM, with typed projections for
-  the facts needed by pilot questions;
+- an optional structured source, normally the CRM, only when the migration
+  matrix or dogfood questions require typed facts;
 - a versioned evaluation set based on real Ask Apero questions;
 - web health and source-freshness visibility;
 - no broad agent write authority.
@@ -161,12 +161,13 @@ The following are not yet production capabilities:
 - write-capable provider actions;
 - semantic retrieval as a proven production dependency.
 
-The source ledger and the current read surfaces are not yet a single general
-pipeline. Connector ingestion writes source artifacts, units, revisions, and
-segments, while legacy/manual reads also use `brainSources` and Brain pages. The
-pilot must make active source-ledger segments and current Brain-page revisions
-the canonical retrieval corpus instead of copying every provider into
-`brainSources`.
+The repository has provider-specific raw evidence models, not one generic source
+ledger. Slack uses source artifacts and revisions; transcripts use call-shaped
+source units, revisions, and segments; legacy/manual reads also use
+`brainSources` and Brain pages. The pilot preserves those raw ledgers and adds a
+derived, provider-neutral, Brain-scoped retrieval publication projection. It
+must not force Drive or CRM records into transcript tables or copy every
+provider into `brainSources`.
 
 The existing `capabilities.sourceGroundedBrief` implementation is a contract
 fixture. It authorizes an editor, synthesizes source content, and calls a fake
@@ -215,10 +216,11 @@ OAuth material, API keys, or live customer records.
 
 ### 6.3 Live evidence boundary
 
-Live provider data belongs in the Brain source ledger. Each provider observation
-is immutable, addressable by stable provider identity, and linked to a lifecycle
-generation. Search indexes, context packs, summaries, and embeddings are derived
-projections and must honor deletion and revocation.
+Live provider data belongs in provider-specific Brain evidence ledgers. Each
+provider observation is immutable, addressable by stable provider identity, and
+linked to a lifecycle generation. Brain-scoped retrieval publications, context
+packs, summaries, and embeddings are derived projections and must honor deletion
+and revocation.
 
 ## 7. Canonical Connector Contract
 
@@ -242,8 +244,8 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 ### 7.2 Required connector outputs
 
 - immutable observation receipt;
-- canonical source unit and revision;
-- normalized segments or structured projection;
+- immutable provider-specific source revision;
+- normalized Brain-scoped retrieval entries or structured projection;
 - exact provider locator or permalink when allowed;
 - source timestamp and ingestion timestamp;
 - lifecycle and permission snapshot;
@@ -258,6 +260,9 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - A provider object is ingested only when its container is allowlisted.
 - Incremental sync is at-least-once; deterministic commit is idempotent.
 - Webhooks never replace reconciliation.
+- A full reconciliation may infer removal only after every page is enumerated
+  and the reconciliation generation closes successfully. Partial traversal never
+  produces tombstones.
 - Permission loss stops future reads and revokes affected projections.
 - Provider deletion produces a lifecycle transition, not a silent absence.
 - Raw provider payloads and credentials are never logged.
@@ -315,16 +320,22 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 
 ## 9. Retrieval Specification
 
-### 9.1 Canonical retrieval corpus
+### 9.1 Canonical retrieval publication
 
-- Live provider evidence is retrieved from active `sourceUnits`, their current
-  `sourceUnitRevisions`, and matching `sourceSegments`.
-- Curated context is retrieved from active Brain pages and their current page
-  revisions.
+- Raw provider evidence remains in its provider-specific immutable ledger.
+- Current provider revisions and curated Brain-page revisions publish into a
+  derived projection with organization, workspace, Brain, source kind, exact
+  originating revision, passage, locator, timestamps, lifecycle/route
+  generations, and publication state.
+- A bounded token-posting projection provides Brain-scoped lexical retrieval for
+  the pilot.
 - `brainSources` remains a legacy/manual intake path and is not the canonical
   storage destination for provider connectors.
-- All public read surfaces share one retrieval and bounded context-assembly
-  implementation.
+- Publication is idempotent and rebuildable without provider re-ingestion.
+- Route changes, tombstones, connection generation changes, and lifecycle
+  changes revoke affected derived entries.
+- All public read surfaces share one lexical retrieval and bounded
+  context-assembly implementation.
 
 ### 9.2 Retrieval stages
 
@@ -343,6 +354,8 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - A caller cannot expand scope with a prompt or model-selected Brain key.
 - Deleted, purged, or lifecycle-revoked evidence is not retrievable.
 - Search result excerpts are linked to exact source/page revisions.
+- Search, source-get, and ContextPack results expose the same retrieval entry,
+  passage key, normalized offsets, origin revision, and content hash.
 - Semantic indexes, when present, are tenant- and lifecycle-scoped derived data.
 - The answer model receives only the authorized candidate manifest.
 
@@ -388,6 +401,13 @@ type ContextPack = {
   brainKey: string;
   question: string;
   asOf: number;
+  coverage: Array<{
+    sourceKind: string;
+    status: "complete" | "partial" | "unavailable" | "unknown";
+    freshness: "current" | "stale" | "unknown";
+    lastSuccessfulAt?: number;
+    reason?: string;
+  }>;
   entries: Array<{
     kind: "source" | "page" | "projection";
     brainKey: string;
@@ -395,8 +415,12 @@ type ContextPack = {
     excerpt: string;
     sourceKey: string;
     revisionKey: string;
+    entryKey: string;
+    passageKey: string;
     unitKey?: string;
     segmentKey?: string;
+    startOffset: number;
+    endOffset: number;
     locator?: string;
     contentHash?: string;
     authority: "authoritative" | "derived" | "advisory";
@@ -433,6 +457,11 @@ The read-oriented external surface is:
 - `brain.context.get`, accepting a question and exposing the bounded pack
   assembled by the canonical retrieval path without model generation
 - `brain.answers.ask`
+
+For the pilot, Codex and Claude Code synthesize the user-facing answer from the
+typed `brain.context.get` pack. `brain.answers.ask` may remain a deterministic
+extractive compatibility operation; model-backed server answering is not a pilot
+dependency.
 
 Operations remain one-Brain-scoped until a separately reviewed multi-Brain
 selector proves authorization for every requested Brain.
@@ -564,7 +593,8 @@ after seeing the results.
 
 - five named users;
 - separate credentials;
-- company policy, Slack/transcripts, Drive, and CRM evidence;
+- company policy, Slack/transcripts, the selected document source, and any
+  structured source justified by the migration matrix;
 - no broad provider write actions;
 - daily connector health review during the initial pilot;
 - versioned evaluation run before and after each retrieval change.
@@ -576,7 +606,7 @@ The pilot exits successfully when:
 - the agreed evaluation thresholds pass;
 - no cross-tenant or unauthorized client evidence is observed;
 - credentials can be independently revoked within the declared target;
-- Drive and CRM edits/deletions propagate within their declared windows;
+- selected live-source edits/deletions propagate within their declared windows;
 - citations resolve to the exact revision used;
 - Ask Apero behaves consistently in Codex and Claude Code;
 - owners accept the operational burden and incident path;
@@ -595,15 +625,13 @@ Implementation cannot silently decide:
 
 1. the agency context owner;
 2. the connector and access owner;
-3. the CRM provider;
-4. the first Shared Drive folder allowlist;
-5. the five pilot users;
-6. the evaluation questions and numeric thresholds;
-7. the source-specific freshness targets;
-8. Gmail and signed-agreement retention policy;
-9. the default approval rule for future provider writes;
-10. whether the Quarry brief remains Tailscale-only or receives a durable
-    authenticated deployment.
+3. the first document provider and container allowlist;
+4. the first two and eventual five pilot users;
+5. the evaluation questions and any changes to default numeric thresholds;
+6. the source-specific freshness targets;
+7. whether a structured source is required by measured pilot questions;
+8. whether the Quarry brief remains Tailscale-only or receives a durable
+   authenticated deployment.
 
 ## 18. Product Acceptance Summary
 
