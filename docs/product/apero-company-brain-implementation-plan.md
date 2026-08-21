@@ -115,16 +115,18 @@ it cannot be deployed into the pilot while the full gate is red.
 - compatibility reads are explicitly gated and disabled in WP02 acceptance and
   pilot receipts, so an empty projection cannot be masked by legacy reads.
 
-As of 2026-08-21, the original mixed worktree has been separated into two clean,
+As of 2026-08-21, the original mixed worktree has been separated into two
 default-branch-derived streams:
 
-- backend: `codex/company-brain-backend` at `4226d808`;
+- backend: `codex/company-brain-backend` at `1ba01e7d`, with a later uncommitted
+  Slack fan-out slice under review;
 - UI: `codex/canonical-saas-ui-clean` at `7bcb635e`.
 
-The split is complete, but neither stream is release-ready. The backend
-`just verify-full` reaches type coverage at 99.62% against a 99.7% target. The
-UI stream passes lint but fails web typecheck with 264 errors from the
-incomplete template transplant. The backend stack also combines additive schema,
+The split is complete, but neither stream is release-ready. The backend full
+gate passed on the current dirty worktree, including 99.71% type coverage; this
+is engineering evidence, not a clean-SHA promotion receipt. The UI stream passes
+lint and tests but fails web typecheck with 264 errors from the incomplete
+template transplant. The backend stack also combines additive schema,
 publication workers, and default projection reads; it must be separated or
 feature-gated so deployment cannot switch reads before backfill and validation.
 Backend correctness work may continue behind focused gates. Merge requires a
@@ -449,6 +451,26 @@ a delivery guarantee. Register a recurring internal sweeper, name its interval
 and deployment owner, and prove that a pending job converges when its initial
 scheduler invocation never runs.
 
+Provider capture and publication-target resolution are separate durable effects.
+Once an admitted event is normalized, routing ambiguity, fan-out capacity, or
+downstream scheduling failure must not roll back its immutable receipt and
+revision. The capture transaction commits the ledger plus one idempotent
+target-resolution intent. A resumable worker resolves the complete target set,
+records a typed capacity failure when necessary, and atomically creates all
+publication jobs or none. Provider redelivery is never required for recovery.
+Duplicate delivery while resolution is blocked creates neither a second revision
+nor a second intent.
+
+Introduce the provider-neutral reconciliation substrate in WP02 rather than
+waiting for the Drive adapter: connector-scope records, incremental cursor
+records, reconciliation runs, per-run seen markers, high-water fences, and
+resumable phase cursors. Slack and transcripts are the first adapters; WP05
+Drive reuses the same contract. Reconciliation state advances only through
+`scan -> traversal_closed -> apply_removals -> drain_derived -> complete`.
+Partial traversal never infers deletion, observations newer than the fence
+survive removal inference, and only the final close plus zero unresolved
+publication effects makes the exact scope and generation complete.
+
 Add Brain-scoped, bounded enumerators for pages, Slack revisions, and transcript
 segments that recreate entries and tokens without provider re-ingestion. New
 revisions revoke the prior active publication. Routing-policy changes, accepted
@@ -496,7 +518,11 @@ recovery, scheduler/action failure followed by durable retry, policy-only and
 lifecycle-only republish, route/target/connection revocation, tombstone and
 purge, and complete rebuild equivalence for all three corpora, plus
 existing-call rerouting, bounded Slack backfill, cutoff enforcement, monotonic
-generation after revoke/restore, and dead-letter repair attribution.
+generation after revoke/restore, and dead-letter repair attribution. Also force
+target-resolution overflow and prove that the receipt, revision, and single
+unresolved intent survive; no partial publication-job subset exists; after
+capacity is restored the sweeper publishes every intended target exactly once
+without provider redelivery.
 
 **Focused gate:**
 
@@ -943,6 +969,17 @@ credentials and audiences separate from Brain MCP. Each action requires typed
 inputs, preview/confirmation, idempotency, safe retry, and an operator-readable
 receipt.
 
+An action accepts the stable provider entity reference and expected provider
+revision/version carried by ContextPack. Immediately before preview and again
+before execution, the capability gateway reads authoritative provider state and
+rejects a stale precondition. It writes the provider system of record only; it
+never patches the Brain projection or declares the result fresh. Confirmed,
+failed, and ambiguous outcomes receive durable receipts. An ambiguous provider
+response triggers read-after-write observation or reconciliation. Only a later
+immutable provider observation may advance the ledger and republish ContextPack.
+Duplicate execution is idempotent, and connection or scope revocation blocks
+both the action and its read-back.
+
 ## 8. Recommended Delivery Sequence
 
 Indicative ranges assume one primary engineer with timely business decisions:
@@ -1127,8 +1164,8 @@ until every required row and the clean-branch gates pass.
 | Health freshness and failures remain scoped to the affected corpus/connector   | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                        | Required                                                                       |
 | Missing expected corpus is unavailable/unknown                                 | `test/headless-context.test.ts`                                                                              | Implemented                                                                    |
 | Organization rebuild beyond one enumeration page                               | `test/retrieval-publication.test.ts`                                                                         | Implemented with explicit active-Brain capacity failure                        |
-| Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Required                                                                       |
-| Provider replay lookup is indexed and bounded                                  | Slack ingress tests                                                                                          | Required                                                                       |
+| Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Explicit capacity detection implemented; durable capture/resume required       |
+| Provider replay lookup is indexed and bounded                                  | `test/slack-ingress-runtime.test.ts`                                                                         | Implemented                                                                    |
 | Retired postings above capacity cannot starve current results                  | `test/brain-pilot.test.ts`                                                                                   | Implemented with legacy-state compatibility and typed overflow                 |
 | Search and ContextPack reject copied text with a missing/corrupt origin        | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
 | Superseded citations reopen exact evidence; revoked citations fail closed      | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |

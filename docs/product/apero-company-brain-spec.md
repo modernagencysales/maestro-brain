@@ -420,16 +420,32 @@ The agent-facing context-pack operation should return:
 
 ```ts
 type ContextPack = {
+  schemaVersion: "1";
+  candidateManifest: {
+    version: "1";
+    hash: string;
+  };
   requestId: string;
   organizationKey: string;
   brainKey: string;
   question: string;
   asOf: number;
   coverage: Array<{
+    corpusKey: string;
     sourceKind: string;
+    connectorScopeKey: string;
+    required: boolean;
     status: "complete" | "partial" | "unavailable" | "unknown";
     freshness: "current" | "stale" | "unknown";
-    lastSuccessfulAt?: number;
+    generations: {
+      connection?: number;
+      allowlist?: number;
+      policy?: number;
+      reconciliation?: number;
+    };
+    lastObservedAt?: number;
+    lastReconciledAt?: number;
+    unresolvedFailureCount: number;
     reason?: string;
   }>;
   entries: Array<{
@@ -469,7 +485,12 @@ type ContextPack = {
 ```
 
 The exact Effect schema and public error set are implementation artifacts. The
-behavioral contract above is stable for the pilot.
+behavioral contract above is ContextPack v1. The runtime currently calls the
+budget/truncation field `omissions`; before BE3 the product spec, Confect
+schema, OpenAPI, MCP, CLI, and runtime fixtures must converge on one name and
+shape. Coverage is never collapsed by `sourceKind`: two connector scopes in one
+corpus remain independently visible, and a healthy sibling cannot hide a missing
+required scope.
 
 ### 10.3 Supported Brain tools
 
