@@ -47,28 +47,30 @@ const transcriptCatalog = [
   { key: "fathom", name: "Fathom", authMethod: "API key" },
   { key: "granola", name: "Granola", authMethod: "API token" },
 ] as const;
+const routingRoles = new Set(["admin", "owner"]);
+const routedActions = new Set<CallRoutingReview["action"]>([
+  "confirm",
+  "change_brain",
+]);
 
 export function ConnectionsRouteAdapter() {
   const workspace = useWorkspace();
+  const workspaceView = connectionsWorkspaceView(workspace);
   const [mutationState, setMutationState] =
     useState<CallRoutingMutationState>();
   const [importState, setImportState] = useState<TranscriptImportState>({
     status: "idle",
   });
-  const canReview =
-    workspace.status === "ready" &&
-    (workspace.activeWorkspace.role === "admin" ||
-      workspace.activeWorkspace.role === "owner");
-  const brainKey =
-    workspace.status === "ready" ? workspace.activeWorkspace.workspaceId : null;
   const health = useTemplateQuery(
     transcriptSyncRefs.listTranscriptConnectionHealth,
-    canReview ? {} : "skip",
+    workspaceView.canReview ? {} : "skip",
     { isEmpty: () => false },
   ) as TemplateDataState<ConnectionHealthData, unknown>;
   const queue = useTemplateQuery(
     callReviewRefs.listCallRoutingQueue,
-    canReview && brainKey !== null ? { brainKey } : "skip",
+    workspaceView.brainKey === null || !workspaceView.canReview
+      ? "skip"
+      : { brainKey: workspaceView.brainKey },
     { isEmpty: (data) => data.items.length === 0 },
   ) as TemplateDataState<RoutingQueueData, unknown>;
   const reviewRoute = useTemplateMutation(callReviewRefs.reviewCallRoute);
@@ -88,166 +90,266 @@ export function ConnectionsRouteAdapter() {
   const disconnectTranscriptConnection = useTemplateAction(
     transcriptConnectionRefs.disconnectTranscriptConnection,
   );
-  const routingQueue =
-    workspace.status === "ready"
-      ? toRoutingQueueState(
-          queue,
-          canReview,
-          workspace.workspaces
-            .filter(({ kind }) => kind === "client")
-            .map(({ workspaceId }) => workspaceId),
-          mutationState,
-        )
-      : ({ status: "loading" } as const);
-
-  const review = async ({
-    item,
-    action,
-    targetBrainKey,
-    learnScope,
-    learnValue,
-  }: CallRoutingReview) => {
-    if (brainKey === null) return;
-    setMutationState({ status: "pending", proposalKey: item.proposalKey });
-    try {
-      await unwrapBrainMutation(
-        await reviewRoute({
-          brainKey,
-          proposalKey: item.proposalKey,
-          action,
-          ...(targetBrainKey ? { targetBrainKey } : {}),
-          ...(learnScope ? { learnScope } : {}),
-          ...(learnValue ? { learnValue } : {}),
-          attemptKey: `route-review.${crypto.randomUUID()}`,
-          expectedUnitRevisionKey: item.unitRevisionKey,
-          expectedRouteGeneration: item.routeGeneration,
-          expectedSourceLifecycleGeneration: item.sourceLifecycleGeneration,
-        }),
-      );
-      setMutationState({
-        status: "success",
-        message:
-          action === "confirm" || action === "change_brain"
-            ? "Call routed. Brain update processing started."
-            : "Call routing review saved.",
-      });
-    } catch {
-      setMutationState({
-        status: "failure",
-        message: "Unable to save the route. Reload and try again.",
-      });
-    }
-  };
-
-  const connect = async (provider: string) => {
-    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
-    const transcriptProvider = provider as TranscriptProvider;
-    await startNangoConnect({
-      begin: async () =>
-        unwrapActionResult(
-          await beginTranscriptConnect({ provider: transcriptProvider }),
-        ),
-      open: ({ token }) =>
-        openNangoConnectWithSdk({ connectSessionToken: token }),
-      complete: async ({ connectionId, connectSessionId }) =>
-        unwrapActionResult(
-          await completeTranscriptConnect({
-            provider: transcriptProvider,
-            connectionId,
-            connectSessionId,
-          }),
-        ),
-      cancel: async ({ connectSessionId }) => {
-        unwrapActionResult(
-          await cancelTranscriptConnect({
-            provider: transcriptProvider,
-            connectSessionId,
-          }),
-        );
-      },
-    });
-  };
-
-  const importFile = async (input: TranscriptImportRequest) => {
-    if (brainKey === null) return;
-    setImportState({ status: "importing" });
-    try {
-      const result = await importTranscript({ brainKey, ...input });
-      if (Either.isEither(result) && Either.isLeft(result)) {
-        setImportState({ status: "typed_failure" });
-        return;
-      }
-      setImportState({ status: "success" });
-    } catch {
-      setImportState({ status: "transport_failure" });
-    }
-  };
-
-  const disconnect = async (provider: string) => {
-    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
-    await unwrapActionResult(
-      await disconnectTranscriptConnection({
-        provider: provider as TranscriptProvider,
-      }),
-    );
-  };
-
-  const requestPurge = async (provider: string) => {
-    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
-    await unwrapActionResult(
-      await requestTranscriptPurge({
-        provider: provider as TranscriptProvider,
-      }),
-    );
-  };
+  const routingQueue = workspaceView.ready
+    ? toRoutingQueueState(
+        queue,
+        workspaceView.canReview,
+        workspaceView.availableBrainKeys,
+        mutationState,
+      )
+    : ({ status: "loading" } as const);
 
   return (
     <Page.Root>
       <ConnectionsScreen
-        role={
-          workspace.status === "ready"
-            ? workspace.activeWorkspace.role
-            : "viewer"
-        }
+        role={workspaceView.role}
         routingQueue={routingQueue}
-        state={toConnectionsState(health, canReview)}
-        onConnect={connect}
-        onDisconnect={disconnect}
-        onPurge={requestPurge}
-        onRoutingReview={review}
-        onTranscriptImport={importFile}
-        transcriptImportState={importState}
-        transcriptTargets={
-          workspace.status === "ready"
-            ? workspace.workspaces
-                .filter(({ kind }) => kind === "client")
-                .map(({ workspaceId, name }) => ({
-                  brainKey: workspaceId,
-                  name,
-                }))
-            : []
+        state={toConnectionsState(health, workspaceView.canReview)}
+        onConnect={(provider) =>
+          connectTranscriptProvider(provider, {
+            beginTranscriptConnect,
+            cancelTranscriptConnect,
+            completeTranscriptConnect,
+          })
         }
+        onDisconnect={(provider) =>
+          runTranscriptProviderOperation(
+            provider,
+            disconnectTranscriptConnection,
+          )
+        }
+        onPurge={(provider) =>
+          runTranscriptProviderOperation(provider, requestTranscriptPurge)
+        }
+        onRoutingReview={(review) =>
+          reviewCallRoute({
+            brainKey: workspaceView.brainKey,
+            review,
+            reviewRoute,
+            setMutationState,
+          })
+        }
+        onTranscriptImport={(input) =>
+          importTranscriptFile({
+            brainKey: workspaceView.brainKey,
+            importTranscript,
+            input,
+            setImportState,
+          })
+        }
+        transcriptImportState={importState}
+        transcriptTargets={workspaceView.transcriptTargets}
       />
     </Page.Root>
   );
 }
 
+type ConnectionsWorkspace = ReturnType<typeof useWorkspace>;
+
+const connectionsWorkspaceView = (workspace: ConnectionsWorkspace) => {
+  if (workspace.status !== "ready")
+    return {
+      ready: false,
+      canReview: false,
+      brainKey: null,
+      role: "viewer",
+      availableBrainKeys: [],
+      transcriptTargets: [],
+    } as const;
+  const clientWorkspaces = workspace.workspaces.filter(
+    ({ kind }) => kind === "client",
+  );
+  const role = workspace.activeWorkspace.role;
+  return {
+    ready: true,
+    canReview: routingRoles.has(role),
+    brainKey: workspace.activeWorkspace.workspaceId,
+    role,
+    availableBrainKeys: clientWorkspaces.map(({ workspaceId }) => workspaceId),
+    transcriptTargets: clientWorkspaces.map(({ workspaceId, name }) => ({
+      brainKey: workspaceId,
+      name,
+    })),
+  } as const;
+};
+
+const reviewCallRoute = async ({
+  brainKey,
+  review,
+  reviewRoute,
+  setMutationState,
+}: {
+  readonly brainKey: string | null;
+  readonly review: CallRoutingReview;
+  readonly reviewRoute: ReturnType<
+    typeof useTemplateMutation<typeof callReviewRefs.reviewCallRoute>
+  >;
+  readonly setMutationState: (state: CallRoutingMutationState) => void;
+}) => {
+  if (brainKey === null) return;
+  setMutationState({
+    status: "pending",
+    proposalKey: review.item.proposalKey,
+  });
+  try {
+    await unwrapBrainMutation(
+      await reviewRoute(routingReviewArgs(brainKey, review)),
+    );
+    setMutationState({
+      status: "success",
+      message: routingReviewSuccessMessage(review.action),
+    });
+  } catch {
+    setMutationState({
+      status: "failure",
+      message: "Unable to save the route. Reload and try again.",
+    });
+  }
+};
+
+const routingReviewArgs = (
+  brainKey: string,
+  { item, action, targetBrainKey, learnScope, learnValue }: CallRoutingReview,
+) => ({
+  brainKey,
+  proposalKey: item.proposalKey,
+  action,
+  ...definedRoutingReviewArgs({ targetBrainKey, learnScope, learnValue }),
+  attemptKey: `route-review.${crypto.randomUUID()}`,
+  expectedUnitRevisionKey: item.unitRevisionKey,
+  expectedRouteGeneration: item.routeGeneration,
+  expectedSourceLifecycleGeneration: item.sourceLifecycleGeneration,
+});
+
+const definedRoutingReviewArgs = (
+  values: Pick<
+    CallRoutingReview,
+    "targetBrainKey" | "learnScope" | "learnValue"
+  >,
+) =>
+  Object.fromEntries(
+    Object.entries(values).filter(([, value]) => Boolean(value)),
+  );
+
+const routingReviewSuccessMessage = (
+  action: CallRoutingReview["action"],
+): string =>
+  routedActions.has(action)
+    ? "Call routed. Brain update processing started."
+    : "Call routing review saved.";
+
+const asTranscriptProvider = (
+  provider: string,
+): TranscriptProvider | undefined =>
+  transcriptCatalog.find(({ key }) => key === provider)?.key;
+
+const connectTranscriptProvider = async (
+  provider: string,
+  actions: {
+    readonly beginTranscriptConnect: ReturnType<
+      typeof useTemplateAction<
+        typeof transcriptConnectionRefs.beginTranscriptConnect
+      >
+    >;
+    readonly cancelTranscriptConnect: ReturnType<
+      typeof useTemplateMutation<
+        typeof transcriptConnectionRefs.cancelTranscriptConnect
+      >
+    >;
+    readonly completeTranscriptConnect: ReturnType<
+      typeof useTemplateAction<
+        typeof transcriptConnectionRefs.completeTranscriptConnect
+      >
+    >;
+  },
+) => {
+  const transcriptProvider = asTranscriptProvider(provider);
+  if (transcriptProvider === undefined) return;
+  await startNangoConnect({
+    begin: async () =>
+      unwrapActionResult(
+        await actions.beginTranscriptConnect({ provider: transcriptProvider }),
+      ),
+    open: ({ token }) =>
+      openNangoConnectWithSdk({ connectSessionToken: token }),
+    complete: async ({ connectionId, connectSessionId }) =>
+      unwrapActionResult(
+        await actions.completeTranscriptConnect({
+          provider: transcriptProvider,
+          connectionId,
+          connectSessionId,
+        }),
+      ),
+    cancel: async ({ connectSessionId }) => {
+      unwrapActionResult(
+        await actions.cancelTranscriptConnect({
+          provider: transcriptProvider,
+          connectSessionId,
+        }),
+      );
+    },
+  });
+};
+
+const importTranscriptFile = async ({
+  brainKey,
+  importTranscript,
+  input,
+  setImportState,
+}: {
+  readonly brainKey: string | null;
+  readonly importTranscript: ReturnType<
+    typeof useTemplateMutation<typeof importTranscriptRef>
+  >;
+  readonly input: TranscriptImportRequest;
+  readonly setImportState: (state: TranscriptImportState) => void;
+}) => {
+  if (brainKey === null) return;
+  setImportState({ status: "importing" });
+  try {
+    const result = await importTranscript({ brainKey, ...input });
+    setImportState({
+      status:
+        Either.isEither(result) && Either.isLeft(result)
+          ? "typed_failure"
+          : "success",
+    });
+  } catch {
+    setImportState({ status: "transport_failure" });
+  }
+};
+
+const runTranscriptProviderOperation = async (
+  provider: string,
+  operation: (input: { readonly provider: TranscriptProvider }) => unknown,
+) => {
+  const transcriptProvider = asTranscriptProvider(provider);
+  if (transcriptProvider === undefined) return;
+  await unwrapActionResult(await operation({ provider: transcriptProvider }));
+};
+
 const toConnectionsState = (
   health: TemplateDataState<ConnectionHealthData, unknown>,
   canReview: boolean,
 ): ConnectionsScreenState => {
-  if (!canReview) return catalogState([]);
-  if (health.status === "loading" || health.status === "skipped")
-    return { status: "loading" };
-  if (health.status === "typed_failure") return { status: "typed_failure" };
-  if (
-    health.status === "parse_failure" ||
-    health.status === "transport_failure" ||
-    health.status === "defect"
-  )
-    return { status: "transport_failure" };
-  return catalogState(health.data);
+  const state =
+    health.status === "ready" || health.status === "empty"
+      ? catalogState(health.data)
+      : connectionStateByStatus[health.status];
+  return canReview ? state : catalogState([]);
 };
+
+const connectionStateByStatus = {
+  loading: { status: "loading" },
+  skipped: { status: "loading" },
+  typed_failure: { status: "typed_failure" },
+  parse_failure: { status: "transport_failure" },
+  transport_failure: { status: "transport_failure" },
+  defect: { status: "transport_failure" },
+} as const satisfies Record<
+  Exclude<TemplateDataState<unknown, unknown>["status"], "ready" | "empty">,
+  ConnectionsScreenState
+>;
 
 const unwrapActionResult = <A, E>(result: A | Either.Either<A, E>): A => {
   if (!Either.isEither(result)) return result;
@@ -292,19 +394,15 @@ const lastErrorLabel = (
     | "RevisionOrderConflict"
     | null,
 ): string | null => {
-  switch (error) {
-    case "ProviderRateLimited":
-      return "Provider rate limit reached";
-    case "ProviderUnavailable":
-      return "Provider unavailable";
-    case "PermanentDecodeFailure":
-      return "Transcript response could not be decoded";
-    case "RevisionOrderConflict":
-      return "Transcript revision order conflict";
-    case null:
-      return null;
-  }
+  return error === null ? null : transcriptErrorLabels[error];
 };
+
+const transcriptErrorLabels = {
+  ProviderRateLimited: "Provider rate limit reached",
+  ProviderUnavailable: "Provider unavailable",
+  PermanentDecodeFailure: "Transcript response could not be decoded",
+  RevisionOrderConflict: "Transcript revision order conflict",
+} as const;
 
 const toRoutingQueueState = (
   state: TemplateDataState<RoutingQueueData, unknown>,
@@ -312,20 +410,42 @@ const toRoutingQueueState = (
   availableBrainKeys: readonly string[],
   mutation?: CallRoutingMutationState,
 ): CallRoutingQueueState => {
-  if (!canReview) return { status: "ready", items: [] };
-  if (state.status === "ready")
-    return {
-      status: "ready",
-      items: state.data.items.map((item) => ({
-        ...item,
-        candidateBrainKeys: [
-          ...new Set([...item.candidateBrainKeys, ...availableBrainKeys]),
-        ],
-      })),
-      ...(mutation ? { mutation } : {}),
-    };
-  if (state.status === "empty") return { status: "empty" };
-  if (state.status === "loading" || state.status === "skipped")
-    return { status: "loading" };
-  return { status: "failure", message: "Unable to load calls to route." };
+  const queue =
+    state.status === "ready"
+      ? readyRoutingQueue(state.data, availableBrainKeys, mutation)
+      : routingQueueByStatus[state.status];
+  return canReview ? queue : { status: "ready", items: [] };
 };
+
+const routingQueueFailure = {
+  status: "failure",
+  message: "Unable to load calls to route.",
+} as const satisfies CallRoutingQueueState;
+
+const routingQueueByStatus = {
+  empty: { status: "empty" },
+  loading: { status: "loading" },
+  skipped: { status: "loading" },
+  typed_failure: routingQueueFailure,
+  parse_failure: routingQueueFailure,
+  transport_failure: routingQueueFailure,
+  defect: routingQueueFailure,
+} as const satisfies Record<
+  Exclude<TemplateDataState<unknown, unknown>["status"], "ready">,
+  CallRoutingQueueState
+>;
+
+const readyRoutingQueue = (
+  data: RoutingQueueData,
+  availableBrainKeys: readonly string[],
+  mutation?: CallRoutingMutationState,
+): CallRoutingQueueState => ({
+  status: "ready",
+  items: data.items.map((item) => ({
+    ...item,
+    candidateBrainKeys: [
+      ...new Set([...item.candidateBrainKeys, ...availableBrainKeys]),
+    ],
+  })),
+  ...(mutation ? { mutation } : {}),
+});

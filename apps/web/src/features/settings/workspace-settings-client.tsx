@@ -8,6 +8,7 @@ import {
   classifyConfectMutationResult,
   isTemplateFailureState,
   normalizeMutationError,
+  type TemplateMutationState,
 } from "../../adapters/confect-state";
 import { describeTypedFailure } from "../../adapters/failure-message";
 import { createApiKeySettingsAdapter } from "./api-keys-adapter";
@@ -20,6 +21,9 @@ import { isConvexConfigured } from "../../env";
 
 const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;
 const exportRefs = templateConfectRefs.public.ops.dataLifecycle;
+type ExportRequestState =
+  | { readonly status: "idle" | "loading" }
+  | { readonly status: "error"; readonly message: string };
 
 export function WorkspaceSettingsClient() {
   const workspace = useWorkspace();
@@ -28,14 +32,7 @@ export function WorkspaceSettingsClient() {
     null,
   );
   const [exportRequest, setExportRequest] = useReducer(
-    (
-      _:
-        | { readonly status: "idle" | "loading" }
-        | { readonly status: "error"; readonly message: string },
-      next:
-        | { readonly status: "idle" | "loading" }
-        | { readonly status: "error"; readonly message: string },
-    ) => next,
+    (_: ExportRequestState, next: ExportRequestState) => next,
     { status: "idle" } as const,
   );
   const createApiKey = useTemplateMutation(apiKeyRefs.create);
@@ -113,36 +110,15 @@ export function WorkspaceSettingsClient() {
             exportDownload,
           )}
           requestPending={exportRequest.status === "loading"}
-          onRequest={async (idempotencyKey) => {
-            setExportRequest({ status: "loading" });
-            try {
-              const result = classifyConfectMutationResult(
-                await requestBrainExport({
-                  brainKey: activeBrainKey,
-                  idempotencyKey,
-                }),
-              );
-              if (result.status === "ready") {
-                setRequestedExport(result.data);
-                setExportRequest({ status: "idle" });
-              } else if (isTemplateFailureState(result)) {
-                setExportRequest({
-                  status: "error",
-                  message: describeTypedFailure(
-                    result.error,
-                    "Unable to request export. Try again.",
-                  ),
-                });
-              } else
-                setExportRequest({
-                  status: "error",
-                  message: "Unable to request export. Try again.",
-                });
-            } catch (error) {
-              const failure = normalizeMutationError(error);
-              setExportRequest({ status: "error", message: failure.message });
-            }
-          }}
+          onRequest={(idempotencyKey) =>
+            requestExport({
+              activeBrainKey,
+              idempotencyKey,
+              requestBrainExport,
+              setExportRequest,
+              setRequestedExport,
+            })
+          }
         />
       </Page.Body>
     </Page.Root>
@@ -150,9 +126,7 @@ export function WorkspaceSettingsClient() {
 }
 
 const brainExportView = (
-  request:
-    | { readonly status: "idle" | "loading" }
-    | { readonly status: "error"; readonly message: string },
+  request: ExportRequestState,
   requested: BrainExportJob | null,
   status: ReturnType<typeof useTemplateQuery<typeof exportRefs.getBrainExport>>,
   download: ReturnType<
@@ -161,26 +135,34 @@ const brainExportView = (
 ): BrainExportViewState => {
   if (request.status === "error")
     return { status: "unavailable", message: request.message };
-  if (requested === null)
-    return request.status === "loading"
-      ? { status: "loading" }
-      : { status: "empty" };
-  if (status.status === "loading" || status.status === "skipped")
-    return { status: "ready", job: requested };
+  if (requested === null) return initialBrainExportView(request);
+  return requestedBrainExportView(requested, status, download);
+};
+
+const initialBrainExportView = (
+  request: Exclude<ExportRequestState, { readonly status: "error" }>,
+): BrainExportViewState =>
+  request.status === "loading" ? { status: "loading" } : { status: "empty" };
+
+const requestedBrainExportView = (
+  requested: BrainExportJob,
+  status: ReturnType<typeof useTemplateQuery<typeof exportRefs.getBrainExport>>,
+  download: ReturnType<
+    typeof useTemplateQuery<typeof exportRefs.downloadBrainExport>
+  >,
+): BrainExportViewState => {
   if (status.status === "ready") {
-    const job = { ...status.data };
-    delete job.downloadUrl;
     return {
       status: "ready",
-      job: {
-        ...job,
-        ...(download.status === "ready" && download.data.downloadUrl
-          ? { downloadUrl: download.data.downloadUrl }
-          : {}),
-      },
+      job: downloadableExportJob(status.data, download),
     };
   }
-  if (status.status === "empty") return { status: "ready", job: requested };
+  if (
+    status.status === "loading" ||
+    status.status === "skipped" ||
+    status.status === "empty"
+  )
+    return { status: "ready", job: requested };
   return {
     status: "unavailable",
     message:
@@ -189,6 +171,66 @@ const brainExportView = (
         : status.message,
   };
 };
+
+const downloadableExportJob = (
+  exportJob: BrainExportJob & { readonly downloadUrl?: string },
+  download: ReturnType<
+    typeof useTemplateQuery<typeof exportRefs.downloadBrainExport>
+  >,
+): BrainExportJob => {
+  const job = { ...exportJob };
+  delete job.downloadUrl;
+  return {
+    ...job,
+    ...(download.status === "ready" && download.data.downloadUrl
+      ? { downloadUrl: download.data.downloadUrl }
+      : {}),
+  };
+};
+
+const requestExport = async ({
+  activeBrainKey,
+  idempotencyKey,
+  requestBrainExport,
+  setExportRequest,
+  setRequestedExport,
+}: {
+  readonly activeBrainKey: string;
+  readonly idempotencyKey: string;
+  readonly requestBrainExport: ReturnType<
+    typeof useTemplateMutation<typeof exportRefs.requestBrainExport>
+  >;
+  readonly setExportRequest: (state: ExportRequestState) => void;
+  readonly setRequestedExport: (job: BrainExportJob | null) => void;
+}) => {
+  setExportRequest({ status: "loading" });
+  try {
+    const result = classifyConfectMutationResult(
+      await requestBrainExport({
+        brainKey: activeBrainKey,
+        idempotencyKey,
+      }),
+    );
+    if (result.status === "ready") {
+      setRequestedExport(result.data);
+      setExportRequest({ status: "idle" });
+      return;
+    }
+    setExportRequest(exportRequestFailure(result));
+  } catch (error) {
+    const failure = normalizeMutationError(error);
+    setExportRequest({ status: "error", message: failure.message });
+  }
+};
+
+const exportRequestFailure = (
+  result: TemplateMutationState<BrainExportJob, unknown>,
+): Extract<ExportRequestState, { readonly status: "error" }> => ({
+  status: "error",
+  message: isTemplateFailureState(result)
+    ? describeTypedFailure(result.error, "Unable to request export. Try again.")
+    : "Unable to request export. Try again.",
+});
 
 const toRowsState = <T, E>(
   state:

@@ -381,16 +381,24 @@ export const createBrainWorkspaceAdapter = ({
   ...pilot,
   createPage: mutations.create,
   renamePage: mutations.rename,
-  ...(mutations.favorite === undefined
-    ? {}
-    : { favoritePage: mutations.favorite }),
-  ...(mutations.archive === undefined
-    ? {}
-    : { archivePage: mutations.archive }),
-  ...(movePage === undefined ? {} : { movePage }),
-  ...(restorePage === undefined ? {} : { restorePage }),
-  ...(updatePage === undefined ? {} : { updatePage }),
+  ...definedBrainWorkspaceMethods({
+    favoritePage: mutations.favorite,
+    archivePage: mutations.archive,
+    movePage,
+    restorePage,
+    updatePage,
+  }),
 });
+
+const definedBrainWorkspaceMethods = (
+  methods: Pick<
+    BrainWorkspaceAdapter,
+    "favoritePage" | "archivePage" | "movePage" | "restorePage" | "updatePage"
+  >,
+): Partial<typeof methods> =>
+  Object.fromEntries(
+    Object.entries(methods).filter(([, method]) => method !== undefined),
+  ) as Partial<typeof methods>;
 
 export const unwrapBrainMutation = <T>(
   result: BrainPageMutationResult<T>,
@@ -413,44 +421,57 @@ const classifyBrainReadiness = ({
   readonly coverage: readonly BrainCoverage[];
   readonly omissions: readonly BrainOmission[];
 }): BrainReadiness => {
-  const unavailable = coverage.some(
-    (scope) =>
-      scope.required &&
-      (scope.status === "unavailable" || scope.status === "unknown"),
-  );
-  if (entries.length === 0 && unavailable) return "unavailable";
-
-  const partial =
-    omissions.some(({ count }) => count > 0) ||
-    entries.some(({ truncated }) => truncated) ||
-    coverage.some(({ status }) => status !== "complete");
-  if (partial) return "partial";
-
-  const stale =
-    entries.some(({ freshness }) => freshness !== "current") ||
-    coverage.some(({ freshness }) => freshness !== "current");
-  if (stale) return "stale";
-
-  return entries.length === 0 ? "empty" : "ready";
+  const candidates: readonly (readonly [boolean, BrainReadiness])[] = [
+    [
+      entries.length === 0 && coverage.some(requiredCoverageUnavailable),
+      "unavailable",
+    ],
+    [
+      [
+        omissions.some(hasOmittedResults),
+        entries.some(isTruncatedResult),
+        coverage.some(isIncompleteCoverage),
+      ].some(Boolean),
+      "partial",
+    ],
+    [
+      [
+        entries.some(hasNonCurrentFreshness),
+        coverage.some(hasNonCurrentFreshness),
+      ].some(Boolean),
+      "stale",
+    ],
+    [entries.length === 0, "empty"],
+  ];
+  return candidates.find(([matches]) => matches)?.[1] ?? "ready";
 };
 
-const errorTag = (error: unknown): string =>
-  typeof error === "object" &&
-  error !== null &&
-  "_tag" in error &&
-  typeof error._tag === "string"
-    ? error._tag
-    : "";
+const unavailableCoverageStatuses = new Set<BrainCoverage["status"]>([
+  "unavailable",
+  "unknown",
+]);
 
-const errorMessage = (error: unknown): string | undefined =>
-  typeof error === "object" &&
-  error !== null &&
-  "message" in error &&
-  typeof error.message === "string"
-    ? error.message
-    : error instanceof Error
-      ? error.message
-      : undefined;
+const requiredCoverageUnavailable = (coverage: BrainCoverage): boolean =>
+  [coverage.required, unavailableCoverageStatuses.has(coverage.status)].every(
+    Boolean,
+  );
+
+const hasOmittedResults = ({ count }: BrainOmission): boolean => count > 0;
+const isTruncatedResult = ({ truncated }: BrainSearchResult): boolean =>
+  truncated;
+const isIncompleteCoverage = ({ status }: BrainCoverage): boolean =>
+  status !== "complete";
+const hasNonCurrentFreshness = ({
+  freshness,
+}: BrainSearchResult | BrainCoverage): boolean => freshness !== "current";
+
+const errorStringProperty = (
+  error: unknown,
+  property: "_tag" | "message",
+): string | undefined => {
+  const value = Reflect.get(Object(error), property) as unknown;
+  return typeof value === "string" ? value : undefined;
+};
 
 const toBrainReadFailure = (
   state: Exclude<
@@ -458,37 +479,43 @@ const toBrainReadFailure = (
     { status: "skipped" | "loading" | "empty" | "ready" }
   >,
 ): BrainReadFailureState => {
-  const tag = state.status === "typed_failure" ? errorTag(state.error) : "";
+  const error = state.status === "typed_failure" ? state.error : undefined;
+  const tag = errorStringProperty(error, "_tag") ?? "";
   const message =
-    state.status === "typed_failure"
-      ? errorMessage(state.error)
-      : state.message;
-  if (tag.includes("Integrity")) {
-    return {
-      status: "integrity_failure",
-      message: message ?? "Exact citation validation failed.",
-    };
-  }
-  if (tag.includes("Capacity") || /capacity/i.test(message ?? "")) {
-    return {
-      status: "capacity_failure",
-      message: message ?? "Brain retrieval capacity was exceeded.",
-    };
-  }
+    errorStringProperty(error, "message") ??
+    (state.status === "typed_failure" ? undefined : state.message);
+  const status = readFailureStatus(tag, message);
   return {
-    status: "unavailable",
-    message: message ?? "Brain data is unavailable.",
+    status,
+    message: message ?? defaultReadFailureMessage[status],
   };
 };
+
+const readFailureStatus = (
+  tag: string,
+  message: string | undefined,
+): BrainReadFailureState["status"] => {
+  const candidates = [
+    [tag.includes("Integrity"), "integrity_failure"],
+    [
+      [tag.includes("Capacity"), /capacity/i.test(message ?? "")].some(Boolean),
+      "capacity_failure",
+    ],
+  ] as const;
+  return candidates.find(([matches]) => matches)?.[1] ?? "unavailable";
+};
+
+const defaultReadFailureMessage = {
+  integrity_failure: "Exact citation validation failed.",
+  capacity_failure: "Brain retrieval capacity was exceeded.",
+  unavailable: "Brain data is unavailable.",
+} as const satisfies Record<BrainReadFailureState["status"], string>;
 
 const unavailableCoverageMessage = (
   coverage: readonly BrainCoverage[],
 ): string => {
   const scopes = coverage
-    .filter(
-      ({ required, status }) =>
-        required && (status === "unavailable" || status === "unknown"),
-    )
+    .filter(requiredCoverageUnavailable)
     .map(({ corpusKey, connectorScopeKey }) =>
       connectorScopeKey.length > 0
         ? `${corpusKey}/${connectorScopeKey}`
@@ -502,78 +529,123 @@ const unavailableCoverageMessage = (
 export const toBrainSearchState = (
   state: TemplateDataState<BrainSourcesSearchData, unknown>,
   query: string,
-): BrainSearchState => {
-  if (state.status === "skipped") return { status: "idle" };
-  if (state.status === "loading") return { status: "loading", query };
-  if (state.status !== "ready" && state.status !== "empty") {
-    return { ...toBrainReadFailure(state), query };
-  }
+): BrainSearchState =>
+  hasBrainReadData(state)
+    ? presentBrainSearchData(state.data, query)
+    : presentBrainSearchWithoutData(state, query);
 
+const presentBrainSearchData = (
+  data: BrainSourcesSearchData,
+  query: string,
+): BrainSearchState => {
   const readiness = classifyBrainReadiness({
-    entries: state.data.results,
-    coverage: state.data.coverage,
-    omissions: state.data.omissions,
+    entries: data.results,
+    coverage: data.coverage,
+    omissions: data.omissions,
   });
   if (readiness === "empty") return { status: "empty", query };
   if (readiness === "unavailable") {
     return {
       status: "unavailable",
       query,
-      message: unavailableCoverageMessage(state.data.coverage),
+      message: unavailableCoverageMessage(data.coverage),
     };
   }
   return {
     status: readiness,
     query,
-    results: state.data.results,
-    coverage: state.data.coverage,
-    omissions: state.data.omissions,
+    results: data.results,
+    coverage: data.coverage,
+    omissions: data.omissions,
   };
+};
+
+const presentBrainSearchWithoutData = (
+  state: Exclude<
+    TemplateDataState<BrainSourcesSearchData, unknown>,
+    { readonly status: "ready" | "empty" }
+  >,
+  query: string,
+): BrainSearchState => {
+  if (state.status === "skipped") return { status: "idle" };
+  if (state.status === "loading") return { status: "loading", query };
+  return { ...toBrainReadFailure(state), query };
 };
 
 export const toBrainContextState = (
   state: TemplateDataState<BrainContextPackData, unknown>,
-): BrainContextState => {
-  if (state.status === "skipped") return { status: "idle" };
-  if (state.status === "loading") return { status: "loading" };
-  if (state.status !== "ready" && state.status !== "empty") {
-    return toBrainReadFailure(state);
-  }
+): BrainContextState =>
+  hasBrainReadData(state)
+    ? presentBrainContextData(state.data)
+    : presentBrainReadWithoutData(state);
 
+const presentBrainContextData = (
+  data: BrainContextPackData,
+): BrainContextState => {
   const readiness = classifyBrainReadiness({
-    entries: state.data.entries,
-    coverage: state.data.coverage,
-    omissions: state.data.omissions,
+    entries: data.entries,
+    coverage: data.coverage,
+    omissions: data.omissions,
   });
   if (readiness === "unavailable") {
     return {
       status: "unavailable",
-      message: unavailableCoverageMessage(state.data.coverage),
+      message: unavailableCoverageMessage(data.coverage),
     };
   }
-  return { status: readiness, data: state.data };
+  return { status: readiness, data };
 };
 
 export const toBrainSourceState = (
   state: TemplateDataState<BrainSourceGetData, unknown>,
+): BrainSourceState =>
+  state.status === "ready"
+    ? presentBrainSourceData(state.data)
+    : presentBrainSourceWithoutData(state);
+
+const presentBrainSourceData = (data: BrainSourceGetData): BrainSourceState => {
+  const stale = [
+    data.freshness !== "current",
+    data.status === "superseded",
+  ].some(Boolean);
+  return { status: stale ? "stale" : "ready", data };
+};
+
+const presentBrainSourceWithoutData = (
+  state: Exclude<
+    TemplateDataState<BrainSourceGetData, unknown>,
+    { readonly status: "ready" }
+  >,
 ): BrainSourceState => {
-  if (state.status === "skipped") return { status: "idle" };
-  if (state.status === "loading") return { status: "loading" };
-  if (state.status === "empty") {
+  if (state.status === "empty")
     return {
       status: "unavailable",
       message: "The exact Brain citation is unavailable.",
     };
-  }
-  if (state.status !== "ready") return toBrainReadFailure(state);
-  return {
-    status:
-      state.data.freshness === "current" && state.data.status !== "superseded"
-        ? "ready"
-        : "stale",
-    data: state.data,
-  };
+  return presentBrainReadWithoutData(state);
 };
+
+const presentBrainReadWithoutData = (
+  state: Exclude<
+    TemplateDataState<unknown, unknown>,
+    { readonly status: "ready" | "empty" }
+  >,
+): BrainReadFailureState | { readonly status: "idle" | "loading" } => {
+  if (state.status === "skipped") return { status: "idle" };
+  if (state.status === "loading") return { status: "loading" };
+  return toBrainReadFailure(state);
+};
+
+const hasBrainReadData = <T, E>(
+  state: TemplateDataState<T, E>,
+): state is Extract<
+  TemplateDataState<T, E>,
+  { readonly status: "ready" | "empty" }
+> => brainReadDataStatuses.has(state.status);
+
+const brainReadDataStatuses = new Set<
+  TemplateDataState<unknown, unknown>["status"]
+>(["ready", "empty"]);
 
 export function createBrainContextPackPreview(
   items: readonly string[],
@@ -648,56 +720,41 @@ export function describeBrainState(
     { status: "ready" }
   >,
 ): BrainStateCopy {
-  if (state.status === "skipped") {
-    return {
-      status: "skipped",
-      heading: "Brain source request skipped",
-      body: "No workspace context has been selected yet.",
-    };
-  }
-
-  if (state.status === "loading") {
-    return {
-      status: "loading",
-      heading: "Loading Brain sources",
-      body: "The app is resolving approved markdown, links, notes, and evidence snapshots.",
-    };
-  }
-
-  if (state.status === "empty") {
-    return {
-      status: "empty",
-      heading: "No approved Brain sources yet",
-      body: "Add markdown, links, or notes before asking agents to produce source-grounded output.",
-    };
-  }
-
-  if (state.status === "typed_failure") {
-    return typedFailureCopy(state);
-  }
-
-  if (state.status === "transport_failure") {
-    return {
-      status: "transport_failure",
-      heading: "Brain sources are temporarily unavailable",
-      body: state.message,
-    };
-  }
-
-  if (state.status === "parse_failure") {
-    return {
-      status: "parse_failure",
-      heading: "Brain source payload could not be decoded",
-      body: state.message,
-    };
-  }
-
+  if (state.status === "typed_failure") return typedFailureCopy(state);
+  const staticCopy =
+    staticBrainStateCopy[state.status as keyof typeof staticBrainStateCopy];
+  if (staticCopy !== undefined) return staticCopy;
+  const failureStatus = state.status as keyof typeof brainFailureHeadings;
   return {
-    status: "defect",
-    heading: "Unexpected Brain surface defect",
-    body: state.message,
+    status: failureStatus,
+    heading: brainFailureHeadings[failureStatus],
+    body: Reflect.get(Object(state), "message") as string,
   };
 }
+
+const staticBrainStateCopy = {
+  skipped: {
+    status: "skipped",
+    heading: "Brain source request skipped",
+    body: "No workspace context has been selected yet.",
+  },
+  loading: {
+    status: "loading",
+    heading: "Loading Brain sources",
+    body: "The app is resolving approved markdown, links, notes, and evidence snapshots.",
+  },
+  empty: {
+    status: "empty",
+    heading: "No approved Brain sources yet",
+    body: "Add markdown, links, or notes before asking agents to produce source-grounded output.",
+  },
+} as const satisfies Partial<Record<BrainStateCopy["status"], BrainStateCopy>>;
+
+const brainFailureHeadings = {
+  transport_failure: "Brain sources are temporarily unavailable",
+  parse_failure: "Brain source payload could not be decoded",
+  defect: "Unexpected Brain surface defect",
+} as const;
 
 function typedFailureCopy(
   state: TemplateTypedFailureState<unknown>,
