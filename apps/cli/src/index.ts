@@ -287,9 +287,26 @@ export const runCliAsync = async (
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
 ): Promise<CliResult> => {
   if (argv[0] === "snapshot") {
-    if (argv.length !== 3 || argv[1] !== "submit")
-      return cliFailure("snapshot usage: snapshot submit <directory>.\n");
-    const snapshot = snapshotNotesForDirectory(argv[2] ?? "");
+    if (argv[1] !== "submit")
+      return cliFailure(
+        "snapshot usage: snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>].\n",
+      );
+    const directory = argv[2] ?? "";
+    let asOf: string | undefined;
+    let source = "Claude Ask Apero Advisors";
+    for (let index = 3; index < argv.length; index += 2) {
+      const flag = argv[index];
+      const value = argv[index + 1];
+      if (value === undefined || (flag !== "--as-of" && flag !== "--source"))
+        return cliFailure(
+          "snapshot usage: snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>].\n",
+        );
+      if (flag === "--as-of") asOf = value;
+      else source = value;
+    }
+    if (asOf === undefined)
+      return cliFailure("snapshot submit requires --as-of <YYYY-MM-DD>.\n");
+    const snapshot = snapshotNotesForDirectory(directory, { asOf, source });
     if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
 
     const submitted: Array<{
