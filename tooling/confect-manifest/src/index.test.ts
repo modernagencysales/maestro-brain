@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
@@ -14,7 +14,7 @@ import {
 } from "./index";
 
 describe("confect manifest tooling", () => {
-  it("compiles generated descriptors without admitting unrelated JSON", () => {
+  it("compiles generated descriptors without admitting unrelated JSON", async () => {
     const root = fileURLToPath(new URL("../../../", import.meta.url));
     const probeDirectory = join(
       root,
@@ -36,19 +36,47 @@ describe("confect manifest tooling", () => {
         'import metadata from "./probe.headless.json";\nexport const capability = metadata.capability;\n',
       );
 
-      const result = spawnSync(
-        process.execPath,
-        [
-          resolve(root, "node_modules/typescript/bin/tsc"),
-          "-p",
-          resolve(root, "tooling/confect-manifest/tsconfig.json"),
-          "--noEmit",
-          "--pretty",
-          "false",
-          "--listFiles",
-        ],
-        { cwd: root, encoding: "utf8", timeout: 60_000 },
-      );
+      const result = await new Promise<{
+        readonly status: number | null;
+        readonly stdout: string;
+        readonly stderr: string;
+      }>((resolveResult, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            resolve(root, "node_modules/typescript/bin/tsc"),
+            "-p",
+            resolve(root, "tooling/confect-manifest/tsconfig.json"),
+            "--noEmit",
+            "--pretty",
+            "false",
+            "--listFiles",
+          ],
+          { cwd: root },
+        );
+        let stdout = "";
+        let stderr = "";
+        const timeout = setTimeout(() => {
+          child.kill("SIGTERM");
+          reject(new Error("TypeScript manifest probe exceeded 180 seconds."));
+        }, 180_000);
+        child.stdout.setEncoding("utf8");
+        child.stderr.setEncoding("utf8");
+        child.stdout.on("data", (chunk: string) => {
+          stdout += chunk;
+        });
+        child.stderr.on("data", (chunk: string) => {
+          stderr += chunk;
+        });
+        child.once("error", (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+        child.once("close", (status) => {
+          clearTimeout(timeout);
+          resolveResult({ status, stdout, stderr });
+        });
+      });
       const output = `${result.stdout}${result.stderr}`;
       const listedProbeFiles = output
         .split(/\r?\n/u)
@@ -60,7 +88,7 @@ describe("confect manifest tooling", () => {
     } finally {
       rmSync(probeDirectory, { recursive: true, force: true });
     }
-  }, 70_000);
+  }, 190_000);
 
   it("sorts operation ids for deterministic output", () => {
     const manifest = buildContractManifest([

@@ -20,12 +20,13 @@ export const staticCliCapabilityIds: ReadonlySet<string> = new Set(
   Object.keys(staticCliOperationRefs),
 );
 
-const remoteBrainOperationIds = new Set([
-  "brain.context.get",
-  "brain.answers.ask",
-  "brain.sources.search",
-  "brain.sources.get",
-]);
+export const remoteCliOperationRefs: Readonly<Record<string, string>> = {
+  "brain.context.get": "brain.context.get",
+  "brain.answers.ask": "brain.answers.ask",
+  "brain.sources.search": "brain.sources.search",
+  "brain.sources.get": "brain.sources.get",
+  "brain.rollout.status": "brain.rollout.status",
+};
 
 const tenantSelectorNames = new Set([
   "organizationId",
@@ -78,9 +79,12 @@ const remoteBrainApiResult = async (
   argv: readonly string[],
   config: CliRuntimeConfig,
 ): Promise<CliResult> => {
-  const operationId = argv[2] ?? "";
-  if (!remoteBrainOperationIds.has(operationId)) {
-    return cliFailure(`Unknown remote Brain operation: ${operationId}\n`);
+  const requestedOperationId = argv[2] ?? "";
+  const operationId = remoteCliOperationRefs[requestedOperationId];
+  if (operationId === undefined) {
+    return cliFailure(
+      `Unknown remote Brain operation: ${requestedOperationId}\n`,
+    );
   }
 
   const parsed = parseNamedArgs(argv.slice(3));

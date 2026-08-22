@@ -1,0 +1,416 @@
+import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as Schema from "effect/Schema";
+
+import { Id } from "../_generated/id";
+import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+} from "../capabilities/_kit/capability";
+import { SystemPrincipal } from "../capabilities/_kit/principal";
+import { Unauthorized, ValidationFailed } from "../errors";
+import { PositiveInteger } from "./retrievalSchemas";
+
+export class RetrievalOriginUnavailable extends Schema.TaggedError<RetrievalOriginUnavailable>()(
+  "RetrievalOriginUnavailable",
+  { sourceKey: Schema.String, revisionKey: Schema.String },
+) {}
+
+export class RetrievalPublicationConflict extends Schema.TaggedError<RetrievalPublicationConflict>()(
+  "RetrievalPublicationConflict",
+  { publicationSetKey: Schema.String },
+) {}
+
+export class RetrievalPublicationCapacityExceeded extends Schema.TaggedError<RetrievalPublicationCapacityExceeded>()(
+  "RetrievalPublicationCapacityExceeded",
+  { entryCount: Schema.Number, tokenCount: Schema.Number },
+) {}
+
+export const PublishPageRevisionArgs = Schema.Struct({
+  organizationKey: Schema.String,
+  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
+  pageKey: Schema.String,
+  revisionKey: Schema.String,
+  authority: Schema.Literal("authoritative", "derived", "advisory"),
+  authorityPolicyKey: Schema.String,
+  policyGeneration: PositiveInteger,
+  caller: SystemPrincipal,
+  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+export const PublishPageRevisionReturns = Schema.Struct({
+  outcome: Schema.Literal("published", "duplicate", "stale", "revoked"),
+  publicationSetKey: Schema.optional(Schema.String),
+  publicationGeneration: Schema.optional(PositiveInteger),
+  entryCount: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  tokenCount: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+const RebuildChildAuthority = Schema.Struct({
+  rebuildRunKey: Schema.String,
+  rebuildRunGeneration: PositiveInteger,
+  rebuildLedgerHighWater: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  rebuildPauseEpoch: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+  ),
+  parentRebuildJobKey: Schema.String,
+  requestGeneration: PositiveInteger,
+});
+
+export const RebuildPageBatchArgs = Schema.Struct({
+  organizationKey: Schema.String,
+  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
+  ledgerHighWater: Schema.optional(
+    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  ),
+  rebuildChildAuthority: Schema.optional(RebuildChildAuthority),
+  afterPageKey: Schema.optional(Schema.String),
+  limit: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(1),
+    Schema.lessThanOrEqualTo(5),
+  ),
+  caller: SystemPrincipal,
+  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+export const RebuildPageBatchReturns = Schema.Struct({
+  processed: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  emitted: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  published: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  nextAfterPageKey: Schema.optional(Schema.String),
+  hasMore: Schema.Boolean,
+});
+
+export const RebuildRoutedCorpusBatchArgs = Schema.Struct({
+  organizationKey: Schema.String,
+  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
+  ledgerHighWater: Schema.optional(
+    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  ),
+  rebuildChildAuthority: Schema.optional(RebuildChildAuthority),
+  connectorScopeKey: Schema.optional(Schema.String),
+  connectionKey: Schema.optional(Schema.String),
+  connectionGeneration: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+  ),
+  afterSourceKey: Schema.optional(Schema.String),
+  limit: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(1),
+    Schema.lessThanOrEqualTo(5),
+  ),
+  caller: SystemPrincipal,
+  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+export const RebuildRoutedCorpusBatchReturns = Schema.Struct({
+  processed: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  emitted: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  published: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  revoked: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  nextAfterSourceKey: Schema.optional(Schema.String),
+  hasMore: Schema.Boolean,
+});
+
+const PublishRoutedRevisionArgs = Schema.Struct({
+  organizationKey: Schema.String,
+  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
+  sourceRevisionKey: Schema.String,
+  caller: SystemPrincipal,
+  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+export const PublishSlackRevisionArgs = PublishRoutedRevisionArgs;
+export const PublishTranscriptRevisionArgs = PublishRoutedRevisionArgs;
+
+export const RunPublicationJobArgs = Schema.Struct({
+  jobKey: Schema.String,
+  caller: SystemPrincipal,
+  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+});
+
+export const RunPublicationJobReturns = Schema.Struct({
+  jobKey: Schema.String,
+  status: Schema.Literal(
+    "pending",
+    "retry_wait",
+    "succeeded",
+    "superseded",
+    "revoked",
+    "integrity_failure",
+    "dead_letter",
+  ),
+  attemptCount: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+  ),
+  nextAttemptAt: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+  ),
+  lastErrorTag: Schema.optional(Schema.String),
+});
+
+export const SweepPublicationJobsArgs = Schema.Struct({
+  limit: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(1),
+    Schema.lessThanOrEqualTo(20),
+  ),
+  caller: SystemPrincipal,
+  now: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  ),
+});
+
+export const SweepPublicationJobsReturns = Schema.Struct({
+  scheduled: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  jobKeys: Schema.Array(Schema.String),
+});
+
+const Errors = Schema.Union(
+  Unauthorized,
+  ValidationFailed,
+  RetrievalOriginUnavailable,
+  RetrievalPublicationConflict,
+  RetrievalPublicationCapacityExceeded,
+);
+
+export const publishPageRevision = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "publishPageRevision",
+    args: () => PublishPageRevisionArgs,
+    returns: () => PublishPageRevisionReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "publishPageRevision",
+    operationId: "brain.retrievalPublication.publishPageRevision",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "ValidationFailed",
+      "RetrievalOriginUnavailable",
+      "RetrievalPublicationConflict",
+      "RetrievalPublicationCapacityExceeded",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.publishPageRevision.args",
+    returnsSchemaName: "brain.retrievalPublication.publishPageRevision.returns",
+    argsSchema: PublishPageRevisionArgs,
+    returnsSchema: PublishPageRevisionReturns,
+  },
+);
+
+export const rebuildPageBatch = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "rebuildPageBatch",
+    args: () => RebuildPageBatchArgs,
+    returns: () => RebuildPageBatchReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "rebuildPageBatch",
+    operationId: "brain.retrievalPublication.rebuildPageBatch",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "ValidationFailed",
+      "RetrievalOriginUnavailable",
+      "RetrievalPublicationConflict",
+      "RetrievalPublicationCapacityExceeded",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.rebuildPageBatch.args",
+    returnsSchemaName: "brain.retrievalPublication.rebuildPageBatch.returns",
+    argsSchema: RebuildPageBatchArgs,
+    returnsSchema: RebuildPageBatchReturns,
+  },
+);
+
+export const publishSlackRevision = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "publishSlackRevision",
+    args: () => PublishSlackRevisionArgs,
+    returns: () => PublishPageRevisionReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "publishSlackRevision",
+    operationId: "brain.retrievalPublication.publishSlackRevision",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "ValidationFailed",
+      "RetrievalOriginUnavailable",
+      "RetrievalPublicationConflict",
+      "RetrievalPublicationCapacityExceeded",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.publishSlackRevision.args",
+    returnsSchemaName:
+      "brain.retrievalPublication.publishSlackRevision.returns",
+    argsSchema: PublishSlackRevisionArgs,
+    returnsSchema: PublishPageRevisionReturns,
+  },
+);
+
+export const publishTranscriptRevision = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "publishTranscriptRevision",
+    args: () => PublishTranscriptRevisionArgs,
+    returns: () => PublishPageRevisionReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "publishTranscriptRevision",
+    operationId: "brain.retrievalPublication.publishTranscriptRevision",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "ValidationFailed",
+      "RetrievalOriginUnavailable",
+      "RetrievalPublicationConflict",
+      "RetrievalPublicationCapacityExceeded",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.publishTranscriptRevision.args",
+    returnsSchemaName:
+      "brain.retrievalPublication.publishTranscriptRevision.returns",
+    argsSchema: PublishTranscriptRevisionArgs,
+    returnsSchema: PublishPageRevisionReturns,
+  },
+);
+
+const routedRebuild = <
+  const Name extends "rebuildSlackBatch" | "rebuildTranscriptBatch",
+>(
+  name: Name,
+  operationId: `brain.retrievalPublication.${Name}`,
+) =>
+  defineContractFunction(
+    FunctionSpec.internalMutation({
+      name,
+      args: () => RebuildRoutedCorpusBatchArgs,
+      returns: () => RebuildRoutedCorpusBatchReturns,
+      error: () => Errors,
+    }),
+    {
+      namespace: "brain.retrievalPublication",
+      name,
+      operationId,
+      kind: "mutation",
+      surfaces: ["workflow", "internal"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "RetrievalOriginUnavailable",
+        "RetrievalPublicationConflict",
+        "RetrievalPublicationCapacityExceeded",
+      ],
+      idempotent: true,
+      argsSchemaName: `brain.retrievalPublication.${name}.args`,
+      returnsSchemaName: `brain.retrievalPublication.${name}.returns`,
+      argsSchema: RebuildRoutedCorpusBatchArgs,
+      returnsSchema: RebuildRoutedCorpusBatchReturns,
+    },
+  );
+
+export const rebuildSlackBatch = routedRebuild(
+  "rebuildSlackBatch",
+  "brain.retrievalPublication.rebuildSlackBatch",
+);
+export const rebuildTranscriptBatch = routedRebuild(
+  "rebuildTranscriptBatch",
+  "brain.retrievalPublication.rebuildTranscriptBatch",
+);
+
+export const runPublicationJob = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "runPublicationJob",
+    args: () => RunPublicationJobArgs,
+    returns: () => RunPublicationJobReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "runPublicationJob",
+    operationId: "brain.retrievalPublication.runPublicationJob",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: ["Unauthorized", "ValidationFailed"],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.runPublicationJob.args",
+    returnsSchemaName: "brain.retrievalPublication.runPublicationJob.returns",
+    argsSchema: RunPublicationJobArgs,
+    returnsSchema: RunPublicationJobReturns,
+  },
+);
+
+export const sweepPublicationJobs = defineContractFunction(
+  FunctionSpec.internalMutation({
+    name: "sweepPublicationJobs",
+    args: () => SweepPublicationJobsArgs,
+    returns: () => SweepPublicationJobsReturns,
+    error: () => Errors,
+  }),
+  {
+    namespace: "brain.retrievalPublication",
+    name: "sweepPublicationJobs",
+    operationId: "brain.retrievalPublication.sweepPublicationJobs",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: ["Unauthorized"],
+    idempotent: true,
+    argsSchemaName: "brain.retrievalPublication.sweepPublicationJobs.args",
+    returnsSchemaName:
+      "brain.retrievalPublication.sweepPublicationJobs.returns",
+    argsSchema: SweepPublicationJobsArgs,
+    returnsSchema: SweepPublicationJobsReturns,
+  },
+);
+
+export const manifest = collectContractManifest([
+  publishPageRevision,
+  rebuildPageBatch,
+  publishSlackRevision,
+  publishTranscriptRevision,
+  rebuildSlackBatch,
+  rebuildTranscriptBatch,
+  runPublicationJob,
+  sweepPublicationJobs,
+]);
+export const schemaRegistry = collectContractSchemas([
+  publishPageRevision,
+  rebuildPageBatch,
+  publishSlackRevision,
+  publishTranscriptRevision,
+  rebuildSlackBatch,
+  rebuildTranscriptBatch,
+  runPublicationJob,
+  sweepPublicationJobs,
+]);
+
+export default GroupSpec.make()
+  .addFunction(publishPageRevision.spec)
+  .addFunction(rebuildPageBatch.spec)
+  .addFunction(publishSlackRevision.spec)
+  .addFunction(publishTranscriptRevision.spec)
+  .addFunction(rebuildSlackBatch.spec)
+  .addFunction(rebuildTranscriptBatch.spec)
+  .addFunction(runPublicationJob.spec)
+  .addFunction(sweepPublicationJobs.spec);

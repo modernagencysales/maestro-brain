@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConvexError } from "convex/values";
 import {
   executeHeadlessOperation,
   findHeadlessOperation,
@@ -50,6 +51,8 @@ const createAdapter = (
 describe("headless executor", () => {
   it("exposes reviewed Brain reads and rejects the deleted legacy page write", () => {
     expect(findHeadlessOperation("brain.pages.list", "api")).toBeDefined();
+    expect(findHeadlessOperation("brain.rollout.status", "api")).toBeDefined();
+    expect(findHeadlessOperation("brain.rollout.status", "cli")).toBeDefined();
     expect(
       findHeadlessOperation("brain.pages.createMarkdown", "api"),
     ).toBeUndefined();
@@ -173,15 +176,106 @@ describe("headless executor", () => {
     });
   });
 
-  it("exposes RateLimited in the uniform external failure union", () => {
+  it("exposes admission and rollout failures in the external failure union", () => {
     type FailureTag = Extract<
       Awaited<ReturnType<typeof executeHeadlessOperation>>,
       { readonly ok: false }
     >["error"]["_tag"];
 
     const rateLimited: FailureTag = "RateLimited";
+    const subsystemDisabled: FailureTag = "SubsystemDisabled";
+    const retrievalCapacity: FailureTag = "RetrievalCapacityExceeded";
 
     expect(rateLimited).toBe("RateLimited");
+    expect(subsystemDisabled).toBe("SubsystemDisabled");
+    expect(retrievalCapacity).toBe("RetrievalCapacityExceeded");
+  });
+
+  it("sanitizes encoded RetrievalCapacityExceeded dispatch failures", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } =
+      await import("../confect/manifest/executor");
+    const adapter = createAdapter({
+      runMutation: async () => {
+        throw new ConvexError({
+          _tag: "RetrievalCapacityExceeded",
+          resource: "current_postings",
+          limit: 5_000,
+          observedAtLeast: 5_001,
+        });
+      },
+    });
+
+    await expect(
+      executeWithMockedManifest(adapter, {
+        operationId: "test.sample.write",
+        surface: "api",
+        input: {},
+        idempotencyKey: "idem_123",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        _tag: "RetrievalCapacityExceeded",
+        message: "Brain retrieval capacity was exceeded.",
+      },
+    });
+  });
+
+  it("sanitizes encoded SubsystemDisabled dispatch failures", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } =
+      await import("../confect/manifest/executor");
+    const adapter = createAdapter({
+      runMutation: async () => {
+        throw new ConvexError({
+          _tag: "SubsystemDisabled",
+          subsystem: "brain.read",
+        });
+      },
+    });
+
+    await expect(
+      executeWithMockedManifest(adapter, {
+        operationId: "test.sample.write",
+        surface: "api",
+        input: {},
+        idempotencyKey: "idem_123",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        _tag: "SubsystemDisabled",
+        message: "Brain reads are unavailable.",
+      },
+    });
+  });
+
+  it.each([
+    new Error("internal failure"),
+    new ConvexError({
+      _tag: "ValidationFailed",
+      field: "query",
+      message: "internal validation detail",
+    }),
+  ])("rethrows non-rollout dispatch failures", async (failure) => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } =
+      await import("../confect/manifest/executor");
+    const adapter = createAdapter({
+      runMutation: async () => {
+        throw failure;
+      },
+    });
+
+    await expect(
+      executeWithMockedManifest(adapter, {
+        operationId: "test.sample.write",
+        surface: "api",
+        input: {},
+        idempotencyKey: "idem_123",
+      }),
+    ).rejects.toBe(failure);
   });
 
   it("keeps generic ref/input/result/kind validation behavior", async () => {

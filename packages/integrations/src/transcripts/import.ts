@@ -200,6 +200,10 @@ export const parseTranscriptImport = (
     providerKey: "manual-transcript",
     connectionKey: input.connectionKey,
     externalCallId,
+    revisionOrder: {
+      kind: "reconciliation_epoch",
+      epoch: 1,
+    },
     title,
     startedAt: new Date(startedMs).toISOString(),
     endedAt: null,

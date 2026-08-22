@@ -59,6 +59,7 @@ export type BrainTarget = {
 export type RoutingChange = {
   readonly mode: "direct" | "classify" | "capture_only";
   readonly targetBrainKeys: readonly string[];
+  readonly historicalBackfillStartAt?: number | undefined;
 };
 
 export type DeliveryChange = {
@@ -160,13 +161,13 @@ export const buildBulkPolicyPlan = (
   const allowedTargets = request.allowedBrainTargets.filter(
     (target) =>
       target.organizationKey === request.organizationKey &&
-      target.kind === "client" &&
+      (target.kind === "client" || target.kind === "agency") &&
       target.status === "active",
   );
   if (allowedTargets.length > 25)
     return Either.left(
       new CapacityExceeded({
-        kind: "client_brains",
+        kind: "brain_targets",
         limit: 25,
         actual: allowedTargets.length,
       }),
@@ -253,6 +254,12 @@ export const buildBulkPolicyPlan = (
         active: true,
         mode: change.routing.mode,
         targetBrainKeys: [...change.routing.targetBrainKeys],
+        ...(change.routing.mode === "capture_only"
+          ? {}
+          : {
+              historicalBackfillStartAt:
+                change.routing.historicalBackfillStartAt ?? request.now,
+            }),
         statusAfterApply:
           change.routing.mode === "capture_only" ? "capture_only" : "streaming",
         pendingSourceInterval: activeRoutingPolicy?.pendingSourceInterval ?? {

@@ -17,6 +17,11 @@ const rows = buildCallSourceUnitRows(
     connectionKey: "conn_fireflies_1",
     externalCallId: "call_1",
     externalRevisionId: "revision_1",
+    revisionOrder: {
+      kind: "provider_timestamp",
+      timestamp: "2026-08-05T14:30:00.000Z",
+      source: "updated_at",
+    },
     title: "Acme weekly",
     startedAt: "2026-08-05T14:00:00.000Z",
     endedAt: "2026-08-05T14:30:00.000Z",

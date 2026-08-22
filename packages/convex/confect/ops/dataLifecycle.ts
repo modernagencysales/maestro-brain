@@ -4,6 +4,12 @@ export const currentLifecycleResourceIds = [
   "workspaces",
   "workspaceMembers",
   "brainPages",
+  "retrievalPublicationSubjects",
+  "retrievalEligibilityFences",
+  "retrievalPublicationSets",
+  "retrievalEntries",
+  "retrievalTokenCatalog",
+  "retrievalTokens",
   "workflowRuns",
   "workflowStageRuns",
   "workflowRunEvents",
@@ -185,6 +191,54 @@ const resourcePlans: readonly LifecycleResourcePlan[] = [
     deleteMode: "delete",
     detail:
       "Source-backed Brain pages export as markdown and delete with workspace content.",
+  },
+  {
+    id: "retrievalPublicationSubjects",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "retain-audit",
+    detail:
+      "Content-free publication subject tombstones retain the monotonic generation allocator across purge and recreation.",
+  },
+  {
+    id: "retrievalEligibilityFences",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "retain-audit",
+    detail:
+      "Content-free eligibility fences retain incarnation history so stale effects cannot regain authority.",
+  },
+  {
+    id: "retrievalPublicationSets",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Publication-set manifests delete before their final source origin is purged.",
+  },
+  {
+    id: "retrievalEntries",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Copied retrieval passages delete before their final source origin is purged.",
+  },
+  {
+    id: "retrievalTokenCatalog",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Derived token-integrity catalogs delete with their workspace postings and publication sets.",
+  },
+  {
+    id: "retrievalTokens",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Derived lexical postings delete before their entries and final source origin.",
   },
   {
     id: "workflowRuns",
@@ -432,6 +486,18 @@ const retentionRules: readonly RetentionRule[] = [
     resourceId: "brainPages",
     action: "retain-until-workspace-delete",
     detail: "Brain pages are customer content and follow workspace lifecycle.",
+  },
+  {
+    resourceId: "retrievalPublicationSubjects",
+    action: "retain-until-workspace-delete",
+    detail:
+      "Content-free subject tombstones retain publication allocation history after content purge.",
+  },
+  {
+    resourceId: "retrievalEligibilityFences",
+    action: "retain-until-workspace-delete",
+    detail:
+      "Content-free eligibility fences retain non-reusable incarnation generations after content purge.",
   },
   {
     resourceId: "documents",

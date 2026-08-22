@@ -12,6 +12,7 @@ import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
 const brainKey = "br_0123456789ABCDEFGHJKMNPQRS";
+const betaBrainKey = "br_1123456789ABCDEFGHJKMNPQRS";
 const organizationKey = "ag_0123456789ABCDEFGHJKMNPQRS";
 const identity = {
   subject: "call-reviewer",
@@ -25,6 +26,11 @@ const rows = buildCallSourceUnitRows(
     connectionKey: "conn_fireflies_1",
     externalCallId: "call_1",
     externalRevisionId: "revision_1",
+    revisionOrder: {
+      kind: "provider_timestamp",
+      timestamp: "2026-08-05T14:30:00.000Z",
+      source: "updated_at",
+    },
     title: "Acme weekly",
     startedAt: "2026-08-05T14:00:00.000Z",
     endedAt: "2026-08-05T14:30:00.000Z",
@@ -64,6 +70,11 @@ const unrelatedRevisionRows = buildCallSourceUnitRows(
     connectionKey: "conn_fireflies_1",
     externalCallId: "unrelated_call",
     externalRevisionId: "unrelated_revision",
+    revisionOrder: {
+      kind: "provider_timestamp",
+      timestamp: "2026-08-05T15:01:00.000Z",
+      source: "updated_at",
+    },
     title: "Unrelated call",
     startedAt: "2026-08-05T15:00:00.000Z",
     endedAt: "2026-08-05T15:01:00.000Z",
@@ -170,7 +181,27 @@ const seed = (
         updatedAt: now,
       })
       .pipe(Effect.orDie);
-    for (const workspaceId of [agencyWorkspaceId, clientWorkspaceId])
+    const betaWorkspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: userId,
+        brainKey: betaBrainKey,
+        name: "Beta",
+        slug: "beta",
+        kind: "client",
+        status: "active",
+        dataClassification: "confidential",
+        lifecycleGeneration: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    for (const workspaceId of [
+      agencyWorkspaceId,
+      clientWorkspaceId,
+      betaWorkspaceId,
+    ])
       yield* writer
         .table("workspaceMembers")
         .insert({
@@ -337,6 +368,7 @@ const seed = (
         })
         .pipe(Effect.orDie);
     }
+    return { agencyWorkspaceId, clientWorkspaceId, betaWorkspaceId };
   });
 
 const actor = (confect: TestConfect.TestConfect<typeof databaseSchema>) =>
@@ -351,7 +383,7 @@ describe("call routing and maintenance review", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      yield* confect.run(seed("admin", false), Schema.Any);
+      const seeded = yield* confect.run(seed("admin", false), Schema.Any);
       const admin = actor(confect);
       const queue = yield* admin.query(
         refs.public.brain.callReview.listCallRoutingQueue,
@@ -369,6 +401,19 @@ describe("call routing and maintenance review", () => {
           attemptKey: "route_review_1",
           expectedUnitRevisionKey: rows.revision.unitRevisionKey,
           expectedRouteGeneration: 4,
+          expectedSourceLifecycleGeneration: 1,
+        },
+      );
+      const rerouted = yield* admin.mutation(
+        refs.public.brain.callReview.reviewCallRoute,
+        {
+          brainKey,
+          proposalKey: "callroute_1",
+          action: "change_brain",
+          targetBrainKey: betaBrainKey,
+          attemptKey: "route_review_2",
+          expectedUnitRevisionKey: rows.revision.unitRevisionKey,
+          expectedRouteGeneration: 5,
           expectedSourceLifecycleGeneration: 1,
         },
       );
@@ -395,11 +440,52 @@ describe("call routing and maintenance review", () => {
               )
               .collect()
               .pipe(Effect.orDie),
+            publicationJobs: yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.clientWorkspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("originKind", "transcript")
+                  .eq("sourceRevisionKey", rows.revision.unitRevisionKey),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+            retrievalEntries: yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_state_entry", (query) =>
+                query
+                  .eq("workspaceId", seeded.clientWorkspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("state", "published"),
+              )
+              .take(10)
+              .pipe(Effect.orDie),
+            addedTargetJobs: yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.betaWorkspaceId)
+                  .eq("brainKey", betaBrainKey)
+                  .eq("originKind", "transcript")
+                  .eq("sourceRevisionKey", rows.revision.unitRevisionKey),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+            routeFences: yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_kind_controller", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("kind", "route"),
+              )
+              .take(10)
+              .pipe(Effect.orDie),
           };
         }),
         Schema.Any,
       );
-      return { queue, reviewed, state };
+      return { queue, reviewed, rerouted, state };
     });
 
     try {
@@ -413,6 +499,14 @@ describe("call routing and maintenance review", () => {
           status: "accepted",
           outcome: "routed",
           brainKey,
+          routeGeneration: 5,
+          maintenanceQueued: true,
+        },
+        rerouted: {
+          status: "accepted",
+          outcome: "routed",
+          brainKey: betaBrainKey,
+          routeGeneration: 6,
           maintenanceQueued: true,
         },
         state: {
@@ -420,11 +514,44 @@ describe("call routing and maintenance review", () => {
             {
               status: "accepted",
               outcome: "routed",
-              brainKey,
-              reviewAttemptKey: "route_review_1",
+              brainKey: betaBrainKey,
+              routeGeneration: 6,
+              reviewAttemptKey: "route_review_2",
             },
           ],
           mappings: [{ kind: "domain", value: "acme.com", brainKey }],
+          publicationJobs: expect.arrayContaining([
+            expect.objectContaining({
+              status: "pending",
+              requestGeneration: 5,
+              sourceRevisionKey: rows.revision.unitRevisionKey,
+            }),
+            expect.objectContaining({
+              status: "pending",
+              requestGeneration: 6,
+              sourceRevisionKey: rows.revision.unitRevisionKey,
+            }),
+          ]),
+          retrievalEntries: [],
+          addedTargetJobs: [
+            {
+              status: "pending",
+              requestGeneration: 6,
+              sourceRevisionKey: rows.revision.unitRevisionKey,
+            },
+          ],
+          routeFences: expect.arrayContaining([
+            expect.objectContaining({
+              controllerKey: `transcript-route:${rows.unit.unitKey}:${brainKey}`,
+              eligibilityGeneration: 2,
+              eligible: false,
+            }),
+            expect.objectContaining({
+              controllerKey: `transcript-route:${rows.unit.unitKey}:${betaBrainKey}`,
+              eligibilityGeneration: 1,
+              eligible: true,
+            }),
+          ]),
         },
       });
       expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(

@@ -92,6 +92,8 @@ const importTranscriptImpl = FunctionImpl.make(
       });
       if (!input.targetBrainKey)
         return { ...ingested, routeOutcome: null, brainKey: null };
+      if (ingested.outcome === "stale")
+        return { ...ingested, routeOutcome: null, brainKey: null };
       const routed = yield* routeCallToBrainEffect({
         organizationKey: access.organizationKey,
         unitRevisionKey: ingested.unitRevisionKey,

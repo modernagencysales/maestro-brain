@@ -6,8 +6,13 @@ import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  transcriptUnitLifecycleFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { Unauthorized, ValidationFailed } from "../errors";
 import { buildCallSourceUnitRows } from "../sources/sourceUnit";
+import { advanceTranscriptRevisionOrderPopulationEffect } from "../sources/transcriptRevisionOrderPopulation";
 import {
   planSourceUnitIngestion,
   requireSourceIngestionCaller,
@@ -15,16 +20,29 @@ import {
 import ingestSourceUnitGroup, {
   ConnectionRevoked,
   DuplicateKeyConflict,
+  RevisionOrderConflict,
   TenantMismatch,
 } from "./ingestSourceUnit.spec";
-import { ingestSourceUnitArgs } from "./ingestSourceUnit.spec";
+import {
+  ingestSourceUnitArgs,
+  ingestSourceUnitReturns,
+} from "./ingestSourceUnit.spec";
 
 export const ingestSourceUnitEffect = ({
   input,
   authority,
   caller,
   receivedAt,
-}: Schema.Schema.Type<typeof ingestSourceUnitArgs>) =>
+}: Schema.Schema.Type<typeof ingestSourceUnitArgs>): Effect.Effect<
+  Schema.Schema.Type<typeof ingestSourceUnitReturns>,
+  | Unauthorized
+  | TenantMismatch
+  | ConnectionRevoked
+  | DuplicateKeyConflict
+  | RevisionOrderConflict
+  | ValidationFailed,
+  DatabaseReader | DatabaseWriter
+> =>
   Effect.gen(function* () {
     if (!requireSourceIngestionCaller(caller)) return yield* new Unauthorized();
 
@@ -96,10 +114,20 @@ export const ingestSourceUnitEffect = ({
       )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    const sameCurrentRevision =
+      knownRevision !== null &&
+      current?.currentUnitRevisionKey === rows.revision.unitRevisionKey;
     if (
       knownRevision !== null &&
       (knownRevision.contentHash !== rows.revision.contentHash ||
-        knownRevision.tombstone !== rows.revision.tombstone)
+        knownRevision.tombstone !== rows.revision.tombstone ||
+        (knownRevision.revisionOrder !== undefined &&
+          JSON.stringify(knownRevision.revisionOrder) !==
+            JSON.stringify(rows.revision.revisionOrder)) ||
+        (sameCurrentRevision &&
+          current.currentRevisionOrder !== undefined &&
+          JSON.stringify(current.currentRevisionOrder) !==
+            JSON.stringify(rows.unit.currentRevisionOrder)))
     )
       return yield* Effect.fail(
         new DuplicateKeyConflict({ key: rows.revision.unitRevisionKey }),
@@ -112,9 +140,46 @@ export const ingestSourceUnitEffect = ({
         new DuplicateKeyConflict({ key: rows.revision.unitRevisionKey }),
       );
 
+    if (
+      knownRevision !== null &&
+      current !== null &&
+      sameCurrentRevision &&
+      (knownRevision.revisionOrder === undefined ||
+        knownRevision.revisionOrderVersion === undefined ||
+        current.currentRevisionOrder === undefined ||
+        current.currentRevisionOrderVersion === undefined)
+    ) {
+      yield* writer
+        .table("sourceUnitRevisions")
+        .patch(knownRevision._id, {
+          revisionOrder: rows.revision.revisionOrder,
+          revisionOrderVersion: rows.revision.revisionOrderVersion,
+        })
+        .pipe(Effect.orDie);
+      yield* writer
+        .table("sourceUnits")
+        .patch(current._id, {
+          currentRevisionOrder: rows.unit.currentRevisionOrder,
+          currentRevisionOrderVersion: rows.unit.currentRevisionOrderVersion,
+        })
+        .pipe(Effect.orDie);
+      yield* advanceTranscriptRevisionOrderPopulationEffect({
+        organizationKey: authority.organizationKey,
+        now: receivedAt,
+      });
+      return {
+        outcome: "duplicate" as const,
+        unitKey: rows.unit.unitKey,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+        segmentCount: rows.segments.length,
+      };
+    }
+
     const plan = planSourceUnitIngestion({
       currentUnitRevisionKey: current?.currentUnitRevisionKey ?? null,
+      currentRevisionOrder: current?.currentRevisionOrder ?? null,
       incomingUnitRevisionKey: rows.revision.unitRevisionKey,
+      incomingRevisionOrder: input.revisionOrder,
       incomingDeleted: rows.revision.tombstone,
       revisionAlreadyExists: knownRevision !== null,
     });
@@ -125,19 +190,47 @@ export const ingestSourceUnitEffect = ({
         unitRevisionKey: rows.revision.unitRevisionKey,
         segmentCount: rows.segments.length,
       };
+    if (plan.outcome === "conflict")
+      return yield* Effect.fail(
+        new RevisionOrderConflict({
+          unitKey: rows.unit.unitKey,
+          reason: plan.reason,
+        }),
+      );
 
-    const lifecycleGeneration = (current?.lifecycle.generation ?? 0) + 1;
     yield* writer
       .table("sourceUnitRevisions")
       .insert(rows.revision)
       .pipe(Effect.orDie);
     for (const segment of rows.segments)
       yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
+    if (plan.outcome === "stale") {
+      yield* advanceTranscriptRevisionOrderPopulationEffect({
+        organizationKey: authority.organizationKey,
+        now: receivedAt,
+      });
+      return {
+        outcome: plan.outcome,
+        unitKey: rows.unit.unitKey,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+        segmentCount: rows.segments.length,
+      };
+    }
+
+    const lifecycleGeneration = (current?.lifecycle.generation ?? 0) + 1;
     const unit = {
       ...rows.unit,
       createdAt: current?.createdAt ?? rows.unit.createdAt,
       lifecycle: { ...rows.unit.lifecycle, generation: lifecycleGeneration },
     };
+    yield* transitionEligibilityFenceEffect({
+      identity: transcriptUnitLifecycleFenceIdentity({
+        organizationKey: authority.organizationKey,
+        unitKey: rows.unit.unitKey,
+      }),
+      eligible: unit.lifecycle.state === "active",
+      now: receivedAt,
+    });
     if (current === null)
       yield* writer.table("sourceUnits").insert(unit).pipe(Effect.orDie);
     else
@@ -145,6 +238,11 @@ export const ingestSourceUnitEffect = ({
         .table("sourceUnits")
         .patch(current._id, unit)
         .pipe(Effect.orDie);
+
+    yield* advanceTranscriptRevisionOrderPopulationEffect({
+      organizationKey: authority.organizationKey,
+      now: receivedAt,
+    });
 
     const effectKey = `source-unit-ingest:${rows.revision.unitRevisionKey}`;
     yield* writer

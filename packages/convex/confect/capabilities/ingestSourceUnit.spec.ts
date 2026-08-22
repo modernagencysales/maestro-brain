@@ -22,6 +22,17 @@ export class DuplicateKeyConflict extends Schema.TaggedError<DuplicateKeyConflic
   "DuplicateKeyConflict",
   { key: Schema.String },
 ) {}
+export class RevisionOrderConflict extends Schema.TaggedError<RevisionOrderConflict>()(
+  "RevisionOrderConflict",
+  {
+    unitKey: Schema.String,
+    reason: Schema.Literal(
+      "equal_order",
+      "incompatible_order",
+      "missing_current_order",
+    ),
+  },
+) {}
 
 export const IngestSourceAuthority = Schema.Union(
   Schema.Struct({
@@ -47,7 +58,7 @@ export const ingestSourceUnitArgs = Schema.Struct({
   receivedAt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
 });
 export const ingestSourceUnitReturns = Schema.Struct({
-  outcome: Schema.Literal("inserted", "duplicate", "tombstone"),
+  outcome: Schema.Literal("inserted", "duplicate", "stale", "tombstone"),
   unitKey: Schema.String,
   unitRevisionKey: Schema.String,
   segmentCount: Schema.Number,
@@ -57,6 +68,7 @@ const ingestSourceUnitErrors = Schema.Union(
   TenantMismatch,
   ConnectionRevoked,
   DuplicateKeyConflict,
+  RevisionOrderConflict,
   ValidationFailed,
 );
 
@@ -78,6 +90,7 @@ export const ingestSourceUnit = defineContractFunction(
       "TenantMismatch",
       "ConnectionRevoked",
       "DuplicateKeyConflict",
+      "RevisionOrderConflict",
       "ValidationFailed",
     ],
     idempotent: true,

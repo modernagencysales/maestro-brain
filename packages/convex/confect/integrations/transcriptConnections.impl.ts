@@ -15,7 +15,12 @@ import {
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
 import { recordAccessAuditEvent } from "../access/audit";
+import {
+  connectionFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
 import { Forbidden, Unauthorized } from "../errors";
+import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion as authorizeSpec,
   cancelTranscriptConnect as cancelSpec,
@@ -371,6 +376,14 @@ const revokeTranscriptConnection = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
+      yield* transitionEligibilityFenceEffect({
+        identity: connectionFenceIdentity({
+          organizationKey,
+          connectionKey: row.connectionKey,
+        }),
+        eligible: false,
+        now: input.now,
+      });
 
       const syncStates = yield* (yield* DatabaseReader)
         .table("connectorSyncStates")
@@ -391,6 +404,15 @@ const revokeTranscriptConnection = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
+
+      yield* enqueueOrganizationCorpusRebuildsEffect({
+        organizationKey,
+        originKind: "transcript_rebuild",
+        sourceKey: row.connectionKey,
+        sourceRevisionKey: `connection:${row.connectionKey}:revoked:${row.connectionGeneration}`,
+        requestGeneration: Math.max(1, row.connectionGeneration),
+        now: input.now,
+      });
 
       return {
         connectionKey: row.connectionKey,

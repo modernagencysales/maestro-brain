@@ -75,15 +75,25 @@ const messageFrom = (payload: unknown) => {
   const source = (
     deleted
       ? { ...previous, channel: event.channel, ts: event.deleted_ts }
-      : message
+      : changed
+        ? { ...message, channel: event.channel }
+        : message
   ) as SlackMessage;
   const eventId = stringField(payload.event_id);
   const channel = stringField(source.channel);
   const ts = stringField(source.ts);
+  const providerOrder =
+    changed || deleted
+      ? stringField(event.event_ts)
+      : typeof event.event_ts === "string"
+        ? event.event_ts
+        : ts;
+  timestampFor(providerOrder);
   return {
     eventId,
     channel,
     ts,
+    providerOrder,
     source,
     tombstone: deleted,
     teamId: payload.team_id,
@@ -91,13 +101,26 @@ const messageFrom = (payload: unknown) => {
   };
 };
 
+export const slackProviderObjectIdFor = (payload: unknown): string => {
+  const { channel, ts } = messageFrom(payload);
+  return `${channel}:${ts}`;
+};
+
 export const normalizeAdmittedSlackEvent = (
   envelope: SlackCaptureEnvelope,
   payload: unknown,
   routing: CaptureRouting,
 ): typeof SourceLedgerCaptureInput.Type => {
-  const { eventId, channel, ts, source, tombstone, teamId, appId } =
-    messageFrom(payload);
+  const {
+    eventId,
+    channel,
+    ts,
+    providerOrder,
+    source,
+    tombstone,
+    teamId,
+    appId,
+  } = messageFrom(payload);
   if (channel !== envelope.externalChannelId)
     throw new ChannelAccessLost("ChannelAccessLost");
   if (
@@ -116,7 +139,7 @@ export const normalizeAdmittedSlackEvent = (
       providerObjectId: `${channel}:${ts}`,
       threadKey: `${channel}:${threadTs}`,
       sourceTimestamp: timestampFor(ts),
-      providerOrder: ts,
+      providerOrder,
       providerRevisionId: eventId,
       author: { providerUserId, displayName },
       text: tombstone ? "" : typeof source.text === "string" ? source.text : "",

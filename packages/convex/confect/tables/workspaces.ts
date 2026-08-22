@@ -22,6 +22,7 @@ export default Table.make(() =>
 )
   .index("by_slug", ["slug"])
   .index("by_organization", ["organizationId"])
+  .index("by_organization_status", ["organizationId", "status"])
   .index("by_owner", ["ownerUserId"])
   .index("by_organization_brain_key", ["organizationId", "brainKey"])
   .index("by_organization_kind", ["organizationId", "kind"])

@@ -9,6 +9,12 @@ const NonNegativeInteger = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
 );
 const ProviderObjectId = StableKey;
+const CanonicalProviderSortKey = Schema.String.pipe(
+  Schema.pattern(
+    /^[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[1-9][0-9]*\|(live|backfill|reconciliation)\|[A-Za-z0-9_.:-]+$/,
+  ),
+);
+const ProviderSortKey = Schema.Union(StableKey, CanonicalProviderSortKey);
 const SourceKey = Schema.String.pipe(Schema.pattern(/^src_[A-Za-z0-9_.:-]+$/));
 const RevisionKey = Schema.String.pipe(Schema.pattern(/^srev_[a-f0-9]{64}$/));
 const IsoTimestamp = Schema.String.pipe(
@@ -98,7 +104,7 @@ export const SourceArtifactRow = Schema.Struct({
   sourceKey: SourceKey,
   threadKey: StableKey,
   latestSourceRevisionKey: RevisionKey,
-  latestProviderOrder: StableKey,
+  latestProviderOrder: ProviderSortKey,
   lifecycle: Lifecycle,
   createdAt: NonNegativeInteger,
   updatedAt: NonNegativeInteger,
@@ -116,6 +122,7 @@ export const SourceRevisionRow = Schema.Struct({
   providerOrder: StableKey,
   providerRevisionId: StableKey,
   sourceCreatedAt: NonNegativeInteger,
+  sourceModifiedAt: Schema.optional(NonNegativeInteger),
   sourceTimestamp: IsoTimestamp,
   authorSnapshot: AuthorSnapshot,
   normalizedText: Schema.String.pipe(Schema.maxLength(32_000)),
@@ -124,6 +131,7 @@ export const SourceRevisionRow = Schema.Struct({
   contentHash: Hash,
   tombstone: Schema.Boolean,
   lifecycle: Lifecycle,
+  ledgerSequence: Schema.optional(PositiveInteger),
   createdAt: NonNegativeInteger,
 });
 
@@ -242,7 +250,9 @@ type CaptureValidationOptions = {
   readonly existingArtifact?: {
     readonly sourceKey: string;
     readonly latestProviderOrder: string;
-    readonly lifecycleGeneration: number;
+    readonly lifecycle: {
+      readonly generation: number;
+    };
     readonly createdAt: number;
   };
   readonly verifiedBinding?: VerifiedSlackEnvelope;
@@ -355,17 +365,9 @@ export const assertValidSourceLedgerCapture = (
   if (options.existingArtifact && !knownObservationDuplicate) {
     if (options.existingArtifact.sourceKey !== keys.sourceKey)
       throw new DuplicateKeyConflict("DuplicateKeyConflict");
-    const nextPrimary = providerPrimarySortKeyFor(decoded);
-    const currentPrimary = options.existingArtifact.latestProviderOrder
-      .split("|")
-      .slice(0, 2)
-      .join("|");
-    if (
-      nextPrimary < currentPrimary ||
-      (nextPrimary === currentPrimary &&
-        providerSortKeyFor(decoded) >=
-          options.existingArtifact.latestProviderOrder)
-    )
+    const currentProviderOrder =
+      options.existingArtifact.latestProviderOrder.split("|", 1)[0] ?? "";
+    if (decoded.observation.providerOrder <= currentProviderOrder)
       throw new DuplicateKeyConflict("DuplicateKeyConflict");
   }
   const deliveryKey = `delivery_${digest([decoded.envelope.organizationKey, decoded.envelope.connectionKey, decoded.envelope.connectionGeneration, decoded.envelope.transport, decoded.envelope.transportDeliveryId])}`;
@@ -413,10 +415,9 @@ export const assertValidSourceLedgerCapture = (
 const providerPrimarySortKeyFor = (
   input: typeof SourceLedgerCaptureInput.Type,
 ) =>
-  [
-    input.observation.sourceTimestamp,
-    input.observation.providerRevisionId,
-  ].join("|");
+  [input.observation.providerOrder, input.observation.providerRevisionId].join(
+    "|",
+  );
 const providerSortKeyFor = (input: typeof SourceLedgerCaptureInput.Type) =>
   [
     providerPrimarySortKeyFor(input),
@@ -476,10 +477,18 @@ export const buildSourceLedgerRows = (
     state: input.observation.tombstone
       ? ("deleted_tombstone" as const)
       : ("active" as const),
-    generation: (options.existingArtifact?.lifecycleGeneration ?? 0) + 1,
+    generation: (options.existingArtifact?.lifecycle.generation ?? 0) + 1,
     updatedAt: input.envelope.receivedAt,
     purgeAfter: null,
   };
+  const sourceCreatedAt = Date.parse(input.observation.sourceTimestamp);
+  const providerModifiedAt = Math.round(
+    Number(input.observation.providerOrder) * 1_000,
+  );
+  const sourceModifiedAt =
+    Number.isSafeInteger(providerModifiedAt) && providerModifiedAt >= 0
+      ? providerModifiedAt
+      : sourceCreatedAt;
   return {
     receipt,
     artifact: {
@@ -510,7 +519,8 @@ export const buildSourceLedgerRows = (
       observationKey: keys.observationKey,
       providerOrder: input.observation.providerOrder,
       providerRevisionId: input.observation.providerRevisionId,
-      sourceCreatedAt: input.envelope.receivedAt,
+      sourceCreatedAt,
+      sourceModifiedAt,
       sourceTimestamp: input.observation.sourceTimestamp,
       authorSnapshot: input.observation.author,
       normalizedText: input.observation.text,

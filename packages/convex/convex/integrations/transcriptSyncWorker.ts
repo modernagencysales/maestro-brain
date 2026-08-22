@@ -27,11 +27,10 @@ const action = (name: string) =>
 const claimRef = mutation(
   "integrations/transcriptSync:claimTranscriptSyncPage",
 );
-const commitRef = mutation(
-  "integrations/transcriptSync:commitTranscriptSyncPage",
+const ingestPageRef = mutation(
+  "integrations/transcriptSync:ingestTranscriptSyncPage",
 );
 const failRef = mutation("integrations/transcriptSync:failTranscriptSyncPage");
-const ingestRef = mutation("capabilities/ingestSourceUnit:ingestSourceUnit");
 const workerRef = action(
   "integrations/transcriptSyncWorker:syncTranscriptPage",
 );
@@ -50,6 +49,13 @@ export const syncTranscriptPage = internalAction({
     connectionKey: v.string(),
     expectedGeneration: v.number(),
   },
+  returns: v.union(
+    v.object({
+      kind: v.literal("committed"),
+      nextCursor: v.union(v.string(), v.null()),
+    }),
+    v.object({ kind: v.literal("failed"), errorTag: v.string() }),
+  ),
   handler: async (ctx, input) => {
     const now = Date.now();
     const snapshot = await ctx.runMutation(claimRef, {
@@ -66,26 +72,8 @@ export const syncTranscriptPage = internalAction({
       cursor: snapshot.cursor,
       listPage: () => provider.listPage(snapshot),
       normalize: (record) => provider.normalize(snapshot, record),
-      ingest: async (call) => {
-        const receipt = await ctx.runMutation(ingestRef, {
-          input: call,
-          authority: {
-            kind: "provider",
-            organizationKey: snapshot.organizationKey,
-            connectionKey: snapshot.connectionKey,
-            connectionGeneration: snapshot.connectionGeneration,
-          },
-          caller: {
-            kind: "system",
-            name: "transcript-sync",
-            surface: "internal",
-          },
-          receivedAt: Date.now(),
-        });
-        return receipt.outcome;
-      },
-      commit: (page) =>
-        ctx.runMutation(commitRef, {
+      ingestPage: (page) =>
+        ctx.runMutation(ingestPageRef, {
           connectionKey: snapshot.connectionKey,
           expectedGeneration: snapshot.connectionGeneration,
           leaseId: snapshot.leaseId,

@@ -1,12 +1,19 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
+import { CanonicalCallTranscript } from "@maestro-template/integrations/transcripts/canonical";
 import * as Schema from "effect/Schema";
 
-import { Forbidden, Unauthorized } from "../errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   ConnectorSyncErrorTag,
   ConnectorSyncStateRow,
   TranscriptProvider,
 } from "../tables/connectorSyncStates";
+import {
+  ConnectionRevoked,
+  DuplicateKeyConflict,
+  RevisionOrderConflict,
+  TenantMismatch,
+} from "../capabilities/ingestSourceUnit.spec";
 
 export class TranscriptSyncConnectionNotFound extends Schema.TaggedError<TranscriptSyncConnectionNotFound>()(
   "TranscriptSyncConnectionNotFound",
@@ -18,7 +25,22 @@ export class TranscriptSyncFenceError extends Schema.TaggedError<TranscriptSyncF
 ) {}
 
 const errors = () =>
-  Schema.Union(TranscriptSyncConnectionNotFound, TranscriptSyncFenceError);
+  Schema.Union(
+    TranscriptSyncConnectionNotFound,
+    TranscriptSyncFenceError,
+    ValidationFailed,
+  );
+const atomicErrors = () =>
+  Schema.Union(
+    TranscriptSyncConnectionNotFound,
+    TranscriptSyncFenceError,
+    TenantMismatch,
+    ConnectionRevoked,
+    DuplicateKeyConflict,
+    RevisionOrderConflict,
+    ValidationFailed,
+    Unauthorized,
+  );
 const NonNegativeInteger = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
@@ -83,6 +105,22 @@ export const commitTranscriptSyncPage = FunctionSpec.internalMutation({
   error: () => errors(),
 });
 
+export const ingestTranscriptSyncPage = FunctionSpec.internalMutation({
+  name: "ingestTranscriptSyncPage",
+  args: () =>
+    Schema.Struct({
+      connectionKey: Schema.String,
+      expectedGeneration: NonNegativeInteger,
+      expectedCursor: Cursor,
+      leaseId: Schema.String,
+      nextCursor: Cursor,
+      calls: Schema.Array(CanonicalCallTranscript).pipe(Schema.maxItems(100)),
+      now: NonNegativeInteger,
+    }),
+  returns: () => ConnectorSyncStateRow,
+  error: () => atomicErrors(),
+});
+
 export const failTranscriptSyncPage = FunctionSpec.internalMutation({
   name: "failTranscriptSyncPage",
   args: () =>
@@ -134,5 +172,6 @@ export const listTranscriptConnectionHealth = FunctionSpec.publicQuery({
 export default GroupSpec.make()
   .addFunction(claimTranscriptSyncPage)
   .addFunction(commitTranscriptSyncPage)
+  .addFunction(ingestTranscriptSyncPage)
   .addFunction(failTranscriptSyncPage)
   .addFunction(listTranscriptConnectionHealth);

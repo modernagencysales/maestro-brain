@@ -7,11 +7,20 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainCorpusHealth from "./tables/brainCorpusHealth";
 import brainExportJobs from "./tables/brainExportJobs";
+import brainFeedbackReports from "./tables/brainFeedbackReports";
 import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
+import brainOperationReceipts from "./tables/brainOperationReceipts";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainProjectionPopulation from "./tables/brainProjectionPopulation";
+import brainProjectionValidationReceipts from "./tables/brainProjectionValidationReceipts";
+import brainPublicationPauses from "./tables/brainPublicationPauses";
+import brainPublicationWorkerLeases from "./tables/brainPublicationWorkerLeases";
+import brainReadModes from "./tables/brainReadModes";
+import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
 import brainSources from "./tables/brainSources";
 import callRouteMappings from "./tables/callRouteMappings";
 import callRoutingProposals from "./tables/callRoutingProposals";
@@ -22,15 +31,32 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorAllowlistGenerations from "./tables/connectorAllowlistGenerations";
+import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
+import connectorPageChunks from "./tables/connectorPageChunks";
+import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
+import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
+import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
+import connectorScopes from "./tables/connectorScopes";
 import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
+import documentSourceMembershipEdges from "./tables/documentSourceMembershipEdges";
+import documentSourceObjects from "./tables/documentSourceObjects";
+import documentSourceObservations from "./tables/documentSourceObservations";
+import documentSourceOutcomes from "./tables/documentSourceOutcomes";
+import documentSourcePassages from "./tables/documentSourcePassages";
+import documentSourceRevisions from "./tables/documentSourceRevisions";
+import documentSourceScopePointers from "./tables/documentSourceScopePointers";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
+import driveScopeConfigurations from "./tables/driveScopeConfigurations";
 import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
+import ingestionObligationRepairEffects from "./tables/ingestionObligationRepairEffects";
+import ingestionObligations from "./tables/ingestionObligations";
 import invitations from "./tables/invitations";
 import migrationReceipts from "./tables/migrationReceipts";
 import migrationRuns from "./tables/migrationRuns";
@@ -45,8 +71,19 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
+import providerTargetResolutionIntents from "./tables/providerTargetResolutionIntents";
+import retrievalEligibilityFences from "./tables/retrievalEligibilityFences";
+import retrievalEntries from "./tables/retrievalEntries";
+import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
+import retrievalPublicationSets from "./tables/retrievalPublicationSets";
+import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
+import retrievalRebuildChildren from "./tables/retrievalRebuildChildren";
+import retrievalRebuildRuns from "./tables/retrievalRebuildRuns";
+import retrievalTokenCatalog from "./tables/retrievalTokenCatalog";
+import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackPublicationTargetIntents from "./tables/slackPublicationTargetIntents";
 import slackQuestionReceipts from "./tables/slackQuestionReceipts";
 import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
@@ -55,6 +92,14 @@ import sourceRevisions from "./tables/sourceRevisions";
 import sourceSegments from "./tables/sourceSegments";
 import sourceUnitRevisions from "./tables/sourceUnitRevisions";
 import sourceUnits from "./tables/sourceUnits";
+import structuredQueryFieldRegistrations from "./tables/structuredQueryFieldRegistrations";
+import structuredSourceEntities from "./tables/structuredSourceEntities";
+import structuredSourceFields from "./tables/structuredSourceFields";
+import structuredSourceObservations from "./tables/structuredSourceObservations";
+import structuredSourceRevisions from "./tables/structuredSourceRevisions";
+import structuredSourceRoutes from "./tables/structuredSourceRoutes";
+import transcriptRevisionOrderMigrationItems from "./tables/transcriptRevisionOrderMigrationItems";
+import transcriptRevisionOrderMigrations from "./tables/transcriptRevisionOrderMigrations";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -80,11 +125,20 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof actionTriggers |
   typeof apiKeys |
   typeof billingPlans |
+  typeof brainCorpusHealth |
   typeof brainExportJobs |
+  typeof brainFeedbackReports |
   typeof brainMaintenanceProposalItems |
   typeof brainMaintenanceProposals |
+  typeof brainOperationReceipts |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof brainProjectionPopulation |
+  typeof brainProjectionValidationReceipts |
+  typeof brainPublicationPauses |
+  typeof brainPublicationWorkerLeases |
+  typeof brainReadModes |
+  typeof brainRequiredScopeIntents |
   typeof brainSources |
   typeof callRouteMappings |
   typeof callRoutingProposals |
@@ -95,15 +149,32 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof claims |
   typeof classificationDecisions |
   typeof concepts |
+  typeof connectorAllowlistGenerations |
+  typeof connectorIncrementalCursors |
+  typeof connectorPageChunks |
+  typeof connectorPageEnvelopes |
+  typeof connectorReconciliationRuns |
+  typeof connectorReconciliationSeen |
+  typeof connectorScopes |
   typeof connectorSyncStates |
   typeof contextPacks |
   typeof creditLedger |
   typeof documentAnnotations |
+  typeof documentSourceMembershipEdges |
+  typeof documentSourceObjects |
+  typeof documentSourceObservations |
+  typeof documentSourceOutcomes |
+  typeof documentSourcePassages |
+  typeof documentSourceRevisions |
+  typeof documentSourceScopePointers |
   typeof documentVersions |
   typeof documents |
+  typeof driveScopeConfigurations |
   typeof dsarRequests |
   typeof entitlements |
   typeof featureFlagPolicies |
+  typeof ingestionObligationRepairEffects |
+  typeof ingestionObligations |
   typeof invitations |
   typeof migrationReceipts |
   typeof migrationRuns |
@@ -118,8 +189,19 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof promptRegistry |
   typeof providerConnections |
   typeof providerEventReceipts |
+  typeof providerTargetResolutionIntents |
+  typeof retrievalEligibilityFences |
+  typeof retrievalEntries |
+  typeof retrievalPublicationJobs |
+  typeof retrievalPublicationSets |
+  typeof retrievalPublicationSubjects |
+  typeof retrievalRebuildChildren |
+  typeof retrievalRebuildRuns |
+  typeof retrievalTokenCatalog |
+  typeof retrievalTokens |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
+  typeof slackPublicationTargetIntents |
   typeof slackQuestionReceipts |
   typeof sourceArtifacts |
   typeof sourceChannels |
@@ -128,6 +210,14 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof sourceSegments |
   typeof sourceUnitRevisions |
   typeof sourceUnits |
+  typeof structuredQueryFieldRegistrations |
+  typeof structuredSourceEntities |
+  typeof structuredSourceFields |
+  typeof structuredSourceObservations |
+  typeof structuredSourceRevisions |
+  typeof structuredSourceRoutes |
+  typeof transcriptRevisionOrderMigrationItems |
+  typeof transcriptRevisionOrderMigrations |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -152,11 +242,20 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   actionTriggers,
   apiKeys,
   billingPlans,
+  brainCorpusHealth,
   brainExportJobs,
+  brainFeedbackReports,
   brainMaintenanceProposalItems,
   brainMaintenanceProposals,
+  brainOperationReceipts,
   brainPageAuditEvents,
   brainPages,
+  brainProjectionPopulation,
+  brainProjectionValidationReceipts,
+  brainPublicationPauses,
+  brainPublicationWorkerLeases,
+  brainReadModes,
+  brainRequiredScopeIntents,
   brainSources,
   callRouteMappings,
   callRoutingProposals,
@@ -167,15 +266,32 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   claims,
   classificationDecisions,
   concepts,
+  connectorAllowlistGenerations,
+  connectorIncrementalCursors,
+  connectorPageChunks,
+  connectorPageEnvelopes,
+  connectorReconciliationRuns,
+  connectorReconciliationSeen,
+  connectorScopes,
   connectorSyncStates,
   contextPacks,
   creditLedger,
   documentAnnotations,
+  documentSourceMembershipEdges,
+  documentSourceObjects,
+  documentSourceObservations,
+  documentSourceOutcomes,
+  documentSourcePassages,
+  documentSourceRevisions,
+  documentSourceScopePointers,
   documentVersions,
   documents,
+  driveScopeConfigurations,
   dsarRequests,
   entitlements,
   featureFlagPolicies,
+  ingestionObligationRepairEffects,
+  ingestionObligations,
   invitations,
   migrationReceipts,
   migrationRuns,
@@ -190,8 +306,19 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   promptRegistry,
   providerConnections,
   providerEventReceipts,
+  providerTargetResolutionIntents,
+  retrievalEligibilityFences,
+  retrievalEntries,
+  retrievalPublicationJobs,
+  retrievalPublicationSets,
+  retrievalPublicationSubjects,
+  retrievalRebuildChildren,
+  retrievalRebuildRuns,
+  retrievalTokenCatalog,
+  retrievalTokens,
   servicePrincipals,
   slackIdentityBindings,
+  slackPublicationTargetIntents,
   slackQuestionReceipts,
   sourceArtifacts,
   sourceChannels,
@@ -200,6 +327,14 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   sourceSegments,
   sourceUnitRevisions,
   sourceUnits,
+  structuredQueryFieldRegistrations,
+  structuredSourceEntities,
+  structuredSourceFields,
+  structuredSourceObservations,
+  structuredSourceRevisions,
+  structuredSourceRoutes,
+  transcriptRevisionOrderMigrationItems,
+  transcriptRevisionOrderMigrations,
   transformBlocks,
   transformDefinitions,
   transformRuns,

@@ -22,6 +22,9 @@ export * from "./transcripts/gong";
 export * from "./transcripts/fathom";
 export * from "./transcripts/granola";
 export * from "./transcripts/import";
+export * from "./googleDrive/client";
+export * from "./googleDrive/canonical";
+export * from "./googleDrive/passages";
 export * from "./nango/records";
 
 export type ProviderMode = "fake" | "test" | "live";

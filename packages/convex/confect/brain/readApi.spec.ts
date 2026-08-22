@@ -11,9 +11,76 @@ import {
 import { BrainNotFound, LifecycleRevoked, PageNotFound } from "./pageTree";
 import { PageKey } from "./pageSchemas";
 import { Id } from "../_generated/id";
+import {
+  BrainRolloutStatus,
+  RolloutStatusCapacityExceeded,
+  RolloutStatusIntegrityConflict,
+} from "./rolloutStatus.spec";
+import { ContextPackV3 } from "./contextPackV3";
 
 const BrainKey = Schema.String;
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
+const CompatibilityMode = Schema.Literal("legacy");
+export class CitationIntegrityFailure extends Schema.TaggedError<CitationIntegrityFailure>()(
+  "CitationIntegrityFailure",
+  {
+    publicationSetKey: Schema.String,
+    entryKey: Schema.String,
+    reason: Schema.Literal(
+      "origin_missing",
+      "origin_mismatch",
+      "passage_missing",
+      "content_mismatch",
+      "unsupported_origin",
+    ),
+  },
+) {}
+export class RetrievalCapacityExceeded extends Schema.TaggedError<RetrievalCapacityExceeded>()(
+  "RetrievalCapacityExceeded",
+  {
+    resource: Schema.Literal(
+      "active_slack_policies",
+      "active_provider_connections",
+      "corpus_health",
+      "current_postings",
+      "unclassified_postings",
+      "revision_entries",
+      "context_pack_bytes",
+      "compatibility_policy_versions",
+      "compatibility_pages",
+      "compatibility_citations",
+      "compatibility_page_revisions",
+    ),
+    limit: Schema.Number,
+    observedAtLeast: Schema.Number,
+  },
+) {}
+export class RetrievalIntegrityFailure extends Schema.TaggedError<RetrievalIntegrityFailure>()(
+  "RetrievalIntegrityFailure",
+  {
+    token: Schema.String,
+    reason: Schema.Literal(
+      "catalog_missing",
+      "catalog_duplicate",
+      "catalog_identity_mismatch",
+      "catalog_capacity_overflow",
+      "posting_count_mismatch",
+      "posting_digest_mismatch",
+      "posting_set_mismatch",
+      "posting_summary_missing",
+      "posting_summary_mismatch",
+      "publication_integrity_failure",
+      "eligibility_integrity_failure",
+      "entry_missing",
+    ),
+    publicationSetKey: Schema.optional(Schema.String),
+    entryKey: Schema.optional(Schema.String),
+    expectedPostingCount: Schema.optional(Schema.Number),
+    observedPostingCount: Schema.optional(Schema.Number),
+    expectedPostingDigest: Schema.optional(Schema.String),
+    observedPostingDigest: Schema.optional(Schema.String),
+  },
+) {}
 const Errors = Schema.Union(
   Unauthorized,
   Forbidden,
@@ -22,30 +89,68 @@ const Errors = Schema.Union(
   PageNotFound,
   ValidationFailed,
   SubsystemDisabled,
+  CitationIntegrityFailure,
+  RetrievalCapacityExceeded,
+  RetrievalIntegrityFailure,
+  RolloutStatusCapacityExceeded,
+  RolloutStatusIntegrityConflict,
 );
 const SearchArgs = Schema.extend(
   BrainSelector,
-  Schema.Struct({ query: Schema.String }),
+  Schema.Struct({
+    query: Schema.String,
+    compatibilityMode: Schema.optional(CompatibilityMode),
+  }),
 );
-const SearchResult = Schema.Struct({
+export const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
-  sourceRevisionKey: Schema.optional(Schema.String),
+  sourceRevisionKey: Schema.String,
+  entryKey: Schema.String,
+  publicationSetKey: Schema.String,
+  passageKey: Schema.String,
+  startOffset: Schema.Number,
+  endOffset: Schema.Number,
+  contentHash: Schema.String,
+  kind: Schema.Literal("source", "page", "projection"),
+  unitKey: Schema.optional(Schema.String),
+  segmentKey: Schema.optional(Schema.String),
   citationKey: Schema.String,
   title: Schema.String,
   excerpt: Schema.String,
   locator: Schema.optional(Schema.String),
   citationLabel: Schema.optional(Schema.String),
   permalink: Schema.optional(Schema.String),
-  freshness: Schema.optional(Schema.Literal("fresh")),
-  state: Schema.optional(Schema.Literal("resolved")),
+  authority: Schema.Literal("authoritative", "derived", "advisory"),
+  authorityPolicyKey: Schema.String,
+  sourceModifiedAt: Schema.optional(Schema.Number),
+  observedAt: Schema.Number,
+  indexedAt: Schema.Number,
+  freshness: Schema.Literal("current", "stale", "unknown"),
+  truncated: Schema.Boolean,
+  state: Schema.Literal("resolved"),
 });
+const Coverage = Schema.Struct({
+  sourceKind: Schema.String,
+  status: Schema.Literal("complete", "partial", "unavailable", "unknown"),
+  freshness: Schema.Literal("current", "stale", "unknown"),
+  lastSuccessfulAt: Schema.optional(Schema.Number),
+  reason: Schema.optional(Schema.String),
+});
+const Omission = Schema.Struct({ reason: Schema.String, count: Schema.Number });
 const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
   results: Schema.Array(SearchResult),
+  coverage: Schema.Array(Coverage),
+  omissions: Schema.Array(Omission),
 });
 const SourceGetArgs = Schema.extend(
   BrainSelector,
-  Schema.Struct({ sourceRevisionKey: Schema.String }),
+  Schema.Struct({
+    sourceRevisionKey: Schema.optional(Schema.String),
+    entryKey: Schema.optional(Schema.String),
+    publicationSetKey: Schema.optional(Schema.String),
+    compatibilityMode: Schema.optional(CompatibilityMode),
+  }),
 );
 const SourceGetReturns = Schema.extend(
   SearchResult,
@@ -58,16 +163,13 @@ const SourceGetReturns = Schema.extend(
 const ContextGetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({
+    question: Schema.optional(Schema.String),
     pageKeys: Schema.optional(Schema.Array(PageKey)),
     maxBytes: Schema.optional(Schema.Number),
+    compatibilityMode: Schema.optional(CompatibilityMode),
   }),
 );
-const ContextReturns = Schema.Struct({
-  brainKey: BrainKey,
-  asOf: Schema.Number,
-  freshness: Schema.Struct({ status: Schema.Literal("current") }),
-  entries: Schema.Array(SearchResult),
-});
+const ContextReturns = ContextPackV3;
 const AskArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({
@@ -80,6 +182,16 @@ const HeadlessSelector = Schema.Struct({
   organizationId: Id("organizations"),
   workspaceId: Id("workspaces"),
 });
+
+const RolloutStatusErrors = Schema.Union(
+  Unauthorized,
+  Forbidden,
+  BrainNotFound,
+  LifecycleRevoked,
+  ValidationFailed,
+  RolloutStatusCapacityExceeded,
+  RolloutStatusIntegrityConflict,
+);
 
 const query = <
   const Name extends string,
@@ -112,6 +224,11 @@ const query = <
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       idempotent: true,
       argsSchemaName: `brain.readApi.${name}.args`,
@@ -146,26 +263,92 @@ export const answersAsk = query(
   AskReturns,
 );
 
-const headlessSourcesSearch = FunctionSpec.internalQuery({
+export const brainRolloutStatus = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "brainRolloutStatus",
+    args: () => BrainSelector,
+    returns: () => BrainRolloutStatus,
+    error: () => RolloutStatusErrors,
+  }),
+  {
+    namespace: "brain.readApi",
+    name: "brainRolloutStatus",
+    operationId: "brain.rollout.status",
+    kind: "query",
+    surfaces: ["api", "cli"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "BrainNotFound",
+      "LifecycleRevoked",
+      "ValidationFailed",
+      "RolloutStatusCapacityExceeded",
+      "RolloutStatusIntegrityConflict",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.readApi.brainRolloutStatus.args",
+    returnsSchemaName: "brain.readApi.brainRolloutStatus.returns",
+    argsSchema: BrainSelector,
+    returnsSchema: BrainRolloutStatus,
+  },
+);
+
+export const headlessSourcesSearch = FunctionSpec.internalQuery({
   name: "headlessSourcesSearch",
   args: () => Schema.extend(SearchArgs, HeadlessSelector),
   returns: () => SearchReturns,
   error: () => Errors,
 });
-const headlessSourcesGet = FunctionSpec.internalQuery({
+export const headlessSourcesGet = FunctionSpec.internalQuery({
   name: "headlessSourcesGet",
   args: () => Schema.extend(SourceGetArgs, HeadlessSelector),
   returns: () => SourceGetReturns,
   error: () => Errors,
 });
-const headlessAnswersAsk = FunctionSpec.internalQuery({
+export const headlessContextGet = FunctionSpec.internalQuery({
+  name: "headlessContextGet",
+  args: () => Schema.extend(ContextGetArgs, HeadlessSelector),
+  returns: () => ContextReturns,
+  error: () => Errors,
+});
+export const headlessAnswersAsk = FunctionSpec.internalQuery({
   name: "headlessAnswersAsk",
   args: () => Schema.extend(AskArgs, HeadlessSelector),
   returns: () => AskReturns,
   error: () => Errors,
 });
+export const headlessBrainRolloutStatus = FunctionSpec.internalQuery({
+  name: "headlessBrainRolloutStatus",
+  args: () => Schema.extend(BrainSelector, HeadlessSelector),
+  returns: () => BrainRolloutStatus,
+  error: () => RolloutStatusErrors,
+});
+export const validationSourcesSearch = FunctionSpec.internalQuery({
+  name: "validationSourcesSearch",
+  args: () => Schema.extend(SearchArgs, HeadlessSelector),
+  returns: () => SearchReturns,
+  error: () => Errors,
+});
+export const validationSourcesGet = FunctionSpec.internalQuery({
+  name: "validationSourcesGet",
+  args: () => Schema.extend(SourceGetArgs, HeadlessSelector),
+  returns: () => SourceGetReturns,
+  error: () => Errors,
+});
+export const validationContextGet = FunctionSpec.internalQuery({
+  name: "validationContextGet",
+  args: () => Schema.extend(ContextGetArgs, HeadlessSelector),
+  returns: () => ContextReturns,
+  error: () => Errors,
+});
 
-const functions = [sourcesSearch, sourcesGet, contextGet, answersAsk] as const;
+const functions = [
+  sourcesSearch,
+  sourcesGet,
+  contextGet,
+  answersAsk,
+  brainRolloutStatus,
+] as const;
 export const manifest = collectContractManifest(functions);
 export const schemaRegistry = collectContractSchemas(functions);
 export default GroupSpec.make()
@@ -173,6 +356,12 @@ export default GroupSpec.make()
   .addFunction(sourcesGet.spec)
   .addFunction(contextGet.spec)
   .addFunction(answersAsk.spec)
+  .addFunction(brainRolloutStatus.spec)
   .addFunction(headlessSourcesSearch)
   .addFunction(headlessSourcesGet)
-  .addFunction(headlessAnswersAsk);
+  .addFunction(headlessContextGet)
+  .addFunction(headlessAnswersAsk)
+  .addFunction(headlessBrainRolloutStatus)
+  .addFunction(validationSourcesSearch)
+  .addFunction(validationSourcesGet)
+  .addFunction(validationContextGet);

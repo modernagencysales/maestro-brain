@@ -18,8 +18,9 @@ type Surface = ExternalSurface | "web" | "workflow" | "internal" | string;
 const servicePrincipalHttpRefs: Readonly<Record<string, string>> = {
   "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
   "brain.sources.get": "internal.brain.readApi.headlessSourcesGet",
-  "brain.context.get": "internal.headless.readApi.contextGet",
+  "brain.context.get": "internal.brain.readApi.headlessContextGet",
   "brain.answers.ask": "internal.brain.readApi.headlessAnswersAsk",
+  "brain.rollout.status": "internal.brain.readApi.headlessBrainRolloutStatus",
 };
 
 export type HeadlessManifestOperation = {
@@ -190,13 +191,31 @@ export const missingCliGeneratedRefUsage = (
         `\\brunTemplateApiOperation\\s*\\(\\s*${mappedOperationVariable}\\b`,
       ).test(source));
 
+  const remoteMappedOperationVariable = source.match(
+    /\b(?:const|let)\s+([a-zA-Z_$][\w$]*)\s*=\s*remoteCliOperationRefs\s*\[[^\]]+\]/,
+  )?.[1];
+  const usesRemoteCliRefs =
+    remoteMappedOperationVariable !== undefined &&
+    new RegExp(
+      `fetch\\s*\\(\\s*[^,]*\\/api\\/\\$\\{${remoteMappedOperationVariable}\\}`,
+    ).test(source);
+
   return operationIds.filter(
     (operationId) =>
-      !objectMappingPattern(
-        "staticCliOperationRefs",
-        operationId,
-        `["'\`]${operationId.replaceAll(".", "\\.")}["'\`]`,
-      ).test(source) || !usesGeneratedCliRefs,
+      !(
+        (objectMappingPattern(
+          "staticCliOperationRefs",
+          operationId,
+          `["'\`]${operationId.replaceAll(".", "\\.")}["'\`]`,
+        ).test(source) &&
+          usesGeneratedCliRefs) ||
+        (objectMappingPattern(
+          "remoteCliOperationRefs",
+          operationId,
+          `["'\`]${operationId.replaceAll(".", "\\.")}["'\`]`,
+        ).test(source) &&
+          usesRemoteCliRefs)
+      ),
   );
 };
 

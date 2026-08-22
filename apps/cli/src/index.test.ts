@@ -127,6 +127,52 @@ describe("maestro-template CLI", () => {
     ).toEqual({ input: { pageKeys: ["page_1"] } });
   });
 
+  it("prints the server-evaluated Brain rollout status", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.rollout.status",
+          result: {
+            statusVersion: 1,
+            freshness: "current",
+            coverageStatus: "complete",
+            readiness: "ready",
+            promotionReady: true,
+            scopes: [],
+            alerts: [],
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.rollout.status", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: true,
+      operationId: "brain.rollout.status",
+      result: {
+        freshness: "current",
+        coverageStatus: "complete",
+        readiness: "ready",
+        promotionReady: true,
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.rollout.status",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("returns typed Brain failures from successful HTTP responses", async () => {
     vi.stubGlobal(
       "fetch",

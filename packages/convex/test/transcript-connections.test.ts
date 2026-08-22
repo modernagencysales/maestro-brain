@@ -277,6 +277,48 @@ describe("transcript connection capability", () => {
           ),
           Schema.Any,
         );
+      const connectionFences = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("retrievalEligibilityFences")
+                .index("by_organization_kind_controller", (q) =>
+                  q
+                    .eq("organizationKey", "agency_acme")
+                    .eq("kind", "connection")
+                    .eq("controllerKey", "connection:fireflies_agency_acme"),
+                )
+                .take(2)
+                .pipe(Effect.orDie),
+            ),
+          ),
+          Schema.Any,
+        );
+      const publicationJobs = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("retrievalPublicationJobs")
+                .index("by_status_due_job", (q) => q.eq("status", "pending"))
+                .take(20)
+                .pipe(
+                  Effect.map((jobs) =>
+                    jobs.filter(
+                      (job) =>
+                        job.brainKey === "agency_acme" &&
+                        job.originKind === "transcript_rebuild" &&
+                        job.sourceRevisionKey ===
+                          `connection:fireflies_agency_acme:revoked:${completed.connectionGeneration}`,
+                    ),
+                  ),
+                  Effect.orDie,
+                ),
+            ),
+          ),
+          Schema.Any,
+        );
       const purgeAuditRows = () =>
         confect.run(
           DatabaseReader.pipe(
@@ -467,6 +509,21 @@ describe("transcript connection capability", () => {
           status: "revoked",
           leaseId: null,
           leaseExpiresAt: null,
+        }),
+      ]);
+      expect(yield* publicationJobs()).toEqual([
+        expect.objectContaining({
+          brainKey: "agency_acme",
+          originKind: "transcript_rebuild",
+          status: "pending",
+          sourceKey: "fireflies_agency_acme",
+        }),
+      ]);
+      expect(yield* connectionFences()).toEqual([
+        expect.objectContaining({
+          controllerKey: "connection:fireflies_agency_acme",
+          eligibilityGeneration: 1,
+          eligible: false,
         }),
       ]);
       const reconnectWhileCleanupPending = yield* Effect.either(

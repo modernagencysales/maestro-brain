@@ -186,6 +186,7 @@ describe("Slack channel policy contract", () => {
       by_channel_epoch: ["channelKey", "policyEpoch"],
       by_channel_active: ["channelKey", "active"],
       by_organization_created: ["organizationKey", "createdAt"],
+      by_organization_active: ["organizationKey", "active"],
       by_organization_mode: ["organizationKey", "mode"],
       by_connection_generation: ["connectionKey", "connectionGeneration"],
     });
@@ -276,6 +277,38 @@ describe("Slack channel policy contract", () => {
         ],
       })._tag,
     ).toBe("Left");
+  });
+
+  it("allows an active agency Brain with a bounded history start", () => {
+    const planned = buildBulkPolicyPlan({
+      ...baseRequest,
+      allowedBrainTargets: [
+        ...baseRequest.allowedBrainTargets,
+        {
+          brainKey: "brain_agency",
+          organizationKey: "org_acme",
+          kind: "agency",
+          status: "active",
+        },
+      ],
+      changes: [
+        {
+          channelKey: joinedChannel.channelKey,
+          routing: {
+            mode: "direct",
+            targetBrainKeys: ["brain_agency"],
+            historicalBackfillStartAt: 50,
+          },
+          delivery: { mode: "capture_only" },
+        },
+      ],
+    });
+    expect(planned._tag).toBe("Right");
+    if (planned._tag === "Right")
+      expect(planned.right.routingPolicies[0]).toMatchObject({
+        targetBrainKeys: ["brain_agency"],
+        historicalBackfillStartAt: 50,
+      });
   });
 
   it("rejects duplicate channel keys before planning active policies", () => {
@@ -645,7 +678,7 @@ describe("Slack channel policy contract", () => {
               updatedAt: 1_000,
             })
             .pipe(Effect.orDie);
-          yield* writer
+          const seededWorkspaceId = yield* writer
             .table("workspaces")
             .insert({
               organizationId,
@@ -660,15 +693,37 @@ describe("Slack channel policy contract", () => {
               updatedAt: 1_000,
             })
             .pipe(Effect.orDie);
+          const betaWorkspaceId = yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "brain_beta",
+              slug: "beta",
+              name: "Beta",
+              kind: "client",
+              status: "active",
+              dataClassification: "confidential",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
           yield* writer
             .table("sourceChannels")
             .insert({ ...joinedChannel, organizationKey: "agency_acme" })
             .pipe(Effect.orDie);
-          return { organizationId, otherOrganizationId };
+          return {
+            organizationId,
+            otherOrganizationId,
+            seededWorkspaceId,
+            betaWorkspaceId,
+          };
         }),
         Schema.Struct({
           organizationId: Id("organizations"),
           otherOrganizationId: Id("organizations"),
+          seededWorkspaceId: Id("workspaces"),
+          betaWorkspaceId: Id("workspaces"),
         }),
       );
 
@@ -677,6 +732,61 @@ describe("Slack channel policy contract", () => {
         expectedConnectionGeneration: 4,
         expectedChannelAccessGeneration: 2,
         changes: baseRequest.changes,
+      });
+      const activation = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const [required, scopes, allowlists, receipts] = yield* Effect.all([
+            reader
+              .table("brainRequiredScopeIntents")
+              .index("by_workspace_brain_state", (query) =>
+                query
+                  .eq("workspaceId", seeded.seededWorkspaceId)
+                  .eq("brainKey", "brain_alpha")
+                  .eq("state", "required"),
+              )
+              .take(2),
+            reader
+              .table("connectorScopes")
+              .index("by_connector_scope_key", (query) =>
+                query.eq("connectorScopeKey", joinedChannel.channelKey),
+              )
+              .take(2),
+            reader
+              .table("connectorAllowlistGenerations")
+              .index("by_scope_generation", (query) =>
+                query
+                  .eq("connectorScopeKey", joinedChannel.channelKey)
+                  .eq("allowlistGeneration", 1),
+              )
+              .take(2),
+            reader
+              .table("providerEventReceipts")
+              .index("by_received_at", (query) =>
+                query.eq("organizationKey", "agency_acme"),
+              )
+              .take(1),
+          ]).pipe(Effect.orDie);
+          return { required, scopes, allowlists, receipts };
+        }),
+        Schema.Any,
+      );
+      const reassigned = yield* authed.mutation(bulkSetRef, {
+        organizationKey: "agency_acme",
+        expectedConnectionGeneration: 4,
+        expectedChannelAccessGeneration: 2,
+        changes: [
+          {
+            channelKey: joinedChannel.channelKey,
+            expectedRoutingPolicyEpoch: 1,
+            expectedDeliveryGeneration: 1,
+            routing: {
+              mode: "direct",
+              targetBrainKeys: ["brain_beta"],
+            },
+            delivery: { mode: "requester_private" },
+          },
+        ],
       });
       const denied = yield* Effect.either(
         authed.mutation(bulkSetRef, {
@@ -706,12 +816,54 @@ describe("Slack channel policy contract", () => {
             )
             .collect()
             .pipe(Effect.orDie);
-          return { routing };
+          const [removedTargetJobs, addedTargetJobs] = yield* Effect.all([
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.seededWorkspaceId)
+                  .eq("brainKey", "brain_alpha")
+                  .eq("originKind", "slack_rebuild")
+                  .eq(
+                    "sourceRevisionKey",
+                    `policy:${joinedChannel.channelKey}:2`,
+                  ),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", seeded.betaWorkspaceId)
+                  .eq("brainKey", "brain_beta")
+                  .eq("originKind", "slack_rebuild")
+                  .eq(
+                    "sourceRevisionKey",
+                    `policy:${joinedChannel.channelKey}:2`,
+                  ),
+              )
+              .take(5)
+              .pipe(Effect.orDie),
+          ]);
+          const policyFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (query) =>
+              query.eq("organizationKey", "agency_acme").eq("kind", "policy"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          return {
+            routing,
+            removedTargetJobs,
+            addedTargetJobs,
+            policyFences,
+          };
         }),
         Schema.Any,
       );
 
-      return { applied, denied, rows, seeded };
+      return { applied, activation, reassigned, denied, rows, seeded };
     }).pipe(Effect.provide(channelPolicyTestConfectLayer()));
 
     const result = await Effect.runPromise(program);
@@ -720,7 +872,65 @@ describe("Slack channel policy contract", () => {
       applied: 1,
       auditAction: "channel_policy_bulk_update",
     });
-    expect(result.rows.routing).toHaveLength(1);
+    expect(result.activation.receipts).toEqual([]);
+    expect(result.activation.required).toEqual([
+      expect.objectContaining({
+        workspaceId: result.seeded.seededWorkspaceId,
+        brainKey: "brain_alpha",
+        connectorScopeKey: joinedChannel.channelKey,
+        connectionGeneration: 4,
+        allowlistGeneration: 1,
+        state: "required",
+      }),
+    ]);
+    expect(result.activation.scopes).toEqual([
+      expect.objectContaining({
+        connectorScopeKey: joinedChannel.channelKey,
+        currentConnectionGeneration: 4,
+        currentAllowlistGeneration: 1,
+        state: "active",
+      }),
+    ]);
+    expect(result.activation.allowlists).toEqual([
+      expect.objectContaining({
+        connectorScopeKey: joinedChannel.channelKey,
+        allowlistGeneration: 1,
+        state: "current",
+      }),
+    ]);
+    expect(result.reassigned).toEqual({
+      applied: 1,
+      auditAction: "channel_policy_bulk_update",
+    });
+    expect(result.rows.routing).toHaveLength(2);
+    expect(result.rows.removedTargetJobs).toEqual([
+      expect.objectContaining({
+        status: "pending",
+        sourceKey: joinedChannel.channelKey,
+        rebuild: expect.objectContaining({ limit: 5 }),
+      }),
+    ]);
+    expect(result.rows.addedTargetJobs).toEqual([
+      expect.objectContaining({
+        status: "pending",
+        sourceKey: joinedChannel.channelKey,
+        rebuild: expect.objectContaining({ limit: 5 }),
+      }),
+    ]);
+    expect(result.rows.policyFences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controllerKey: `slack-policy:${joinedChannel.channelKey}:brain_alpha`,
+          eligibilityGeneration: 2,
+          eligible: false,
+        }),
+        expect.objectContaining({
+          controllerKey: `slack-policy:${joinedChannel.channelKey}:brain_beta`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+      ]),
+    );
     expect(result.denied._tag).toBe("Left");
     if (result.denied._tag === "Left") {
       expect(result.denied.left).toMatchObject({

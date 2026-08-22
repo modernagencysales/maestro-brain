@@ -24,6 +24,11 @@ describe("normalizeFirefliesCall", () => {
       providerKey: "fireflies",
       connectionKey: "connection-1",
       externalCallId: "ff-call-001",
+      revisionOrder: {
+        kind: "provider_timestamp",
+        timestamp: "2026-08-01T14:00:00.000Z",
+        source: "date",
+      },
       title: "Redacted discovery call",
       startedAt: "2026-08-01T14:00:00.000Z",
       endedAt: "2026-08-01T14:02:05.500Z",
@@ -114,6 +119,11 @@ describe("normalizeFirefliesCall", () => {
 
     expect(deleted.deleted).toBe(true);
     expect(deleted.segments).toEqual([]);
+    expect(deleted.revisionOrder).toEqual({
+      kind: "provider_timestamp",
+      timestamp: "2026-08-03T00:00:00.000Z",
+      source: "_nango_metadata.deleted_at",
+    });
   });
 
   it("rejects malformed call IDs without exposing payload text", () => {

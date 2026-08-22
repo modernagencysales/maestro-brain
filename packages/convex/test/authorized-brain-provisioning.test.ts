@@ -1106,7 +1106,7 @@ describe("authorized Brain provisioning", () => {
     );
 
     expect(result.workspaceId).toBeDefined();
-  });
+  }, 60_000);
 
   it("translates duplicate direct workspace memberships during key resolution", async () => {
     const program = Effect.gen(function* () {

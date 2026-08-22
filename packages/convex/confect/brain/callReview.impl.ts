@@ -15,9 +15,15 @@ import {
 } from "../_generated/services";
 import { NotFound, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import { resolveTranscriptLiveCaptureTargetEffect } from "./liveCaptureObligations";
 import callReviewGroup from "./callReview.spec";
 import { requireBrainAccess } from "./pages.impl";
 import { LifecycleRevoked, PageNotFound, StaleRevision } from "./pageTree";
+import {
+  transcriptRouteFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "./retrievalEligibility";
+import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
 
 const unsafeClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
@@ -121,8 +127,11 @@ const reviewCallRoute = FunctionImpl.make(
           routeGeneration: route.routeGeneration,
           maintenanceQueued: route.outcome === "routed",
         };
+      const acceptedRouteChange =
+        route.status === "accepted" &&
+        (args.action === "change_brain" || args.action === "reject");
       if (
-        route.status !== "current" ||
+        (route.status !== "current" && !acceptedRouteChange) ||
         route.unitRevisionKey !== args.expectedUnitRevisionKey ||
         route.routeGeneration !== args.expectedRouteGeneration ||
         route.sourceLifecycleGeneration !==
@@ -173,7 +182,7 @@ const reviewCallRoute = FunctionImpl.make(
               .eq("organizationId", access.organizationId)
               .eq("brainKey", targetBrainKey),
           )
-          .collect()
+          .take(2)
           .pipe(Effect.orDie);
         const target = targets.find(
           (candidate) =>
@@ -253,10 +262,36 @@ const reviewCallRoute = FunctionImpl.make(
 
       const routedBrainKey = args.action === "reject" ? null : targetBrainKey;
       const routed = routedBrainKey !== null && routedBrainKey !== undefined;
+      const reviewedRouteGeneration = route.routeGeneration + 1;
       const status =
         args.action === "reject"
           ? ("rejected" as const)
           : ("accepted" as const);
+      if (
+        route.outcome === "routed" &&
+        route.brainKey !== null &&
+        route.brainKey !== undefined &&
+        route.brainKey !== routedBrainKey
+      )
+        yield* transitionEligibilityFenceEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey,
+            unitKey: route.unitKey,
+            brainKey: route.brainKey,
+          }),
+          eligible: false,
+          now: reviewedAt,
+        });
+      if (routed && routedBrainKey !== null && routedBrainKey !== undefined)
+        yield* transitionEligibilityFenceEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey,
+            unitKey: route.unitKey,
+            brainKey: routedBrainKey,
+          }),
+          eligible: true,
+          now: reviewedAt,
+        });
       yield* writer
         .table("callRoutingProposals")
         .patch(route._id, {
@@ -267,6 +302,7 @@ const reviewCallRoute = FunctionImpl.make(
             : route.candidateBrainKeys,
           reason: `review_${args.action}`,
           status,
+          routeGeneration: reviewedRouteGeneration,
           reviewedBy: access.actorId,
           reviewAttemptKey: args.attemptKey,
           ...(learnedMappingKey ? { learnedMappingKey } : {}),
@@ -290,10 +326,60 @@ const reviewCallRoute = FunctionImpl.make(
         yield* writer
           .table("sourceProcessingJobs")
           .patch(job._id, {
+            routeGeneration: reviewedRouteGeneration,
             stage: routed ? "routed" : "classified_no_route",
             updatedAt: reviewedAt,
           })
           .pipe(Effect.orDie);
+
+      const publicationTargets = new Map<string, GenericId<"workspaces">>();
+      if (route.outcome === "routed" && route.brainKey) {
+        const priorTargets = yield* reader
+          .table("workspaces")
+          .index("by_organization_brain_key", (query) =>
+            query
+              .eq("organizationId", access.organizationId)
+              .eq("brainKey", route.brainKey ?? ""),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const priorTarget = priorTargets.find(
+          (candidate) => candidate.status === "active",
+        );
+        if (priorTarget)
+          publicationTargets.set(route.brainKey, priorTarget._id);
+      }
+      if (routed && targetBrainKey && targetWorkspaceId)
+        publicationTargets.set(targetBrainKey, targetWorkspaceId);
+      for (const [publicationBrainKey, workspaceId] of publicationTargets) {
+        const liveJobKey =
+          publicationBrainKey === routedBrainKey
+            ? yield* resolveTranscriptLiveCaptureTargetEffect({
+                organizationKey,
+                workspaceId,
+                brainKey: publicationBrainKey,
+                connectionKey: unit.connectionKey,
+                connectionGeneration: unit.connectionGeneration,
+                unitKey: route.unitKey,
+                unitRevisionKey: route.unitRevisionKey,
+                routeGeneration: reviewedRouteGeneration,
+                now: reviewedAt,
+              })
+            : null;
+        if (publicationBrainKey !== routedBrainKey || liveJobKey === null)
+          yield* enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey: publicationBrainKey,
+              originKind: "transcript",
+              sourceKey: route.unitKey,
+              sourceRevisionKey: route.unitRevisionKey,
+              requestGeneration: reviewedRouteGeneration,
+            },
+            reviewedAt,
+          );
+      }
 
       if (routed && targetWorkspaceId) {
         const scheduler = yield* Scheduler;
@@ -322,7 +408,7 @@ const reviewCallRoute = FunctionImpl.make(
         status,
         outcome: routed ? ("routed" as const) : ("no_match" as const),
         brainKey: routed ? routedBrainKey : null,
-        routeGeneration: route.routeGeneration,
+        routeGeneration: reviewedRouteGeneration,
         maintenanceQueued: routed,
       };
     }),
@@ -681,6 +767,23 @@ const reviewCallMaintenance = FunctionImpl.make(
             lifecycle,
           })
           .pipe(Effect.orDie);
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey: brain.organizationKey,
+            workspaceId: brain.workspaceId,
+            brainKey: brain.brainKey,
+            originKind: "page",
+            sourceKey: entry.item.pageKey,
+            sourceRevisionKey: entry.revisionKey,
+            requestGeneration: 1,
+            page: {
+              authority: "derived",
+              authorityPolicyKey: "company-pages",
+              policyGeneration: 1,
+            },
+          },
+          reviewedAt,
+        );
         for (const { citationKey, segment } of entry.citations)
           yield* writer
             .table("citations")

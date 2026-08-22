@@ -3,6 +3,7 @@ import { Table } from "@confect/server";
 import { SourceRevisionRow } from "../sources/sourceSchemas";
 
 export default Table.make(() => SourceRevisionRow)
+  .index("by_organization_ledger", ["organizationKey"])
   .index("by_source_revision_key", ["organizationKey", "sourceRevisionKey"])
   .index("by_source_provider_order", ["sourceKey", "providerOrder"])
   .index("by_source_created", ["organizationKey", "sourceCreatedAt"])

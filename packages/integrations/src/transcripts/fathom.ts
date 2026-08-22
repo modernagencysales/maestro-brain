@@ -1,5 +1,6 @@
 import {
   canonicalTranscriptRevision,
+  providerTimestampRevisionOrder,
   type CanonicalCallTranscript,
   type CanonicalParticipant,
 } from "./canonical";
@@ -117,6 +118,19 @@ export const normalizeFathomCall = (input: {
       ) === index,
   );
   const endedMs = Date.parse(string(meeting.recording_end_time) ?? "");
+  const metadata = object(meeting._nango_metadata);
+  const revisionOrder = isDeleted
+    ? providerTimestampRevisionOrder(
+        "_nango_metadata.deleted_at",
+        metadata?.deleted_at,
+      )
+    : (providerTimestampRevisionOrder("updated_at", meeting.updated_at) ??
+      providerTimestampRevisionOrder(
+        "recording_end_time",
+        meeting.recording_end_time,
+      ) ??
+      providerTimestampRevisionOrder("created_at", meeting.created_at));
+  if (revisionOrder === null) throw new FathomDecodeError("invalid_call");
   const summary = object(meeting.default_summary);
   const segments = isDeleted
     ? []
@@ -149,6 +163,7 @@ export const normalizeFathomCall = (input: {
     providerKey: "fathom",
     connectionKey: input.connectionKey,
     externalCallId,
+    revisionOrder,
     title:
       string(meeting.title) ??
       string(meeting.meeting_title) ??

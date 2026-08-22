@@ -38,6 +38,11 @@ describe("Granola transcript adapter", () => {
     expect(normalized).toMatchObject({
       providerKey: "granola",
       externalCallId: "not_1d3tmYTlCICgjy",
+      revisionOrder: {
+        kind: "provider_timestamp",
+        timestamp: "2026-08-04T16:01:00.000Z",
+        source: "updated_at",
+      },
       startedAt: "2026-08-04T15:00:00.000Z",
       endedAt: "2026-08-04T16:00:00.000Z",
       durationMs: 3_600_000,
@@ -88,7 +93,14 @@ describe("Granola transcript adapter", () => {
           _nango_metadata: { deleted_at: "2026-08-05T00:00:00Z" },
         },
       }),
-    ).toMatchObject({ deleted: true, segments: [] });
+    ).toMatchObject({
+      deleted: true,
+      segments: [],
+      revisionOrder: {
+        timestamp: "2026-08-05T00:00:00.000Z",
+        source: "_nango_metadata.deleted_at",
+      },
+    });
   });
 
   it("rejects malformed notes without exposing payload text", () => {

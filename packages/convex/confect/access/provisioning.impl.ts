@@ -12,6 +12,7 @@ import {
   DatabaseReader,
   DatabaseWriter,
   MutationRunner,
+  Scheduler,
 } from "../_generated/services";
 import {
   CapacityExceeded,
@@ -41,6 +42,7 @@ import {
   isStableBrainKey,
 } from "../identity/stableKeys";
 import { buildStandardClientBriefPages } from "../brain/clientBrief";
+import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import { roleAtLeast } from "./roles";
 import { readProcessEnv } from "../shared/env";
 import { sha256Hex } from "../shared/sha256";
@@ -738,6 +740,7 @@ const createClientBrain = FunctionImpl.make(
         organizationId,
         agencyKey: organization.agencyKey,
       });
+      const organizationKey = organization.agencyKey;
 
       const orgMemberships = yield* reader
         .table("organizationMembers")
@@ -898,6 +901,7 @@ const createClientBrain = FunctionImpl.make(
         .patch(workspaceId, { brainKey })
         .pipe(Effect.orDie);
 
+      const scheduler = yield* Scheduler;
       const pages = yield* insertStandardClientBriefPages({
         brainKey,
         insertPage: (page) =>
@@ -951,6 +955,27 @@ const createClientBrain = FunctionImpl.make(
               createdAt: now,
               schemaVersion: 1,
             });
+            yield* enqueueRetrievalPublicationJobEffect(
+              {
+                organizationKey,
+                workspaceId,
+                brainKey,
+                originKind: "page",
+                sourceKey: page.pageKey,
+                sourceRevisionKey: revisionKey,
+                requestGeneration: 1,
+                page: {
+                  authority: "derived",
+                  authorityPolicyKey: "company-pages",
+                  policyGeneration: 1,
+                },
+              },
+              now,
+            ).pipe(
+              Effect.provideService(DatabaseReader, reader),
+              Effect.provideService(DatabaseWriter, writer),
+              Effect.provideService(Scheduler, scheduler),
+            );
           }).pipe(Effect.orDie),
       });
       const membershipId = yield* writer

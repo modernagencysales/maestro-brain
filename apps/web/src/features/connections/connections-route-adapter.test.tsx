@@ -126,7 +126,7 @@ vi.mock("../../adapters/confect-state", () => ({
             callsRouted: 8,
             callsAwaitingRouting: 4,
             backfillComplete: true,
-            lastErrorTag: null,
+            lastErrorTag: "RevisionOrderConflict",
           },
         ],
       };
@@ -258,7 +258,7 @@ describe("ConnectionsRouteAdapter", () => {
           status: "ready",
           callsDiscovered: 12,
           backfillComplete: true,
-          lastError: null,
+          lastError: "Transcript revision order conflict",
         }),
         expect.objectContaining({
           key: "gong",

@@ -905,6 +905,16 @@ describe("Slack channel directory contract", () => {
             )
             .first()
             .pipe(Effect.orDie);
+          const connectionFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (q) =>
+              q
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "connection")
+                .eq("controllerKey", "connection:slack_agency_acme"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
           const connectionValue =
             "value" in (connection as object)
               ? (connection as { value: unknown }).value
@@ -913,7 +923,11 @@ describe("Slack channel directory contract", () => {
             "value" in (channel as object)
               ? (channel as { value: unknown }).value
               : channel;
-          return { connection: connectionValue, channel: channelValue };
+          return {
+            connection: connectionValue,
+            channel: channelValue,
+            connectionFences,
+          };
         }),
         Schema.Any,
       );
@@ -1151,6 +1165,16 @@ describe("Slack channel directory contract", () => {
             )
             .first()
             .pipe(Effect.orDie);
+          const connectionFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (q) =>
+              q
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "connection")
+                .eq("controllerKey", "connection:slack_agency_acme"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
           const connectionValue =
             "value" in (connection as object)
               ? (connection as { value: unknown }).value
@@ -1159,7 +1183,11 @@ describe("Slack channel directory contract", () => {
             "value" in (channel as object)
               ? (channel as { value: unknown }).value
               : channel;
-          return { connection: connectionValue, channel: channelValue };
+          return {
+            connection: connectionValue,
+            channel: channelValue,
+            connectionFences,
+          };
         }),
         Schema.Any,
       );
@@ -1173,6 +1201,13 @@ describe("Slack channel directory contract", () => {
         connectionGeneration: 0,
         channelKey: "slack_agency_acme:C_general",
       });
+      expect(rows.connectionFences).toEqual([
+        expect.objectContaining({
+          controllerKey: "connection:slack_agency_acme",
+          eligibilityGeneration: 1,
+          eligible: true,
+        }),
+      ]);
     });
 
     await Effect.runPromise(
@@ -1830,7 +1865,17 @@ describe("Slack channel directory contract", () => {
             )
             .take(10)
             .pipe(Effect.orDie);
-          return { syncRows, recentRows, channels };
+          const connectionFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (q) =>
+              q
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "connection")
+                .eq("controllerKey", "connection:slack_agency_acme"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          return { syncRows, recentRows, channels, connectionFences };
         }),
         Schema.Any,
       );
@@ -1848,6 +1893,13 @@ describe("Slack channel directory contract", () => {
         isMember: false,
         membershipStatus: "access_lost",
       });
+      expect(rows.connectionFences).toEqual([
+        expect.objectContaining({
+          controllerKey: "connection:slack_agency_acme",
+          eligibilityGeneration: 1,
+          eligible: false,
+        }),
+      ]);
     });
 
     let listCalls = 0;

@@ -24,6 +24,11 @@ describe("normalizeGongCall", () => {
       providerKey: "gong",
       connectionKey: "connection-1",
       externalCallId: "gong-call-001",
+      revisionOrder: {
+        kind: "provider_timestamp",
+        timestamp: "2026-08-02T16:00:00.000Z",
+        source: "started",
+      },
       title: "Redacted account call",
       startedAt: "2026-08-02T16:00:00.000Z",
       endedAt: "2026-08-02T16:03:00.000Z",
@@ -109,6 +114,11 @@ describe("normalizeGongCall", () => {
 
     expect(deleted.deleted).toBe(true);
     expect(deleted.segments).toEqual([]);
+    expect(deleted.revisionOrder).toEqual({
+      kind: "provider_timestamp",
+      timestamp: "2026-08-03T00:00:00.000Z",
+      source: "call._nango_metadata.deleted_at",
+    });
   });
 
   it("rejects mismatched call IDs without exposing payload text", () => {

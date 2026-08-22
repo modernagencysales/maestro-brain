@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import { DatabaseReader } from "../_generated/services";
 import { assertReadableLifecycle } from "./lifecycle";
 import { sha256Hex } from "../shared/sha256";
+import { retrievalTokens } from "./retrievalPublication";
 
 export type AskPage = {
   readonly pageKey: string;
@@ -37,6 +38,10 @@ export type ResolvedTranscriptCitation = {
   readonly citationKey: string;
   readonly sourceKey: string;
   readonly sourceRevisionKey: string;
+  readonly unitKey: string;
+  readonly segmentKey: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
   readonly pageKey: string;
   readonly revisionKey: string;
   readonly title: string;
@@ -164,6 +169,10 @@ export const resolveTranscriptCitation = (input: {
     citationKey: citation.citationId,
     sourceKey: unit.unitKey,
     sourceRevisionKey: revision.unitRevisionKey,
+    unitKey: unit.unitKey,
+    segmentKey: segment.segmentKey,
+    startOffset: citation.startOffset,
+    endOffset: citation.endOffset,
     pageKey: citation.pageKey,
     revisionKey: citation.revisionKey,
     title: revision.title ?? citation.sourceTitle,
@@ -383,23 +392,7 @@ export const reauthorizeRetrievalReceipt = (
   return { ...receipt, state: stale ? "stale" : "consumed" };
 };
 
-const stopWords = new Set([
-  "the",
-  "and",
-  "for",
-  "when",
-  "where",
-  "what",
-  "who",
-  "does",
-  "is",
-]);
-
-const queryWords = (query: string) =>
-  query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((word) => word.length > 2 && !stopWords.has(word));
+const queryWords = retrievalTokens;
 
 const isAuthoritative = (
   page: AskPage,

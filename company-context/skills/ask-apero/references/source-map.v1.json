@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "mapVersion": "0.1.0",
+  "status": "candidate",
+  "scope": {
+    "mode": "single-trusted-agency-brain",
+    "activeBrainKey": "TBD",
+    "multiBrainSelectionAllowed": false
+  },
+  "corpora": [
+    {
+      "corpusKey": "brain-pages",
+      "provider": "internal-reviewed-pages",
+      "owner": "TBD",
+      "pilotRequired": true,
+      "authority": "derived",
+      "readiness": "requires-WP03-snapshot-and-publication-receipt",
+      "freshnessTarget": "TBD",
+      "disclosure": "show snapshot date when snapshot evidence is used"
+    },
+    {
+      "corpusKey": "slack",
+      "provider": "slack",
+      "owner": "TBD",
+      "pilotRequired": true,
+      "authority": "provider-evidence",
+      "readiness": "requires-WP02B-live-publication-receipt",
+      "freshnessTarget": "TBD",
+      "disclosure": "state observed freshness and relevant route or coverage gaps"
+    },
+    {
+      "corpusKey": "transcripts",
+      "provider": "TBD",
+      "owner": "TBD",
+      "pilotRequired": true,
+      "authority": "provider-evidence",
+      "readiness": "requires-WP02B-live-publication-receipt",
+      "freshnessTarget": "TBD",
+      "disclosure": "cite exact transcript segment and observed freshness"
+    },
+    {
+      "corpusKey": "first-document-source",
+      "provider": "TBD",
+      "owner": "TBD",
+      "pilotRequired": false,
+      "authority": "provider-evidence",
+      "readiness": "post-thin-slice-owner-decision",
+      "freshnessTarget": "TBD",
+      "disclosure": "do not claim coverage before provider, container, and receipt are approved"
+    },
+    {
+      "corpusKey": "structured-source",
+      "provider": "TBD",
+      "owner": "TBD",
+      "pilotRequired": false,
+      "authority": "field-specific-provider-evidence",
+      "readiness": "conditional-on-measured-E2-gap",
+      "freshnessTarget": "TBD",
+      "disclosure": "do not infer a provider or typed field map before the owner decision"
+    }
+  ]
+}

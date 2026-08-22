@@ -289,6 +289,21 @@ describe("check:headless-surface-contract", () => {
     ).toEqual([]);
   });
 
+  it("accepts remote CLI mappings only when HTTP dispatch resolves through them", () => {
+    const source = `
+      export const remoteCliOperationRefs = {
+        "brain.rollout.status": "brain.rollout.status",
+      };
+
+      const operationId = remoteCliOperationRefs[maybeId];
+      return fetch(\`${"${origin}"}/api/${"${operationId}"}\`, {});
+    `;
+
+    expect(
+      missingCliGeneratedRefUsage(["brain.rollout.status"], source),
+    ).toEqual([]);
+  });
+
   it("rejects CLI mappings with regex-compatible but wrong operation IDs", () => {
     const source = `
       export const staticCliOperationRefs = {

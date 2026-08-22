@@ -1,4 +1,5 @@
 import { convexTest } from "convex-test";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import convexSchema from "../confect/_generated/convexSchema";
@@ -103,6 +104,12 @@ describe("source ledger schema", () => {
         "transportDeliveryId",
       ],
       by_observation_key: ["organizationKey", "observationKey"],
+      by_connection_generation_provider_event: [
+        "organizationKey",
+        "connectionKey",
+        "connectionGeneration",
+        "providerEventId",
+      ],
       by_received_at: ["organizationKey", "receivedAt"],
       by_outcome: ["organizationKey", "outcome"],
     });
@@ -127,6 +134,7 @@ describe("source ledger schema", () => {
       by_source_revision_key: ["organizationKey", "sourceRevisionKey"],
       by_source_provider_order: ["sourceKey", "providerOrder"],
       by_source_created: ["organizationKey", "sourceCreatedAt"],
+      by_organization_ledger: ["organizationKey"],
       by_lifecycle_purge_after: [
         "organizationKey",
         "lifecycle.state",
@@ -286,6 +294,7 @@ describe("source ledger schema", () => {
 
   it("builds exact receipt, artifact, revision, and assembly job rows", () => {
     const rows = buildSourceLedgerRows(capture, { verifiedBinding });
+    if (!rows.artifact) throw new Error("expected an inserted source artifact");
 
     expect(ProviderEventReceiptRow.pipe).toBeDefined();
     expect(rows.receipt).toMatchObject({
@@ -305,14 +314,30 @@ describe("source ledger schema", () => {
       providerObjectId: "1680000000.000100",
       latestSourceRevisionKey: rows.receipt.sourceRevisionKey,
       latestProviderOrder:
-        "2026-07-20T10:00:00.000Z|rev_1|agency_acme|slack_agency_acme|2|live|evt_1",
+        "00000000000000000001|rev_1|agency_acme|slack_agency_acme|2|live|evt_1",
       lifecycle: { state: "active", generation: 1, updatedAt: 1_000 },
     });
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)(rows.artifact),
+    ).not.toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)({
+        ...rows.artifact,
+        latestProviderOrder: "00000000000000000001",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)({
+        ...rows.artifact,
+        latestProviderOrder:
+          "00000000000000000001|rev_1|agency_acme|slack_agency_acme|2|live|evt_1|unexpected",
+      }),
+    ).toThrow();
     expect(SourceRevisionRow.pipe).toBeDefined();
     expect(rows.revision).toMatchObject({
       schemaVersion: 1,
       providerRevisionId: "rev_1",
-      sourceCreatedAt: 1_000,
+      sourceCreatedAt: 1_784_541_600_000,
       sourceTimestamp: "2026-07-20T10:00:00.000Z",
       normalizedText: "hello agency",
       tombstone: false,
@@ -465,6 +490,7 @@ describe("source ledger schema", () => {
           text: "",
           tombstone: true,
           sourceTimestamp: "2026-07-20T10:00:01.000Z",
+          providerOrder: "00000000000000000002",
           providerRevisionId: "rev_2",
           revisionNonce: "message-delete",
         },
@@ -474,12 +500,7 @@ describe("source ledger schema", () => {
           ...verifiedBinding,
           providerEventId: "Ev_acme_delete",
         }),
-        existingArtifact: {
-          sourceKey: artifact.sourceKey,
-          latestProviderOrder: artifact.latestProviderOrder,
-          lifecycleGeneration: artifact.lifecycle.generation,
-          createdAt: artifact.createdAt,
-        },
+        existingArtifact: artifact,
       },
     );
     expect(
@@ -508,12 +529,12 @@ describe("source ledger schema", () => {
     ).toThrow("DuplicateKeyConflict");
   });
 
-  it("uses the minimum receipt tuple for equal primary order and preserves artifact creation time", () => {
+  it("rejects equal provider order and preserves artifact creation time for newer revisions", () => {
     const first = buildSourceLedgerRows(capture, { verifiedBinding });
     expect(first.artifact).not.toBeNull();
     if (!first.artifact) throw new Error("expected artifact");
     const firstArtifact = first.artifact;
-    const smallerReceipt = {
+    const newerReceipt = {
       ...capture,
       envelope: {
         ...capture.envelope,
@@ -522,22 +543,18 @@ describe("source ledger schema", () => {
       },
       observation: {
         ...capture.observation,
-        text: "equal primary correction",
-        providerRevisionId: "rev_1",
+        text: "newer provider correction",
+        providerOrder: "00000000000000000002",
+        providerRevisionId: "rev_2",
         revisionNonce: "message-edit",
       },
     };
-    const update = buildSourceLedgerRows(smallerReceipt, {
+    const update = buildSourceLedgerRows(newerReceipt, {
       verifiedBinding: makeVerifiedBinding({
         ...verifiedBinding,
         providerEventId: "Ev_acme_min",
       }),
-      existingArtifact: {
-        sourceKey: firstArtifact.sourceKey,
-        latestProviderOrder: firstArtifact.latestProviderOrder,
-        lifecycleGeneration: firstArtifact.lifecycle.generation,
-        createdAt: firstArtifact.createdAt,
-      },
+      existingArtifact: firstArtifact,
     });
 
     expect(update.artifact).not.toBeNull();
@@ -545,16 +562,21 @@ describe("source ledger schema", () => {
     expect(update.artifact.createdAt).toBe(firstArtifact.createdAt);
     expect(update.artifact.updatedAt).toBe(capture.envelope.receivedAt);
     expect(
-      update.artifact.latestProviderOrder < firstArtifact.latestProviderOrder,
+      update.artifact.latestProviderOrder > firstArtifact.latestProviderOrder,
     ).toBe(true);
     expect(() =>
       buildSourceLedgerRows(
         {
-          ...smallerReceipt,
+          ...capture,
           envelope: {
-            ...smallerReceipt.envelope,
+            ...capture.envelope,
             transport: "reconciliation" as const,
             transportDeliveryId: "zzz_max",
+          },
+          observation: {
+            ...capture.observation,
+            text: "conflicting equal-order correction",
+            revisionNonce: "message-conflict",
           },
         },
         {
@@ -562,12 +584,7 @@ describe("source ledger schema", () => {
             ...verifiedBinding,
             providerEventId: "Ev_acme_max",
           }),
-          existingArtifact: {
-            sourceKey: firstArtifact.sourceKey,
-            latestProviderOrder: firstArtifact.latestProviderOrder,
-            lifecycleGeneration: firstArtifact.lifecycle.generation,
-            createdAt: firstArtifact.createdAt,
-          },
+          existingArtifact: firstArtifact,
         },
       ),
     ).toThrow("DuplicateKeyConflict");

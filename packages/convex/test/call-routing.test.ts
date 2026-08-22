@@ -6,7 +6,12 @@ import { describe, expect, it } from "vitest";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import refs from "../confect/_generated/refs";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import {
+  providerTargetResolutionAuthorityDigest,
+  providerTargetResolutionIntentKey,
+} from "../confect/brain/providerTargetResolution";
+import { sha256Hex } from "../confect/shared/sha256";
 import { buildCallSourceUnitRows } from "../confect/sources/sourceUnit";
 import { testConfectLayer } from "./support/confect";
 
@@ -22,6 +27,11 @@ const call = {
   connectionKey: "conn_fireflies_1",
   externalCallId: "call_1",
   externalRevisionId: "revision_1",
+  revisionOrder: {
+    kind: "provider_timestamp",
+    timestamp: "2026-08-05T14:30:00.000Z",
+    source: "updated_at",
+  },
   title: "Acme weekly",
   startedAt: "2026-08-05T14:00:00.000Z",
   endedAt: "2026-08-05T14:30:00.000Z",
@@ -59,7 +69,7 @@ const rows = buildCallSourceUnitRows(call, {
   receivedAt: now,
 });
 
-const seed = (withMapping = true) =>
+const seed = (withMapping = true, agencyBrainKey?: string) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
     const organizationId = yield* writer
@@ -79,6 +89,7 @@ const seed = (withMapping = true) =>
       .insert({
         organizationId,
         ownerUserId: "user_owner",
+        ...(agencyBrainKey === undefined ? {} : { brainKey: agencyBrainKey }),
         slug: "agency",
         name: "Agency",
         kind: "agency",
@@ -112,6 +123,82 @@ const seed = (withMapping = true) =>
       .pipe(Effect.orDie);
     for (const segment of rows.segments)
       yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
+    const ingestionObligationKey = `iobl_${sha256Hex(
+      JSON.stringify({
+        authorityKind: "live_capture",
+        providerKind: "transcript",
+        connectionKey: rows.unit.connectionKey,
+        connectionGeneration: rows.unit.connectionGeneration,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+      }),
+    )}`;
+    const authority = {
+      authorityKind: "live_capture",
+      targetResolutionIntentKey: providerTargetResolutionIntentKey({
+        ingestionObligationKey,
+      }),
+      ingestionObligationKey,
+      organizationKey,
+      corpusKey: "transcripts",
+      providerKind: "transcript",
+      connectorScopeKey: rows.unit.connectionKey,
+      connectionKey: rows.unit.connectionKey,
+      connectionGeneration: rows.unit.connectionGeneration,
+      membershipKey: call.externalCallId,
+      originKind: "transcript",
+      originKey: rows.unit.unitKey,
+      originRevisionKey: rows.revision.unitRevisionKey,
+      observationDigest: rows.revision.contentHash,
+      resolutionGeneration: 1,
+      captureKey: `transcript-sync:${rows.unit.connectionKey}:null:${rows.revision.unitRevisionKey}`,
+      capturedAt: now,
+    } as const;
+    const targetResolutionIntentId = yield* writer
+      .table("providerTargetResolutionIntents")
+      .insert({
+        schemaVersion: 1,
+        ...authority,
+        authorityDigest: providerTargetResolutionAuthorityDigest(authority),
+        status: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        lastErrorTag: null,
+        targetCount: 0,
+        targetDigest: null,
+        targets: [],
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("ingestionObligations")
+      .insert({
+        schemaVersion: 1,
+        authorityKind: "live_capture",
+        organizationKey,
+        corpusKey: "transcripts",
+        providerKind: "transcript",
+        connectorScopeKey: rows.unit.connectionKey,
+        connectionKey: rows.unit.connectionKey,
+        connectionGeneration: rows.unit.connectionGeneration,
+        ingestionObligationKey,
+        cause: "observation",
+        membershipKey: call.externalCallId,
+        originKind: "transcript",
+        originKey: rows.unit.unitKey,
+        originRevisionKey: rows.revision.unitRevisionKey,
+        ledgerSequence: now,
+        state: "target_resolution_pending",
+        targetResolutionIntentId,
+        targetResolutionIntentKey: authority.targetResolutionIntentKey,
+        publicationJobKeys: [],
+        errorTag: null,
+        terminalAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
     if (withMapping)
       yield* writer
         .table("callRouteMappings")
@@ -157,7 +244,20 @@ describe("call routing persistence", () => {
           routedAt: now + 2,
         },
       );
-      return { first, duplicate };
+      const routeFences = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          return yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (query) =>
+              query.eq("organizationKey", organizationKey).eq("kind", "route"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      return { first, duplicate, routeFences };
     });
 
     await expect(
@@ -175,6 +275,13 @@ describe("call routing persistence", () => {
         reason: "participant_domain",
         routeGeneration: 1,
       },
+      routeFences: [
+        {
+          controllerKey: `transcript-route:${rows.unit.unitKey}:br_acme`,
+          eligibilityGeneration: 1,
+          eligible: true,
+        },
+      ],
     });
   });
 
@@ -264,6 +371,49 @@ describe("call routing persistence", () => {
         outcome: "routed",
         brainKey: "br_acme",
         reason: "review_accept",
+      },
+    });
+  });
+
+  it("supersedes a no-match proposal when an approved agency Brain is named", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seed(false, "br_agency"), Id("workspaces"));
+      const initial = yield* confect.mutation(
+        refs.internal.capabilities.routeCallToBrain.routeCallToBrain,
+        {
+          organizationKey,
+          unitRevisionKey: rows.revision.unitRevisionKey,
+          agencyDomains: ["maestrogtm.com"],
+          caller,
+          routedAt: now + 1,
+        },
+      );
+      const rerouted = yield* confect.mutation(
+        refs.internal.capabilities.routeCallToBrain.routeCallToBrain,
+        {
+          organizationKey,
+          unitRevisionKey: rows.revision.unitRevisionKey,
+          explicitBrainKey: "br_agency",
+          agencyDomains: ["maestrogtm.com"],
+          caller,
+          routedAt: now + 2,
+        },
+      );
+      return { initial, rerouted };
+    });
+
+    await expect(
+      Effect.runPromise(program.pipe(Effect.provide(testConfectLayer()))),
+    ).resolves.toMatchObject({
+      initial: { outcome: "no_match", routeGeneration: 1 },
+      rerouted: {
+        outcome: "routed",
+        brainKey: "br_agency",
+        reason: "explicit",
+        routeGeneration: 2,
       },
     });
   });

@@ -54,6 +54,16 @@ match.rules = ["qlty:similar-code"]
 match.file_patterns = ["packages/template-core/src/generated/confectManifest.ts"]
 set.ignored = true
 
+# Qlty invokes Gitleaks one file at a time without applying the repository's
+# custom .gitleaks.toml. Its built-in generic-key heuristic consequently treats
+# typed test identifiers such as brainKey and idempotencyKey as credentials.
+# Limit the exception to that heuristic and Convex test fixtures; concrete
+# provider-token and vendor-secret rules continue to scan these files.
+[[triage]]
+match.rules = ["gitleaks:generic-api-key"]
+match.file_patterns = ["packages/convex/test/**"]
+set.ignored = true
+
 [[exclude]]
 plugins = ["qlty"]
 file_patterns = ["packages/template-core/src/generated/confectManifest.ts"]

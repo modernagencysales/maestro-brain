@@ -38,7 +38,7 @@ describe("template sample data", () => {
   it("derives the API docs summary from the generated OpenAPI artifact", () => {
     expect(openApiSummary).toEqual({
       version: "3.1.0",
-      operationCount: 7,
+      operationCount: 8,
       docsRoute: "/api/docs",
       typedErrors: [
         "Unauthorized",
@@ -48,6 +48,11 @@ describe("template sample data", () => {
         "PageNotFound",
         "ValidationFailed",
         "SubsystemDisabled",
+        "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       authScope: "workspace member",
     });

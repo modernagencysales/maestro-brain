@@ -1,5 +1,8 @@
 import { admitSlackSignedEvent } from "./admission";
-import { captureAdmittedSlackEvent } from "./sourceCapture";
+import {
+  captureAdmittedSlackEvent,
+  slackProviderObjectIdFor,
+} from "./sourceCapture";
 
 type IngressInput = Parameters<typeof admitSlackSignedEvent>[0] & {
   readonly payload: unknown;
@@ -38,7 +41,7 @@ export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
   };
   const source = await db.findArtifact(
     input.channelKey,
-    `${input.externalChannelId}:${String((input.payload as { event?: { ts?: unknown } }).event?.ts ?? (input.payload as { event?: { deleted_ts?: unknown } }).event?.deleted_ts ?? "")}`,
+    slackProviderObjectIdFor(input.payload),
   );
   const rows = captureAdmittedSlackEvent(binding, input.payload, {
     envelope,
@@ -48,7 +51,7 @@ export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
           existingArtifact: source as {
             sourceKey: string;
             latestProviderOrder: string;
-            lifecycleGeneration: number;
+            lifecycle: { generation: number };
             createdAt: number;
           },
         }
@@ -62,5 +65,14 @@ export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
     await db.insert("sourceRevisions", rows.revision);
     await db.insert("sourceProcessingJobs", rows.processingJob);
   }
-  return { outcome: (rows.receipt as { outcome: string }).outcome };
+  return {
+    outcome: (rows.receipt as { outcome: string }).outcome,
+    ...(rows.revision === null || rows.revision === undefined
+      ? {}
+      : {
+          sourceKey: (rows.revision as { sourceKey: string }).sourceKey,
+          sourceRevisionKey: (rows.revision as { sourceRevisionKey: string })
+            .sourceRevisionKey,
+        }),
+  };
 };

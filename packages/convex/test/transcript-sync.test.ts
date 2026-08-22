@@ -1,4 +1,5 @@
 import { Ref } from "@confect/core";
+import type { CanonicalCallTranscript } from "@maestro-template/integrations/transcripts/canonical";
 import {
   DatabaseSchema,
   RegisteredConvexFunction,
@@ -12,7 +13,10 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
 
 import databaseSchema from "../confect/_generated/schema";
+import { Id } from "../confect/_generated/id";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import { resolveTranscriptLiveCaptureTargetEffect } from "../confect/brain/liveCaptureObligations";
+import { sweepPublicationJobsEffect } from "../confect/brain/retrievalPublication.impl";
 import {
   buildTranscriptConnectionHealth,
   claimTranscriptSyncState,
@@ -20,6 +24,7 @@ import {
   failTranscriptSyncState,
   makeTranscriptSyncImpl,
   selectNextTranscriptSyncState,
+  transcriptSyncPageCapacity,
   TranscriptSyncFenceError,
   type TranscriptSyncState,
 } from "../confect/integrations/transcriptSync.impl";
@@ -33,6 +38,7 @@ import transcriptSync, {
   claimTranscriptSyncPage,
   commitTranscriptSyncPage,
   failTranscriptSyncPage,
+  ingestTranscriptSyncPage,
 } from "../confect/integrations/transcriptSync.spec";
 import connectorSyncStatesSource from "../confect/tables/connectorSyncStates";
 
@@ -60,11 +66,19 @@ const state = (
   ...overrides,
 });
 
-const canonicalCall = (id: string, deleted = false) => ({
+const canonicalCall = (
+  id: string,
+  deleted = false,
+): CanonicalCallTranscript => ({
   providerKey: "fireflies",
   connectionKey: "fireflies_agency_acme",
   externalCallId: id,
   externalRevisionId: `revision-${id}`,
+  revisionOrder: {
+    kind: "provider_timestamp" as const,
+    timestamp: "2026-08-05T14:01:00.000Z",
+    source: "updated_at",
+  },
   title: `Call ${id}`,
   startedAt: "2026-08-05T14:00:00.000Z",
   endedAt: "2026-08-05T14:01:00.000Z",
@@ -264,6 +278,7 @@ describe("transcript sync persistence", () => {
   const refs = {
     claim: Ref.make("integrations/transcriptSync", claimTranscriptSyncPage),
     commit: Ref.make("integrations/transcriptSync", commitTranscriptSyncPage),
+    ingest: Ref.make("integrations/transcriptSync", ingestTranscriptSyncPage),
     fail: Ref.make("integrations/transcriptSync", failTranscriptSyncPage),
   };
   const seed = Effect.gen(function* () {
@@ -331,7 +346,17 @@ describe("transcript sync persistence", () => {
             )
             .first()
             .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-          return { syncRows, connection };
+          const connectionFences = yield* reader
+            .table("retrievalEligibilityFences")
+            .index("by_organization_kind_controller", (q) =>
+              q
+                .eq("organizationKey", "agency_acme")
+                .eq("kind", "connection")
+                .eq("controllerKey", "connection:fireflies_agency_acme"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          return { syncRows, connection, connectionFences };
         }),
         Schema.Any,
       );
@@ -358,6 +383,547 @@ describe("transcript sync persistence", () => {
     expect(result.rows.connection).toMatchObject({
       status: "active",
       connectionGeneration: 1,
+    });
+    expect(result.rows.connectionFences).toEqual([
+      expect.objectContaining({
+        controllerKey: "connection:fireflies_agency_acme",
+        eligibilityGeneration: 1,
+        eligible: true,
+      }),
+    ]);
+  });
+
+  it("atomically ingests two calls, creates live parents, and advances the cursor", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      yield* confect.run(seed, Schema.Boolean);
+      const claimed = yield* confect.mutation(refs.claim, {
+        connectionKey: "fireflies_agency_acme",
+        expectedGeneration: 0,
+        leaseId: "lease-atomic-success",
+        now: 1_000,
+      });
+      const committed = yield* confect.mutation(refs.ingest, {
+        connectionKey: claimed.connectionKey,
+        expectedGeneration: claimed.connectionGeneration,
+        expectedCursor: claimed.cursor,
+        leaseId: claimed.leaseId,
+        nextCursor: "cursor-2",
+        calls: [canonicalCall("first"), canonicalCall("second")],
+        now: 1_100,
+      });
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const revisions = yield* reader
+            .table("sourceUnitRevisions")
+            .index("by_organization_ledger", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const parents = yield* reader
+            .table("providerTargetResolutionIntents")
+            .index("by_status_due_intent", (query) =>
+              query.eq("status", "pending"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const parentObligations = yield* reader
+            .table("ingestionObligations")
+            .index("by_state_updated_obligation", (query) =>
+              query.eq("state", "target_resolution_pending"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          const sync = yield* reader
+            .table("connectorSyncStates")
+            .index("by_connection", (query) =>
+              query.eq("connectionKey", "fireflies_agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          return { revisions, parents, parentObligations, sync };
+        }),
+        Schema.Any,
+      );
+      return { committed, rows };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testLayer())),
+    );
+    expect(result.committed).toMatchObject({
+      status: "queued",
+      cursor: "cursor-2",
+      callsDiscovered: 2,
+      callsIngested: 2,
+      duplicateCount: 0,
+    });
+    expect(result.rows.revisions).toHaveLength(2);
+    expect(result.rows.parents).toHaveLength(2);
+    for (const parent of result.rows.parents) {
+      expect(parent).toMatchObject({
+        authorityKind: "live_capture",
+        providerKind: "transcript",
+        corpusKey: "transcripts",
+        status: "pending",
+        targetCount: 0,
+        targets: [],
+        connectionKey: "fireflies_agency_acme",
+        connectionGeneration: 1,
+      });
+      expect(parent.captureKey).toEqual(expect.any(String));
+      expect(parent.capturedAt).toBe(1_100);
+      expect(parent).not.toHaveProperty("reconciliationRunKey");
+      expect(parent).not.toHaveProperty("pageEnvelopeKey");
+      expect(parent).not.toHaveProperty("pageChunkKey");
+    }
+    expect(JSON.stringify(result.rows.parents)).not.toMatch(
+      /crun_|cenv_|cchunk_/,
+    );
+    expect(result.rows.parentObligations).toHaveLength(2);
+    for (const parent of result.rows.parentObligations) {
+      expect(parent).toMatchObject({
+        authorityKind: "live_capture",
+        providerKind: "transcript",
+        state: "target_resolution_pending",
+        publicationJobKeys: [],
+      });
+      expect(parent).not.toHaveProperty("workspaceId");
+      expect(parent).not.toHaveProperty("brainKey");
+      expect(parent).not.toHaveProperty("allowlistGeneration");
+      expect(parent).not.toHaveProperty("requiredScopeIntentKey");
+      expect(parent).not.toHaveProperty("reconciliationRunKey");
+    }
+    expect(result.rows.sync).toMatchObject({
+      status: "queued",
+      cursor: "cursor-2",
+      callsDiscovered: 2,
+      callsIngested: 2,
+    });
+  });
+
+  it("resolves one routed live transcript into an exact required scope, child, and job", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      yield* confect.run(seed, Schema.Boolean);
+      const workspaceId = yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          const userId = yield* writer
+            .table("users")
+            .insert({
+              subject: "transcript-live-route-owner",
+              email: "transcript-live-route@example.test",
+              status: "active",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          const organizationId = yield* writer
+            .table("organizations")
+            .insert({
+              ownerUserId: userId,
+              agencyKey: "agency_acme",
+              slug: "transcript-live-route",
+              name: "Transcript Live Route",
+              status: "active",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          return yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "brain_transcript_live",
+              slug: "transcript-live-brain",
+              name: "Transcript Live Brain",
+              kind: "client",
+              status: "active",
+              dataClassification: "confidential",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Id("workspaces"),
+      );
+      const claimed = yield* confect.mutation(refs.claim, {
+        connectionKey: "fireflies_agency_acme",
+        expectedGeneration: 0,
+        leaseId: "lease-live-route",
+        now: 1_000,
+      });
+      yield* confect.mutation(refs.ingest, {
+        connectionKey: claimed.connectionKey,
+        expectedGeneration: claimed.connectionGeneration,
+        expectedCursor: claimed.cursor,
+        leaseId: claimed.leaseId,
+        nextCursor: null,
+        calls: [canonicalCall("routed-live")],
+        now: 1_100,
+      });
+      const revision = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          return yield* reader
+            .table("sourceUnitRevisions")
+            .index("by_organization_ledger", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      const jobKey = yield* confect.run(
+        resolveTranscriptLiveCaptureTargetEffect({
+          organizationKey: "agency_acme",
+          workspaceId,
+          brainKey: "brain_transcript_live",
+          connectionKey: "fireflies_agency_acme",
+          connectionGeneration: 1,
+          unitKey: revision.unitKey,
+          unitRevisionKey: revision.unitRevisionKey,
+          routeGeneration: 1,
+          now: 1_200,
+        }),
+        Schema.NullOr(Schema.String),
+      );
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const [parents, obligations, required, jobs] = yield* Effect.all([
+            reader
+              .table("providerTargetResolutionIntents")
+              .index("by_origin_revision", (query) =>
+                query
+                  .eq("organizationKey", "agency_acme")
+                  .eq("originKind", "transcript")
+                  .eq("originRevisionKey", revision.unitRevisionKey),
+              )
+              .take(2),
+            reader
+              .table("ingestionObligations")
+              .index("by_origin_revision", (query) =>
+                query
+                  .eq("organizationKey", "agency_acme")
+                  .eq("originKind", "transcript")
+                  .eq("originRevisionKey", revision.unitRevisionKey),
+              )
+              .take(3),
+            reader
+              .table("brainRequiredScopeIntents")
+              .index("by_workspace_brain_state", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", "brain_transcript_live")
+                  .eq("state", "required"),
+              )
+              .take(2),
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) => query.eq("jobKey", jobKey ?? ""))
+              .take(2),
+          ]).pipe(Effect.orDie);
+          return { parents, obligations, required, jobs };
+        }),
+        Schema.Any,
+      );
+      const child = rows.obligations.find(
+        (obligation: { parentIngestionObligationKey?: string }) =>
+          obligation.parentIngestionObligationKey !== undefined,
+      );
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("ingestionObligations")
+            .patch(child._id, {
+              state: "complete",
+              terminalAt: 1_250,
+              updatedAt: 1_250,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      const swept = yield* confect.run(
+        sweepPublicationJobsEffect({
+          limit: 5,
+          caller: {
+            kind: "system",
+            name: "transcript-parent-recovery-test",
+            surface: "internal",
+          },
+          now: 1_300,
+        }),
+        Schema.Any,
+      );
+      const recoveredParent = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          return yield* reader
+            .table("ingestionObligations")
+            .index("by_ingestion_obligation_key", (query) =>
+              query.eq(
+                "ingestionObligationKey",
+                rows.parents[0].ingestionObligationKey,
+              ),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      return { jobKey, rows, swept, recoveredParent };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testLayer())),
+    );
+    expect(result.jobKey).toMatch(/^rjob_[a-f0-9]{64}$/);
+    expect(result.rows.parents).toEqual([
+      expect.objectContaining({ status: "succeeded", targetCount: 1 }),
+    ]);
+    expect(result.rows.required).toEqual([
+      expect.objectContaining({
+        workspaceId: expect.any(String),
+        brainKey: "brain_transcript_live",
+        providerKind: "transcript",
+        state: "required",
+      }),
+    ]);
+    const parent = result.rows.obligations.find(
+      (obligation: { parentIngestionObligationKey?: string }) =>
+        obligation.parentIngestionObligationKey === undefined,
+    );
+    const child = result.rows.obligations.find(
+      (obligation: { parentIngestionObligationKey?: string }) =>
+        obligation.parentIngestionObligationKey !== undefined,
+    );
+    expect(parent).toMatchObject({
+      state: "drain_pending",
+      publicationJobKeys: [],
+    });
+    expect(child).toMatchObject({
+      parentIngestionObligationKey: parent.ingestionObligationKey,
+      requiredScopeIntentKey: result.rows.required[0]?.requiredScopeIntentKey,
+      state: "publication_pending",
+      publicationJobKeys: [result.jobKey],
+    });
+    expect(result.rows.jobs).toEqual([
+      expect.objectContaining({
+        jobKey: result.jobKey,
+        ingestionObligationKey: child.ingestionObligationKey,
+      }),
+    ]);
+    expect(result.rows.parents[0]?.targets[0]).toMatchObject({
+      jobKey: result.jobKey,
+      childIngestionObligationKey: child.ingestionObligationKey,
+    });
+    expect(result.swept.jobKeys).toContain(result.jobKey);
+    expect(result.recoveredParent).toMatchObject({
+      state: "complete",
+      errorTag: null,
+      terminalAt: 1_300,
+    });
+  });
+
+  it("rolls back the first call and cursor when the second call conflicts", async () => {
+    const first = canonicalCall("same-order");
+    const firstSegment = first.segments[0];
+    if (firstSegment === undefined)
+      throw new Error("Canonical call fixture must contain one segment.");
+    const conflictingSecond = {
+      ...first,
+      externalRevisionId: "revision-same-order-conflict",
+      segments: [
+        {
+          ...firstSegment,
+          text: "Conflicting transcript at the same provider order.",
+        },
+      ],
+    };
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      yield* confect.run(seed, Schema.Boolean);
+      const claimed = yield* confect.mutation(refs.claim, {
+        connectionKey: "fireflies_agency_acme",
+        expectedGeneration: 0,
+        leaseId: "lease-atomic-rollback",
+        now: 1_000,
+      });
+      const attempted = yield* Effect.either(
+        confect.mutation(refs.ingest, {
+          connectionKey: claimed.connectionKey,
+          expectedGeneration: claimed.connectionGeneration,
+          expectedCursor: claimed.cursor,
+          leaseId: claimed.leaseId,
+          nextCursor: "cursor-must-not-commit",
+          calls: [first, conflictingSecond],
+          now: 1_100,
+        }),
+      );
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const revisions = yield* reader
+            .table("sourceUnitRevisions")
+            .index("by_organization_ledger", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const parents = yield* reader
+            .table("providerTargetResolutionIntents")
+            .index("by_status_due_intent", (query) =>
+              query.eq("status", "pending"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const obligations = yield* reader
+            .table("ingestionObligations")
+            .index("by_state_updated_obligation", (query) =>
+              query.eq("state", "target_resolution_pending"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          const sync = yield* reader
+            .table("connectorSyncStates")
+            .index("by_connection", (query) =>
+              query.eq("connectionKey", "fireflies_agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          return { revisions, parents, obligations, sync };
+        }),
+        Schema.Any,
+      );
+      return { attempted, rows };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testLayer())),
+    );
+    expect(result.attempted).toMatchObject({ _tag: "Left" });
+    expect(result.rows.revisions).toEqual([]);
+    expect(result.rows.parents).toEqual([]);
+    expect(result.rows.obligations).toEqual([]);
+    expect(result.rows.sync).toMatchObject({
+      status: "syncing",
+      cursor: null,
+      leaseId: "lease-atomic-rollback",
+      callsDiscovered: 0,
+      callsIngested: 0,
+    });
+  });
+
+  it("rejects an oversized atomic page before any source writes", async () => {
+    const calls = Array.from({ length: 100 }, (_, callIndex) => {
+      const call = canonicalCall(`capacity-${callIndex}`);
+      const firstSegment = call.segments[0];
+      if (firstSegment === undefined)
+        throw new Error("Canonical call fixture must contain one segment.");
+      return {
+        ...call,
+        segments: Array.from({ length: 64 }, (_, segmentIndex) => ({
+          ...firstSegment,
+          externalSegmentId: `${call.externalCallId}:${segmentIndex}`,
+          ordinal: segmentIndex,
+          startMs: segmentIndex,
+          endMs: segmentIndex + 1,
+        })),
+      };
+    });
+    expect(transcriptSyncPageCapacity(calls)).toMatchObject({
+      callCount: 100,
+      segmentCount: 6_400,
+      estimatedWrites: 7_101,
+      accepted: false,
+    });
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      yield* confect.run(seed, Schema.Boolean);
+      const claimed = yield* confect.mutation(refs.claim, {
+        connectionKey: "fireflies_agency_acme",
+        expectedGeneration: 0,
+        leaseId: "lease-capacity",
+        now: 1_000,
+      });
+      const attempted = yield* Effect.either(
+        confect.mutation(refs.ingest, {
+          connectionKey: claimed.connectionKey,
+          expectedGeneration: claimed.connectionGeneration,
+          expectedCursor: claimed.cursor,
+          leaseId: claimed.leaseId,
+          nextCursor: "cursor-must-not-commit",
+          calls,
+          now: 1_100,
+        }),
+      );
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const revisions = yield* reader
+            .table("sourceUnitRevisions")
+            .index("by_organization_ledger", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const parents = yield* reader
+            .table("providerTargetResolutionIntents")
+            .index("by_status_due_intent", (query) =>
+              query.eq("status", "pending"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const obligations = yield* reader
+            .table("ingestionObligations")
+            .index("by_state_updated_obligation", (query) =>
+              query.eq("state", "target_resolution_pending"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          const sync = yield* reader
+            .table("connectorSyncStates")
+            .index("by_connection", (query) =>
+              query.eq("connectionKey", "fireflies_agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          return { revisions, parents, obligations, sync };
+        }),
+        Schema.Any,
+      );
+      return { attempted, rows };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testLayer())),
+    );
+    expect(result.attempted).toMatchObject({ _tag: "Left" });
+    expect(result.rows.revisions).toEqual([]);
+    expect(result.rows.parents).toEqual([]);
+    expect(result.rows.obligations).toEqual([]);
+    expect(result.rows.sync).toMatchObject({
+      status: "syncing",
+      cursor: null,
+      leaseId: "lease-capacity",
+      callsDiscovered: 0,
+      callsIngested: 0,
     });
   });
 
@@ -625,6 +1191,35 @@ describe("transcript sync page execution", () => {
       retryAfterMs: 60_000,
     });
     expect(result).toEqual({ kind: "failed", errorTag: "ProviderUnavailable" });
+  });
+
+  it("stops the page on a visible revision-order conflict", async () => {
+    const commit = vi.fn();
+    const fail = vi.fn(async (result: unknown) => result);
+    const result = await runTranscriptSyncPage({
+      cursor: "cursor-1",
+      listPage: async () => ({
+        records: [{ id: "conflict" }],
+        nextCursor: "cursor-2",
+      }),
+      normalize: async () => canonicalCall("conflict"),
+      ingest: async () => {
+        throw { _tag: "RevisionOrderConflict" };
+      },
+      commit,
+      fail,
+    });
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(fail).toHaveBeenCalledWith({
+      expectedCursor: "cursor-1",
+      errorTag: "RevisionOrderConflict",
+      retryAfterMs: null,
+    });
+    expect(result).toEqual({
+      kind: "failed",
+      errorTag: "RevisionOrderConflict",
+    });
   });
 
   it("honors Retry-After and redacts permanent decode failures", async () => {
@@ -949,7 +1544,10 @@ describe("Nango transcript provider", () => {
         recording_id: 123,
         title: "Deleted Fathom call",
         recording_start_time: "2026-08-05T14:00:00Z",
-        _nango_metadata: { last_action: "DELETED" },
+        _nango_metadata: {
+          last_action: "DELETED",
+          deleted_at: "2026-08-06T00:00:00Z",
+        },
       },
       "fathom-oauth",
     ],

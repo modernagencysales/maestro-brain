@@ -16,6 +16,7 @@ import {
   DatabaseReader,
   DatabaseWriter,
   QueryRunner,
+  Scheduler,
 } from "../_generated/services";
 import { isStableAgencyKey } from "../identity/stableKeys";
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
@@ -33,6 +34,11 @@ import {
 } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
+import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
+import {
+  pageLifecycleFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "./retrievalEligibility";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind =
@@ -48,7 +54,7 @@ type ReadPageError = AccessError | ValidationFailed | PageNotFound;
 type PageError =
   ReadPageError | PageTreeConflict | RevisionNotFound | StaleRevision;
 type ReadPageDeps = Auth | DatabaseReader | QueryRunner;
-type PageDeps = ReadPageDeps | DatabaseWriter;
+type PageDeps = ReadPageDeps | DatabaseWriter | Scheduler;
 const auditActions = {
   create: "page.created",
   rename: "page.renamed",
@@ -338,6 +344,23 @@ const writePageRevision = (args: {
         schemaVersion: 1,
       })
       .pipe(Effect.orDie);
+    yield* enqueueRetrievalPublicationJobEffect(
+      {
+        organizationKey: args.brain.organizationKey,
+        workspaceId: args.brain.workspaceId,
+        brainKey: args.brain.brainKey,
+        originKind: "page",
+        sourceKey: args.page.pageKey,
+        sourceRevisionKey: args.revisionKey,
+        requestGeneration: 1,
+        page: {
+          authority: "derived",
+          authorityPolicyKey: "company-pages",
+          policyGeneration: 1,
+        },
+      },
+      args.at,
+    );
     if (args.audit !== false && args.kind !== "snapshot") {
       yield* writer
         .table("brainPageAuditEvents")
@@ -570,6 +593,16 @@ const patchPage = (args: {
     const patchedPage = { ...page, ...patch };
     const writer = yield* DatabaseWriter;
     yield* writer.table("brainPages").patch(page._id, patch).pipe(Effect.orDie);
+    if (args.kind === "archive")
+      yield* transitionEligibilityFenceEffect({
+        identity: pageLifecycleFenceIdentity({
+          organizationKey: brain.organizationKey,
+          workspaceId: String(brain.workspaceId),
+          pageKey: page.pageKey,
+        }),
+        eligible: false,
+        now: at,
+      });
     yield* writePageRevision({
       brain,
       page: patchedPage,

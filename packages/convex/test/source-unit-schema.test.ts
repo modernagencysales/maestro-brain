@@ -23,6 +23,11 @@ const call = {
   connectionKey: "conn_fireflies_1",
   externalCallId: "call_1",
   externalRevisionId: "revision_1",
+  revisionOrder: {
+    kind: "provider_timestamp",
+    timestamp: "2026-08-05T14:00:00.000Z",
+    source: "updated_at",
+  },
   title: "Acme weekly",
   startedAt: "2026-08-05T14:00:00.000Z",
   endedAt: "2026-08-05T14:30:00.000Z",
@@ -128,6 +133,11 @@ describe("canonical source units", () => {
       {
         ...call,
         externalRevisionId: "revision_deleted",
+        revisionOrder: {
+          kind: "provider_timestamp",
+          timestamp: "2026-08-05T15:00:00.000Z",
+          source: "_nango_metadata.deleted_at",
+        },
         segments: [],
         deleted: true,
       },
@@ -159,10 +169,18 @@ describe("canonical source units", () => {
         "providerKey",
         "externalCallId",
       ],
+      by_org_connection_generation_unit_key: [
+        "organizationKey",
+        "connectionKey",
+        "connectionGeneration",
+        "unitKey",
+      ],
       by_unit_key: ["organizationKey", "unitKey"],
       by_org_current_state: ["organizationKey", "lifecycle.state"],
+      by_organization_updated: ["organizationKey", "updatedAt"],
     });
     expect(sourceUnitRevisionsSource("sourceUnitRevisions").indexes).toEqual({
+      by_organization_ledger: ["organizationKey"],
       by_unit_revision_key: ["organizationKey", "unitRevisionKey"],
       by_unit_created: ["organizationKey", "unitKey", "createdAt"],
     });

@@ -1,4 +1,5 @@
 import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
+import type { CanonicalCallTranscript } from "@maestro-template/integrations/transcripts/canonical";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
@@ -8,6 +9,19 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  connectionFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "../brain/retrievalEligibility";
+import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
+import {
+  providerTargetResolutionAuthorityDigest,
+  providerTargetResolutionIntentKey,
+  type LiveCaptureTargetResolutionAuthority,
+} from "../brain/providerTargetResolution";
+import { ingestSourceUnitEffect } from "../capabilities/ingestSourceUnit.impl";
+import { ValidationFailed } from "../errors";
+import { sha256Hex } from "../shared/sha256";
 import { currentAdminOrganizationKey } from "./transcriptConnections.impl";
 import transcriptSync, {
   TranscriptSyncConnectionNotFound,
@@ -20,7 +34,10 @@ export type TranscriptSyncStatus =
   "queued" | "syncing" | "ready" | "retry_wait" | "error" | "revoked";
 
 export type TranscriptSyncErrorTag =
-  "ProviderRateLimited" | "ProviderUnavailable" | "PermanentDecodeFailure";
+  | "ProviderRateLimited"
+  | "ProviderUnavailable"
+  | "PermanentDecodeFailure"
+  | "RevisionOrderConflict";
 
 export type TranscriptSyncState = {
   readonly organizationKey: string;
@@ -151,7 +168,9 @@ export const failTranscriptSyncState = (input: {
 }) =>
   Effect.gen(function* () {
     yield* assertClaim(input);
-    const permanent = input.errorTag === "PermanentDecodeFailure";
+    const permanent =
+      input.errorTag === "PermanentDecodeFailure" ||
+      input.errorTag === "RevisionOrderConflict";
     return {
       ...input.state,
       status: permanent ? "error" : "retry_wait",
@@ -174,6 +193,7 @@ type RawQuery = {
   ) => RawQuery;
   readonly first: () => Effect.Effect<Option.Option<unknown>, unknown>;
   readonly collect: () => Effect.Effect<readonly unknown[], unknown>;
+  readonly take: (count: number) => Effect.Effect<readonly unknown[], unknown>;
 };
 type RawReader = { readonly table: (name: string) => RawQuery };
 type RawWriterTable = {
@@ -198,6 +218,22 @@ type StoredConnection = {
   readonly nangoConnectionId?: string | null;
   readonly status: string;
   readonly attemptExpiresAt: number;
+};
+type StoredLiveParentObligation = {
+  readonly authorityKind?: string;
+  readonly parentIngestionObligationKey?: string;
+  readonly workspaceId?: GenericId<"workspaces">;
+  readonly brainKey?: string;
+  readonly allowlistGeneration?: number;
+  readonly requiredScopeIntentKey?: string;
+  readonly organizationKey: string;
+  readonly providerKind: string;
+  readonly connectorScopeKey: string;
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly originRevisionKey: string;
+  readonly targetResolutionIntentId?: GenericId<"providerTargetResolutionIntents">;
+  readonly targetResolutionIntentKey: string | null;
 };
 type HealthConnection = Pick<
   StoredConnection,
@@ -398,6 +434,15 @@ const claimTranscriptSyncPageImpl = FunctionImpl.make(
             updatedAt: input.now,
           })
           .pipe(Effect.orDie);
+      if (connection.status === "verifying")
+        yield* transitionEligibilityFenceEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: connection.organizationKey,
+            connectionKey: connection.connectionKey,
+          }),
+          eligible: true,
+          now: input.now,
+        });
       if (existing === null)
         yield* writer
           .table("connectorSyncStates")
@@ -408,6 +453,15 @@ const claimTranscriptSyncPageImpl = FunctionImpl.make(
           .table("connectorSyncStates")
           .patch(existing._id, claimed)
           .pipe(Effect.orDie);
+      if (connection.status === "verifying")
+        yield* enqueueOrganizationCorpusRebuildsEffect({
+          organizationKey: connection.organizationKey,
+          originKind: "transcript_rebuild",
+          sourceKey: connection.connectionKey,
+          sourceRevisionKey: `connection:${connection.connectionKey}:active:${generation}`,
+          requestGeneration: generation,
+          now: input.now,
+        });
       return {
         organizationKey: connection.organizationKey,
         connectionKey: connection.connectionKey,
@@ -439,6 +493,96 @@ const updateSyncState = (input: {
     return updated;
   });
 
+const MAX_ATOMIC_TRANSCRIPT_CALLS = 100;
+const MAX_ATOMIC_TRANSCRIPT_WRITES = 7_000;
+const MAX_ATOMIC_TRANSCRIPT_BYTES = 5_000_000;
+
+export const transcriptSyncPageCapacity = (
+  calls: readonly Pick<CanonicalCallTranscript, "segments">[],
+) => {
+  const segmentCount = calls.reduce(
+    (count, call) => count + call.segments.length,
+    0,
+  );
+  const estimatedWrites = segmentCount + calls.length * 7 + 1;
+  const encodedBytes = new TextEncoder().encode(JSON.stringify(calls)).length;
+  return {
+    callCount: calls.length,
+    segmentCount,
+    estimatedWrites,
+    encodedBytes,
+    accepted:
+      calls.length <= MAX_ATOMIC_TRANSCRIPT_CALLS &&
+      estimatedWrites <= MAX_ATOMIC_TRANSCRIPT_WRITES &&
+      encodedBytes <= MAX_ATOMIC_TRANSCRIPT_BYTES,
+  };
+};
+
+const liveTranscriptParentAuthority = (input: {
+  readonly organizationKey: string;
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly expectedCursor: string | null;
+  readonly unitKey: string;
+  readonly unitRevisionKey: string;
+  readonly membershipKey: string;
+  readonly observationDigest: string;
+  readonly capturedAt: number;
+}): LiveCaptureTargetResolutionAuthority => {
+  const ingestionObligationKey = `iobl_${sha256Hex(
+    JSON.stringify({
+      authorityKind: "live_capture",
+      providerKind: "transcript",
+      connectionKey: input.connectionKey,
+      connectionGeneration: input.connectionGeneration,
+      unitRevisionKey: input.unitRevisionKey,
+    }),
+  )}`;
+  return {
+    authorityKind: "live_capture",
+    targetResolutionIntentKey: providerTargetResolutionIntentKey({
+      ingestionObligationKey,
+    }),
+    ingestionObligationKey,
+    organizationKey: input.organizationKey,
+    corpusKey: "transcripts",
+    providerKind: "transcript",
+    connectorScopeKey: input.connectionKey,
+    connectionKey: input.connectionKey,
+    connectionGeneration: input.connectionGeneration,
+    membershipKey: input.membershipKey,
+    originKind: "transcript",
+    originKey: input.unitKey,
+    originRevisionKey: input.unitRevisionKey,
+    observationDigest: input.observationDigest,
+    resolutionGeneration: 1,
+    captureKey: `transcript-sync:${input.connectionKey}:${JSON.stringify(
+      input.expectedCursor,
+    )}:${input.unitRevisionKey}`,
+    capturedAt: input.capturedAt,
+  };
+};
+
+const liveParentObligationState = (
+  status:
+    | "pending"
+    | "retry_wait"
+    | "capacity_blocked"
+    | "succeeded"
+    | "policy_excluded"
+    | "stale"
+    | "integrity_failure",
+) =>
+  status === "pending"
+    ? ("target_resolution_pending" as const)
+    : status === "succeeded"
+      ? ("complete" as const)
+      : status === "policy_excluded" || status === "stale"
+        ? ("policy_excluded" as const)
+        : status === "integrity_failure"
+          ? ("failed" as const)
+          : status;
+
 const commitTranscriptSyncPageImpl = FunctionImpl.make(
   databaseSchema,
   transcriptSync,
@@ -458,6 +602,251 @@ const commitTranscriptSyncPageImpl = FunctionImpl.make(
           duplicates: input.duplicates,
           now: input.now,
         }),
+    }),
+);
+
+const ingestTranscriptSyncPageImpl = FunctionImpl.make(
+  databaseSchema,
+  transcriptSync,
+  "ingestTranscriptSyncPage",
+  (input) =>
+    Effect.gen(function* () {
+      const capacity = transcriptSyncPageCapacity(input.calls);
+      if (!capacity.accepted)
+        return yield* new ValidationFailed({
+          field: "calls",
+          message:
+            "Transcript sync page exceeds the bounded atomic mutation capacity.",
+        });
+      const current = yield* syncStateByConnection(input.connectionKey);
+      if (current === null)
+        return yield* Effect.fail(new TranscriptSyncConnectionNotFound());
+      yield* commitTranscriptSyncState({
+        state: current,
+        connectionGeneration: input.expectedGeneration,
+        expectedCursor: input.expectedCursor,
+        leaseId: input.leaseId,
+        nextCursor: input.nextCursor,
+        discovered: 0,
+        ingested: 0,
+        duplicates: 0,
+        now: input.now,
+      });
+      let ingested = 0;
+      let duplicates = 0;
+      const reader = rawReader(yield* DatabaseReader);
+      const writer = rawWriter(yield* DatabaseWriter);
+      for (const call of input.calls) {
+        const receipt = yield* ingestSourceUnitEffect({
+          input: call,
+          authority: {
+            kind: "provider",
+            organizationKey: current.organizationKey,
+            connectionKey: current.connectionKey,
+            connectionGeneration: current.connectionGeneration,
+          },
+          caller: {
+            kind: "system",
+            name: "transcript-sync-atomic-page",
+            surface: "internal",
+          },
+          receivedAt: input.now,
+        });
+        if (receipt.outcome === "duplicate") {
+          duplicates += 1;
+          continue;
+        }
+        ingested += 1;
+        const revisions = yield* reader
+          .table("sourceUnitRevisions")
+          .index("by_unit_revision_key", (query) =>
+            query
+              .eq("organizationKey", current.organizationKey)
+              .eq("unitRevisionKey", receipt.unitRevisionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const revision = revisions[0] as
+          | {
+              readonly unitKey: string;
+              readonly unitRevisionKey: string;
+              readonly contentHash: string;
+            }
+          | undefined;
+        if (
+          revisions.length !== 1 ||
+          revision === undefined ||
+          revision.unitKey !== receipt.unitKey ||
+          revision.unitRevisionKey !== receipt.unitRevisionKey
+        )
+          return yield* new ValidationFailed({
+            field: "calls",
+            message: "Atomic transcript ingestion lost revision authority.",
+          });
+        const authority = liveTranscriptParentAuthority({
+          organizationKey: current.organizationKey,
+          connectionKey: current.connectionKey,
+          connectionGeneration: current.connectionGeneration,
+          expectedCursor: input.expectedCursor,
+          unitKey: receipt.unitKey,
+          unitRevisionKey: receipt.unitRevisionKey,
+          membershipKey: call.externalCallId,
+          observationDigest: revision.contentHash,
+          capturedAt: input.now,
+        });
+        const parents = yield* reader
+          .table("providerTargetResolutionIntents")
+          .index("by_target_resolution_intent_key", (query) =>
+            query.eq(
+              "targetResolutionIntentKey",
+              authority.targetResolutionIntentKey,
+            ),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const existing = parents[0] as
+          | {
+              readonly _id: GenericId<"providerTargetResolutionIntents">;
+              readonly authorityKind?: string;
+              readonly authorityDigest: string;
+              readonly status:
+                | "pending"
+                | "retry_wait"
+                | "capacity_blocked"
+                | "succeeded"
+                | "policy_excluded"
+                | "stale"
+                | "integrity_failure";
+            }
+          | undefined;
+        const authorityDigest =
+          providerTargetResolutionAuthorityDigest(authority);
+        if (
+          parents.length > 1 ||
+          (existing !== undefined &&
+            (existing.authorityKind !== "live_capture" ||
+              existing.authorityDigest !== authorityDigest))
+        )
+          return yield* new ValidationFailed({
+            field: "calls",
+            message: "Transcript live-capture parent authority conflicts.",
+          });
+        const providerTargetResolutionIntentId =
+          existing?._id ??
+          ((yield* writer
+            .table("providerTargetResolutionIntents")
+            .insert({
+              schemaVersion: 1,
+              ...authority,
+              authorityDigest,
+              status: "pending",
+              attemptCount: 0,
+              nextAttemptAt: input.now,
+              lastErrorTag: null,
+              targetCount: 0,
+              targetDigest: null,
+              targets: [],
+              completedAt: null,
+              createdAt: input.now,
+              updatedAt: input.now,
+            })
+            .pipe(
+              Effect.orDie,
+            )) as GenericId<"providerTargetResolutionIntents">);
+        const obligations = yield* reader
+          .table("ingestionObligations")
+          .index("by_ingestion_obligation_key", (query) =>
+            query.eq(
+              "ingestionObligationKey",
+              authority.ingestionObligationKey,
+            ),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const obligation = obligations[0] as
+          StoredLiveParentObligation | undefined;
+        if (
+          obligations.length > 1 ||
+          (obligation !== undefined &&
+            (obligation.authorityKind !== "live_capture" ||
+              obligation.parentIngestionObligationKey !== undefined ||
+              obligation.workspaceId !== undefined ||
+              obligation.brainKey !== undefined ||
+              obligation.allowlistGeneration !== undefined ||
+              obligation.requiredScopeIntentKey !== undefined ||
+              obligation.organizationKey !== current.organizationKey ||
+              obligation.providerKind !== "transcript" ||
+              obligation.connectorScopeKey !== current.connectionKey ||
+              obligation.connectionKey !== current.connectionKey ||
+              obligation.connectionGeneration !==
+                current.connectionGeneration ||
+              obligation.originRevisionKey !== receipt.unitRevisionKey ||
+              obligation.targetResolutionIntentId !==
+                providerTargetResolutionIntentId ||
+              obligation.targetResolutionIntentKey !==
+                authority.targetResolutionIntentKey))
+        )
+          return yield* new ValidationFailed({
+            field: "calls",
+            message: "Transcript live parent obligation authority conflicts.",
+          });
+        if (obligation === undefined) {
+          const providerStatus = existing?.status ?? "pending";
+          yield* writer
+            .table("ingestionObligations")
+            .insert({
+              schemaVersion: 1,
+              authorityKind: "live_capture",
+              organizationKey: current.organizationKey,
+              corpusKey: "transcripts",
+              providerKind: "transcript",
+              connectorScopeKey: current.connectionKey,
+              connectionKey: current.connectionKey,
+              connectionGeneration: current.connectionGeneration,
+              ingestionObligationKey: authority.ingestionObligationKey,
+              cause: "observation",
+              membershipKey: call.externalCallId,
+              originKind: "transcript",
+              originKey: receipt.unitKey,
+              originRevisionKey: receipt.unitRevisionKey,
+              ledgerSequence: input.now,
+              state: liveParentObligationState(providerStatus),
+              targetResolutionIntentId: providerTargetResolutionIntentId,
+              targetResolutionIntentKey: authority.targetResolutionIntentKey,
+              publicationJobKeys: [],
+              errorTag:
+                providerStatus === "integrity_failure"
+                  ? "TranscriptTargetResolutionIntegrityFailure"
+                  : null,
+              terminalAt:
+                providerStatus === "succeeded" ||
+                providerStatus === "policy_excluded" ||
+                providerStatus === "stale" ||
+                providerStatus === "integrity_failure"
+                  ? input.now
+                  : null,
+              createdAt: input.now,
+              updatedAt: input.now,
+            })
+            .pipe(Effect.orDie);
+        }
+      }
+      const updated = yield* commitTranscriptSyncState({
+        state: current,
+        connectionGeneration: input.expectedGeneration,
+        expectedCursor: input.expectedCursor,
+        leaseId: input.leaseId,
+        nextCursor: input.nextCursor,
+        discovered: input.calls.length,
+        ingested,
+        duplicates,
+        now: input.now,
+      });
+      yield* writer
+        .table("connectorSyncStates")
+        .patch(current._id, updated)
+        .pipe(Effect.orDie);
+      return updated;
     }),
 );
 
@@ -539,6 +928,7 @@ export const makeTranscriptSyncImpl = () =>
   GroupImpl.make(databaseSchema, transcriptSync).pipe(
     Layer.provide(claimTranscriptSyncPageImpl),
     Layer.provide(commitTranscriptSyncPageImpl),
+    Layer.provide(ingestTranscriptSyncPageImpl),
     Layer.provide(failTranscriptSyncPageImpl),
     Layer.provide(listTranscriptConnectionHealthImpl),
     GroupImpl.finalize,
