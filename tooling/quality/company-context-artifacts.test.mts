@@ -92,6 +92,7 @@ describe("company-context Ask Apero artifacts", () => {
   );
   const skill = readText("company-context/skills/ask-apero/SKILL.md");
   const install = readText("company-context/install.md");
+  const terminalTesting = readText("company-context/terminal-testing.md");
   const backendContextV3 = readText(
     "packages/convex/confect/brain/contextPackV3.ts",
   );
@@ -122,7 +123,7 @@ describe("company-context Ask Apero artifacts", () => {
   it("pins a read-only endpoint and both runtime discovery contracts", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      manifestVersion: "0.4.0",
+      manifestVersion: "0.5.0",
       status: "candidate",
       canonicalSkill: {
         name: "ask-apero",
@@ -135,7 +136,7 @@ describe("company-context Ask Apero artifacts", () => {
         path: "/mcp",
         authentication: {
           secretEnv: "MAESTRO_BRAIN_API_KEY",
-          requiredScopes: ["brain:read"],
+          requiredScopes: ["brain:read", "brain:ask"],
           roleCeiling: "viewer",
           separateCredentialPerRuntime: true,
         },
@@ -235,7 +236,14 @@ describe("company-context Ask Apero artifacts", () => {
     expect(install).toContain("MAESTRO_BRAIN_API_KEY");
     expect(install).toContain("bearer_token_env_var");
     expect(install).toContain("${MAESTRO_BRAIN_API_KEY}");
-    expect(install).toContain("separate existing read-only service identity");
+    expect(install).toContain("separate existing interactive service identity");
+    expect(install).toContain("both `brain:read` and `brain:ask`");
+    expect(install).toContain(".cowork/maestro-brain.json");
+    expect(terminalTesting).toContain("`brain:read` and\n  `brain:ask` scopes");
+    expect(terminalTesting).toContain(".cowork/maestro-brain.json");
+    expect(terminalTesting).toContain(
+      "feedback --idempotency-key feedback-<unique-id> --input",
+    );
     expect(install).not.toMatch(
       /(sk_live|sk-[A-Za-z0-9]{20,}|ghp_|xox[baprs]-|eyJ[A-Za-z0-9_-]{20,})/,
     );
