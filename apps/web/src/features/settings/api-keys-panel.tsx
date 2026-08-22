@@ -11,6 +11,69 @@ export type DisplayKeyNotice = {
   readonly copyStatus: "idle" | "copied";
 };
 
+export type ApiKeyOperationState =
+  | { readonly status: "idle" }
+  | { readonly status: "pending"; readonly message: string }
+  | { readonly status: "success"; readonly message: string }
+  | { readonly status: "error"; readonly message: string };
+
+const expiryDays = [7, 30, 60, 90] as const;
+const millisecondsPerDay = 24 * 60 * 60 * 1_000;
+
+export const expiryFromDays = (
+  value: FormDataEntryValue | null,
+  nowMs: number = Date.now(),
+): number => {
+  const days = Number(value);
+  if (!expiryDays.some((allowed) => allowed === days)) {
+    throw new Error("Choose an API key expiry between 7 and 90 days.");
+  }
+  return nowMs + days * millisecondsPerDay;
+};
+
+export const apiKeyOperationErrorMessage = (error: unknown): string => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    typeof Reflect.get(error, "reason") === "string"
+  )
+    return String(Reflect.get(error, "reason"));
+  if (error instanceof Error && error.message.trim().length > 0)
+    return error.message;
+  return "The API key operation failed. Try again.";
+};
+
+export const confirmApiKeyRevocation = (
+  keyName: string,
+  confirm: (message: string) => boolean = window.confirm,
+): boolean =>
+  confirm(
+    `Revoke ${keyName}? Agents using this key will lose access immediately.`,
+  );
+
+export const runApiKeyOperation = async <T,>({
+  onSuccess,
+  pendingMessage,
+  run,
+  setState,
+  successMessage,
+}: {
+  readonly onSuccess?: (value: T) => void;
+  readonly pendingMessage: string;
+  readonly run: () => Promise<T>;
+  readonly setState: (state: ApiKeyOperationState) => void;
+  readonly successMessage: string;
+}): Promise<void> => {
+  setState({ status: "pending", message: pendingMessage });
+  try {
+    const value = await run();
+    onSuccess?.(value);
+    setState({ status: "success", message: successMessage });
+  } catch (error) {
+    setState({ status: "error", message: apiKeyOperationErrorMessage(error) });
+  }
+};
+
 export const showCreatedDisplayKey = (
   _current: DisplayKeyNotice | undefined,
   displayKey: string,
@@ -73,6 +136,10 @@ export const ApiKeysPanel = ({
   const [displayKeyNotice, setDisplayKeyNotice] = useState(
     initialDisplayKeyNotice,
   );
+  const [operation, setOperation] = useState<ApiKeyOperationState>({
+    status: "idle",
+  });
+  const operationPending = operation.status === "pending";
   const handleCopyDisplayKey = async () => {
     if (displayKeyNotice?.visible === true) {
       await navigator.clipboard
@@ -95,44 +162,55 @@ export const ApiKeysPanel = ({
             <form
               aria-label="Create API key"
               action={async (formData) => {
-                const displayKey = await adapter.createKey({
-                  name: String(formData.get("name") ?? ""),
-                  scopes: scopesFromForm(formData),
-                  expiresAt: Number(formData.get("expiresAt") ?? 0),
+                await runApiKeyOperation({
+                  pendingMessage: "Creating API key…",
+                  successMessage: "API key created. Copy it before continuing.",
+                  setState: setOperation,
+                  run: () =>
+                    adapter.createKey({
+                      name: String(formData.get("name") ?? ""),
+                      scopes: scopesFromForm(formData),
+                      expiresAt: expiryFromDays(formData.get("expiresInDays")),
+                    }),
+                  onSuccess: (displayKey) =>
+                    setDisplayKeyNotice((current) =>
+                      showCreatedDisplayKey(current, displayKey),
+                    ),
                 });
-                setDisplayKeyNotice((current) =>
-                  showCreatedDisplayKey(current, displayKey),
-                );
               }}
             >
-              <Stack gap="2">
-                <Text>
-                  Admins create display-once, expiring keys scoped to this
-                  Brain.
-                </Text>
-                <label>
-                  Name
-                  <input name="name" required />
-                </label>
-                <label>
-                  Expires at
-                  <input name="expiresAt" type="number" required />
-                </label>
-                <label>
-                  <input
-                    name="scope"
-                    type="checkbox"
-                    value="brain:read"
-                    defaultChecked
-                  />
-                  Read
-                </label>
-                <label>
-                  <input name="scope" type="checkbox" value="brain:ask" />
-                  Ask
-                </label>
-                <Button type="submit">Create API key</Button>
-              </Stack>
+              <fieldset disabled={operationPending}>
+                <Stack gap="2">
+                  <Text>
+                    Admins create display-once, expiring keys scoped to this
+                    Brain.
+                  </Text>
+                  <label>
+                    Name
+                    <input name="name" required />
+                  </label>
+                  <ExpirySelect />
+                  <label>
+                    <input
+                      name="scope"
+                      type="checkbox"
+                      value="brain:read"
+                      defaultChecked
+                    />
+                    Read
+                  </label>
+                  <label>
+                    <input
+                      name="scope"
+                      type="checkbox"
+                      value="brain:ask"
+                      defaultChecked
+                    />
+                    Ask
+                  </label>
+                  <Button type="submit">Create API key</Button>
+                </Stack>
+              </fieldset>
             </form>
           ) : (
             <Text>API key administration is hidden for this role.</Text>
@@ -160,20 +238,51 @@ export const ApiKeysPanel = ({
             }
           />
 
+          <ApiKeyOperationNotice state={operation} />
+
           <ApiKeyRows
             adapter={adapter}
             keys={keys}
+            operationPending={operationPending}
             onRotated={(displayKey) =>
               setDisplayKeyNotice((current) =>
                 showRotatedDisplayKey(current, displayKey),
               )
             }
+            setOperation={setOperation}
           />
         </Stack>
       </Card.Body>
     </Card.Root>
   );
 };
+
+const ExpirySelect = () => (
+  <label>
+    Expires in
+    <select defaultValue="30" name="expiresInDays" required>
+      {expiryDays.map((days) => (
+        <option key={days} value={days}>
+          {days} days
+        </option>
+      ))}
+    </select>
+    <Text as="span" color="gray.600" fontSize="sm">
+      Keys must expire within 90 days. You can rotate them before then.
+    </Text>
+  </label>
+);
+
+const ApiKeyOperationNotice = ({
+  state,
+}: {
+  readonly state: ApiKeyOperationState;
+}) =>
+  state.status === "idle" ? null : (
+    <Text role={state.status === "error" ? "alert" : "status"}>
+      {state.message}
+    </Text>
+  );
 
 const DisplayKeyNoticeCard = ({
   notice,
@@ -224,10 +333,14 @@ const ApiKeyRows = ({
   adapter,
   keys,
   onRotated,
+  operationPending,
+  setOperation,
 }: {
   readonly adapter: ApiKeySettingsAdapter;
   readonly keys: RowState<ApiKeySettingsMetadata>;
   readonly onRotated: (displayKey: string) => void;
+  readonly operationPending: boolean;
+  readonly setOperation: (state: ApiKeyOperationState) => void;
 }) => (
   <Stack gap="2">
     <Heading size="sm">Existing keys</Heading>
@@ -250,25 +363,43 @@ const ApiKeyRows = ({
               <form
                 aria-label={`Rotate ${key.name}`}
                 action={async (formData) => {
-                  const displayKey = await adapter.rotateKey({
-                    keyId: key.id,
-                    expiresAt: Number(formData.get("expiresAt") ?? 0),
+                  await runApiKeyOperation({
+                    pendingMessage: `Rotating ${key.name}…`,
+                    successMessage: `${key.name} rotated. Copy the new key before continuing.`,
+                    setState: setOperation,
+                    run: () =>
+                      adapter.rotateKey({
+                        keyId: key.id,
+                        expiresAt: expiryFromDays(
+                          formData.get("expiresInDays"),
+                        ),
+                      }),
+                    onSuccess: onRotated,
                   });
-                  onRotated(displayKey);
                 }}
               >
-                <input name="expiresAt" type="number" required />
-                <Button type="submit">Rotate key</Button>
+                <fieldset disabled={operationPending}>
+                  <ExpirySelect />
+                  <Button type="submit">Rotate key</Button>
+                </fieldset>
               </form>
             ) : null}
             {adapter.canAdministerKeys ? (
               <form
                 aria-label={`Revoke ${key.name}`}
                 action={async () => {
-                  await adapter.revokeKey({ keyId: key.id });
+                  if (!confirmApiKeyRevocation(key.name)) return;
+                  await runApiKeyOperation({
+                    pendingMessage: `Revoking ${key.name}…`,
+                    successMessage: `${key.name} revoked.`,
+                    setState: setOperation,
+                    run: () => adapter.revokeKey({ keyId: key.id }),
+                  });
                 }}
               >
-                <Button type="submit">Revoke key</Button>
+                <Button disabled={operationPending} type="submit">
+                  Revoke key
+                </Button>
               </form>
             ) : null}
           </div>

@@ -5,8 +5,12 @@ import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
   ApiKeysPanel,
   acknowledgeDisplayKey,
+  apiKeyOperationErrorMessage,
+  confirmApiKeyRevocation,
   copyDisplayKey,
+  expiryFromDays,
   hideDisplayKey,
+  runApiKeyOperation,
   showCreatedDisplayKey,
   showDisplayKey,
   showRotatedDisplayKey,
@@ -57,6 +61,11 @@ describe("ApiKeysPanel", () => {
     expect(html).toContain("brain_client_alpha");
     expect(html).toContain("Rotate key");
     expect(html).toContain("Revoke key");
+    expect(html).toContain("Expires in");
+    expect(html).toContain("30 days");
+    expect(html).toContain("Keys must expire within 90 days");
+    expect(html).not.toContain('name="expiresAt"');
+    expect(html).toMatch(/checked="" value="brain:ask"/);
     expect(html).not.toContain("mbk_live_secret");
     expect(html).not.toContain("keyHash");
     expect(html).not.toContain("principalId");
@@ -130,5 +139,72 @@ describe("ApiKeysPanel", () => {
     expect(html).not.toContain("Create API key");
     expect(html).not.toContain("Rotate key");
     expect(html).not.toContain("Revoke key");
+  });
+
+  it("converts bounded day choices to backend epoch milliseconds", () => {
+    const nowMs = 1_800_000_000_000;
+
+    expect(expiryFromDays("7", nowMs)).toBe(nowMs + 7 * 24 * 60 * 60 * 1_000);
+    expect(expiryFromDays("90", nowMs)).toBe(nowMs + 90 * 24 * 60 * 60 * 1_000);
+    expect(() => expiryFromDays("91", nowMs)).toThrow(
+      "Choose an API key expiry between 7 and 90 days.",
+    );
+  });
+
+  it("reports pending and success around a successful key operation", async () => {
+    const states: unknown[] = [];
+    const onSuccess = vi.fn();
+
+    await runApiKeyOperation({
+      pendingMessage: "Creating API key…",
+      successMessage: "API key created.",
+      run: async () => "mbk_live_secret",
+      onSuccess,
+      setState: (state) => states.push(state),
+    });
+
+    expect(states).toEqual([
+      { status: "pending", message: "Creating API key…" },
+      { status: "success", message: "API key created." },
+    ]);
+    expect(onSuccess).toHaveBeenCalledWith("mbk_live_secret");
+  });
+
+  it("turns typed and unknown operation failures into visible errors", async () => {
+    const states: unknown[] = [];
+
+    await runApiKeyOperation({
+      pendingMessage: "Revoking key…",
+      successMessage: "Key revoked.",
+      run: async () => {
+        throw { reason: "Key was already revoked." };
+      },
+      setState: (state) => states.push(state),
+    });
+
+    expect(states).toEqual([
+      { status: "pending", message: "Revoking key…" },
+      { status: "error", message: "Key was already revoked." },
+    ]);
+    expect(apiKeyOperationErrorMessage(null)).toBe(
+      "The API key operation failed. Try again.",
+    );
+  });
+
+  it("requires explicit confirmation before revocation", () => {
+    const confirm = vi
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+
+    expect(confirmApiKeyRevocation("Client Alpha read key", confirm)).toBe(
+      false,
+    );
+    expect(confirmApiKeyRevocation("Client Alpha read key", confirm)).toBe(
+      true,
+    );
+    expect(confirm).toHaveBeenCalledWith(
+      "Revoke Client Alpha read key? Agents using this key will lose access immediately.",
+    );
   });
 });
