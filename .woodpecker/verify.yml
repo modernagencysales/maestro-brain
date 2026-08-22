@@ -32,10 +32,9 @@ steps:
       - pnpm install --frozen-lockfile
       - pnpm check:format
       - pnpm lint
-      - pnpm typecheck
     failure: cancel
 
-  - name: strict-diagnostics
+  - name: typecheck
     image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
     depends_on:
       - setup
@@ -44,7 +43,7 @@ steps:
       NODE_OPTIONS: "--max-old-space-size=6144"
     commands:
       - npm install --global pnpm@10.12.1 --ignore-scripts
-      - pnpm check:effect-diagnostics
+      - pnpm typecheck
     failure: cancel
 
   - name: tests
@@ -60,4 +59,17 @@ steps:
       - pnpm test:tooling
       - pnpm test:workflow
       - pnpm test:pr-backlog
+    failure: cancel
+
+  - name: strict-diagnostics
+    image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
+    depends_on:
+      - typecheck
+      - tests
+    environment:
+      CI: "true"
+      NODE_OPTIONS: "--max-old-space-size=6144"
+    commands:
+      - npm install --global pnpm@10.12.1 --ignore-scripts
+      - pnpm check:effect-diagnostics
     failure: cancel
