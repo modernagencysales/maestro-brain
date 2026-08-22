@@ -35,7 +35,7 @@ import {
 } from "@tanstack/react-table";
 
 export const [DataBoardProvider, useDataBoardContext] =
-  createContext<Table<any>>();
+  createContext<Table<object>>();
 
 export type DataBoardHeaderProps = GroupingRow;
 
@@ -59,7 +59,7 @@ export interface DataBoardProps<Data extends object>
   /**
    * No results component
    */
-  noResults?: React.FC<any>;
+  noResults?: React.ElementType;
   hideEmptyColumns?: boolean;
 }
 
@@ -124,20 +124,8 @@ export const DataBoard = forwardRef(function DataBoard<Data extends object>(
 
   const rows = instance.getRowModel().rows;
 
-  const noResults = (state.columnFilters?.length || state.globalFilter) &&
-    !rows.length && <NoResultsComponent onReset={onResetFilters} />;
-
   const mapItems = React.useCallback(() => {
-    const items: KanbanItems = groupBy
-      ? getColumns(instance.getPreFilteredRowModel().rows, groupBy)
-      : {};
-
-    instance.getRowModel().rows.forEach((row) => {
-      if (row.getIsGrouped()) {
-        items[row.id] = row.subRows.map((subRow) => subRow.id);
-      }
-    });
-    return items;
+    return createKanbanItems(instance, groupBy);
   }, [groupBy, rows]);
 
   React.useEffect(() => {
@@ -146,52 +134,26 @@ export const DataBoard = forwardRef(function DataBoard<Data extends object>(
 
   const [items, setItems] = React.useState<KanbanItems>({});
 
-  const board = ({ columns, items, activeId }: UseKanbanContainerReturn) => {
-    return (
-      <>
-        {columns.map((id) => {
-          const row = instance.getRowModel().rowsById[id];
+  const board = (boardState: UseKanbanContainerReturn) => (
+    <DataBoardColumns
+      {...boardState}
+      hideEmptyColumns={hideEmptyColumns}
+      instance={instance}
+      renderCard={renderCard}
+      renderHeader={renderHeader}
+    />
+  );
 
-          if (!row && hideEmptyColumns) {
-            return null;
-          }
-
-          // fallback when this column is empty
-          const [groupingColumnId, groupingValue] = String(id).split(":");
-
-          return (
-            <KanbanColumn key={id} id={id} width="320px" px="4">
-              <KanbanColumnHeader>
-                {flexRender(
-                  renderHeader,
-                  row || { id, groupingValue, groupingColumnId },
-                )}
-              </KanbanColumnHeader>
-              <KanbanColumnBody>
-                {items[id]?.map((itemId) => {
-                  const item = instance.getRowModel().rowsById[itemId];
-                  return (
-                    <BoardCard key={itemId} item={item} render={renderCard} />
-                  );
-                })}
-              </KanbanColumnBody>
-            </KanbanColumn>
-          );
-        })}
-        <KanbanDragOverlay>
-          {activeId && (
-            <KanbanCard id={activeId}>
-              {renderCard(instance.getRowModel().rowsById[activeId])}
-            </KanbanCard>
-          )}
-        </KanbanDragOverlay>
-      </>
-    );
-  };
+  const noResults = renderNoResults({
+    NoResultsComponent,
+    onResetFilters,
+    rows,
+    state,
+  });
 
   return (
     <DataGridProvider instance={instance}>
-      <DataBoardProvider value={instance}>
+      <DataBoardProvider value={instance as unknown as Table<object>}>
         <Kanban items={items} onChange={setItems} {...rest}>
           {noResults || board}
         </Kanban>
@@ -204,33 +166,159 @@ export const DataBoard = forwardRef(function DataBoard<Data extends object>(
   },
 ) => React.ReactElement) & { displayName?: string };
 
-interface BoardCardProps {
-  item: Row<any>;
-  render: (item: Row<any>) => React.ReactNode;
+interface DataBoardColumnsProps<
+  Data extends object,
+> extends UseKanbanContainerReturn {
+  hideEmptyColumns?: boolean;
+  instance: Table<Data>;
+  renderCard: (item: Row<Data>) => React.ReactNode;
+  renderHeader: (item: GroupingRow) => React.ReactNode;
 }
 
-const BoardCard = React.memo(
-  function BoardCard({ item, render }: BoardCardProps) {
-    return item ? (
-      <KanbanCard key={item.id} id={item.id}>
-        {flexRender(render, item)}
-      </KanbanCard>
-    ) : null;
-  },
-  (prevProps, nextProps) => {
-    // Only re-render if the item data has changed.
-    if (prevProps.item?.original !== nextProps.item?.original) {
-      return false;
-    }
-    return true;
-  },
+const DataBoardColumns = <Data extends object>({
+  activeId,
+  columns,
+  hideEmptyColumns,
+  instance,
+  items,
+  renderCard,
+  renderHeader,
+}: DataBoardColumnsProps<Data>) => (
+  <>
+    {columns.map((id) => (
+      <DataBoardColumn<Data>
+        hideEmptyColumns={hideEmptyColumns}
+        id={id}
+        instance={instance}
+        items={items}
+        key={id}
+        renderCard={renderCard}
+        renderHeader={renderHeader}
+      />
+    ))}
+    <DataBoardOverlay<Data>
+      activeId={activeId}
+      instance={instance}
+      renderCard={renderCard}
+    />
+  </>
 );
+
+const DataBoardColumn = <Data extends object>({
+  hideEmptyColumns,
+  id,
+  instance,
+  items,
+  renderCard,
+  renderHeader,
+}: {
+  hideEmptyColumns?: boolean;
+  id: UseKanbanContainerReturn["columns"][number];
+  instance: Table<Data>;
+  items: KanbanItems;
+  renderCard: (item: Row<Data>) => React.ReactNode;
+  renderHeader: (item: GroupingRow) => React.ReactNode;
+}) => {
+  const row = instance.getRowModel().rowsById[id];
+  if (!row && hideEmptyColumns) return null;
+  const [groupingColumnId, groupingValue] = String(id).split(":");
+  return (
+    <KanbanColumn id={id} width="320px" px="4">
+      <KanbanColumnHeader>
+        {flexRender(
+          renderHeader,
+          row || { id, groupingValue, groupingColumnId },
+        )}
+      </KanbanColumnHeader>
+      <KanbanColumnBody>
+        {items[id]?.map((itemId) => (
+          <BoardCard
+            item={instance.getRowModel().rowsById[itemId]}
+            key={itemId}
+            render={renderCard}
+          />
+        ))}
+      </KanbanColumnBody>
+    </KanbanColumn>
+  );
+};
+
+const DataBoardOverlay = <Data extends object>({
+  activeId,
+  instance,
+  renderCard,
+}: Pick<
+  DataBoardColumnsProps<Data>,
+  "activeId" | "instance" | "renderCard"
+>) => (
+  <KanbanDragOverlay>
+    {activeId && (
+      <KanbanCard id={activeId}>
+        {renderCard(instance.getRowModel().rowsById[activeId])}
+      </KanbanCard>
+    )}
+  </KanbanDragOverlay>
+);
+
+const renderNoResults = <Data extends object>({
+  NoResultsComponent,
+  onResetFilters,
+  rows,
+  state,
+}: {
+  NoResultsComponent: React.ElementType;
+  onResetFilters?: () => void;
+  rows: Row<Data>[];
+  state: ReturnType<Table<Data>["getState"]>;
+}) =>
+  (state.columnFilters?.length || state.globalFilter) && !rows.length ? (
+    <NoResultsComponent onReset={onResetFilters} />
+  ) : null;
+
+const createKanbanItems = <Data extends object>(
+  instance: Table<Data>,
+  groupBy?: string,
+): KanbanItems => {
+  const items = groupBy
+    ? getColumns(instance.getPreFilteredRowModel().rows, groupBy)
+    : {};
+  instance.getRowModel().rows.forEach((row) => {
+    if (row.getIsGrouped())
+      items[row.id] = row.subRows.map((subRow) => subRow.id);
+  });
+  return items;
+};
+
+interface BoardCardProps<Data extends object> {
+  item: Row<Data>;
+  render: (item: Row<Data>) => React.ReactNode;
+}
+
+const BoardCardBase = <Data extends object>({
+  item,
+  render,
+}: BoardCardProps<Data>) =>
+  item ? (
+    <KanbanCard key={item.id} id={item.id}>
+      {flexRender(render, item)}
+    </KanbanCard>
+  ) : null;
+
+const boardCardPropsEqual = <Data extends object>(
+  previous: BoardCardProps<Data>,
+  next: BoardCardProps<Data>,
+) => previous.item?.original === next.item?.original;
+
+const BoardCard = React.memo(
+  BoardCardBase,
+  boardCardPropsEqual,
+) as typeof BoardCardBase;
 
 function getColumns<TData extends RowData>(
   rows: Row<TData>[],
   groupBy: string,
 ) {
-  return rows.reduce<Record<string, any>>((columns, row) => {
+  return rows.reduce<KanbanItems>((columns, row) => {
     const resKey = `${groupBy}:${row.getGroupingValue(groupBy)}`;
     columns[resKey] = [];
     return columns;

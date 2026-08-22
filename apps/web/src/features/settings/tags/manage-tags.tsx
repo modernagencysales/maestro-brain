@@ -38,6 +38,11 @@ interface TagListItemProps {
   onDelete?: () => void;
 }
 
+interface TagValues {
+  color: string | null | undefined;
+  name: string;
+}
+
 const TagListItem: React.FC<TagListItemProps> = (props) => {
   const {
     colors,
@@ -57,7 +62,7 @@ const TagListItem: React.FC<TagListItemProps> = (props) => {
   const [error, setError] = React.useState("");
   const [isLoading, setLoading] = React.useState(false);
 
-  const [values, setValues] = useState({
+  const [values, setValues] = useState<TagValues>({
     color: item.color,
     name: item.name,
   });
@@ -101,125 +106,163 @@ const TagListItem: React.FC<TagListItemProps> = (props) => {
   };
 
   const color = values.color ?? item.color ?? undefined;
-
-  const colorBadge = (
-    <Box bgColor={`colors.tag.${color}`} borderRadius="full" boxSize="2.5" />
-  );
-
   return edit ? (
-    <GridList.Item
-      role="group"
-      py="1"
-      bg="bg.subtle"
-      borderRadius="md"
-      mb="1.5"
-      gap="2"
-    >
-      <GridList.Cell px="0">
-        <ColorControl
-          value={color}
-          colors={colors}
-          onChange={(color) =>
-            setValues((values) => ({
-              ...values,
-              color,
-            }))
-          }
-        />
-      </GridList.Cell>
-      <GridList.Cell display="flex" alignItems="center" flex="1" gap="2" px="0">
-        <Field.Root invalid={!!error}>
-          <Field.Label display="none">Label</Field.Label>
-          <Input
-            type="text"
-            defaultValue={item.name}
-            value={values.name}
-            size="sm"
-            autoFocus
-            px="2"
-            bg="chakra-body-bg"
-            onChange={(e) => setValues({ ...values, name: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                // prevent modal from closing
-                e.preventDefault();
-                e.stopPropagation();
-
-                // cancel editing
-              } else if (e.key === "Enter") {
-                // save changes
-                onSave();
-              }
-            }}
-          />
-        </Field.Root>
-      </GridList.Cell>
-      <GridList.Cell display="flex" gap="2">
-        <Button variant="ghost" size="sm" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          loading={isLoading}
-          onClick={() => onSave()}
-        >
-          Save
-        </Button>
-      </GridList.Cell>
-    </GridList.Item>
+    <TagListEditItem
+      colors={colors}
+      error={error}
+      isLoading={isLoading}
+      item={item}
+      onCancel={onCancel}
+      onSave={onSave}
+      setValues={setValues}
+      values={values}
+    />
   ) : (
-    <GridList.Item
-      role="group"
-      py="1"
-      bg="bg.subtle"
-      borderRadius="md"
-      mb="1.5"
-      gap="2"
-    >
-      <GridList.Cell px="0">
-        <Flex
-          border="1px solid transparent"
-          boxSize="7"
-          alignItems="center"
-          justifyContent="center"
-        >
-          {colorBadge}
-        </Flex>
-      </GridList.Cell>
-      <GridList.Cell display="flex" alignItems="center" flex="1" gap="2">
-        <Text as="span" fontSize="sm">
-          {item.name}
-        </Text>
-        <Text as="span" fontSize="xs" color="fg.muted">
-          {item.count}
-        </Text>
-      </GridList.Cell>
-      <GridList.Cell
-        display="flex"
-        gap="2"
-        opacity="0"
-        _groupHover={{ opacity: 1 }}
-      >
-        <IconButton
-          size="xs"
-          aria-label="edit"
-          variant="ghost"
-          onClick={() => onEdit()}
-        >
-          <LuPencil />
-        </IconButton>
-        <IconButton
-          size="xs"
-          aria-label="Delete"
-          variant="ghost"
-          onClick={() => onDeleteProp?.()}
-        >
-          <LuTrash />
-        </IconButton>
-      </GridList.Cell>
-    </GridList.Item>
+    <TagListDisplayItem
+      color={color}
+      item={item}
+      onDelete={onDeleteProp}
+      onEdit={onEdit}
+    />
   );
+};
+
+const TagListEditItem = ({
+  colors,
+  error,
+  isLoading,
+  item,
+  onCancel,
+  onSave,
+  setValues,
+  values,
+}: {
+  colors: string[];
+  error: string;
+  isLoading: boolean;
+  item: Tag;
+  onCancel: () => void;
+  onSave: () => void;
+  setValues: React.Dispatch<React.SetStateAction<TagValues>>;
+  values: TagValues;
+}) => (
+  <GridList.Item
+    role="group"
+    py="1"
+    bg="bg.subtle"
+    borderRadius="md"
+    mb="1.5"
+    gap="2"
+  >
+    <GridList.Cell px="0">
+      <ColorControl
+        value={values.color ?? item.color ?? undefined}
+        colors={colors}
+        onChange={(color) =>
+          setValues((values) => ({
+            ...values,
+            color,
+          }))
+        }
+      />
+    </GridList.Cell>
+    <GridList.Cell display="flex" alignItems="center" flex="1" gap="2" px="0">
+      <Field.Root invalid={!!error}>
+        <Field.Label display="none">Label</Field.Label>
+        <Input
+          type="text"
+          defaultValue={item.name}
+          value={values.name}
+          size="sm"
+          autoFocus
+          px="2"
+          bg="chakra-body-bg"
+          onChange={(e) => setValues({ ...values, name: e.target.value })}
+          onKeyDown={(event) => handleTagEditorKeyDown(event, onSave)}
+        />
+      </Field.Root>
+    </GridList.Cell>
+    <GridList.Cell display="flex" gap="2">
+      <Button variant="ghost" size="sm" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button variant="outline" size="sm" loading={isLoading} onClick={onSave}>
+        Save
+      </Button>
+    </GridList.Cell>
+  </GridList.Item>
+);
+
+const TagListDisplayItem = ({
+  color,
+  item,
+  onDelete,
+  onEdit,
+}: {
+  color?: string;
+  item: Tag;
+  onDelete?: () => void;
+  onEdit: () => void;
+}) => (
+  <GridList.Item
+    role="group"
+    py="1"
+    bg="bg.subtle"
+    borderRadius="md"
+    mb="1.5"
+    gap="2"
+  >
+    <GridList.Cell px="0">
+      <Flex
+        border="1px solid transparent"
+        boxSize="7"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Box
+          bgColor={`colors.tag.${color}`}
+          borderRadius="full"
+          boxSize="2.5"
+        />
+      </Flex>
+    </GridList.Cell>
+    <GridList.Cell display="flex" alignItems="center" flex="1" gap="2">
+      <Text as="span" fontSize="sm">
+        {item.name}
+      </Text>
+      <Text as="span" fontSize="xs" color="fg.muted">
+        {item.count}
+      </Text>
+    </GridList.Cell>
+    <GridList.Cell
+      display="flex"
+      gap="2"
+      opacity="0"
+      _groupHover={{ opacity: 1 }}
+    >
+      <IconButton size="xs" aria-label="edit" variant="ghost" onClick={onEdit}>
+        <LuPencil />
+      </IconButton>
+      <IconButton
+        size="xs"
+        aria-label="Delete"
+        variant="ghost"
+        onClick={onDelete}
+      >
+        <LuTrash />
+      </IconButton>
+    </GridList.Cell>
+  </GridList.Item>
+);
+
+const handleTagEditorKeyDown = (
+  event: React.KeyboardEvent<HTMLInputElement>,
+  onSave: () => void,
+) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+  } else if (event.key === "Enter") onSave();
 };
 
 interface TagListAddItemProps {
@@ -233,128 +276,174 @@ const TagListAddItem: React.FC<TagListAddItemProps> = (props) => {
   const { colors, open, onCancel: onCancelProp, onSave: onSaveProp } = props;
 
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const openState = useOpenState({
-    open,
-    onOpenChange(details) {
-      if (!details.open) {
-        setValues({
-          color: "gray",
-          name: "",
-        });
-      }
-    },
-  });
-
-  useEffect(() => {
-    if (openState.open) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      });
-    }
-  }, [openState.open]);
-
-  const [error, setError] = React.useState("");
-  const [isLoading, setLoading] = React.useState(false);
-
-  const [values, setValues] = useState({
+  const [values, setValues] = useState<TagValues>({
     color: "gray",
     name: "",
   });
 
-  const onCancel = () => {
-    setError("");
-    openState.setOpen(false);
-    onCancelProp?.();
-  };
+  const openState = useOpenState({
+    open,
+    onOpenChange: (details) => resetNewTag(details, setValues),
+  });
 
-  const onSave = async () => {
-    try {
-      setError("");
-      setLoading(true);
+  useTagInputFocus(openState.open, inputRef);
 
-      await onSaveProp?.(values);
+  const [error, setError] = React.useState("");
+  const [isLoading, setLoading] = React.useState(false);
 
-      openState.setOpen(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const onCancel = () =>
+    cancelNewTag(openState.setOpen, onCancelProp, setError);
+  const onSave = () =>
+    saveNewTag({
+      onSave: onSaveProp,
+      setError,
+      setLoading,
+      setOpen: openState.setOpen,
+      values,
+    });
 
   return (
-    <Collapsible.Root open={openState.open}>
-      <Collapsible.Content>
-        <HStack
-          role="group"
-          py="2"
-          bg="bg.subtle"
-          px="2"
-          borderWidth="1px"
-          borderRadius="md"
-        >
-          <Box>
-            <ColorControl
-              value={values.color}
-              colors={colors ?? []}
-              onChange={(color) =>
-                setValues((values) => ({
-                  ...values,
-                  color,
-                }))
-              }
-            />
-          </Box>
-          <HStack display="flex" alignItems="center" flex="1" gap="2" px="0">
-            <Field.Root invalid={!!error}>
-              <VisuallyHidden>
-                <Field.Label>Name</Field.Label>
-              </VisuallyHidden>
-              <Input
-                ref={inputRef}
-                type="text"
-                name="tag"
-                placeholder="Tag name"
-                value={values.name}
-                size="sm"
-                px="2"
-                bg="chakra-body-bg"
-                onChange={(e) => setValues({ ...values, name: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    // prevent modal from closing
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    // cancel editing
-                  } else if (e.key === "Enter") {
-                    // save changes
-                    onSave();
-                  }
-                }}
-              />
-            </Field.Root>
-          </HStack>
-          <HStack gap="2">
-            <Button variant="ghost" size="sm" onClick={() => onCancel()}>
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              loading={isLoading}
-              onClick={() => onSave()}
-            >
-              Save
-            </Button>
-          </HStack>
-        </HStack>
-      </Collapsible.Content>
-    </Collapsible.Root>
+    <TagAddEditor
+      colors={colors ?? []}
+      error={error}
+      inputRef={inputRef}
+      isLoading={isLoading}
+      onCancel={onCancel}
+      onSave={onSave}
+      open={openState.open}
+      setValues={setValues}
+      values={values}
+    />
   );
 };
+
+const resetNewTag = (
+  { open }: { open: boolean },
+  setValues: React.Dispatch<React.SetStateAction<TagValues>>,
+) => {
+  if (!open) setValues({ color: "gray", name: "" });
+};
+
+const useTagInputFocus = (
+  open: boolean | undefined,
+  inputRef: React.RefObject<HTMLInputElement | null>,
+) =>
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus());
+  }, [open]);
+
+const cancelNewTag = (
+  setOpen: React.Dispatch<React.SetStateAction<boolean | undefined>>,
+  onCancel: (() => void) | undefined,
+  setError: React.Dispatch<React.SetStateAction<string>>,
+) => {
+  setError("");
+  setOpen(false);
+  onCancel?.();
+};
+
+const saveNewTag = async ({
+  onSave,
+  setError,
+  setLoading,
+  setOpen,
+  values,
+}: {
+  onSave: TagListAddItemProps["onSave"];
+  setError: React.Dispatch<React.SetStateAction<string>>;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setOpen: React.Dispatch<React.SetStateAction<boolean | undefined>>;
+  values: TagValues;
+}) => {
+  try {
+    setError("");
+    setLoading(true);
+    await onSave?.(values);
+    setOpen(false);
+  } catch (error: unknown) {
+    setError(error instanceof Error ? error.message : "Unknown error");
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const TagAddEditor = ({
+  colors,
+  error,
+  inputRef,
+  isLoading,
+  onCancel,
+  onSave,
+  open,
+  setValues,
+  values,
+}: {
+  colors: string[];
+  error: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  isLoading: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+  open: boolean | undefined;
+  setValues: React.Dispatch<React.SetStateAction<TagValues>>;
+  values: TagValues;
+}) => (
+  <Collapsible.Root open={open}>
+    <Collapsible.Content>
+      <HStack
+        role="group"
+        py="2"
+        bg="bg.subtle"
+        px="2"
+        borderWidth="1px"
+        borderRadius="md"
+      >
+        <Box>
+          <ColorControl
+            value={values.color ?? undefined}
+            colors={colors}
+            onChange={(color) => setValues((values) => ({ ...values, color }))}
+          />
+        </Box>
+        <HStack display="flex" alignItems="center" flex="1" gap="2" px="0">
+          <Field.Root invalid={!!error}>
+            <VisuallyHidden>
+              <Field.Label>Name</Field.Label>
+            </VisuallyHidden>
+            <Input
+              ref={inputRef}
+              type="text"
+              name="tag"
+              placeholder="Tag name"
+              value={values.name}
+              size="sm"
+              px="2"
+              bg="chakra-body-bg"
+              onChange={(event) =>
+                setValues({ ...values, name: event.target.value })
+              }
+              onKeyDown={(event) => handleTagEditorKeyDown(event, onSave)}
+            />
+          </Field.Root>
+        </HStack>
+        <HStack gap="2">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isLoading}
+            onClick={onSave}
+          >
+            Save
+          </Button>
+        </HStack>
+      </HStack>
+    </Collapsible.Content>
+  </Collapsible.Root>
+);
 
 interface ManageTagsProps {
   items: Tag[];

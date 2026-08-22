@@ -23,23 +23,12 @@ function SlugStatusIndicator({
   isPending,
   isAvailable,
 }: SlugValidationState) {
-  if (isAvailable === undefined) {
-    return null;
-  }
-
-  if (!isValidSlug || isAvailable === false) {
-    return <Icon as={LuCircleX} color="red.500" />;
-  }
-
-  if (isPending) {
-    return <Spinner size="xs" />;
-  }
-
-  if (isAvailable) {
-    return <Icon as={LuCheck} color="green.500" />;
-  }
-
-  return null;
+  let indicator: React.ReactNode = null;
+  if (!isValidSlug || isAvailable === false)
+    indicator = <Icon as={LuCircleX} color="red.500" />;
+  else if (isPending) indicator = <Spinner size="xs" />;
+  else if (isAvailable) indicator = <Icon as={LuCheck} color="green.500" />;
+  return isAvailable === undefined ? null : indicator;
 }
 
 export function CreateWorkspaceStep() {
@@ -89,10 +78,10 @@ export function CreateWorkspaceStep() {
           workspace.set(result.slug);
           stepper.goToNextStep();
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast.error({
           title: "Failed to create workspace",
-          description: error.message,
+          description: workspaceCreationError(error),
         });
       }
     },
@@ -158,3 +147,6 @@ export function CreateWorkspaceStep() {
     </Form>
   );
 }
+
+const workspaceCreationError = (error: unknown) =>
+  (error as { message: string }).message;

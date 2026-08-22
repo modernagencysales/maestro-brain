@@ -19,17 +19,14 @@ export const useOpenState = (
 
   const setOpen: React.Dispatch<React.SetStateAction<boolean | undefined>> =
     useCallback(
-      (nextValue) => {
-        if (isControlled) {
-          const value =
-            typeof nextValue === "function" ? nextValue(props.open) : nextValue;
-          if (value !== props.open) {
-            handleChange.current?.({ open: !!value });
-          }
-        } else {
-          setValue(nextValue);
-        }
-      },
+      (nextValue) =>
+        applyOpenStateChange({
+          currentValue: props.open,
+          handleChange,
+          isControlled,
+          nextValue,
+          setValue,
+        }),
       [isControlled, props.open, handleChange],
     );
 
@@ -39,3 +36,28 @@ export const useOpenState = (
     onOpenChange: ({ open }: { open: boolean }) => setOpen(open),
   };
 };
+
+const applyOpenStateChange = ({
+  currentValue,
+  handleChange,
+  isControlled,
+  nextValue,
+  setValue,
+}: {
+  currentValue: boolean | undefined;
+  handleChange: React.MutableRefObject<
+    ((details: { open: boolean }) => void) | undefined
+  >;
+  isControlled: boolean;
+  nextValue: React.SetStateAction<boolean | undefined>;
+  setValue: React.Dispatch<React.SetStateAction<boolean | undefined>>;
+}) => {
+  if (!isControlled) return setValue(nextValue);
+  const value = resolveOpenValue(nextValue, currentValue);
+  if (value !== currentValue) handleChange.current?.({ open: !!value });
+};
+
+const resolveOpenValue = (
+  nextValue: React.SetStateAction<boolean | undefined>,
+  currentValue: boolean | undefined,
+) => (typeof nextValue === "function" ? nextValue(currentValue) : nextValue);

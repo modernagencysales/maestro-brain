@@ -140,17 +140,7 @@ function WorkspaceDetails(props: { workspace: WorkspaceDTO }) {
                           https://saas-ui.dev/
                         </Text>
                       }
-                      endElement={
-                        slugAvailable.isPending ? (
-                          <Spinner size="xs" />
-                        ) : slugAvailable.data?.available ? (
-                          <Icon
-                            as={LuCheck}
-                            color="green.500"
-                            strokeWidth="3"
-                          />
-                        ) : null
-                      }
+                      endElement={<WorkspaceSlugStatus {...slugAvailable} />}
                       onChange={(e) => {
                         const value = e.currentTarget.value;
                         setSlug(value);
@@ -169,6 +159,19 @@ function WorkspaceDetails(props: { workspace: WorkspaceDTO }) {
     </Section.Root>
   );
 }
+
+const WorkspaceSlugStatus = ({
+  data,
+  isPending,
+}: {
+  data?: { available: boolean };
+  isPending: boolean;
+}) => {
+  if (isPending) return <Spinner size="xs" />;
+  return data?.available ? (
+    <Icon as={LuCheck} color="green.500" strokeWidth="3" />
+  ) : null;
+};
 
 // TODO add s3 uploads
 function WorkspaceLogo(props: { workspace: WorkspaceDTO }) {

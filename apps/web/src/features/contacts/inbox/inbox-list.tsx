@@ -119,54 +119,52 @@ const useActor = (id: string | null) => {
  * @see https://reactjs.org/docs/dom-elements.html#dangerouslysetinnerhtml
  */
 const Message = ({ item }: { item: NotificationDTO }) => {
-  let message = "";
-  const tags = Array.isArray(item.metadata?.tags) ? item.metadata?.tags : [];
-
   const actor = useActor(item.actorId);
 
   if (item.type === "comment" && item.metadata?.comment) {
     return (
-      <Text fontSize="xs" lineClamp={2}>
-        <Text as="span" color="inherit">
-          {actor?.name}
-        </Text>{" "}
-        —{" "}
-        <Text
-          as="span"
-          color="fg.muted"
-          wordBreak="break-all"
-          dangerouslySetInnerHTML={{ __html: item.metadata.comment }}
-        />
-      </Text>
+      <CommentMessage actorName={actor?.name} html={item.metadata.comment} />
     );
-  }
-
-  switch (item.type) {
-    case "action":
-      switch (item.metadata?.action) {
-        case "created-contact":
-          message = "created contact";
-      }
-      break;
-    case "update":
-      message = `updated ${item.metadata?.field} to ${item.metadata?.value}`;
-      break;
-    case "comment":
-      message = "left a comment";
-      break;
-    case "tags":
-      message = "updated tags to " + tags?.join(", ");
-      break;
-    case "type":
-      message = `changed type to ${item.metadata?.type}`;
-      break;
-    case "status":
-      message = `changed status to ${item.metadata?.status}`;
   }
 
   return (
     <Text fontSize="xs" color="fg.muted" lineClamp={2}>
-      <Text as="span">{actor?.name}</Text> {message}
+      <Text as="span">{actor?.name}</Text> {notificationMessage(item)}
     </Text>
   );
+};
+
+const CommentMessage = ({
+  actorName,
+  html,
+}: {
+  actorName?: string | null;
+  html: string;
+}) => (
+  <Text fontSize="xs" lineClamp={2}>
+    <Text as="span" color="inherit">
+      {actorName}
+    </Text>{" "}
+    —{" "}
+    <Text
+      as="span"
+      color="fg.muted"
+      wordBreak="break-all"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  </Text>
+);
+
+const notificationMessage = (item: NotificationDTO): string => {
+  const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : [];
+  const messages: Partial<Record<string, string>> = {
+    action:
+      item.metadata?.action === "created-contact" ? "created contact" : "",
+    update: `updated ${item.metadata?.field} to ${item.metadata?.value}`,
+    comment: "left a comment",
+    tags: "updated tags to " + tags.join(", "),
+    type: `changed type to ${item.metadata?.type}`,
+    status: `changed status to ${item.metadata?.status}`,
+  };
+  return messages[item.type ?? ""] ?? "";
 };

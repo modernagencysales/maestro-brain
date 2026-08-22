@@ -58,30 +58,6 @@ function NotificationChannels(props: {
 }) {
   const { data, onUpdate } = props;
 
-  const handleChange = (key: string) => (value: boolean) => {
-    onUpdate({ key, value });
-  };
-
-  const onDesktopChange = async (checked: boolean) => {
-    if (checked) {
-      if (Notification.permission !== "denied") {
-        const permission = await Notification.requestPermission();
-
-        if (permission === "granted") {
-          onUpdate({
-            key: "desktop",
-            value: true,
-          });
-        }
-      }
-    } else {
-      onUpdate({
-        key: "desktop",
-        value: false,
-      });
-    }
-  };
-
   return (
     <Section.Root>
       <Section.Header
@@ -95,13 +71,13 @@ function NotificationChannels(props: {
               title="Email"
               description="Receive a daily email digest."
               isChecked={!!data?.email}
-              onChange={handleChange("email")}
+              onChange={notificationUpdater(onUpdate, "email")}
             />
             <NotificationItem
               title="Desktop"
               description="Receive desktop notifications."
               isChecked={!!data?.desktop}
-              onChange={onDesktopChange}
+              onChange={(checked) => updateDesktopChannel(checked, onUpdate)}
             />
           </GridList.Root>
         </Card.Root>
@@ -109,6 +85,21 @@ function NotificationChannels(props: {
     </Section.Root>
   );
 }
+
+const notificationUpdater =
+  (onUpdate: (args: { key: string; value: boolean }) => void, key: string) =>
+  (value: boolean) =>
+    onUpdate({ key, value });
+
+const updateDesktopChannel = async (
+  checked: boolean,
+  onUpdate: (args: { key: string; value: boolean }) => void,
+) => {
+  if (!checked) return onUpdate({ key: "desktop", value: false });
+  if (Notification.permission === "denied") return;
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") onUpdate({ key: "desktop", value: true });
+};
 
 function NotificationTopics(props: {
   data: Required<WorkspaceMemberSettingsDTO>["topics"];

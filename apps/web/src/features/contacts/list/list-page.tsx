@@ -42,7 +42,7 @@ import { LuSlidersHorizontal, LuSquareUser } from "react-icons/lu";
 import { z } from "zod";
 
 import { ContactDTO } from "@workspace/api/types";
-import { DataBoard } from "@workspace/ui/data-board";
+import { DataBoard, type DataBoardProps } from "@workspace/ui/data-board";
 import { useDataGridFocus } from "@workspace/ui/hooks";
 import { InlineSearch } from "@workspace/ui/inline-search";
 import { useModals } from "@workspace/ui/modals";
@@ -109,41 +109,8 @@ const getType = (type?: "leads" | "customers") => {
   }
 };
 
-export const paramsSchema = z.object({
-  workspace: z.string(),
-  type: z.enum(["leads", "customers"]).optional(),
-  tag: z.string().optional(),
-});
-
-export function ContactsListPage({
-  params,
-}: {
-  params: {
-    workspace: string;
-    type?: "leads" | "customers";
-    tag?: string;
-  };
-}) {
-  const modals = useModals();
-
-  const [searchQuery, setSearchQuery] = React.useState("");
-
-  const type = getType(params.type);
-
-  const [workspace] = useCurrentWorkspace();
-
-  const [userSettings] = useUserSettings();
-
-  const { data, isLoading } = api.contacts.listByType.useQuery({
-    workspaceId: workspace.id,
-    type,
-  });
-
-  const updateContactMutation = api.contacts.update.useMutation();
-
-  const filters = useContactFilters();
-
-  const columns = useColumns<ContactDTO>(
+const useContactColumns = () =>
+  useColumns<ContactDTO>(
     (helper) => [
       helper.accessor("name", {
         header: "Name",
@@ -218,6 +185,42 @@ export function ContactsListPage({
     ],
     [],
   );
+
+export const paramsSchema = z.object({
+  workspace: z.string(),
+  type: z.enum(["leads", "customers"]).optional(),
+  tag: z.string().optional(),
+});
+
+export function ContactsListPage({
+  params,
+}: {
+  params: {
+    workspace: string;
+    type?: "leads" | "customers";
+    tag?: string;
+  };
+}) {
+  const modals = useModals();
+
+  const [searchQuery, setSearchQuery] = React.useState("");
+
+  const type = getType(params.type);
+
+  const [workspace] = useCurrentWorkspace();
+
+  const [userSettings] = useUserSettings();
+
+  const { data, isLoading } = api.contacts.listByType.useQuery({
+    workspaceId: workspace.id,
+    type,
+  });
+
+  const updateContactMutation = api.contacts.update.useMutation();
+
+  const filters = useContactFilters();
+
+  const columns = useContactColumns();
 
   const addPerson = () => {
     modals.open(AddPersonDialog, {
@@ -459,59 +462,14 @@ export function ContactsListPage({
           renderHeader={(header) => <ContactBoardHeader {...header} />}
           renderCard={(row) => <ContactCard contact={row.original} />}
           groupBy={userSettings.contactsGroupBy}
-          onCardDragEnd={({ items, to, from }) => {
-            const contact = data?.contacts.find(
-              ({ id }) => id === items[to.columnId]?.[to.index],
-            );
-
-            const [field, toValue] = (to.columnId as string).split(":") as [
-              keyof ContactDTO,
-              string,
-            ];
-            const [, prevValue] = (from.columnId as string).split(":");
-
-            if (!contact) {
-              throw new Error("Contact not found");
-            }
-
-            const prevId = items[to.columnId]?.[to.index - 1];
-            let prevContact = data?.contacts.find(({ id }) => id === prevId);
-
-            const nextId = items[to.columnId]?.[to.index + 1];
-            let nextContact = data?.contacts.find(({ id }) => id === nextId);
-
-            if (prevContact && !nextContact) {
-              nextContact =
-                data?.contacts[
-                  data?.contacts.findIndex(({ id }) => id === prevId) + 1
-                ];
-            } else if (!prevContact && !nextContact) {
-              prevContact =
-                data?.contacts[
-                  data?.contacts.findIndex(({ id }) => id === prevId) - 1
-                ];
-            }
-
-            const prevSortOrder = prevContact?.sortOrder || 0;
-            const nextSortOrder =
-              nextContact?.sortOrder ?? data?.contacts.length ?? 0;
-
-            const sortOrder = (prevSortOrder + nextSortOrder) / 2 || to.index;
-
-            let value: string | string[] = toValue;
-            if (Array.isArray(contact[field])) {
-              value = (value !== "" ? [value] : []).concat(
-                (contact[field] as string[]).filter((v) => v !== prevValue),
-              );
-            }
-
-            updateContactMutation.mutateAsync({
-              workspaceId: workspace.id,
-              id: contact.id,
-              [field]: value,
-              sortOrder,
-            });
-          }}
+          onCardDragEnd={(event) =>
+            handleContactCardDragEnd(
+              event,
+              contacts,
+              workspace.id,
+              updateContactMutation.mutateAsync,
+            )
+          }
           noResults={NoFilteredResults}
           getRowId={getRowId}
           initialState={{
@@ -633,3 +591,66 @@ export function ContactsListPage({
     </FiltersProvider>
   );
 }
+
+type ContactCardDragEvent = Parameters<
+  NonNullable<DataBoardProps<ContactDTO>["onCardDragEnd"]>
+>[0];
+
+const handleContactCardDragEnd = (
+  { from, items, to }: ContactCardDragEvent,
+  contacts: ContactDTO[],
+  workspaceId: string,
+  mutate: ReturnType<typeof api.contacts.update.useMutation>["mutateAsync"],
+) => {
+  const contact = contacts.find(
+    ({ id }) => id === items[to.columnId]?.[to.index],
+  );
+  if (!contact) throw new Error("Contact not found");
+  const [field, toValue] = (to.columnId as string).split(":") as [
+    keyof ContactDTO,
+    string,
+  ];
+  const [, previousValue] = (from.columnId as string).split(":");
+  const neighbors = adjacentContacts(contacts, items, to);
+  const sortOrder = contactSortOrder(neighbors, contacts.length, to.index);
+  const value = updatedContactField(contact, field, toValue, previousValue);
+  mutate({ workspaceId, id: contact.id, [field]: value, sortOrder });
+};
+
+const adjacentContacts = (
+  contacts: ContactDTO[],
+  items: ContactCardDragEvent["items"],
+  to: ContactCardDragEvent["to"],
+) => {
+  const previousId = items[to.columnId]?.[to.index - 1];
+  const nextId = items[to.columnId]?.[to.index + 1];
+  let previous = contacts.find(({ id }) => id === previousId);
+  let next = contacts.find(({ id }) => id === nextId);
+  const previousIndex = contacts.findIndex(({ id }) => id === previousId);
+  if (previous && !next) next = contacts[previousIndex + 1];
+  else if (!previous && !next) previous = contacts[previousIndex - 1];
+  return { next, previous };
+};
+
+const contactSortOrder = (
+  { next, previous }: ReturnType<typeof adjacentContacts>,
+  contactCount: number,
+  targetIndex: number,
+) => {
+  const previousSortOrder = previous?.sortOrder || 0;
+  const nextSortOrder = next?.sortOrder ?? contactCount;
+  return (previousSortOrder + nextSortOrder) / 2 || targetIndex;
+};
+
+const updatedContactField = (
+  contact: ContactDTO,
+  field: keyof ContactDTO,
+  targetValue: string,
+  previousValue: string,
+): string | string[] => {
+  if (!Array.isArray(contact[field])) return targetValue;
+  const replacement = targetValue !== "" ? [targetValue] : [];
+  return replacement.concat(
+    (contact[field] as string[]).filter((value) => value !== previousValue),
+  );
+};

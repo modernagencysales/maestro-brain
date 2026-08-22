@@ -30,14 +30,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Sidebar } from "@saas-ui/react/sidebar";
 
-export interface SortableNavGroupProps
+export interface SortableNavGroupProps<Item = unknown>
   extends
     Omit<HTMLChakraProps<"div">, "onDragStart" | "onDragEnd" | "onDragOver">,
     DndContextProps {
-  items: any[];
-  onSorted?: (fn: (items: any[]) => any[]) => void;
+  items: Item[];
+  onSorted?: (fn: (items: Item[]) => Item[]) => void;
 }
-export const SortableNavGroup: React.FC<SortableNavGroupProps> = (props) => {
+export const SortableNavGroup = <Item,>(props: SortableNavGroupProps<Item>) => {
   const {
     children,
     onDragStart,
@@ -49,99 +49,112 @@ export const SortableNavGroup: React.FC<SortableNavGroupProps> = (props) => {
   } = props;
 
   const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null);
-  const getIndex = (id: UniqueIdentifier) =>
-    items.findIndex((item) => item.id === id);
-  const activeIndex = activeId ? getIndex(activeId) : -1;
-  const activeItem = React.Children.toArray(children).find((child) => {
-    if (!React.isValidElement(child)) {
-      return false;
-    }
+  const activeIndex = findItemIndex(items, activeId);
+  const activeItem = findActiveItem(children, activeId);
+  const sensors = useNavigationSensors();
 
-    const childProps = child.props as { id?: UniqueIdentifier };
-    return child.type === SortableNavItem && childProps.id === activeId;
-  }) as React.ReactElement<Sidebar.NavItemProps> | undefined;
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { over } = event;
-
-    if (over) {
-      const overIndex = getIndex(over.id);
-      if (activeIndex !== overIndex) {
-        onSorted?.((items) => arrayMove(items, activeIndex, overIndex));
+  return (
+    <DndContext
+      collisionDetection={closestCenter}
+      sensors={sensors}
+      onDragStart={(event) =>
+        startNavigationDrag(event, setActiveId, onDragStart)
       }
-    }
+      onDragOver={onDragOver}
+      onDragEnd={(event) => {
+        finishNavigationDrag(event, activeIndex, items, onSorted);
+        setActiveId(null);
+        onDragEnd?.(event);
+      }}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <SortableContext
+        items={items as Array<UniqueIdentifier | { id: UniqueIdentifier }>}
+        strategy={verticalListSortingStrategy}
+      >
+        <Sidebar.GroupContent {...rest}>{children}</Sidebar.GroupContent>
+      </SortableContext>
+      <NavigationDragOverlay activeItem={activeItem} />
+    </DndContext>
+  );
+};
 
-    setActiveId(null);
-  };
-
-  const sensors = useSensors(
+const useNavigationSensors = () =>
+  useSensors(
     useSensor(MouseSensor, {
-      // Press delay of 250ms, with tolerance of 2px of movement to make sure the nav items are clickable.
-      activationConstraint: {
-        delay: 100,
-        tolerance: 0,
-      },
+      activationConstraint: { delay: 100, tolerance: 0 },
     }),
     useSensor(TouchSensor, {
-      // Press delay of 250ms, with tolerance of 5px of movement to make sure the nav items are pressable.
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
+      activationConstraint: { delay: 250, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 
-  return (
-    <DndContext
-      collisionDetection={closestCenter}
-      sensors={sensors}
-      onDragStart={(event) => {
-        if (!event.active) {
-          return;
-        }
-        setActiveId(event.active.id);
-        onDragStart?.(event);
-      }}
-      onDragOver={onDragOver}
-      onDragEnd={(event) => {
-        handleDragEnd(event);
-        onDragEnd?.(event);
-      }}
-      onDragCancel={() => setActiveId(null)}
-    >
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        <Sidebar.GroupContent {...rest}>{children}</Sidebar.GroupContent>
-      </SortableContext>
-      <Portal>
-        <DragOverlay
-          dropAnimation={{
-            duration: 50,
-            sideEffects: defaultDropAnimationSideEffects({
-              styles: {
-                active: {
-                  opacity: "0.2",
-                },
-              },
-            }),
-          }}
-        >
-          {activeItem ? (
-            <Sidebar.NavItem {...activeItem.props}>
-              <Sidebar.NavButton
-                my="0"
-                _hover={{ bg: "transparent" }}
-                opacity="0.8"
-              />
-            </Sidebar.NavItem>
-          ) : null}
-        </DragOverlay>
-      </Portal>
-    </DndContext>
-  );
+const findItemIndex = <Item,>(items: Item[], id: UniqueIdentifier | null) =>
+  id
+    ? items.findIndex((item) => (item as { id?: UniqueIdentifier }).id === id)
+    : -1;
+
+const findActiveItem = (
+  children: React.ReactNode,
+  activeId: UniqueIdentifier | null,
+) =>
+  React.Children.toArray(children).find((child) => {
+    if (!React.isValidElement(child)) return false;
+    const childProps = child.props as { id?: UniqueIdentifier };
+    return child.type === SortableNavItem && childProps.id === activeId;
+  }) as React.ReactElement<Sidebar.NavItemProps> | undefined;
+
+const startNavigationDrag = (
+  event: Parameters<NonNullable<DndContextProps["onDragStart"]>>[0],
+  setActiveId: React.Dispatch<React.SetStateAction<UniqueIdentifier | null>>,
+  onDragStart: DndContextProps["onDragStart"],
+) => {
+  if (!event.active) return;
+  setActiveId(event.active.id);
+  onDragStart?.(event);
 };
+
+const finishNavigationDrag = <Item,>(
+  event: DragEndEvent,
+  activeIndex: number,
+  items: Item[],
+  onSorted: SortableNavGroupProps<Item>["onSorted"],
+) => {
+  if (!event.over) return;
+  const overIndex = findItemIndex(items, event.over.id);
+  if (activeIndex !== overIndex)
+    onSorted?.((items) => arrayMove(items, activeIndex, overIndex));
+};
+
+const NavigationDragOverlay = ({
+  activeItem,
+}: {
+  activeItem?: React.ReactElement<Sidebar.NavItemProps>;
+}) => (
+  <Portal>
+    <DragOverlay
+      dropAnimation={{
+        duration: 50,
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: { active: { opacity: "0.2" } },
+        }),
+      }}
+    >
+      {activeItem ? (
+        <Sidebar.NavItem {...activeItem.props}>
+          <Sidebar.NavButton
+            my="0"
+            _hover={{ bg: "transparent" }}
+            opacity="0.8"
+          />
+        </Sidebar.NavItem>
+      ) : null}
+    </DragOverlay>
+  </Portal>
+);
 
 export interface SortableNavItemProps extends Sidebar.NavItemProps {
   id: string;

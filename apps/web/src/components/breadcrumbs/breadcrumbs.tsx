@@ -23,32 +23,32 @@ export const Breadcrumbs: React.FC<BreadCrumbsProps> = (props) => {
   const { items = [], ...rest } = props;
   return (
     <Breadcrumb.Root {...rest}>
-      {items?.map((item, i) => {
-        const { href, title, isCurrentPage } = item;
-
-        return (
-          <Fragment key={i}>
-            {href ? (
-              <Breadcrumb.Link
-                as={Link}
-                href={href}
-                fontWeight="semibold"
-                _hover={{
-                  textDecoration: "none",
-                }}
-              >
-                {title}
-              </Breadcrumb.Link>
-            ) : title ? (
-              <Breadcrumb.CurrentLink>
-                <Text color={isCurrentPage ? "fg" : "muted"}>{title}</Text>
-              </Breadcrumb.CurrentLink>
-            ) : (
-              <SkeletonText width="28" noOfLines={1} />
-            )}
-          </Fragment>
-        );
-      })}
+      {items.map((item, index) => (
+        <BreadcrumbItem item={item} key={index} />
+      ))}
     </Breadcrumb.Root>
+  );
+};
+
+const BreadcrumbItem = ({ item }: { item: BreadcrumbsItem }) => {
+  const { href, title, isCurrentPage } = item;
+  if (href)
+    return (
+      <Fragment>
+        <Breadcrumb.Link
+          as={Link}
+          href={href}
+          fontWeight="semibold"
+          _hover={{ textDecoration: "none" }}
+        >
+          {title}
+        </Breadcrumb.Link>
+      </Fragment>
+    );
+  if (!title) return <SkeletonText width="28" noOfLines={1} />;
+  return (
+    <Breadcrumb.CurrentLink>
+      <Text color={isCurrentPage ? "fg" : "muted"}>{title}</Text>
+    </Breadcrumb.CurrentLink>
   );
 };

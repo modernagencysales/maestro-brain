@@ -56,47 +56,17 @@ export function MembersSettingsPage() {
         role,
       }),
       {
-        loading: {
-          title:
-            emails.length === 1
-              ? `Inviting ${emails[0]}...`
-              : `Inviting ${emails.length} people...`,
-        },
+        loading: { title: inviteLoadingTitle(emails) },
         success: {
           title: `Invitation(s) have been sent.`,
         },
-        error: (err: unknown) => {
-          return {
-            title: "Failed to invite members",
-            description: err instanceof Error ? err.message : "Unknown error",
-          };
-        },
+        error: memberOperationError("Failed to invite members"),
       },
     );
   };
 
-  const onCancelInvite = async (member: Member) => {
-    return toast.promise(
-      removeMember.mutateAsync({
-        id: member.id,
-        workspaceId: workspace.id,
-      }),
-      {
-        loading: {
-          title: `Removing ${member.email}...`,
-        },
-        success: {
-          title: `Removed ${member.email}!`,
-        },
-        error: (err: unknown) => {
-          return {
-            title: "Failed to remove member",
-            description: err instanceof Error ? err.message : "Unknown error",
-          };
-        },
-      },
-    );
-  };
+  const onCancelInvite = async (member: Member) =>
+    await removeMemberWithToast(member, workspace.id, removeMember.mutateAsync);
 
   const onRemove = (member: WorkspaceMemberDTO) => {
     modals.confirm?.({
@@ -109,26 +79,10 @@ export function MembersSettingsPage() {
         children: "Remove",
       },
       onConfirm: async () => {
-        await toast.promise(
-          removeMember.mutateAsync({
-            workspaceId: workspace.id,
-            id: member.id,
-          }),
-          {
-            loading: {
-              title: `Removing ${member.email}...`,
-            },
-            success: {
-              title: `Removed ${member.email}!`,
-            },
-            error: (err: unknown) => {
-              return {
-                title: "Failed to remove member",
-                description:
-                  err instanceof Error ? err.message : "Unknown error",
-              };
-            },
-          },
+        await removeMemberWithToast(
+          member,
+          workspace.id,
+          removeMember.mutateAsync,
         );
       },
     });
@@ -184,3 +138,26 @@ export function MembersSettingsPage() {
     </SettingsPage>
   );
 }
+
+const inviteLoadingTitle = (emails: readonly string[]) =>
+  emails.length === 1
+    ? `Inviting ${emails[0]}...`
+    : `Inviting ${emails.length} people...`;
+
+const memberOperationError = (title: string) => (err: unknown) => ({
+  title,
+  description: err instanceof Error ? err.message : "Unknown error",
+});
+
+const removeMemberWithToast = async (
+  member: { email?: string | null; id: string },
+  workspaceId: string,
+  mutate: ReturnType<
+    typeof api.workspaceMembers.removeMember.useMutation
+  >["mutateAsync"],
+) =>
+  await toast.promise(mutate({ id: member.id, workspaceId }), {
+    loading: { title: `Removing ${member.email}...` },
+    success: { title: `Removed ${member.email}!` },
+    error: memberOperationError("Failed to remove member"),
+  });

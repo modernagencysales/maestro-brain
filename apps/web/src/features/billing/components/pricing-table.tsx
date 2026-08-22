@@ -89,115 +89,178 @@ export const PricingTable: React.FC<PricingTableProps> = (props) => {
                 />
               )}
             </Table.Cell>
-            {plans.map((plan) => {
-              return (
-                <Table.Cell
-                  key={plan.id}
-                  textTransform="none"
-                  letterSpacing="normal"
-                  border="0"
-                  py="0"
-                >
-                  <Stack gap="0">
-                    <Heading as="h3" size="xl" fontWeight="medium">
-                      {plan.name}{" "}
-                      {plan.metadata.discount && (
-                        <Tag.Root size="sm">-{plan.metadata.discount}</Tag.Root>
-                      )}
-                    </Heading>
-                  </Stack>
-                </Table.Cell>
-              );
-            })}
+            {plans.map((plan) => (
+              <PricingPlanName key={plan.id} plan={plan} />
+            ))}
           </Table.Row>
           <Table.Row borderBottomWidth="1px" bg="none">
-            {plans.map((plan) => {
-              const isCurrent = plan.id === currentPlan?.id;
-              const isDowngrade =
-                currentPlan &&
-                allPlans.indexOf(plan) < allPlans.indexOf(currentPlan);
-
-              return (
-                <Table.ColumnHeader
-                  key={plan.id}
-                  textTransform="none"
-                  fontWeight="normal"
-                  letterSpacing="normal"
-                >
-                  <Stack gap="4">
-                    <HStack gap="1">
-                      <Text textStyle="xl" fontWeight="medium">
-                        {plan.metadata.price}
-                      </Text>
-                      <Text textStyle="sm" color="fg.muted">
-                        {plan.metadata.priceLabel}
-                      </Text>
-                    </HStack>
-
-                    {isCurrent ? (
-                      <Button variant="surface" disabled>
-                        Current plan
-                      </Button>
-                    ) : (
-                      <Button
-                        variant={isDowngrade ? "surface" : "solid"}
-                        colorPalette={isDowngrade ? "gray" : "accent"}
-                        disabled={loading}
-                        onClick={() => updatePlan?.(plan)}
-                      >
-                        {isDowngrade ? "Downgrade" : "Upgrade"}
-                      </Button>
-                    )}
-                  </Stack>
-                </Table.ColumnHeader>
-              );
-            })}
+            {plans.map((plan) => (
+              <PricingPlanAction
+                allPlans={allPlans}
+                currentPlan={currentPlan}
+                key={plan.id}
+                loading={loading}
+                onUpdate={updatePlan}
+                plan={plan}
+              />
+            ))}
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {features.map((feature) => {
-            return (
-              <Table.Row key={feature.id} bg="none">
-                <Table.Cell borderBottomWidth="1px" color="fg.subtle">
-                  {feature.description ? (
-                    <Tooltip
-                      content={feature.description}
-                      positioning={{
-                        placement: "right",
-                      }}
-                      openDelay={50}
-                    >
-                      <Box
-                        as="span"
-                        textDecoration="underline dotted rgb(100, 100, 100)"
-                        cursor="default"
-                      >
-                        {feature.label}
-                      </Box>
-                    </Tooltip>
-                  ) : (
-                    feature.label
-                  )}
-                </Table.Cell>
-
-                {plans.map((plan) => {
-                  const item = plan.features.find((f) => f.id === feature.id);
-                  return (
-                    <Table.Cell key={plan.id} borderBottomWidth="1px">
-                      <PricingTableFeature
-                        value={item?.label ?? item?.limit ?? !!item}
-                      />
-                    </Table.Cell>
-                  );
-                })}
-              </Table.Row>
-            );
-          })}
+          {features.map((feature) => (
+            <PricingFeatureRow
+              feature={feature}
+              key={feature.id}
+              plans={plans}
+            />
+          ))}
         </Table.Body>
       </Table.Root>
     </Box>
   );
 };
+
+const PricingPlanName = ({ plan }: { plan: BillingPlan }) => (
+  <Table.Cell textTransform="none" letterSpacing="normal" border="0" py="0">
+    <Stack gap="0">
+      <Heading as="h3" size="xl" fontWeight="medium">
+        {plan.name}{" "}
+        {plan.metadata.discount && (
+          <Tag.Root size="sm">-{plan.metadata.discount}</Tag.Root>
+        )}
+      </Heading>
+    </Stack>
+  </Table.Cell>
+);
+
+const PricingPlanAction = ({
+  allPlans,
+  currentPlan,
+  loading,
+  onUpdate,
+  plan,
+}: {
+  allPlans: BillingPlan[];
+  currentPlan?: BillingPlan;
+  loading: boolean;
+  onUpdate: (plan: BillingPlan) => Promise<void>;
+  plan: BillingPlan;
+}) => {
+  const isCurrent = plan.id === currentPlan?.id;
+  const isDowngrade =
+    currentPlan !== undefined &&
+    allPlans.indexOf(plan) < allPlans.indexOf(currentPlan);
+  return (
+    <Table.ColumnHeader
+      textTransform="none"
+      fontWeight="normal"
+      letterSpacing="normal"
+    >
+      <Stack gap="4">
+        <HStack gap="1">
+          <Text textStyle="xl" fontWeight="medium">
+            {plan.metadata.price}
+          </Text>
+          <Text textStyle="sm" color="fg.muted">
+            {plan.metadata.priceLabel}
+          </Text>
+        </HStack>
+        <PricingPlanButton
+          isCurrent={isCurrent}
+          isDowngrade={isDowngrade}
+          loading={loading}
+          onUpdate={() => onUpdate(plan)}
+        />
+      </Stack>
+    </Table.ColumnHeader>
+  );
+};
+
+const PricingPlanButton = ({
+  isCurrent,
+  isDowngrade,
+  loading,
+  onUpdate,
+}: {
+  isCurrent: boolean;
+  isDowngrade: boolean;
+  loading: boolean;
+  onUpdate: () => void;
+}) => {
+  if (isCurrent)
+    return (
+      <Button variant="surface" disabled>
+        Current plan
+      </Button>
+    );
+  return (
+    <PricingUpdateButton
+      isDowngrade={isDowngrade}
+      loading={loading}
+      onUpdate={onUpdate}
+    />
+  );
+};
+
+const PricingUpdateButton = ({
+  isDowngrade,
+  loading,
+  onUpdate,
+}: {
+  isDowngrade: boolean;
+  loading: boolean;
+  onUpdate: () => void;
+}) => (
+  <Button
+    variant={isDowngrade ? "surface" : "solid"}
+    colorPalette={isDowngrade ? "gray" : "accent"}
+    disabled={loading}
+    onClick={onUpdate}
+  >
+    {isDowngrade ? "Downgrade" : "Upgrade"}
+  </Button>
+);
+
+const PricingFeatureRow = ({
+  feature,
+  plans,
+}: {
+  feature: PricingFeature;
+  plans: BillingPlan[];
+}) => (
+  <Table.Row bg="none">
+    <Table.Cell borderBottomWidth="1px" color="fg.subtle">
+      <PricingFeatureLabel feature={feature} />
+    </Table.Cell>
+    {plans.map((plan) => {
+      const item = plan.features.find(({ id }) => id === feature.id);
+      return (
+        <Table.Cell key={plan.id} borderBottomWidth="1px">
+          <PricingTableFeature value={item?.label ?? item?.limit ?? !!item} />
+        </Table.Cell>
+      );
+    })}
+  </Table.Row>
+);
+
+const PricingFeatureLabel = ({ feature }: { feature: PricingFeature }) =>
+  feature.description ? (
+    <Tooltip
+      content={feature.description}
+      positioning={{ placement: "right" }}
+      openDelay={50}
+    >
+      <Box
+        as="span"
+        textDecoration="underline dotted rgb(100, 100, 100)"
+        cursor="default"
+      >
+        {feature.label}
+      </Box>
+    </Tooltip>
+  ) : (
+    feature.label
+  );
 
 interface PricingTableFeature {
   value: string | number | boolean;

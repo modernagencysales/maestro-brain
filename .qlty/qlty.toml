@@ -68,46 +68,6 @@ set.ignored = true
 plugins = ["qlty"]
 file_patterns = ["packages/template-core/src/generated/confectManifest.ts"]
 
-# Commit f71717f2 imports the canonical SaaS UI workspace chassis as a single
-# upstream shelf. Keep its existing structural findings visible as monitored
-# import debt instead of forking those prebuilt screens during adoption. New
-# rules or findings in product-owned adapters remain blocking, and paths leave
-# this ledger when they are deliberately refactored.
-[[triage]]
-match.rules = ["qlty:function-complexity"]
-match.file_patterns = [
-  "apps/web/src/components/breadcrumbs/breadcrumbs.tsx",
-  "apps/web/src/components/data-board/data-board.tsx",
-  "apps/web/src/components/sortable-nav-group/sortable-nav-group.tsx",
-  "apps/web/src/components/tags-list/tags-list.tsx",
-  "apps/web/src/features/billing/components/pricing-table.tsx",
-  "apps/web/src/features/common/components/invite-people.tsx",
-  "apps/web/src/features/contacts/inbox/inbox-list.tsx",
-  "apps/web/src/features/contacts/list/list-page.tsx",
-  "apps/web/src/features/getting-started/create-workspace.tsx",
-  "apps/web/src/features/settings/account/account-notifications-page.tsx",
-  "apps/web/src/features/settings/members/members-page.tsx",
-  "apps/web/src/features/settings/tags/manage-tags.tsx",
-  "apps/web/src/features/settings/workspace/workspace-settings-page.tsx",
-  "apps/web/src/hooks/use-open-state.ts",
-]
-set.mode = "monitor"
-
-[[triage]]
-match.rules = ["qlty:return-statements"]
-match.file_patterns = [
-  "apps/web/src/features/getting-started/create-workspace.tsx",
-  "apps/web/src/features/settings/members/members-page.tsx",
-]
-set.mode = "monitor"
-
-[[triage]]
-match.rules = ["qlty:similar-code"]
-match.file_patterns = [
-  "apps/web/src/features/settings/members/members-page.tsx",
-]
-set.mode = "monitor"
-
 [[plugin]]
 name = "gitleaks"
 mode = "block"
