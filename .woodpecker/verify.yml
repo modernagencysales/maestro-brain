@@ -43,6 +43,7 @@ steps:
       CI: "true"
       NODE_OPTIONS: "--max-old-space-size=6144"
     commands:
+      - npm install --global pnpm@10.12.1 --ignore-scripts
       - pnpm check:effect-diagnostics
     failure: cancel
 
@@ -54,6 +55,7 @@ steps:
       CI: "true"
       NODE_OPTIONS: "--max-old-space-size=6144"
     commands:
+      - npm install --global pnpm@10.12.1 --ignore-scripts
       - pnpm test
       - pnpm test:tooling
       - pnpm test:workflow
