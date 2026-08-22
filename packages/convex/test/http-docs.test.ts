@@ -245,12 +245,39 @@ describe("template HTTP docs routes", () => {
         ]),
       },
     });
-    const tools = (listed as { result: { tools: readonly { name: string }[] } })
-      .result.tools;
+    const tools = (
+      listed as {
+        result: {
+          tools: readonly {
+            name: string;
+            inputSchema: {
+              properties: Readonly<Record<string, unknown>>;
+              required?: readonly string[];
+            };
+          }[];
+        };
+      }
+    ).result.tools;
     expect(tools).toHaveLength(7);
     expect(tools.map((tool) => tool.name)).not.toContain(
       "template.brain.pilot.ask",
     );
+    for (const tool of tools) {
+      expect(Object.keys(tool.inputSchema.properties)).not.toContain(
+        "brainKey",
+      );
+      expect(tool.inputSchema.required ?? []).not.toContain("brainKey");
+    }
+    expect(
+      tools.find((tool) => tool.name === "template.brain.answers.ask")
+        ?.inputSchema,
+    ).toMatchObject({
+      properties: {
+        maxCitations: expect.any(Object),
+        question: expect.any(Object),
+      },
+      required: ["question"],
+    });
   });
 
   it("serves the Ask Apero MCP prompt with grounded answer guidance", async () => {

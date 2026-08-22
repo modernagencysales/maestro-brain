@@ -94,6 +94,9 @@ const tenantInputFields = new Set([
   "id",
 ]);
 
+export const isServerDerivedHeadlessInputField = (field: string): boolean =>
+  tenantInputFields.has(field);
+
 const forbidden = (): HeadlessAuthorizationFailure => ({
   ok: false,
   error: {
@@ -123,7 +126,8 @@ export const containsTenantInputField = (value: JsonValue): boolean => {
 
   return Object.entries(value).some(
     ([field, nested]) =>
-      tenantInputFields.has(field) || containsTenantInputField(nested),
+      isServerDerivedHeadlessInputField(field) ||
+      containsTenantInputField(nested),
   );
 };
 
