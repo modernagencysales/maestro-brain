@@ -88,7 +88,7 @@ pinned Claude Code version's MCP status command before invoking the skill.
 3. Invoke `$ask-apero` in Codex or `/ask-apero` in Claude Code with an approved
    non-sensitive E0 prompt identifier's question text from the restricted
    evaluation location.
-4. Require ContextPack schema version `1`, candidate-manifest version `1`, a
+4. Require ContextPack schema version `3`, candidate-manifest version `2`, a
    request ID, exact citation tuples, and explicit coverage/freshness.
 5. Record the runtime version and ordered candidate-manifest hash in the
    immutable runtime-parity receipt. Do not record source bodies or secrets.

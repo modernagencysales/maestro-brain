@@ -1,19 +1,19 @@
 # Apero Company Brain Data-First Implementation Plan
 
-**Status:** WP02/BE1-BE3 backend implementation complete on the backend branch;
-final review, publish, and backend-first merge are in progress. The canonical UI
-stream is green on its template baseline but still must bind ContextPack v3 and
-the scoped rollout-status contract before its merge. Live Apero dogfood remains
-separate and requires exact-deployment receipts, selected provider containers,
-and the phased rollout gates below.
+**Status:** WP02/BE1-BE3 backend implementation and the canonical SaaS UI are
+merged on `main`. Backend PR #19 merged as `9b240397`; UI PR #18 merged as
+`24959569`. The shared Ask Apero runtime package is pinned to ContextPack v3 and
+candidate-manifest v2. Live Apero dogfood remains separate and requires the
+owner-completed decision packet, selected provider containers, production
+configuration, and exact-deployment receipts described below.
 
 **Date:** 2026-08-22
 
 **Independent readiness review:** three uncorrelated delivery, adversarial
-data-integrity, and systems/operations reviews were repeated against the current
-backend and UI worktrees on 2026-08-22. Backend findings are resolved through
-the final gate pass. UI contract findings remain explicit work before the UI
-merge. A code merge does not itself authorize provider connection or dogfood.
+data-integrity, and systems/operations reviews were repeated against the backend
+and UI worktrees on 2026-08-22. Repository findings are resolved through the
+merged hosted gate passes. A code merge does not itself prove provider
+connection, live data convergence, runtime parity, or dogfood acceptance.
 
 The acceptance target is deliberately split. WP00-WP09 deliver the **read
 pilot**: provider evidence flows into one cited ContextPack used by Codex and
@@ -97,7 +97,7 @@ post-pilot hardening unless real pilot use proves one is immediately required.
 
 ### Current Engineering Checkpoint
 
-The backend branch now implements the complete repository-side WP02/BE1-BE3
+The merged backend implements the complete repository-side WP02/BE1-BE3
 contract. It includes ContextPack v3, exact immutable-origin citation reopening,
 publication-subject and eligibility fencing, durable provider reconciliation,
 atomic page envelopes, scoped Drive configuration, removal enumeration,
@@ -107,25 +107,18 @@ receipt-bound promotion, and forward rollback. Search, Source Get, ContextPack,
 Ask, HTTP, CLI, and MCP converge on the same projection after promotion while
 absent read-mode state remains compatibility-safe.
 
-Local evidence on 2026-08-22 includes 125 Convex files and 996 Convex tests, 65
-web files and 307 web tests, the root lint and typecheck gates, strict Effect
+Local evidence on 2026-08-22 includes 125 Convex files and 996 Convex tests and
+349 canonical UI tests, the root lint and typecheck gates, strict Effect
 diagnostics with zero errors or warnings, manifest generation, client/SSR
 production builds, a successful anonymous local Convex deployment, and the full
 coverage ratchet with 288 files and 1,895 tests. PR CI still binds this evidence
 to the exact merge SHA; local results are not a live promotion receipt.
 
-The work remains split into two default-branch-derived streams:
-
-- backend: `codex/company-brain-backend`;
-- UI: `codex/canonical-saas-ui-clean`, containing canonical template commit
-  `123adb18c` and the prebuilt SaaS shell/screens.
-
-The canonical UI no longer has the earlier transplant type failures. Its
-remaining merge work is contract work: replace the ContextPack v1 adapter with
-v3, keep search coverage distinct from scoped ContextPack coverage, consume the
-server-owned readiness fields, wire `/health` to rollout status, and prove exact
-source opening in both compatibility and promoted states. Backend merge remains
-first so the UI binds one immutable generated contract.
+Both streams are now in `main`. The canonical template commit `123adb18c`,
+prebuilt SaaS shell/screens, Brain generated read refs, ContextPack v3 adapters,
+scoped coverage/readiness handling, and rollout-backed `/health` route are in
+the UI merge. The remaining critical path is live configuration and evidence,
+not another repository architecture stream.
 
 ## 4. Pilot Acceptance Contract
 
@@ -904,7 +897,7 @@ it does not wait for `brain.answers.ask` to become model-backed.
 
 **Classification:** `fixture-to-real`
 
-**Branch:** `codex/canonical-saas-ui-clean` at `7bcb635e`
+**Merged:** PR #18 at `24959569` (canonical template ancestry `123adb18c`)
 
 Keep the transplanted `maestro-template-saas-ui` screen and shell structure.
 Repair its 264 TypeScript errors without replacing canonical screens with a new
@@ -924,9 +917,9 @@ The backend/UI handoff pins the generated Confect manifest version, backend
 commit SHA, and ContextPack/health schema used by the UI branch. The backend
 owner publishes generated refs and a sanitized pinned-response fixture; the UI
 owner updates adapters and proves every typed backend state maps to a distinct
-visible state. Integrate backend contracts first, rebase the UI stream onto that
-contract tip, then run the combined full gate. A UI receipt from another backend
-SHA is not product-completion evidence.
+visible state. The completed merge integrated backend contracts first, rebased
+the UI stream onto that contract tip, and ran the combined full gate. A UI
+receipt from another backend SHA is not product-completion evidence.
 
 **Primary files:**
 
@@ -1294,10 +1287,9 @@ commitments. Re-estimate BE1-BE3 after the eligibility-fence, reconciliation,
 and scoped-health contracts have executable tests; do not compress a phase by
 dropping a required row.
 
-Branch extraction is complete. Finish B0 by restoring the backend 99.7% type
-coverage gate, repairing the UI stream independently, and turning the current
-backend stack into three promotable phases. Inventory, evaluation capture,
-snapshot review, and fixture-only skill packaging may continue in parallel.
+Branch extraction, backend gates, the three promotable backend phases, and the
+canonical UI repair/merge are complete. Inventory, evaluation capture, snapshot
+review, and live rollout configuration are now the active critical path.
 Two-user dogfood begins only after capability tracks B1-B3 and rollout phase BE3
 pass. Drive adapter unit work may overlap B2-B3 behind fixtures, but live
 ingestion begins only after WP02 is green. Track C is conditional.
@@ -2080,17 +2072,17 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
 
 ## 9. Next Execution Actions
 
-1. Clear the final independent backend findings, regenerate contracts, and run
-   `just verify`, `just verify-full`, and an anonymous Convex push.
-2. Commit and merge the backend first at one exact SHA with green hosted checks.
-3. Bind the canonical UI to that merged ContextPack v3 and rollout-status
-   contract, removing compatibility casts and separating search coverage from
-   scoped ContextPack coverage.
-4. Wire the canonical `/health` route to the real rollout query and cover ready,
-   stale, partial, unavailable, blocked, capacity, integrity, dead-letter, and
-   paused-worker states with sanitized fixtures.
-5. Merge the UI only after lint, typecheck, tests, client/SSR builds, Qlty, and
-   the integrated contract gate pass.
+1. ~~Clear the final independent backend findings, regenerate contracts, and
+   pass full verification plus an anonymous Convex push.~~ Complete.
+2. ~~Merge the backend first at one exact SHA with green hosted checks.~~
+   Complete in PR #19 (`9b240397`).
+3. ~~Bind the canonical UI to ContextPack v3 and rollout status, wire `/health`,
+   and cover the typed backend states.~~ Complete in PR #18 (`24959569`).
+4. ~~Pin the shared Ask Apero package to the merged ContextPack v3 and
+   candidate-manifest v2 contract.~~ Complete in the post-merge rollout patch.
+5. Complete the Apero decision and migration packets: name the owners/users,
+   active Brain key, restricted evaluation location, SLOs, Claude inventory, and
+   selected test/production containers.
 6. Configure the selected Apero Drive/source containers, run backfills and full
    reconciliation, close obligations, and capture exact-deployment rollout and
    validation receipts before promotion.
@@ -2189,7 +2181,7 @@ as evidence.
 ### WP02 Evidence Matrix
 
 Keep this table current in every WP02 PR. “Implemented” means the named focused
-test passes on the current backend branch; it does not authorize the read switch
+test passes on the merged implementation; it does not authorize the read switch
 until every required row and the clean-branch gates pass.
 
 | Acceptance behavior                                                                                       | Exact evidence location                                                                                                                                | Current status                                                                 |

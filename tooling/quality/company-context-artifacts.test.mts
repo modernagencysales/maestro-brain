@@ -92,6 +92,12 @@ describe("company-context Ask Apero artifacts", () => {
   );
   const skill = readText("company-context/skills/ask-apero/SKILL.md");
   const install = readText("company-context/install.md");
+  const backendContextV3 = readText(
+    "packages/convex/confect/brain/contextPackV3.ts",
+  );
+  const backendContextV2 = readText(
+    "packages/convex/confect/brain/contextPackV2.ts",
+  );
 
   it("keeps one canonical, progressively disclosed skill contract", () => {
     const skillFiles = readdirSync(skillRoot, { recursive: true })
@@ -100,10 +106,10 @@ describe("company-context Ask Apero artifacts", () => {
 
     expect(skillFiles).toEqual(["SKILL.md"]);
     expect(skill).toMatch(/^---\nname: ask-apero\n/);
-    expect(skill).toContain('contract-version: "0.2.0"');
+    expect(skill).toContain('contract-version: "0.3.0"');
     for (const reference of [
       "references/agent-guidance.md",
-      "references/context-pack-v1.md",
+      "references/context-pack-v3.md",
       "references/glossary.md",
       "references/source-map.v1.json",
     ]) {
@@ -116,11 +122,11 @@ describe("company-context Ask Apero artifacts", () => {
   it("pins a read-only endpoint and both runtime discovery contracts", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      manifestVersion: "0.2.0",
+      manifestVersion: "0.3.0",
       status: "candidate",
       canonicalSkill: {
         name: "ask-apero",
-        contractVersion: "0.2.0",
+        contractVersion: "0.3.0",
         path: "company-context/skills/ask-apero",
       },
       endpoint: {
@@ -135,8 +141,8 @@ describe("company-context Ask Apero artifacts", () => {
         },
       },
       contextContract: {
-        schemaVersion: "1",
-        candidateManifestVersion: "1",
+        schemaVersion: "3",
+        candidateManifestVersion: "2",
         writeToolsAllowed: false,
         durableFeedback: {
           status: "implemented-api-only",
@@ -172,6 +178,21 @@ describe("company-context Ask Apero artifacts", () => {
     expect(manifest.update.procedure.length).toBeGreaterThan(3);
     expect(manifest.rollback.procedure.length).toBeGreaterThan(3);
     expect(manifest.rollback.preserve.length).toBeGreaterThan(2);
+  });
+
+  it("pins the exact ContextPack contract served by the canonical backend", () => {
+    expect(backendContextV3).toContain(
+      `schemaVersion: Schema.Literal("${manifest.contextContract.schemaVersion}")`,
+    );
+    expect(backendContextV2).toContain(
+      `version: Schema.Literal("${manifest.contextContract.candidateManifestVersion}")`,
+    );
+    expect(skill).toContain(
+      `ContextPack schema version \`${manifest.contextContract.schemaVersion}\` with candidate-manifest version`,
+    );
+    expect(skill).toContain(
+      `\`${manifest.contextContract.candidateManifestVersion}\`.`,
+    );
   });
 
   it("preserves unresolved owner, Brain, freshness, and provider decisions", () => {
@@ -221,7 +242,7 @@ describe("company-context Ask Apero artifacts", () => {
       "company-context/skills/ask-apero/SKILL.md",
       "company-context/skills/ask-apero/references/glossary.md",
       "company-context/skills/ask-apero/references/agent-guidance.md",
-      "company-context/skills/ask-apero/references/context-pack-v1.md",
+      "company-context/skills/ask-apero/references/context-pack-v3.md",
       "company-context/skills/ask-apero/references/source-map.v1.json",
     ]
       .map(readText)

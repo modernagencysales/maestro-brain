@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "0.2.0",
+  "manifestVersion": "0.3.0",
   "status": "candidate",
   "canonicalSkill": {
     "name": "ask-apero",
-    "contractVersion": "0.2.0",
+    "contractVersion": "0.3.0",
     "path": "company-context/skills/ask-apero"
   },
   "endpoint": {
@@ -21,8 +21,8 @@
     }
   },
   "contextContract": {
-    "schemaVersion": "1",
-    "candidateManifestVersion": "1",
+    "schemaVersion": "3",
+    "candidateManifestVersion": "2",
     "requiredTools": [
       "template.brain.context.get",
       "template.brain.sources.search",

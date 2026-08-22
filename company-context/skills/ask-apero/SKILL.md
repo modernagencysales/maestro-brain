@@ -6,7 +6,7 @@ description:
   Use for Ask Apero research and decisions; do not use for provider writes or
   unsupported client scope.
 metadata:
-  contract-version: "0.2.0"
+  contract-version: "0.3.0"
 ---
 
 # Ask Apero
@@ -21,9 +21,9 @@ evidence source for this workflow.
    workspace, or other tenant selector; the read-only credential fixes scope.
 2. Read [agent guidance](references/agent-guidance.md), then call
    `template.brain.context.get` with the user's complete question.
-3. Accept only ContextPack schema version `1` with candidate-manifest version
-   `1`. On first use, a schema change, or ambiguous coverage, read
-   [ContextPack v1](references/context-pack-v1.md).
+3. Accept only ContextPack schema version `3` with candidate-manifest version
+   `2`. On first use, a schema change, or ambiguous coverage, read
+   [ContextPack v3](references/context-pack-v3.md).
 4. Use `template.brain.sources.search` only to refine a retrieval miss. Open
    material evidence with `template.brain.sources.get` using its exact
    `publicationSetKey` and `entryKey`; do not cite a search excerpt alone.
@@ -44,7 +44,7 @@ evidence source for this workflow.
 ## Stop conditions
 
 Stop without answering from memory when authorization fails, the subsystem is
-disabled, the response is not ContextPack v1, the candidate manifest is absent,
+disabled, the response is not ContextPack v3, the candidate manifest is absent,
 an exact citation cannot reopen, or relevant required coverage is unavailable.
 Never invoke provider or Brain evidence-write tools. If the user reports an
 answer as wrong or stale, preserve the ContextPack request ID,
