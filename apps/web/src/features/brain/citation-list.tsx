@@ -1,10 +1,12 @@
 export type BrainCitation = {
   readonly citationKey: string;
+  readonly publicationSetKey: string;
+  readonly entryKey: string;
   readonly sourceRevisionKey: string;
   readonly locator: string;
   readonly label?: string;
   readonly permalink?: string;
-  readonly freshness: "fresh" | "stale";
+  readonly freshness: "current" | "stale" | "unknown";
   readonly state: "resolved" | "redacted" | "legacy_unresolved";
   readonly quotedText?: string;
 };
@@ -18,11 +20,14 @@ export function CitationList({
     <section aria-label="Citations">
       {citations.length === 0 ? <p>No citations available.</p> : null}
       {citations.map((citation) => (
-        <div key={citation.citationKey}>
+        <div key={`${citation.publicationSetKey}:${citation.entryKey}`}>
           <strong>{citation.citationKey}</strong>
           {citation.label ? <p>{citation.label}</p> : null}
           <p>
             {citation.sourceRevisionKey} · {citation.locator}
+          </p>
+          <p>
+            Exact evidence: {citation.publicationSetKey} / {citation.entryKey}
           </p>
           <span>
             {citation.state === "resolved"

@@ -53,6 +53,7 @@ export type BrainDocumentSection = {
 
 type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
 type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
+type BrainReadApiRefs = TemplateConfectRefs["public"]["brain"]["readApi"];
 type BrainCallReviewRefs = TemplateConfectRefs["public"]["brain"]["callReview"];
 export type BrainPageSummary = {
   readonly pageKey: string;
@@ -78,10 +79,122 @@ export type BrainPageDetail = {
   readonly editorSnapshotVersion?: number;
   readonly updatedAt: number;
 };
-export type BrainPilotSearchData = {
+export type BrainFreshness = "current" | "stale" | "unknown";
+export type BrainCoverage = {
+  readonly corpusKey: string;
+  readonly sourceKind: string;
+  readonly connectorScopeKey: string;
+  readonly required: boolean;
+  readonly status: "complete" | "partial" | "unavailable" | "unknown";
+  readonly freshness: BrainFreshness;
+  readonly generations?: {
+    readonly connection?: number;
+    readonly allowlist?: number;
+    readonly policy?: number;
+    readonly reconciliation?: number;
+  };
+  readonly lastSuccessfulAt?: number;
+  readonly lastObservedAt?: number;
+  readonly lastReconciledAt?: number;
+  readonly unresolvedFailureCount: number;
+  readonly reason?: string;
+};
+export type BrainOmission = {
+  readonly reason: string;
+  readonly count: number;
+};
+export type BrainSearchResult = {
+  readonly sourceKey: string;
+  readonly sourceRevisionKey: string;
+  readonly publicationSetKey: string;
+  readonly entryKey: string;
+  readonly passageKey: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+  readonly contentHash: string;
+  readonly kind: "source" | "page" | "projection";
+  readonly unitKey?: string;
+  readonly segmentKey?: string;
+  readonly citationKey: string;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly locator?: string;
+  readonly citationLabel?: string;
+  readonly permalink?: string;
+  readonly authority: "authoritative" | "derived" | "advisory";
+  readonly authorityPolicyKey: string;
+  readonly sourceModifiedAt?: number;
+  readonly observedAt: number;
+  readonly indexedAt: number;
+  readonly freshness: BrainFreshness;
+  readonly truncated: boolean;
+  readonly state: "resolved";
+};
+export type BrainSourcesSearchData = {
   readonly brainKey: string;
   readonly results: readonly BrainSearchResult[];
+  readonly coverage: readonly BrainCoverage[];
+  readonly omissions: readonly BrainOmission[];
 };
+export type BrainSourceGetData = BrainSearchResult & {
+  readonly brainKey: string;
+  readonly revisionKey: string;
+  readonly status: string;
+};
+export type BrainContextPackData = {
+  readonly schemaVersion: "1";
+  readonly candidateManifest: {
+    readonly version: "1";
+    readonly hash: string;
+  };
+  readonly requestId: string;
+  readonly organizationKey: string;
+  readonly brainKey: string;
+  readonly question: string;
+  readonly asOf: number;
+  readonly freshness?: { readonly status: BrainFreshness };
+  readonly coverage: readonly BrainCoverage[];
+  readonly entries: readonly BrainSearchResult[];
+  readonly omissions: readonly BrainOmission[];
+  readonly conflicts: readonly {
+    readonly subject: string;
+    readonly revisionKeys: readonly string[];
+    readonly reason?: string;
+  }[];
+};
+
+type BrainReadFailureState =
+  | { readonly status: "unavailable"; readonly message: string }
+  | { readonly status: "integrity_failure"; readonly message: string }
+  | { readonly status: "capacity_failure"; readonly message: string };
+export type BrainSearchState =
+  | { readonly status: "idle" }
+  | { readonly status: "loading"; readonly query: string }
+  | { readonly status: "empty"; readonly query: string }
+  | {
+      readonly status: "ready" | "partial" | "stale";
+      readonly query: string;
+      readonly results: readonly BrainSearchResult[];
+      readonly coverage: readonly BrainCoverage[];
+      readonly omissions: readonly BrainOmission[];
+    }
+  | (BrainReadFailureState & { readonly query: string });
+export type BrainContextState =
+  | { readonly status: "idle" }
+  | { readonly status: "loading" }
+  | {
+      readonly status: "empty" | "ready" | "partial" | "stale";
+      readonly data: BrainContextPackData;
+    }
+  | BrainReadFailureState;
+export type BrainSourceState =
+  | { readonly status: "idle" }
+  | { readonly status: "loading" }
+  | {
+      readonly status: "ready" | "stale";
+      readonly data: BrainSourceGetData;
+    }
+  | BrainReadFailureState;
 export type BrainReviewQueueData = {
   readonly brainKey: string;
   readonly items: readonly {
@@ -131,8 +244,12 @@ type BrainWorkspacePilotRefs = {
   readonly submitNote: BrainPilotRefs["submitNote"];
   readonly reviewNote: BrainPilotRefs["reviewNote"];
   readonly listReviewQueue: BrainPilotRefs["listReviewQueue"];
-  readonly search: BrainPilotRefs["search"];
   readonly updatePage: BrainPilotRefs["updatePage"];
+};
+type BrainWorkspaceReadApiRefs = {
+  readonly sourcesSearch: BrainReadApiRefs["sourcesSearch"];
+  readonly sourcesGet: BrainReadApiRefs["sourcesGet"];
+  readonly contextGet: BrainReadApiRefs["contextGet"];
 };
 type BrainWorkspaceCallReviewRefs = {
   readonly listCallMaintenanceQueue: BrainCallReviewRefs["listCallMaintenanceQueue"];
@@ -155,8 +272,13 @@ export const brainPilotRefs: BrainWorkspacePilotRefs = {
   submitNote: templateConfectRefs.public.brain.pilot.submitNote,
   reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
   listReviewQueue: templateConfectRefs.public.brain.pilot.listReviewQueue,
-  search: templateConfectRefs.public.brain.pilot.search,
   updatePage: templateConfectRefs.public.brain.pilot.updatePage,
+} as const;
+
+export const brainReadApiRefs: BrainWorkspaceReadApiRefs = {
+  sourcesSearch: templateConfectRefs.public.brain.readApi.sourcesSearch,
+  sourcesGet: templateConfectRefs.public.brain.readApi.sourcesGet,
+  contextGet: templateConfectRefs.public.brain.readApi.contextGet,
 } as const;
 
 export const brainCallReviewRefs: BrainWorkspaceCallReviewRefs = {
@@ -210,24 +332,11 @@ export type BrainPilotAdapter = {
     readonly sourceKey: string;
     readonly decision: "approve" | "reject";
   }) => Promise<BrainPilotSourceSummary>;
-  readonly search?: (query: string) => Promise<readonly BrainSearchResult[]>;
 };
 
 export type BrainPilotSourceSummary = {
   readonly sourceKey: string;
   readonly status: "pending_review" | "published" | "rejected";
-};
-
-export type BrainSearchResult = {
-  readonly citationKey: string;
-  readonly title: string;
-  readonly excerpt: string;
-  readonly sourceRevisionKey?: string;
-  readonly locator?: string;
-  readonly citationLabel?: string;
-  readonly permalink?: string;
-  readonly freshness?: "fresh" | "stale";
-  readonly state?: "resolved" | "redacted" | "legacy_unresolved";
 };
 
 export type BrainWorkspaceAdapter = BrainPilotAdapter & {
@@ -291,6 +400,179 @@ export const unwrapBrainMutation = <T>(
     return result.right;
   }
   return result;
+};
+
+type BrainReadiness = "ready" | "empty" | "partial" | "stale" | "unavailable";
+
+const classifyBrainReadiness = ({
+  entries,
+  coverage,
+  omissions,
+}: {
+  readonly entries: readonly BrainSearchResult[];
+  readonly coverage: readonly BrainCoverage[];
+  readonly omissions: readonly BrainOmission[];
+}): BrainReadiness => {
+  const unavailable = coverage.some(
+    (scope) =>
+      scope.required &&
+      (scope.status === "unavailable" || scope.status === "unknown"),
+  );
+  if (entries.length === 0 && unavailable) return "unavailable";
+
+  const partial =
+    omissions.some(({ count }) => count > 0) ||
+    entries.some(({ truncated }) => truncated) ||
+    coverage.some(({ status }) => status !== "complete");
+  if (partial) return "partial";
+
+  const stale =
+    entries.some(({ freshness }) => freshness !== "current") ||
+    coverage.some(({ freshness }) => freshness !== "current");
+  if (stale) return "stale";
+
+  return entries.length === 0 ? "empty" : "ready";
+};
+
+const errorTag = (error: unknown): string =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  typeof error._tag === "string"
+    ? error._tag
+    : "";
+
+const errorMessage = (error: unknown): string | undefined =>
+  typeof error === "object" &&
+  error !== null &&
+  "message" in error &&
+  typeof error.message === "string"
+    ? error.message
+    : error instanceof Error
+      ? error.message
+      : undefined;
+
+const toBrainReadFailure = (
+  state: Exclude<
+    TemplateDataState<unknown, unknown>,
+    { status: "skipped" | "loading" | "empty" | "ready" }
+  >,
+): BrainReadFailureState => {
+  const tag = state.status === "typed_failure" ? errorTag(state.error) : "";
+  const message =
+    state.status === "typed_failure"
+      ? errorMessage(state.error)
+      : state.message;
+  if (tag.includes("Integrity")) {
+    return {
+      status: "integrity_failure",
+      message: message ?? "Exact citation validation failed.",
+    };
+  }
+  if (tag.includes("Capacity") || /capacity/i.test(message ?? "")) {
+    return {
+      status: "capacity_failure",
+      message: message ?? "Brain retrieval capacity was exceeded.",
+    };
+  }
+  return {
+    status: "unavailable",
+    message: message ?? "Brain data is unavailable.",
+  };
+};
+
+const unavailableCoverageMessage = (
+  coverage: readonly BrainCoverage[],
+): string => {
+  const scopes = coverage
+    .filter(
+      ({ required, status }) =>
+        required && (status === "unavailable" || status === "unknown"),
+    )
+    .map(({ corpusKey, connectorScopeKey }) =>
+      connectorScopeKey.length > 0
+        ? `${corpusKey}/${connectorScopeKey}`
+        : corpusKey,
+    );
+  return scopes.length === 0
+    ? "Required Brain coverage is unavailable."
+    : `Required Brain coverage is unavailable for ${scopes.join(", ")}.`;
+};
+
+export const toBrainSearchState = (
+  state: TemplateDataState<BrainSourcesSearchData, unknown>,
+  query: string,
+): BrainSearchState => {
+  if (state.status === "skipped") return { status: "idle" };
+  if (state.status === "loading") return { status: "loading", query };
+  if (state.status !== "ready" && state.status !== "empty") {
+    return { ...toBrainReadFailure(state), query };
+  }
+
+  const readiness = classifyBrainReadiness({
+    entries: state.data.results,
+    coverage: state.data.coverage,
+    omissions: state.data.omissions,
+  });
+  if (readiness === "empty") return { status: "empty", query };
+  if (readiness === "unavailable") {
+    return {
+      status: "unavailable",
+      query,
+      message: unavailableCoverageMessage(state.data.coverage),
+    };
+  }
+  return {
+    status: readiness,
+    query,
+    results: state.data.results,
+    coverage: state.data.coverage,
+    omissions: state.data.omissions,
+  };
+};
+
+export const toBrainContextState = (
+  state: TemplateDataState<BrainContextPackData, unknown>,
+): BrainContextState => {
+  if (state.status === "skipped") return { status: "idle" };
+  if (state.status === "loading") return { status: "loading" };
+  if (state.status !== "ready" && state.status !== "empty") {
+    return toBrainReadFailure(state);
+  }
+
+  const readiness = classifyBrainReadiness({
+    entries: state.data.entries,
+    coverage: state.data.coverage,
+    omissions: state.data.omissions,
+  });
+  if (readiness === "unavailable") {
+    return {
+      status: "unavailable",
+      message: unavailableCoverageMessage(state.data.coverage),
+    };
+  }
+  return { status: readiness, data: state.data };
+};
+
+export const toBrainSourceState = (
+  state: TemplateDataState<BrainSourceGetData, unknown>,
+): BrainSourceState => {
+  if (state.status === "skipped") return { status: "idle" };
+  if (state.status === "loading") return { status: "loading" };
+  if (state.status === "empty") {
+    return {
+      status: "unavailable",
+      message: "The exact Brain citation is unavailable.",
+    };
+  }
+  if (state.status !== "ready") return toBrainReadFailure(state);
+  return {
+    status:
+      state.data.freshness === "current" && state.data.status !== "superseded"
+        ? "ready"
+        : "stale",
+    data: state.data,
+  };
 };
 
 export function createBrainContextPackPreview(

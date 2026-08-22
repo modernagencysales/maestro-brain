@@ -19,14 +19,18 @@ import {
   Text,
 } from "@saas-ui/react";
 import type {
+  BrainContextPackData,
+  BrainContextState,
   BrainPageDetail,
   BrainPageListData,
   BrainPageSummary,
   BrainCallMaintenanceQueueData,
-  BrainPilotSearchData,
   BrainReviewQueueData,
   BrainRevisionHistoryData,
-  BrainSearchResult,
+  BrainSearchState,
+  BrainSourceGetData,
+  BrainSourcesSearchData,
+  BrainSourceState,
   BrainWorkspaceAdapter,
 } from "./brain-surface";
 import {
@@ -44,10 +48,14 @@ import {
   type BrainRevisionHistoryState,
 } from "./revision-history";
 import {
+  brainReadApiRefs,
   brainPilotRefs,
   brainCallReviewRefs,
   brainWorkspaceRefs,
   createBrainWorkspaceAdapter,
+  toBrainContextState,
+  toBrainSearchState,
+  toBrainSourceState,
   unwrapBrainMutation,
 } from "./brain-surface";
 
@@ -61,20 +69,6 @@ export type BrainPageDetailState =
   | { readonly status: "loading" | "skipped" }
   | { readonly status: "ready"; readonly data: BrainPageDetail }
   | { readonly status: "failure"; readonly message: string };
-
-export type BrainSearchState =
-  | { readonly status: "idle" }
-  | { readonly status: "loading"; readonly query: string }
-  | {
-      readonly status: "ready";
-      readonly query: string;
-      readonly results: readonly BrainSearchResult[];
-    }
-  | {
-      readonly status: "failure";
-      readonly query: string;
-      readonly message: string;
-    };
 
 export type BrainReviewNotice = {
   readonly status: "success" | "failure";
@@ -167,12 +161,6 @@ export const createBrainWorkspaceActions = (
       return { status: "failure", message: failureMessage(error) };
     }
   },
-  search: async (query: string): Promise<readonly BrainSearchResult[]> => {
-    if (adapter.search === undefined) {
-      throw new Error("Search is unavailable");
-    }
-    return adapter.search(query);
-  },
 });
 
 const failureMessage = (error: unknown): string =>
@@ -200,7 +188,6 @@ export const recoverWorkspaceSession = (
 export const BrainWorkspaceRoute = () => {
   const { signOut } = useWorkosAuth();
   const workspace = useWorkspace();
-  const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [selectedPageKey, setSelectedPageKey] = useState<string | null>(null);
   const [callMaintenanceMutation, setCallMaintenanceMutation] =
@@ -242,12 +229,37 @@ export const BrainWorkspaceRoute = () => {
     brainCallReviewRefs.reviewCallMaintenance,
   );
   const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
-  const pilotSearch = useTemplateQuery(
-    brainPilotRefs.search,
+  const sourcesSearch = useTemplateQuery(
+    brainReadApiRefs.sourcesSearch,
     brainKey === null || searchQuery === null
       ? "skip"
       : { brainKey, query: searchQuery },
-  ) as TemplateDataState<BrainPilotSearchData, unknown>;
+  ) as unknown as TemplateDataState<BrainSourcesSearchData, unknown>;
+  const contextGetArgs =
+    brainKey === null || searchQuery === null
+      ? ("skip" as const)
+      : { brainKey, question: searchQuery };
+  const contextPack = useTemplateQuery(
+    brainReadApiRefs.contextGet,
+    contextGetArgs,
+  ) as unknown as TemplateDataState<BrainContextPackData, unknown>;
+  const exactCandidate =
+    sourcesSearch.status === "ready"
+      ? sourcesSearch.data.results[0]
+      : undefined;
+  const sourceGetArgs =
+    brainKey === null || exactCandidate === undefined
+      ? ("skip" as const)
+      : {
+          brainKey,
+          sourceRevisionKey: exactCandidate.sourceRevisionKey,
+          publicationSetKey: exactCandidate.publicationSetKey,
+          entryKey: exactCandidate.entryKey,
+        };
+  const exactSource = useTemplateQuery(
+    brainReadApiRefs.sourcesGet,
+    sourceGetArgs,
+  ) as unknown as TemplateDataState<BrainSourceGetData, unknown>;
   const queue = useTemplateQuery(
     brainPilotRefs.listReviewQueue,
     brainKey === null ? "skip" : { brainKey },
@@ -458,25 +470,14 @@ export const BrainWorkspaceRoute = () => {
           }}
           onSearch={(query) => {
             setSearchQuery(query);
-            setSearch({ status: "loading", query });
           }}
           search={
             searchQuery === null
-              ? search
-              : pilotSearch.status === "ready"
-                ? {
-                    status: "ready",
-                    query: searchQuery,
-                    results: (pilotSearch.data as BrainPilotSearchData).results,
-                  }
-                : pilotSearch.status === "loading"
-                  ? { status: "loading", query: searchQuery }
-                  : {
-                      status: "failure",
-                      query: searchQuery,
-                      message: "Unable to search Brain. Try again.",
-                    }
+              ? { status: "idle" }
+              : toBrainSearchState(sourcesSearch, searchQuery)
           }
+          context={toBrainContextState(contextPack)}
+          source={toBrainSourceState(exactSource)}
         />
       </Page.Body>
     </Page.Root>
@@ -491,6 +492,8 @@ export const BrainWorkspace = ({
   onSearch,
   reviewNotice,
   search = { status: "idle" },
+  context = { status: "idle" },
+  source = { status: "idle" },
   history = { status: "loading" },
   reviewQueue = { status: "loading" },
   callMaintenanceReview = { status: "loading" },
@@ -506,6 +509,8 @@ export const BrainWorkspace = ({
   readonly onSearch?: (query: string) => void;
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
+  readonly context?: BrainContextState;
+  readonly source?: BrainSourceState;
   readonly history?: BrainRevisionHistoryState;
   readonly reviewQueue?: BrainReviewQueueState;
   readonly callMaintenanceReview?: CallMaintenanceReviewState;
@@ -538,16 +543,20 @@ export const BrainWorkspace = ({
   );
   const [restoreState, setRestoreState] = useState<BrainRestoreState>("idle");
   const citationItems: readonly BrainCitation[] =
-    search.status === "ready"
+    search.status === "ready" ||
+    search.status === "partial" ||
+    search.status === "stale"
       ? search.results.map((result) => ({
           citationKey: result.citationKey,
-          sourceRevisionKey: result.sourceRevisionKey ?? "unresolved",
-          locator: result.locator ?? "unresolved",
+          publicationSetKey: result.publicationSetKey,
+          entryKey: result.entryKey,
+          sourceRevisionKey: result.sourceRevisionKey,
+          locator: result.locator ?? "Locator not provided",
           ...(result.citationLabel === undefined
             ? {}
             : { label: result.citationLabel }),
-          freshness: result.freshness ?? "stale",
-          state: result.state ?? "legacy_unresolved",
+          freshness: result.freshness,
+          state: result.state,
           quotedText: result.excerpt,
           ...(result.permalink === undefined
             ? {}
@@ -600,6 +609,7 @@ export const BrainWorkspace = ({
               </HStack>
             </form>
             <SearchResults search={search} />
+            <BrainReadContractStatus context={context} source={source} />
           </Stack>
         </Card.Body>
       </Card.Root>
@@ -1185,18 +1195,44 @@ const SearchResults = ({ search }: { readonly search: BrainSearchState }) => {
   if (search.status === "idle") return null;
   if (search.status === "loading")
     return <Text role="status">Searching Brain</Text>;
-  if (search.status === "failure")
-    return <Text role="alert">Unable to search Brain. {search.message}</Text>;
-  if (search.results.length === 0)
+  if (search.status === "empty")
     return <Text role="status">No Brain results for {search.query}.</Text>;
+  if (search.status === "unavailable")
+    return (
+      <Text role="alert">Brain search is unavailable. {search.message}</Text>
+    );
+  if (search.status === "integrity_failure")
+    return (
+      <Text role="alert">
+        Brain citation integrity check failed. {search.message}
+      </Text>
+    );
+  if (search.status === "capacity_failure")
+    return (
+      <Text role="alert">
+        Brain retrieval capacity was exceeded. {search.message}
+      </Text>
+    );
   return (
     <Stack aria-label={`Search results for ${search.query}`} gap="2">
       <Heading size="xs">Search results for {search.query}</Heading>
+      {search.status === "partial" ? (
+        <Text role="status">
+          Brain results are partial. Missing coverage or omissions may affect
+          the answer.
+        </Text>
+      ) : null}
+      {search.status === "stale" ? (
+        <Text role="status">
+          Brain results may be stale. Check source freshness before relying on
+          them.
+        </Text>
+      ) : null}
       {search.results.map((result) => (
         <Box
           borderColor="gray.200"
           borderWidth="1px"
-          key={result.citationKey}
+          key={`${result.publicationSetKey}:${result.entryKey}`}
           p="3"
         >
           <Text fontWeight="semibold">{result.title}</Text>
@@ -1204,8 +1240,67 @@ const SearchResults = ({ search }: { readonly search: BrainSearchState }) => {
           <Text color="gray.600" fontSize="sm">
             Citation: {result.citationKey}
           </Text>
+          <Text color="gray.600" fontSize="sm">
+            Exact evidence: {result.publicationSetKey} / {result.entryKey}
+          </Text>
         </Box>
       ))}
+    </Stack>
+  );
+};
+
+const BrainReadContractStatus = ({
+  context,
+  source,
+}: {
+  readonly context: BrainContextState;
+  readonly source: BrainSourceState;
+}) => {
+  const contextCopy = (() => {
+    if (context.status === "idle") return null;
+    if (context.status === "loading") return "Loading ContextPack.";
+    if (context.status === "empty") return "ContextPack has no evidence.";
+    if (context.status === "ready")
+      return `ContextPack ready: ${context.data.entries.length} entries · request ${context.data.requestId}.`;
+    if (context.status === "partial")
+      return "ContextPack is partial; review coverage and omissions.";
+    if (context.status === "stale")
+      return "ContextPack contains stale or unknown evidence.";
+    if (context.status === "integrity_failure")
+      return `ContextPack integrity check failed. ${context.message}`;
+    if (context.status === "capacity_failure")
+      return `ContextPack capacity was exceeded. ${context.message}`;
+    if (context.status === "unavailable")
+      return `ContextPack is unavailable. ${context.message}`;
+    return null;
+  })();
+  const sourceCopy = (() => {
+    if (source.status === "idle") return null;
+    if (source.status === "loading") return "Verifying exact citation.";
+    if (source.status === "ready" || source.status === "stale")
+      return `Exact citation ${source.status === "stale" ? "is stale" : "verified"}: ${source.data.publicationSetKey} / ${source.data.entryKey}.`;
+    if (source.status === "integrity_failure")
+      return `Exact citation integrity check failed. ${source.message}`;
+    if (source.status === "capacity_failure")
+      return `Exact citation capacity was exceeded. ${source.message}`;
+    if (source.status === "unavailable")
+      return `Exact citation is unavailable. ${source.message}`;
+    return null;
+  })();
+
+  if (contextCopy === null && sourceCopy === null) return null;
+  return (
+    <Stack aria-label="Brain read contract status" gap="1">
+      {contextCopy === null ? null : (
+        <Text role="status" fontSize="sm">
+          {contextCopy}
+        </Text>
+      )}
+      {sourceCopy === null ? null : (
+        <Text role="status" fontSize="sm">
+          {sourceCopy}
+        </Text>
+      )}
     </Stack>
   );
 };

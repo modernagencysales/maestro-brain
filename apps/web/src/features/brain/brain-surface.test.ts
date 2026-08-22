@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import * as Either from "effect/Either";
 import type { BrainSource } from "@maestro-template/template-core";
+import { templateConfectRefs } from "@maestro-template/convex/refs";
 import {
+  brainReadApiRefs,
   buildBrainDocumentSections,
   buildBrainViewModel,
   createBrainContextPackPreview,
   describeBrainState,
+  toBrainContextState,
+  toBrainSearchState,
+  toBrainSourceState,
   unwrapBrainMutation,
   type BrainContextPackPreview,
+  type BrainSearchResult,
 } from "./brain-surface";
 import type { TemplateDataState } from "../../adapters/confect-state";
 
@@ -36,7 +42,226 @@ const contextPack: BrainContextPackPreview = {
   trustReceiptPosture: "required",
 };
 
+const searchResult: BrainSearchResult = {
+  sourceKey: "source_slack",
+  sourceRevisionKey: "revision_slack_4",
+  publicationSetKey: "publication_slack_7",
+  entryKey: "entry_launch",
+  passageKey: "passage_launch_1",
+  startOffset: 12,
+  endOffset: 48,
+  contentHash: "sha256:launch",
+  kind: "source",
+  citationKey: "publication_slack_7:entry_launch",
+  title: "Launch thread",
+  excerpt: "The approved launch date is Friday.",
+  authority: "authoritative",
+  authorityPolicyKey: "policy_slack",
+  observedAt: 1_754_000_000_000,
+  indexedAt: 1_754_000_000_100,
+  freshness: "current",
+  truncated: false,
+  state: "resolved",
+};
+
+const completeCoverage = {
+  corpusKey: "slack",
+  sourceKind: "slack",
+  connectorScopeKey: "channel_launch",
+  required: true,
+  status: "complete" as const,
+  freshness: "current" as const,
+  unresolvedFailureCount: 0,
+};
+
 describe("Brain source surface", () => {
+  it("pins the canonical generated Brain read refs", () => {
+    expect(brainReadApiRefs).toEqual({
+      sourcesSearch: templateConfectRefs.public.brain.readApi.sourcesSearch,
+      sourcesGet: templateConfectRefs.public.brain.readApi.sourcesGet,
+      contextGet: templateConfectRefs.public.brain.readApi.contextGet,
+    });
+  });
+
+  it("preserves exact citation identity and maps ready, empty, partial, and stale reads", () => {
+    const ready = toBrainSearchState(
+      {
+        status: "ready",
+        mode: "read",
+        data: {
+          brainKey: "brain_apero",
+          results: [searchResult],
+          coverage: [completeCoverage],
+          omissions: [],
+        },
+      },
+      "launch",
+    );
+    expect(ready).toMatchObject({
+      status: "ready",
+      results: [
+        {
+          publicationSetKey: "publication_slack_7",
+          entryKey: "entry_launch",
+        },
+      ],
+    });
+
+    expect(
+      toBrainSearchState(
+        {
+          status: "empty",
+          data: {
+            brainKey: "brain_apero",
+            results: [],
+            coverage: [completeCoverage],
+            omissions: [],
+          },
+        },
+        "missing",
+      ),
+    ).toMatchObject({ status: "empty" });
+
+    expect(
+      toBrainSearchState(
+        {
+          status: "ready",
+          mode: "read",
+          data: {
+            brainKey: "brain_apero",
+            results: [searchResult],
+            coverage: [
+              {
+                ...completeCoverage,
+                status: "partial",
+                reason: "reconciliation pending",
+              },
+            ],
+            omissions: [{ reason: "context byte capacity", count: 2 }],
+          },
+        },
+        "launch",
+      ),
+    ).toMatchObject({ status: "partial" });
+
+    expect(
+      toBrainSearchState(
+        {
+          status: "ready",
+          mode: "read",
+          data: {
+            brainKey: "brain_apero",
+            results: [{ ...searchResult, freshness: "stale" }],
+            coverage: [{ ...completeCoverage, freshness: "stale" as const }],
+            omissions: [],
+          },
+        },
+        "launch",
+      ),
+    ).toMatchObject({ status: "stale" });
+  });
+
+  it("maps unavailable, integrity, and typed capacity failures distinctly", () => {
+    expect(
+      toBrainSearchState(
+        {
+          status: "typed_failure",
+          error: { _tag: "SubsystemDisabled", subsystem: "ask" },
+        },
+        "launch",
+      ),
+    ).toMatchObject({ status: "unavailable" });
+    expect(
+      toBrainSearchState(
+        {
+          status: "typed_failure",
+          error: {
+            _tag: "CitationIntegrityFailure",
+            publicationSetKey: "publication_slack_7",
+            entryKey: "entry_launch",
+            reason: "content_mismatch",
+          },
+        },
+        "launch",
+      ),
+    ).toMatchObject({ status: "integrity_failure" });
+    expect(
+      toBrainSearchState(
+        {
+          status: "typed_failure",
+          error: {
+            _tag: "RetrievalCapacityExceeded",
+            message: "Candidate capacity exceeded.",
+          },
+        },
+        "launch",
+      ),
+    ).toMatchObject({ status: "capacity_failure" });
+  });
+
+  it("maps canonical ContextPack and exact source reads without dropping their tuple", () => {
+    expect(
+      toBrainContextState({
+        status: "ready",
+        mode: "read",
+        data: {
+          schemaVersion: "1",
+          candidateManifest: { version: "1", hash: "manifest_hash" },
+          requestId: "request_1",
+          organizationKey: "organization_apero",
+          brainKey: "brain_apero",
+          question: "launch",
+          asOf: 1_754_000_000_200,
+          coverage: [completeCoverage],
+          entries: [searchResult],
+          conflicts: [],
+          omissions: [],
+        },
+      }),
+    ).toMatchObject({
+      status: "ready",
+      data: {
+        entries: [
+          {
+            publicationSetKey: "publication_slack_7",
+            entryKey: "entry_launch",
+          },
+        ],
+      },
+    });
+
+    expect(
+      toBrainSourceState({
+        status: "ready",
+        mode: "read",
+        data: {
+          ...searchResult,
+          brainKey: "brain_apero",
+          revisionKey: searchResult.sourceRevisionKey,
+          status: "published",
+        },
+      }),
+    ).toMatchObject({
+      status: "ready",
+      data: {
+        publicationSetKey: "publication_slack_7",
+        entryKey: "entry_launch",
+      },
+    });
+    expect(
+      toBrainSourceState({
+        status: "ready",
+        mode: "read",
+        data: {
+          ...searchResult,
+          brainKey: "brain_apero",
+          revisionKey: searchResult.sourceRevisionKey,
+          status: "superseded",
+        },
+      }),
+    ).toMatchObject({ status: "stale" });
+  });
+
   it("builds a source-backed Brain view model with markdown, links, freshness, and evidence", () => {
     const state: TemplateDataState<{
       readonly sources: readonly BrainSource[];
