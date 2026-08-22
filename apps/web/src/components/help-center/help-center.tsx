@@ -32,13 +32,15 @@ export const useHelpCenter = () => {
   return {
     open: () => {
       if (!modalRef.current) {
-        modalRef.current = modals.open({
-          title: "Help Center",
-          component: HelpCenterDialog,
-          onClose: () => {
-            modalRef.current = null;
+        modalRef.current = modals.open(
+          HelpCenterDialog,
+          { title: "Help Center" },
+          {
+            onClose: () => {
+              modalRef.current = null;
+            },
           },
-        });
+        );
       }
     },
     close: () => {

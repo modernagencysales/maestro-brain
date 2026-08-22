@@ -26,17 +26,18 @@ function PasswordListItem({ lastChanged }: { lastChanged: Date | null }) {
     <GridList.Item
       onClick={() => {
         const id = modals.open(UpdatePasswordDialog, {
-          title: "Update your password",
-          isCentered: true,
           onSuccess() {
             toast.success({
               title: "Your password has been updated",
             });
             modals.close(id);
           },
-          onError(error: any) {
+          onError(error: unknown) {
             toast.error({
-              title: error.message,
+              title:
+                error instanceof Error
+                  ? error.message
+                  : "Could not update password",
             });
           },
         });

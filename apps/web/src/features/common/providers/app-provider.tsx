@@ -11,6 +11,7 @@ import {
 import { appHotkeys } from "#config/hotkeys.config";
 import { system } from "#theme/preset";
 
+import { ModalsProvider } from "../../../components/modals";
 import { Hotkeys } from "../components/hotkeys";
 
 const LinkComponent = React.forwardRef<
@@ -22,7 +23,7 @@ const LinkComponent = React.forwardRef<
 });
 
 export interface AppProviderProps {
-  onError?: (error: Error, info: any) => void;
+  onError?: (error: Error, info: React.ErrorInfo) => void;
   children: React.ReactNode;
 }
 
@@ -31,7 +32,9 @@ export const AppProvider: React.FC<AppProviderProps> = (props) => {
 
   return (
     <SuiProvider linkComponent={LinkComponent} onError={onError} value={system}>
-      <Hotkeys hotkeys={appHotkeys}>{children}</Hotkeys>
+      <ModalsProvider>
+        <Hotkeys hotkeys={appHotkeys}>{children}</Hotkeys>
+      </ModalsProvider>
     </SuiProvider>
   );
 };
