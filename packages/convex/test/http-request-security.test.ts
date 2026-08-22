@@ -578,6 +578,60 @@ describe("headless HTTP bearer security", () => {
     ]);
   });
 
+  it("submits terminal notes with server-derived Brain scope and brain:write", async () => {
+    const displayKey = "mbk_live_note";
+    const keyHash = await hashPresentedApiKey(displayKey);
+    const writePrincipal = createHeadlessPrincipal({
+      ...principal,
+      scopes: ["brain:read", "brain:write"],
+    });
+    const runMutation = vi.fn(async (_ref, input) => {
+      if (input.keyHash === keyHash) return null;
+      expect(input).toEqual({
+        title: "Updated positioning",
+        markdown: "Reviewed terminal contribution.",
+        organizationId: "org_123",
+        workspaceId: "workspace_123",
+        brainKey: "brain_acme",
+      });
+      return { sourceKey: `src_${"a".repeat(64)}`, status: "pending_review" };
+    });
+    const response = await handleTemplateHttpRequest(
+      {
+        runQuery: vi.fn(async (_ref, input) => {
+          expect(input).toEqual({ keyHash, requiredScope: "brain:write" });
+          return {
+            principal: writePrincipal,
+            keyHash,
+            keyId: writePrincipal.keyId,
+          };
+        }),
+        runMutation,
+        runAction: async () => undefined,
+      },
+      new Request("https://example.test/api/brain.notes.submit", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${displayKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            title: "Updated positioning",
+            markdown: "Reviewed terminal contribution.",
+          },
+        }),
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      operationId: "brain.notes.submit",
+      result: { status: "pending_review" },
+    });
+    expect(runMutation).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     {
       operationId: "brain.sources.search",

@@ -122,7 +122,7 @@ describe("company-context Ask Apero artifacts", () => {
   it("pins a read-only endpoint and both runtime discovery contracts", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      manifestVersion: "0.3.0",
+      manifestVersion: "0.4.0",
       status: "candidate",
       canonicalSkill: {
         name: "ask-apero",
@@ -172,6 +172,13 @@ describe("company-context Ask Apero artifacts", () => {
         compatibilityLevel: "skill-and-mcp-configuration",
         liveParity: "pending",
         skillDiscoveryPath: ".claude/skills/ask-apero",
+      }),
+      expect.objectContaining({
+        name: "claude-cowork",
+        compatibleVersions: ["host-managed"],
+        compatibilityLevel: "remote-http-mcp-and-server-prompt",
+        liveParity: "pending",
+        skillDiscoveryPath: "mcp://maestro-brain/prompts/ask-apero",
       }),
     ]);
     expect(manifest.update.preconditions.length).toBeGreaterThan(3);

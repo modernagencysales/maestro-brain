@@ -20,6 +20,8 @@ Code install that same directory; runtime-specific copies are not maintained.
   used by the skill;
 - `install.md` — runtime discovery and MCP configuration using secret names
   only;
+- `terminal-testing.md` — setup, smoke checks, daily terminal commands, and the
+  teammate acceptance checklist;
 - `team-manifest.v1.json` — candidate endpoint, runtime, update, and rollback
   contract.
 - `pilot-config.example.v1.json` — non-secret live rollout inputs, default SLOs,

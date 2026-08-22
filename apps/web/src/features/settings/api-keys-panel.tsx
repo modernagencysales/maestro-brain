@@ -131,6 +131,10 @@ export const ApiKeysPanel = ({
                   <input name="scope" type="checkbox" value="brain:ask" />
                   Ask
                 </label>
+                <label>
+                  <input name="scope" type="checkbox" value="brain:write" />
+                  Contribute notes and transcripts
+                </label>
                 <Button type="submit">Create API key</Button>
               </Stack>
             </form>
@@ -279,12 +283,14 @@ const ApiKeyRows = ({
 
 const scopesFromForm = (
   formData: FormData,
-): readonly ("brain:read" | "brain:ask")[] => {
+): readonly ("brain:read" | "brain:ask" | "brain:write")[] => {
   const scopes = formData
     .getAll("scope")
     .filter(
-      (scope): scope is "brain:read" | "brain:ask" =>
-        scope === "brain:read" || scope === "brain:ask",
+      (scope): scope is "brain:read" | "brain:ask" | "brain:write" =>
+        scope === "brain:read" ||
+        scope === "brain:ask" ||
+        scope === "brain:write",
     );
 
   return scopes.length === 0 ? ["brain:read"] : scopes;

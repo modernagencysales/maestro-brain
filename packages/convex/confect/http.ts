@@ -19,6 +19,7 @@ import {
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
 import feedbackSpec from "./brain/feedback.spec";
+import pilotSpec from "./brain/pilot.spec";
 import {
   reviewedHeadlessPolicyFor,
   type HeadlessOperationPolicy,
@@ -84,9 +85,14 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
     kind: "operation",
     operationId: "brain.feedback.reportWrongOrStale",
   },
+  "/api/brain.notes.submit": {
+    kind: "operation",
+    operationId: "brain.notes.submit",
+  },
 };
 
 const feedbackOperationId = "brain.feedback.reportWrongOrStale";
+const noteSubmitOperationId = "brain.notes.submit";
 
 const feedbackFunction = () => {
   const spec = feedbackSpec.functions.headlessReportWrongOrStale;
@@ -99,6 +105,17 @@ const feedbackFunction = () => {
   return Ref.getFunctionReference(Ref.make("brain/feedback", spec));
 };
 
+const noteSubmitFunction = () => {
+  const spec = pilotSpec.functions.headlessSubmitNote;
+  if (spec === undefined) {
+    throw new ConvexError({
+      code: "HEADLESS_NOTE_SPEC_MISSING",
+      message: "Missing pilot.headlessSubmitNote spec",
+    });
+  }
+  return Ref.getFunctionReference(Ref.make("brain/pilot", spec));
+};
+
 const operationRefs = {
   "brain.pages.list": api.brain.pages.list,
   "brain.pages.get": api.brain.pages.get,
@@ -109,6 +126,7 @@ const operationRefs = {
   "brain.answers.ask": internal.brain.readApi.headlessAnswersAsk,
   "brain.rollout.status": internal.brain.readApi.headlessBrainRolloutStatus,
   [feedbackOperationId]: feedbackFunction(),
+  [noteSubmitOperationId]: noteSubmitFunction(),
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
@@ -162,6 +180,11 @@ export const templateHttpRoutes = [
     path: `/api/${feedbackOperationId}`,
     method: "POST",
     description: "Records immutable wrong-or-stale Brain feedback.",
+  },
+  {
+    path: `/api/${noteSubmitOperationId}`,
+    method: "POST",
+    description: "Submits a terminal note to the Brain review queue.",
   },
   ...confectManifest.functions
     .filter(
@@ -239,6 +262,13 @@ const runTemplateApiOperation = async (
     );
     return { ok: true, operationId: feedbackOperationId, result };
   }
+  if (request.operationId === noteSubmitOperationId) {
+    const result = await ctx.runMutation(
+      (ctx.operationRefs ?? operationRefs)[noteSubmitOperationId],
+      request.input,
+    );
+    return { ok: true, operationId: noteSubmitOperationId, result };
+  }
   return await executeHeadlessOperation(
     {
       refs: ctx.operationRefs ?? operationRefs,
@@ -297,12 +327,37 @@ const templateRouteResponse = async (
 type McpRequest = {
   readonly jsonrpc: "2.0";
   readonly id?: string | number;
-  readonly method: "initialize" | "tools/list" | "tools/call";
+  readonly method:
+    "initialize" | "prompts/list" | "prompts/get" | "tools/list" | "tools/call";
   readonly params?: {
     readonly name?: string;
     readonly arguments?: Record<string, unknown>;
   };
 };
+
+const askAperoPrompt = {
+  name: "ask-apero",
+  title: "Ask Apero",
+  description:
+    "Answer a question from Apero's approved Brain evidence with citations and explicit abstention when evidence is insufficient.",
+  arguments: [
+    {
+      name: "question",
+      description:
+        "The question to answer using Apero's approved Brain evidence.",
+      required: true,
+    },
+  ],
+} as const;
+
+const askAperoMessage = (
+  question: string,
+): string => `Answer the question below using Apero's approved Brain evidence.
+
+First call the \`template.brain.answers.ask\` MCP tool with this exact question:
+${JSON.stringify(question)}
+
+Treat the tool result as the only source of company facts. Include its citations with every supported claim, and state the evidence freshness or readiness when the result provides it. If the tool reports insufficient evidence, abstains, or does not support an answer, say so explicitly. Do not invent or supplement company facts from prior knowledge.`;
 
 const mcpReply = (id: string | number | undefined, result: unknown): Response =>
   jsonResponse({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), result });
@@ -349,9 +404,33 @@ const mcpRouteResponse = async (
   if (candidate.method === "initialize")
     return mcpReply(id, {
       protocolVersion: "2025-06-18",
-      capabilities: { tools: {} },
+      capabilities: { prompts: {}, tools: {} },
       serverInfo: { name: "maestro-brain", version: "1.0.0" },
     });
+  if (candidate.method === "prompts/list")
+    return mcpReply(id, { prompts: [askAperoPrompt] });
+  if (candidate.method === "prompts/get") {
+    if (candidate.params?.name !== askAperoPrompt.name)
+      return mcpError(id, -32602, "Unknown or unavailable MCP prompt.");
+
+    const question = candidate.params.arguments?.question;
+    if (typeof question !== "string" || question.trim().length === 0)
+      return mcpError(
+        id,
+        -32602,
+        "MCP prompt question must be a non-empty string.",
+      );
+
+    return mcpReply(id, {
+      description: askAperoPrompt.description,
+      messages: [
+        {
+          role: "user",
+          content: { type: "text", text: askAperoMessage(question) },
+        },
+      ],
+    });
+  }
   if (candidate.method === "tools/list")
     return mcpReply(id, { tools: buildGeneratedMcpTools() });
   if (candidate.method !== "tools/call")

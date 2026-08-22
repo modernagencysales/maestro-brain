@@ -9,7 +9,7 @@ export type ApiKeyMutations = {
   readonly create: (args: {
     readonly brainKey: string;
     readonly name: string;
-    readonly scopes: readonly ("brain:read" | "brain:ask")[];
+    readonly scopes: readonly ("brain:read" | "brain:ask" | "brain:write")[];
     readonly expiresAt: number;
   }) => Promise<
     ApiKeyMutationResult<{
@@ -39,7 +39,7 @@ export type ApiKeySettingsAdapter = {
   readonly canAdministerKeys: boolean;
   readonly createKey: (input: {
     readonly name: string;
-    readonly scopes: readonly ("brain:read" | "brain:ask")[];
+    readonly scopes: readonly ("brain:read" | "brain:ask" | "brain:write")[];
     readonly expiresAt: number;
   }) => Promise<string>;
   readonly rotateKey: (input: {

@@ -18,12 +18,29 @@ and derive the organization, workspace, and Brain scope server-side. Do not add
 a Brain key or tenant selector to prompts or tool input. Do not share one
 credential between Codex and Claude Code, and never commit a credential value.
 
+Terminal contributors may receive a separate credential that also has
+`brain:write`. That scope permits only the reviewed `brain.notes.submit` API
+path; submitted notes remain pending until the normal editor review workflow
+publishes or rejects them. It does not add an MCP write tool.
+
 The MCP connection is named `maestro-brain`, uses streamable HTTP at the
 approved `${CONVEX_SITE_URL}/mcp` endpoint, and sends `MAESTRO_BRAIN_API_KEY` as
 a bearer token. Store the secret with the runtime's approved local secret
 mechanism.
 
 ## Install the shared skill
+
+The repository CLI can install the runtime configuration and skill link without
+embedding the bearer value:
+
+```bash
+pnpm brain setup codex
+pnpm brain setup claude-code
+pnpm brain setup cowork
+```
+
+It preserves unrelated configuration and refuses to replace a conflicting
+`maestro-brain` entry or skill link. The manual equivalents follow.
 
 From the repository root, create the runtime discovery directories if needed.
 Then add links only when the destinations do not already exist:
@@ -81,7 +98,22 @@ equivalent `.mcp.json` shape is:
 Keep `.mcp.json` free of resolved secret values. Confirm the connection with the
 pinned Claude Code version's MCP status command before invoking the skill.
 
+## Configure Claude Cowork
+
+Run `pnpm brain setup cowork` to print a portable remote HTTP MCP descriptor.
+Enter that name, `${CONVEX_SITE_URL}/mcp` URL, and bearer Authorization header
+in Cowork's connector settings. Cowork does not need the repository-local skill:
+after the MCP handshake it can discover the server-delivered `ask-apero` prompt,
+which carries the same retrieval, citation, freshness, and abstention rules.
+
+Because Cowork connector storage is host-managed, setup does not guess or write
+a local Cowork configuration path and does not claim that the connector has been
+activated. Run `pnpm brain doctor` to verify the remote endpoint before testing
+from Cowork.
+
 ## Smoke check
+
+Start with `pnpm brain doctor`, then:
 
 1. Confirm the installed runtime version exactly matches a manifest entry.
 2. Confirm only the reviewed read tools are available.

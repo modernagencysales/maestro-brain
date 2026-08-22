@@ -116,7 +116,10 @@ const normalizeAuthenticatedPrincipal = (
     typeof principal.principalId !== "string" ||
     !Array.isArray(principal.scopes) ||
     !principal.scopes.every(
-      (scope) => scope === "brain:read" || scope === "brain:ask",
+      (scope) =>
+        scope === "brain:read" ||
+        scope === "brain:ask" ||
+        scope === "brain:write",
     )
   ) {
     return unauthorized();
