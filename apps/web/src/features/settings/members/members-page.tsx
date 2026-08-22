@@ -1,0 +1,163 @@
+"use client";
+
+import { Alert } from "@chakra-ui/react";
+import { useLimitReached } from "@saas-ui-pro/billing";
+import { Section, toast } from "@saas-ui/react";
+
+import { WorkspaceMemberDTO } from "@workspace/api/types";
+import type { InviteData } from "@workspace/ui/invite-dialog";
+import { useModals } from "@workspace/ui/modals";
+import { SettingsPage } from "@workspace/ui/settings-page";
+
+import { Link } from "#components/link";
+import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
+import { api } from "#lib/trpc/react";
+
+import { Member, MembersList } from "./members-list";
+
+export function MembersSettingsPage() {
+  const modals = useModals();
+
+  const [workspace] = useCurrentWorkspace();
+
+  const { data } = api.workspaceMembers.list.useQuery({
+    workspaceId: workspace.id,
+  });
+
+  const members = data ?? [];
+
+  const limitReached = useLimitReached("users", members.length);
+
+  const utils = api.useUtils();
+
+  const inviteMembers = api.workspaceMembers.invite.useMutation({
+    onSuccess() {
+      utils.workspaceMembers.list.invalidate();
+    },
+  });
+
+  const removeMember = api.workspaceMembers.removeMember.useMutation({
+    onSuccess() {
+      utils.workspaceMembers.list.invalidate();
+    },
+  });
+
+  const updateRoles = api.workspaceMembers.updateRoles.useMutation({
+    onSuccess() {
+      utils.workspaceMembers.list.invalidate();
+    },
+  });
+
+  const onInvite = async ({ emails, role }: InviteData) => {
+    return toast.promise(
+      inviteMembers.mutateAsync({
+        workspaceId: workspace.id,
+        emails,
+        role,
+      }),
+      {
+        loading: { title: inviteLoadingTitle(emails) },
+        success: {
+          title: `Invitation(s) have been sent.`,
+        },
+        error: memberOperationError("Failed to invite members"),
+      },
+    );
+  };
+
+  const onCancelInvite = async (member: Member) =>
+    await removeMemberWithToast(member, workspace.id, removeMember.mutateAsync);
+
+  const onRemove = (member: WorkspaceMemberDTO) => {
+    modals.confirm?.({
+      title: "Remove member",
+      body: `Are you sure you want to remove ${member.email} from ${
+        workspace.name || "this workspace"
+      }?`,
+      confirmProps: {
+        colorPalette: "red",
+        children: "Remove",
+      },
+      onConfirm: async () => {
+        await removeMemberWithToast(
+          member,
+          workspace.id,
+          removeMember.mutateAsync,
+        );
+      },
+    });
+  };
+
+  const onUpdateRoles = async (member: Member, roles: string[]) => {
+    return updateRoles.mutateAsync({
+      userId: member.id,
+      workspaceId: workspace.id,
+      roles,
+    });
+  };
+
+  return (
+    <SettingsPage
+      title="Members"
+      description="Manage who can access your workspace"
+    >
+      <Section.Root>
+        <Section.Header title="Members" />
+        <Section.Body>
+          {limitReached ? (
+            <Alert.Root colorPalette="primary" mb="4">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>
+                  You have reached the limit of members for your current plan.
+                </Alert.Title>
+                <Alert.Description>
+                  Please upgrade your plan to invite more people.{" "}
+                </Alert.Description>
+              </Alert.Content>
+              <Link to="/billing" fontWeight="medium">
+                Upgrade now
+              </Link>
+            </Alert.Root>
+          ) : null}
+          <MembersList
+            allowInvite={!limitReached}
+            members={members.map((member) => ({
+              id: member.id,
+              email: member.email ?? "",
+              roles: member.roles,
+              status: member.status,
+            }))}
+            onInvite={onInvite}
+            onCancelInvite={onCancelInvite}
+            onRemove={onRemove}
+            onUpdateRoles={onUpdateRoles}
+          />
+        </Section.Body>
+      </Section.Root>
+    </SettingsPage>
+  );
+}
+
+const inviteLoadingTitle = (emails: readonly string[]) =>
+  emails.length === 1
+    ? `Inviting ${emails[0]}...`
+    : `Inviting ${emails.length} people...`;
+
+const memberOperationError = (title: string) => (err: unknown) => ({
+  title,
+  description: err instanceof Error ? err.message : "Unknown error",
+});
+
+const removeMemberWithToast = async (
+  member: { email?: string | null; id: string },
+  workspaceId: string,
+  mutate: ReturnType<
+    typeof api.workspaceMembers.removeMember.useMutation
+  >["mutateAsync"],
+) =>
+  await toast.promise(mutate({ id: member.id, workspaceId }), {
+    loading: { title: `Removing ${member.email}...` },
+    success: { title: `Removed ${member.email}!` },
+    error: memberOperationError("Failed to remove member"),
+  });

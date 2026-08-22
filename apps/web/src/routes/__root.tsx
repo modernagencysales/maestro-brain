@@ -16,7 +16,7 @@ import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit
 import type { SafeClientRuntime } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
 import { loadSafeClientRuntime } from "../auth/safe-client-runtime";
-import { MaestroSaasUiProvider } from "../saas-ui/provider";
+import { AppProvider } from "../features/common/providers/app-provider";
 import {
   createBrowserWorkspaceStorage,
   WorkspaceProvider,
@@ -107,10 +107,13 @@ function WorkspaceRuntimeBoundary({
   workspaceRuntimeMode,
 }: Pick<SafeClientRuntime, "authSnapshot" | "workspaceRuntimeMode">) {
   const location = useRouterState({ select: (state) => state.location });
-  const liveRefs = createWorkspaceLiveRefs({
-    useQuery: useTemplateQuery,
-    useMutation: useTemplateMutation,
-  });
+  const liveRefs = createWorkspaceLiveRefs(
+    {
+      useQuery: useTemplateQuery,
+      useMutation: useTemplateMutation,
+    },
+    workspaceRuntimeMode !== "fake",
+  );
   const operationsCache = useRef<RuntimeWorkspaceOperationsCache>(undefined);
 
   if (
@@ -142,16 +145,16 @@ function WorkspaceRuntimeBoundary({
         {(analyticsConsent) => (
           <PostHogWebProvider analyticsConsent={analyticsConsent}>
             <RootDocument>
-              <WebRouteUxBoundary
-                href={location.href}
-                pathname={location.pathname}
-              >
-                <MaestroSaasUiProvider>
+              <AppProvider>
+                <WebRouteUxBoundary
+                  href={location.href}
+                  pathname={location.pathname}
+                >
                   <TemplateToastProvider>
                     <Outlet />
                   </TemplateToastProvider>
-                </MaestroSaasUiProvider>
-              </WebRouteUxBoundary>
+                </WebRouteUxBoundary>
+              </AppProvider>
             </RootDocument>
           </PostHogWebProvider>
         )}

@@ -29,7 +29,7 @@ type EnsureProvisionedRef =
 type WorkspaceLiveRefHooks = {
   readonly useQuery: (
     ref: WorkspaceListRef,
-    args: Ref.Args<WorkspaceListRef>,
+    args: Ref.Args<WorkspaceListRef> | "skip",
   ) => TemplateDataState<
     Ref.Returns<WorkspaceListRef>,
     Ref.Error<WorkspaceListRef>
@@ -58,8 +58,12 @@ export const workspaceOperationRefs: {
 
 export const createWorkspaceLiveRefs = (
   hooks: WorkspaceLiveRefHooks,
+  enabled = true,
 ): LiveWorkspaceRefs => ({
-  listResult: hooks.useQuery(workspaceOperationRefs.list, {}),
+  listResult: hooks.useQuery(
+    workspaceOperationRefs.list,
+    enabled ? {} : "skip",
+  ),
   ensureProvisioned: hooks.useMutation(
     workspaceOperationRefs.ensureProvisioned,
   ),
@@ -192,12 +196,15 @@ const sameWorkspaceRuntime = (
   left: SafeWorkspaceRuntime,
   right: SafeWorkspaceRuntime,
 ): boolean => {
-  if (left.mode !== right.mode) return false;
-  if (left.mode === "fake") return true;
-  if (left.authSnapshot.status !== right.authSnapshot.status) return false;
-  if (left.authSnapshot.status !== "authenticated") return true;
+  const modeMatches = left.mode === right.mode;
+  const fakeRuntime = left.mode === "fake";
+  const authStatusMatches =
+    left.authSnapshot.status === right.authSnapshot.status;
+  const liveRefsMatch =
+    left.authSnapshot.status !== "authenticated" ||
+    sameLiveWorkspaceRefs(left.liveRefs, right.liveRefs);
 
-  return sameLiveWorkspaceRefs(left.liveRefs, right.liveRefs);
+  return modeMatches && (fakeRuntime || (authStatusMatches && liveRefsMatch));
 };
 
 const sameLiveWorkspaceRefs = (

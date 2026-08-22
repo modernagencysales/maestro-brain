@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BusinessSectionRoute } from "../saas-ui/business-shell";
+import { HealthSurface } from "../features/health/health-surface";
 
 export const Route = createFileRoute("/_workspace/health")({
-  component: HealthRoute,
+  component: HealthSurface,
 });
-
-function HealthRoute() {
-  return <BusinessSectionRoute section="health" />;
-}

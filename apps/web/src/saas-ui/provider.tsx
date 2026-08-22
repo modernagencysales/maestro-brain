@@ -1,11 +1,8 @@
-import type { ReactNode } from "react";
-import { SuiProvider } from "@saas-ui/react";
-import { defaultSystem } from "@saas-ui-pro/react";
+import type { PropsWithChildren } from "react";
 
-export function MaestroSaasUiProvider({
-  children,
-}: {
-  readonly children: ReactNode;
-}) {
-  return <SuiProvider value={defaultSystem}>{children}</SuiProvider>;
+import { AppProvider } from "../features/common/providers/app-provider";
+
+/** Test compatibility alias; the runtime provider authority is AppProvider. */
+export function MaestroSaasUiProvider({ children }: PropsWithChildren) {
+  return <AppProvider>{children}</AppProvider>;
 }

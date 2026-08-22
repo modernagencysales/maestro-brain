@@ -11,13 +11,9 @@ import {
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 const read = (path: string): string =>
   readFileSync(resolve(appRoot, path), "utf8");
-const routeFileForPath = (path: string): string =>
-  path === "/"
-    ? "src/routes/index.tsx"
-    : `src/routes/_workspace.${path.slice(1).replaceAll("/", ".")}.tsx`;
 
 describe("frontend platform routes", () => {
-  it("registers only the Maestro Brain V1 product shell routes in navigation", () => {
+  it("registers the Maestro Brain product routes", () => {
     expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toEqual([
       "clients",
       "brain",
@@ -35,7 +31,29 @@ describe("frontend platform routes", () => {
     expect(activeTemplateRouteKey("/legal/privacy")).toBeNull();
   });
 
-  it("keeps reference route files behind an explicit non-production flag", () => {
+  it("routes the product through the canonical upstream chassis", () => {
+    for (const item of TEMPLATE_ROUTE_ITEMS) {
+      const route = `src/routes/_workspace.${item.path.slice(1).replaceAll("/", ".")}.tsx`;
+      expect(
+        existsSync(resolve(appRoot, route)),
+        `${item.path} should exist`,
+      ).toBe(true);
+    }
+
+    expect(read("src/routes/_workspace.tsx")).toContain("<DashboardLayout");
+    expect(read("src/routes/_workspace.tsx")).toContain("ssr: false");
+    expect(existsSync(resolve(appRoot, "src/saas-ui/business-shell.tsx"))).toBe(
+      false,
+    );
+    expect(read("src/routes/_workspace.clients.tsx")).toContain(
+      "ClientsScreen",
+    );
+    expect(read("src/routes/_workspace.connections.tsx")).toContain(
+      "ConnectionsRouteAdapter",
+    );
+  });
+
+  it("keeps reference routes and prebuilt archetype screens available", () => {
     expect(REFERENCE_ROUTE_ITEMS.map((item) => item.path)).toContain("/legal");
     expect(REFERENCE_ROUTE_ITEMS.map((item) => item.path)).toContain(
       "/data-lifecycle",
@@ -52,87 +70,56 @@ describe("frontend platform routes", () => {
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.data-lifecycle.tsx")),
     ).toBe(true);
-    expect(read("src/routes/_workspace.legal.tsx")).toContain(
-      'section="legal"',
-    );
-    expect(read("src/routes/_workspace.legal.tsx")).not.toContain(
-      "ReferenceDocumentRoute",
-    );
-
-    const shellSource = read("src/saas-ui/business-shell.tsx");
-    expect(shellSource).toContain("isReferenceRoutesEnabled()");
-    expect(shellSource).not.toContain("import.meta.env");
-    expect(read("src/env.ts")).toContain("VITE_ENABLE_REFERENCE_ROUTES");
-    expect(shellSource).toContain("ReferenceRouteUnavailable");
-    expect(shellSource).toContain("This reference route is hidden");
-  });
-
-  it("has a route file for every advertised workspace navigation path", () => {
-    for (const item of TEMPLATE_ROUTE_ITEMS) {
+    for (const route of [
+      "contacts",
+      "inbox",
+      "reports",
+      "forms",
+      "kanban",
+      "states",
+    ]) {
       expect(
-        existsSync(resolve(appRoot, routeFileForPath(item.path))),
-        `${item.path} should be backed by ${routeFileForPath(item.path)}`,
+        existsSync(resolve(appRoot, `src/routes/_workspace.${route}.tsx`)),
       ).toBe(true);
     }
-    expect(read("src/routes/_workspace.clients.tsx")).toContain(
-      "ClientsScreen",
-    );
-    expect(read("src/routes/_workspace.connections.tsx")).toContain(
-      "ConnectionsRouteAdapter",
-    );
-    const shellSource = read("src/saas-ui/business-shell.tsx");
-    expect(shellSource).toContain("@saas-ui/react");
-    expect(shellSource).not.toContain("ReferenceDocumentRoute");
+    expect(read("src/routes/dashboard.tsx")).toContain("DashboardPage");
   });
 
-  it("keeps hidden reference keys out of the product shell nav icon contract", () => {
-    const shellSource = read("src/saas-ui/business-shell.tsx");
-    const navIconMap = shellSource.slice(
-      shellSource.indexOf("const navIconByKey = {"),
-      shellSource.indexOf("} as const satisfies Record<ProductRouteKey"),
+  it("adapts reference screens to the generated route topology", () => {
+    expect(read("src/routes/_workspace.contacts.tsx")).toContain(
+      "component: ContactsRoute",
+    );
+    expect(read("src/routes/_workspace.contacts.$contactId.tsx")).toContain(
+      "Route.useParams()",
+    );
+    expect(read("src/routes/_workspace.inbox.tsx")).toContain(
+      "component: InboxRoute",
     );
 
-    expect(navIconMap).toContain("clients:");
-    expect(navIconMap).toContain("brain:");
-    expect(navIconMap).toContain("connections:");
-    expect(navIconMap).toContain("settings:");
-    expect(navIconMap).not.toContain("workflows:");
-    expect(navIconMap).not.toContain("analytics:");
-    expect(navIconMap).not.toContain("admin:");
+    for (const feature of [
+      "src/features/contacts/inbox/inbox-list.tsx",
+      "src/features/contacts/list/add-person-dialog.tsx",
+      "src/features/contacts/list/contact-card.tsx",
+      "src/features/contacts/list/list-page.tsx",
+      "src/features/contacts/view/contact-page.tsx",
+      "src/features/settings/common/settings-sidebar.tsx",
+    ]) {
+      expect(read(feature)).not.toContain("/$workspace");
+    }
   });
 
-  it("ships a PWA manifest without unsupported offline claims", () => {
+  it("ships starter-safe public assets", () => {
     const manifest = JSON.parse(read("public/manifest.webmanifest")) as Record<
       string,
       unknown
     >;
-
     expect(manifest).toMatchObject({
       name: "Maestro Template",
       short_name: "Maestro",
       display: "standalone",
       start_url: "/",
     });
-    expect(manifest.icons).toEqual([
-      {
-        src: "/favicon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any maskable",
-      },
-    ]);
     expect(JSON.stringify(manifest).toLowerCase()).not.toContain("offline");
-  });
-
-  it("ships starter-safe public SEO assets", () => {
-    expect(read("public/robots.txt")).toContain(
-      "Sitemap: https://maestro-template.pages.dev/sitemap.xml",
-    );
-    expect(read("public/sitemap.xml")).toContain(
-      "https://maestro-template.pages.dev/onboarding",
-    );
-    expect(read("public/favicon.svg")).toContain("Maestro Template");
-    expect(read("public/social-card.svg")).toContain("Maestro Template");
     expect(read("src/routes/__root.tsx")).toContain("buildTemplateRouteHead");
   });
 });

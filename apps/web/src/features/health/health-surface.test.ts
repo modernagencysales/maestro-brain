@@ -1,87 +1,138 @@
+import { readFileSync } from "node:fs";
+import { Ref } from "@confect/core";
 import { describe, expect, it } from "vitest";
+
+import { brainReadApiRefs } from "../brain/brain-read-contract";
 import {
-  buildHealthBoardView,
-  buildTemplateHealthReport,
+  rolloutBlockedFixture,
+  rolloutCapacityFixture,
+  rolloutCurrentFixture,
+  rolloutDeadLetterFixture,
+  rolloutIntegrityFixture,
+  rolloutPartialFixture,
+  rolloutPausedFixture,
+  rolloutStaleFixture,
+  rolloutUnavailableFixture,
+} from "../brain/brain-read-fixtures";
+import {
+  buildBrainRolloutHealthBoardView,
+  toBrainRolloutHealthBoardView,
 } from "./health-surface";
 
-describe("health surface presenter", () => {
-  it("marks fake mode ready without live provider secrets", () => {
-    const view = buildHealthBoardView({
-      mode: "fake",
-      env: {},
-      report: buildTemplateHealthReport({
-        environment: "fake",
-        commitSha: "local",
-        checkedAt: 1_700_000_000_000,
-      }),
-    });
+describe("Brain rollout health surface", () => {
+  it("covers the canonical rollout fixture matrix", () => {
+    const fixtures = [
+      rolloutCurrentFixture,
+      rolloutStaleFixture,
+      rolloutPartialFixture,
+      rolloutUnavailableFixture,
+      rolloutBlockedFixture,
+      rolloutCapacityFixture,
+      rolloutIntegrityFixture,
+      rolloutDeadLetterFixture,
+      rolloutPausedFixture,
+    ];
 
-    expect(view).toMatchObject({
-      state: "ready",
-      summary: {
-        ready: 11,
-        degraded: 0,
-        blocked: 0,
-      },
-    });
-    expect(view.checks.map((check) => check.label)).toContain("Runtime");
-    expect(view.checks.map((check) => check.label)).toContain("WorkOS/AuthKit");
-    expect(view.checks.every((check) => check.status === "ready")).toBe(true);
-    expect(JSON.stringify(view)).not.toContain("secret-");
-  });
-
-  it("reports live provider gaps as blocked without leaking values", () => {
-    const view = buildHealthBoardView({
-      mode: "live",
-      env: {
-        DODO_API_KEY: "secret-dodo",
-        DODO_WEBHOOK_SECRET: " webhook-secret ",
-      },
-      report: buildTemplateHealthReport({
-        environment: "live",
-        commitSha: "abc123",
-        checkedAt: 1_700_000_000_000,
-      }),
-    });
-
-    expect(view.state).toBe("ready");
-    expect(view.summary.blocked).toBeGreaterThan(0);
-    expect(view.checks).toContainEqual(
-      expect.objectContaining({
-        label: "Dodo",
-        status: "blocked",
-        detail: "Missing none; invalid DODO_WEBHOOK_SECRET.",
-      }),
+    expect(fixtures).toHaveLength(9);
+    expect(fixtures.every(({ statusVersion }) => statusVersion === 1)).toBe(
+      true,
     );
-    expect(JSON.stringify(view)).not.toContain("secret-dodo");
-    expect(JSON.stringify(view)).not.toContain("webhook-secret");
   });
 
-  it("maps warning health checks to degraded rows", () => {
-    const view = buildHealthBoardView({
-      mode: "test",
-      env: {},
-      report: {
-        ok: true,
-        service: "maestro-template",
-        environment: "test",
-        commitSha: "abc123",
-        checkedAt: 1_700_000_000_000,
-        checks: [
-          {
-            id: "providers",
-            status: "warn",
-            detail: "verify provider credentials through deploy doctor",
-          },
-        ],
-      },
-    });
+  it("binds the health route to the real rollout-status query", () => {
+    const routeSource = readFileSync(
+      new URL("../../routes/_workspace.health.tsx", import.meta.url),
+      "utf8",
+    );
+    const surfaceSource = readFileSync(
+      new URL("./health-surface.tsx", import.meta.url),
+      "utf8",
+    );
 
-    expect(view.checks).toContainEqual({
-      label: "Providers",
-      status: "degraded",
-      detail: "verify provider credentials through deploy doctor",
+    expect(routeSource).toContain("HealthSurface");
+    expect(routeSource).not.toContain("GoldenStatePage");
+    expect(surfaceSource).toContain("brainReadApiRefs.brainRolloutStatus");
+    expect(Ref.getConvexFunctionName(brainReadApiRefs.brainRolloutStatus)).toBe(
+      "brain/readApi:brainRolloutStatus",
+    );
+  });
+
+  it("uses backend promotion readiness as the authoritative primary gate", () => {
+    const ready = buildBrainRolloutHealthBoardView(rolloutCurrentFixture);
+    const blocked = buildBrainRolloutHealthBoardView(rolloutBlockedFixture);
+
+    expect(ready.checks[0]).toEqual({
+      label: "Promotion readiness",
+      status: "ready",
+      detail: "Backend reports this Brain is promotion-ready.",
     });
-    expect(view.summary.degraded).toBe(1);
+    expect(blocked.checks[0]).toMatchObject({
+      label: "Promotion readiness",
+      status: "blocked",
+    });
+    expect(ready.summary.blocked).toBe(0);
+    expect(blocked.summary.blocked).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["stale", rolloutStaleFixture, "Retrieval freshness", "degraded"],
+    ["partial", rolloutPartialFixture, "Required coverage", "degraded"],
+    ["unavailable", rolloutUnavailableFixture, "Required coverage", "blocked"],
+  ] as const)(
+    "presents %s backend status without upgrading readiness",
+    (_name, fixture, label, status) => {
+      const view = buildBrainRolloutHealthBoardView(fixture);
+
+      expect(view.checks).toContainEqual(
+        expect.objectContaining({ label, status }),
+      );
+      expect(view.checks[0]).toMatchObject({ status: "blocked" });
+    },
+  );
+
+  it.each([
+    [
+      "capacity",
+      rolloutCapacityFixture,
+      "Retrieval or ingestion capacity was exceeded.",
+    ],
+    [
+      "integrity",
+      rolloutIntegrityFixture,
+      "Publication integrity validation failed.",
+    ],
+    [
+      "dead-letter",
+      rolloutDeadLetterFixture,
+      "Dead-letter publication jobs require repair.",
+    ],
+    ["paused", rolloutPausedFixture, "Ingestion workers are paused."],
+  ] as const)("surfaces %s blockers explicitly", (_name, fixture, copy) => {
+    const view = buildBrainRolloutHealthBoardView(fixture);
+    const scope = view.checks.find(({ label }) => label.startsWith("Slack"));
+
+    expect(scope).toMatchObject({ status: "blocked" });
+    expect(scope?.detail).toContain(copy);
+  });
+
+  it("distinguishes typed rollout capacity and integrity query failures", () => {
+    expect(
+      toBrainRolloutHealthBoardView({
+        status: "typed_failure",
+        error: { _tag: "RolloutStatusCapacityExceeded" },
+      }),
+    ).toMatchObject({
+      state: "error",
+      checks: [{ label: "Rollout status capacity", status: "blocked" }],
+    });
+    expect(
+      toBrainRolloutHealthBoardView({
+        status: "typed_failure",
+        error: { _tag: "RolloutStatusIntegrityConflict" },
+      }),
+    ).toMatchObject({
+      state: "error",
+      checks: [{ label: "Rollout status integrity", status: "blocked" }],
+    });
   });
 });

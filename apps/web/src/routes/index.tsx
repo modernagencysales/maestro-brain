@@ -1,7 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { BusinessDashboardRoute } from "../saas-ui/business-shell";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  component: BusinessDashboardRoute,
+  component: () => <Navigate to="/clients" />,
 });

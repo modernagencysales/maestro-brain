@@ -12,7 +12,8 @@ import {
   type BrainPageDetailState,
   type BrainPageListState,
 } from "./brain-workspace";
-import type { BrainWorkspaceAdapter } from "./brain-surface";
+import type { BrainSearchResult, BrainWorkspaceAdapter } from "./brain-surface";
+import { contextPackCurrentFixture } from "./brain-read-fixtures";
 
 const routeMocks = vi.hoisted(() => ({
   workspace: null as unknown,
@@ -32,13 +33,6 @@ vi.mock("@workos/authkit-tanstack-react-start/client", () => ({
   AuthKitProvider: ({ children }: { readonly children: ReactNode }) => children,
   useAccessToken: () => ({ getAccessToken: vi.fn() }),
   useAuth: () => ({ signOut: routeMocks.signOut }),
-}));
-
-vi.mock("../../saas-ui/business-shell", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../saas-ui/business-shell")>()),
-  BusinessAppShell: ({ children }: { readonly children: ReactNode }) => (
-    <>{children}</>
-  ),
 }));
 
 const page = {
@@ -67,6 +61,28 @@ const childPage = {
   sortKey: "0002",
   title: "Proof points",
   currentRevisionKey: "rev_01J0000000000000000000000B",
+};
+
+const citedResult: BrainSearchResult = {
+  sourceKey: "source_positioning",
+  sourceRevisionKey: "source_revision_positioning_2",
+  publicationSetKey: "publication_positioning_5",
+  entryKey: "entry_customer_growth",
+  passageKey: "passage_customer_growth_1",
+  startOffset: 0,
+  endOffset: 20,
+  contentHash: "sha256:customer-growth",
+  kind: "page",
+  citationKey: "publication_positioning_5:entry_customer_growth",
+  title: page.title,
+  excerpt: "customer-led growth",
+  authority: "authoritative",
+  authorityPolicyKey: "policy_reviewed_pages",
+  observedAt: 1_754_000_000_000,
+  indexedAt: 1_754_000_000_100,
+  freshness: "current",
+  truncated: false,
+  state: "resolved",
 };
 
 const adapter = (): BrainWorkspaceAdapter => ({
@@ -145,6 +161,10 @@ describe("BrainWorkspace", () => {
 
     expect(source).not.toContain("BlockNoteSyncEditor");
     expect(source).not.toContain("editorApi");
+    expect(source).not.toContain("brainPilotRefs.search");
+    expect(source).toContain("brainReadApiRefs.sourcesSearch");
+    expect(source).toContain("brainReadApiRefs.sourcesGet");
+    expect(source).toContain("brainReadApiRefs.contextGet");
   });
 
   it("renders actionable non-ready workspace states", () => {
@@ -193,7 +213,7 @@ describe("BrainWorkspace", () => {
     expect(routeMocks.signOut).toHaveBeenCalledWith({ returnTo: "/brain" });
   });
 
-  it("drives submit, review, page save, and cited search interactions", async () => {
+  it("drives submit, review, and page save interactions", async () => {
     const calls: string[] = [];
     const flowAdapter = {
       ...adapter(),
@@ -208,16 +228,6 @@ describe("BrainWorkspace", () => {
       updatePage: vi.fn().mockImplementation(async () => {
         calls.push("save");
         return page;
-      }),
-      search: vi.fn().mockImplementation(async () => {
-        calls.push("search");
-        return [
-          {
-            citationKey: "cite_src_note_1",
-            title: "Positioning notes",
-            excerpt: "customer-led growth",
-          },
-        ];
       }),
     };
     const actions = createBrainWorkspaceActions(flowAdapter);
@@ -235,16 +245,13 @@ describe("BrainWorkspace", () => {
         markdown: "edited proof",
       }),
     ).resolves.toMatchObject({ status: "saved" });
-    await expect(actions.search("proof")).resolves.toEqual([
-      expect.objectContaining({ citationKey: "cite_src_note_1" }),
-    ]);
     expect(flowAdapter.updatePage).toHaveBeenCalledWith({
       pageKey: page.pageKey,
       expectedCurrentRevisionKey: page.currentRevisionKey,
       markdown: "edited proof",
     });
     expect(flowAdapter.createPage).not.toHaveBeenCalled();
-    expect(calls).toEqual(["submit", "approve", "save", "search"]);
+    expect(calls).toEqual(["submit", "approve", "save"]);
   });
 
   it("returns explicit failure states for unavailable or rejected interactions", async () => {
@@ -267,9 +274,6 @@ describe("BrainWorkspace", () => {
         markdown: "body",
       }),
     ).resolves.toMatchObject({ status: "failure", message: "conflict" });
-    await expect(actions.search("body")).rejects.toThrow(
-      "Search is unavailable",
-    );
   });
 
   it("renders loading and empty page states", () => {
@@ -478,18 +482,101 @@ describe("BrainWorkspace", () => {
       search: {
         status: "ready",
         query: "proof",
-        results: [
-          {
-            citationKey: "cite_01J0000000000000000000000A",
-            title: page.title,
-            excerpt: "customer-led growth",
-          },
-        ],
+        results: [citedResult],
+        coverage: [],
+        omissions: [],
       },
     });
 
     expect(html).toContain("Search results for proof");
     expect(html).toContain("customer-led growth");
-    expect(html).toContain("cite_01J0000000000000000000000A");
+    expect(html).toContain("publication_positioning_5");
+    expect(html).toContain("entry_customer_growth");
+  });
+
+  it("renders loading and empty canonical Brain reads", () => {
+    expect(render({ search: { status: "loading", query: "proof" } })).toContain(
+      "Searching Brain",
+    );
+    expect(render({ search: { status: "empty", query: "missing" } })).toContain(
+      "No Brain results for missing",
+    );
+  });
+
+  it("shows ContextPack readiness and exact source-get verification", () => {
+    const html = render({
+      context: {
+        status: "ready",
+        data: contextPackCurrentFixture,
+      },
+      source: {
+        status: "ready",
+        data: {
+          ...citedResult,
+          brainKey: "br_01J0000000000000000000000A",
+          revisionKey: citedResult.sourceRevisionKey,
+          status: "published",
+        },
+      },
+    });
+
+    expect(html).toContain(
+      "ContextPack ready: 1 entries · request request_launch",
+    );
+    expect(html).toContain(
+      "Exact citation verified: publication_positioning_5 / entry_customer_growth",
+    );
+  });
+
+  it("renders partial, stale, unavailable, integrity, and capacity search states distinctly", () => {
+    expect(
+      render({
+        search: {
+          status: "partial",
+          query: "proof",
+          results: [citedResult],
+          coverage: [],
+          omissions: [{ reason: "context byte capacity", count: 1 }],
+        },
+      }),
+    ).toContain("Brain results are partial");
+    expect(
+      render({
+        search: {
+          status: "stale",
+          query: "proof",
+          results: [{ ...citedResult, freshness: "stale" }],
+          coverage: [],
+          omissions: [],
+        },
+      }),
+    ).toContain("Brain results may be stale");
+    expect(
+      render({
+        search: {
+          status: "unavailable",
+          query: "proof",
+          message: "Required Slack coverage is unavailable.",
+        },
+      }),
+    ).toContain("Brain search is unavailable");
+    expect(
+      render({
+        search: {
+          status: "integrity_failure",
+          query: "proof",
+          message: "Exact citation validation failed.",
+        },
+      }),
+    ).toContain("Brain citation integrity check failed");
+    expect(
+      render({
+        search: {
+          status: "capacity_failure",
+          query: "proof",
+          message: "Candidate capacity exceeded.",
+        },
+      }),
+    ).toContain("Brain retrieval capacity was exceeded");
   });
 });

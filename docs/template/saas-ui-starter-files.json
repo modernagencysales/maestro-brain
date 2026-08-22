@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "modernagencysales/maestro-template-saas-ui",
+  "sourceCommit": "5bef5fd6",
+  "purpose": "Exact-hash lint policy for the transplanted canonical SaaS UI shelf.",
+  "files": [
+    {
+      "destination": "apps/web/src/components/button/button.tsx",
+      "sha256": "e0c58a27099aa1de5abf8d1618c1be63cc15b5557dc6f53e40eea00112b83c76",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/color-mode.tsx",
+      "sha256": "7bdcfa445a4d531b8a2af1acf2d5c975593e767da824b664955022eff35256d4",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/data-board/data-board.tsx",
+      "sha256": "e0741d05fd61c30bf00a5c2c0959cfbe3f00bdcef36dd8b976e7d63e8a5f6d64",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/form/form.tsx",
+      "sha256": "621f730858e726e8ee811c48974e2de013f27dfd645b66a9dcd024d9e54fe926",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/invite-dialog/invite-dialog.tsx",
+      "sha256": "124ea18695299aef1a60ce64fed53d9e60d49e34118938ba9525132bc80673e0",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/sortable-nav-group/sortable-nav-group.tsx",
+      "sha256": "118373de300bef10e682fae80243393ca0e58cf5ba26aeff4f67a50ec110476b",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/components/tags-list/tags-list.tsx",
+      "sha256": "b925120a3d72d1a6156103e1b95c8da28a1cc95140fd6cd13ba7037063db022c",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/components/app-sidebar.tsx",
+      "sha256": "3bf9358e314422d0e32ae3349962a190957615407ca2cf15c7e2e22745a7fc0a",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/components/global-search-input.tsx",
+      "sha256": "968503e58d2052fdddaf409e52b8d6f50a537159519eb0a4386ff887f28fe965",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/layouts/app-layout.tsx",
+      "sha256": "cc4a1625f6bac7b4d18c44d280bf92454f18a1a122dba56767a17b5c7442c0f9",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/layouts/fullscreen-layout.tsx",
+      "sha256": "e646afb4f87eb30e18391b8c7c45944a40926bafb7f26cbab6c8c6675a536cce",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/providers/app-provider.tsx",
+      "sha256": "d026aa4fa8f066ac4e6e80a1e8d27b87775f539cd2689a32ff7b2d84ee9b4ab7",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/common/shell.test.tsx",
+      "sha256": "d237839bc57f68b4de9308b8d695f1f8983b270fff1c7e4fce33843f33e17193",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/contacts/list/add-person-dialog.tsx",
+      "sha256": "0f0ddcac43782c88a3d166900a86d52462b752b63cab179a6af0be30bcbfef3f",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/contacts/list/contact-board-header.tsx",
+      "sha256": "b5360cd3079651b2c764dbc126323bf66543725f87cbdd0c77012731ca50b72a",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/contacts/view/activity-timeline.tsx",
+      "sha256": "55117ff701ae528d6e076ff9e08da3abfc19017e9ff5ca2f9030d29d59a45174",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/contacts/view/contact-sidebar.tsx",
+      "sha256": "b149da36e87f00f212fd10d2a0553a657e0edcceb42778bc9d7bd7000132c5bd",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/getting-started/create-workspace.tsx",
+      "sha256": "5554bb4e8f3ebc9cab59fdc0a69ab9b26dc9d1fd365d2658f41a16ad5ff8fccd",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/getting-started/getting-started-page.tsx",
+      "sha256": "59566d870a30986d24f0deecf22ce78009a30fa867e867ac8837af3e1d86d1bc",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/account/account-api-page.tsx",
+      "sha256": "28457e7df510a28ac92fc8eb4c6bc8bef2f0fb63ecd0ada5ce236cab8ee94e07",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/account/account-security-page.tsx",
+      "sha256": "9ec8449c7910b33ac0d1dda6c13d1b00edf7aea8473c951b5cfa0ec1821a2d8a",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/account/update-password-dialog.tsx",
+      "sha256": "47bf5ab3a59e45c56aa9c6d9e79792168950c5ce6db9676c9c5bfe1a499536f3",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/billing/manage-billing-button.tsx",
+      "sha256": "979196a8b45b9f5d5900f9246b47622abb347778bad8e68d71a99bd4b7ca03a3",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/billing/plans-page.tsx",
+      "sha256": "eef5624f6b04dfb5fcb65ca28a9bdf742a3f5e76fab4afe8e0cd35737133a4cf",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/members/members-list.tsx",
+      "sha256": "8fcb70abf1a686fba4f46ebfd2da01a6a0732671d7375d01cd9354554bbf881f",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/members/members-page.tsx",
+      "sha256": "010edbcc6ce5a5314d32a1201196010c6b44bb299fff98962921cbba6143d4f6",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/features/settings/tags/manage-tags.tsx",
+      "sha256": "9b33552bbac1c9a382bedf878490d3973dee16b9107f94e7674fd1b8f4f37d82",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/lib/trpc/react.tsx",
+      "sha256": "d6fdcfebb27bb3f2fc184d76397dbd4557ec30c53b88ac2c75029c560135ad8f",
+      "adapted": true
+    },
+    {
+      "destination": "apps/web/src/lib/user-settings/user-settings.tsx",
+      "sha256": "38233669a517977ef8054aaa68eb03fbdfa6d0b5b10ff07783f24f5e750398c2",
+      "adapted": true
+    }
+  ]
+}

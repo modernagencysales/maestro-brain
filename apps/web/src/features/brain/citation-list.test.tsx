@@ -9,14 +9,18 @@ describe("CitationList", () => {
         citations={[
           {
             citationKey: "cit_redacted",
+            publicationSetKey: "publication_redacted",
+            entryKey: "entry_redacted",
             sourceRevisionKey: "rev_1",
             locator: "block 2",
-            freshness: "fresh",
+            freshness: "current",
             state: "redacted",
             quotedText: "secret",
           },
           {
             citationKey: "cit_legacy",
+            publicationSetKey: "publication_legacy",
+            entryKey: "entry_legacy",
             sourceRevisionKey: "rev_legacy",
             locator: "unknown",
             freshness: "stale",
@@ -37,10 +41,12 @@ describe("CitationList", () => {
         citations={[
           {
             citationKey: "cit_call",
+            publicationSetKey: "publication_call",
+            entryKey: "entry_call",
             sourceRevisionKey: "surev_1",
             locator: "timestamp:12000-15400",
             label: "Alex · 00:12",
-            freshness: "fresh",
+            freshness: "current",
             state: "resolved",
             quotedText: "We will launch on Friday.",
             permalink: "https://app.fireflies.ai/view/call_1",
@@ -52,5 +58,7 @@ describe("CitationList", () => {
     expect(html).toContain("Alex · 00:12");
     expect(html).toContain("timestamp:12000-15400");
     expect(html).toContain("We will launch on Friday.");
+    expect(html).toContain("publication_call");
+    expect(html).toContain("entry_call");
   });
 });

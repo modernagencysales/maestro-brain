@@ -1,25 +1,22 @@
+import { TemplateHealthBoard } from "@maestro-template/ui";
+import { Page, Stack, Text } from "@saas-ui/react";
+
 import {
-  providerConfigReport,
-  type ProviderMode,
-} from "@maestro-template/integrations";
-import { TemplateHealthBoard, type HealthCheck } from "@maestro-template/ui";
+  useTemplateQuery,
+  type TemplateDataState,
+} from "../../adapters/confect-state";
+import {
+  brainReadApiRefs,
+  type BrainRolloutBlocker,
+  type BrainRolloutStatusData,
+} from "../brain/brain-read-contract";
+import { useWorkspace } from "../../providers/workspace";
 
-export type TemplateHealthEnvironment = "fake" | "test" | "live";
+type HealthStatus = "ready" | "degraded" | "blocked";
 
-export type TemplateHealthReportValue = {
-  readonly ok: boolean;
-  readonly service: "maestro-template";
-  readonly environment: TemplateHealthEnvironment;
-  readonly commitSha: string;
-  readonly checkedAt: number;
-  readonly checks: readonly {
-    readonly id: string;
-    readonly status: "pass" | "warn" | "fail";
-    readonly detail: string;
-  }[];
-};
-
-export type HealthBoardCheck = HealthCheck & {
+export type HealthBoardCheck = {
+  readonly label: string;
+  readonly status: HealthStatus;
   readonly detail: string;
 };
 
@@ -31,143 +28,217 @@ export type HealthBoardView = {
     readonly degraded: number;
     readonly blocked: number;
   };
-  readonly checkedAt: string;
-  readonly commitSha: string;
+  readonly checkedAt: string | null;
 };
 
-export const buildTemplateHealthReport = (input: {
-  readonly environment: TemplateHealthEnvironment;
-  readonly commitSha: string;
-  readonly checkedAt: number;
-}): TemplateHealthReportValue => {
-  const checks: TemplateHealthReportValue["checks"] = [
-    { id: "runtime", status: "pass", detail: "process is responsive" },
-    { id: "confect", status: "pass", detail: "health group registered" },
-    input.environment === "fake"
-      ? {
-          id: "providers",
-          status: "pass",
-          detail: "fake providers do not require live secrets",
-        }
-      : {
-          id: "providers",
-          status: "warn",
-          detail: "verify provider credentials through deploy doctor",
-        },
+export const buildBrainRolloutHealthBoardView = (
+  rollout: BrainRolloutStatusData,
+): HealthBoardView => {
+  const checks: readonly HealthBoardCheck[] = [
+    promotionCheck(rollout),
+    {
+      label: "Retrieval freshness",
+      status: freshnessStatus(rollout.freshness),
+      detail: `Backend freshness is ${rollout.freshness}.`,
+    },
+    {
+      label: "Required coverage",
+      status: coverageStatus(rollout.coverageStatus),
+      detail: `Backend coverage is ${rollout.coverageStatus}.`,
+    },
+    projectionCheck(rollout),
+    ...rollout.scopes.map(scopeCheck),
+    ...rollout.alerts.map((alert): HealthBoardCheck => ({
+      label: `Alert · ${titleCaseId(alert.kind)}`,
+      status: alert.severity === "critical" ? "blocked" : "degraded",
+      detail: `${alert.count} event${alert.count === 1 ? "" : "s"} in ${alert.connectorScopeKey}; DRI: workspace owner.`,
+    })),
   ];
-
-  return {
-    ok: checks.every((check) => check.status !== "fail"),
-    service: "maestro-template",
-    environment: input.environment,
-    commitSha: input.commitSha,
-    checkedAt: input.checkedAt,
-    checks,
-  };
-};
-
-export const buildHealthBoardView = ({
-  env,
-  mode,
-  report,
-}: {
-  readonly env: Record<string, string | undefined>;
-  readonly mode: ProviderMode;
-  readonly report: TemplateHealthReportValue;
-}): HealthBoardView => {
-  const checks = [
-    ...report.checks.map((check) => ({
-      label: titleCaseId(check.id),
-      status: healthStatusToBoardStatus(check.status),
-      detail: check.detail,
-    })),
-    ...providerConfigReport(mode, env).map((provider) => ({
-      label: provider.displayName,
-      status: providerReadyStatus(provider.ready),
-      detail: provider.ready
-        ? `${provider.displayName} is ${mode}-mode ready.`
-        : providerGapDetail(provider.missingEnv, provider.invalidEnv),
-    })),
-  ] satisfies readonly HealthBoardCheck[];
 
   return {
     state: checks.length === 0 ? "empty" : "ready",
     checks,
-    summary: {
-      ready: checks.filter((check) => check.status === "ready").length,
-      degraded: checks.filter((check) => check.status === "degraded").length,
-      blocked: checks.filter((check) => check.status === "blocked").length,
-    },
-    checkedAt: new Date(report.checkedAt).toISOString(),
-    commitSha: report.commitSha,
+    summary: summarizeChecks(checks),
+    checkedAt: new Date(rollout.evaluatedAt).toISOString(),
+  };
+};
+
+export const toBrainRolloutHealthBoardView = (
+  state: TemplateDataState<BrainRolloutStatusData, unknown>,
+): HealthBoardView => {
+  if (state.status === "ready" || state.status === "empty")
+    return buildBrainRolloutHealthBoardView(state.data);
+  if (state.status === "loading" || state.status === "skipped")
+    return emptyHealthBoardView("loading");
+  return {
+    ...emptyHealthBoardView("error"),
+    checks: [rolloutFailureCheck(state)],
+    summary: { ready: 0, degraded: 0, blocked: 1 },
   };
 };
 
 export function HealthSurface() {
-  const view = buildHealthBoardView({
-    mode: "fake",
-    env: {},
-    report: buildTemplateHealthReport({
-      environment: "fake",
-      commitSha: "local",
-      checkedAt: Date.now(),
-    }),
-  });
+  const workspace = useWorkspace();
+  const brainKey =
+    workspace.status === "ready"
+      ? workspace.activeWorkspace.workspaceId
+      : undefined;
+  const rollout = useTemplateQuery(
+    brainReadApiRefs.brainRolloutStatus,
+    brainKey === undefined ? "skip" : { brainKey },
+  );
+  const view = toBrainRolloutHealthBoardView(rollout);
 
   return (
-    <section aria-label="Template health" className="template-health-surface">
-      <header className="template-health-header">
-        <div>
-          <h2>Readiness board</h2>
-          <p>
-            Fake mode proves route, provider, and contract posture without live
-            credentials.
-          </p>
-        </div>
-        <dl>
-          <div>
-            <dt>Ready</dt>
-            <dd>{view.summary.ready}</dd>
-          </div>
-          <div>
-            <dt>Degraded</dt>
-            <dd>{view.summary.degraded}</dd>
-          </div>
-          <div>
-            <dt>Blocked</dt>
-            <dd>{view.summary.blocked}</dd>
-          </div>
-        </dl>
-      </header>
-      <TemplateHealthBoard checks={view.checks} state={view.state} />
-      <p className="template-health-footnote">
-        Checked {view.checkedAt} at {view.commitSha}. Run deploy doctor in a
-        client fork before promoting live providers.
-      </p>
-    </section>
+    <Page.Root>
+      <Page.Header
+        title="Brain rollout health"
+        description="Backend-authoritative retrieval readiness, coverage, and promotion gates."
+      />
+      <Page.Body px={{ base: "4", md: "6" }} pb="8">
+        <Stack gap="4">
+          <Text role="status">
+            {view.state === "ready"
+              ? `${view.summary.ready} ready · ${view.summary.degraded} degraded · ${view.summary.blocked} blocked`
+              : view.state === "loading"
+                ? "Loading Brain rollout status."
+                : "Brain rollout status is unavailable."}
+          </Text>
+          <TemplateHealthBoard checks={view.checks} state={view.state} />
+          {view.checkedAt === null ? null : (
+            <Text fontSize="sm">Evaluated {view.checkedAt}.</Text>
+          )}
+        </Stack>
+      </Page.Body>
+    </Page.Root>
   );
 }
 
-const healthStatusToBoardStatus = (
-  status: TemplateHealthReportValue["checks"][number]["status"],
-): HealthCheck["status"] =>
-  status === "pass" ? "ready" : status === "warn" ? "degraded" : "blocked";
+const promotionCheck = (rollout: BrainRolloutStatusData): HealthBoardCheck => ({
+  label: "Promotion readiness",
+  status:
+    rollout.readiness === "ready" && rollout.promotionReady
+      ? "ready"
+      : "blocked",
+  detail: rollout.promotionReady
+    ? "Backend reports this Brain is promotion-ready."
+    : `Backend readiness is ${rollout.readiness}; promotion is blocked.`,
+});
 
-const providerReadyStatus = (ready: boolean): HealthCheck["status"] =>
-  ready ? "ready" : "blocked";
+const projectionCheck = (rollout: BrainRolloutStatusData): HealthBoardCheck => {
+  const ready = [
+    rollout.projection.present,
+    rollout.projection.subjectValidated,
+    rollout.projection.fenceValidated,
+    rollout.projection.conflictCount === 0,
+    rollout.projection.capacityCount === 0,
+  ].every(Boolean);
+  return {
+    label: "Projection population",
+    status: ready ? "ready" : "blocked",
+    detail: ready
+      ? "Subject and eligibility-fence projections are validated."
+      : `Projection has ${rollout.projection.conflictCount} integrity conflicts and ${rollout.projection.capacityCount} capacity failures.`,
+  };
+};
+
+const scopeCheck = (
+  scope: BrainRolloutStatusData["scopes"][number],
+): HealthBoardCheck => ({
+  label: `${titleCaseId(scope.corpusKey)} · ${scope.connectorScopeKey}`,
+  status: scope.readiness === "ready" ? "ready" : "blocked",
+  detail:
+    scope.blockers.length === 0
+      ? `Backend scope readiness is ${scope.readiness}; workers are ${scope.workers.state}.`
+      : scope.blockers.map(blockerDetail).join(" "),
+});
+
+const blockerCopy = {
+  dead_letter: "Dead-letter publication jobs require repair.",
+  workers_paused: "Ingestion workers are paused.",
+  capacity_failure: "Retrieval or ingestion capacity was exceeded.",
+  publication_integrity_failure: "Publication integrity validation failed.",
+  eligibility_integrity_failure: "Eligibility integrity validation failed.",
+  coverage_incomplete: "Required coverage is incomplete.",
+  freshness_stale: "Required evidence is stale.",
+  freshness_unknown: "Required evidence freshness is unknown.",
+  reconciliation_incomplete: "Reconciliation is incomplete.",
+  obligations_nonterminal: "Ingestion obligations remain nonterminal.",
+  publication_jobs_unresolved: "Publication jobs remain unresolved.",
+  quarantine: "Quarantined ingestion work requires review.",
+  cursor_stalled: "A reconciliation cursor is stalled.",
+  missing_health: "Required connector health is missing.",
+  configuration_mismatch: "Connector configuration generations do not match.",
+  scope_revoked: "The required connector scope is revoked.",
+  eligibility_ineligible: "The required connector scope is ineligible.",
+  projection_population_invalid: "Projection population is invalid.",
+  bounded_scan_overflow: "A bounded rollout scan overflowed.",
+  target_resolution_intents_unresolved:
+    "Slack target-resolution intents remain unresolved.",
+} as const satisfies Record<BrainRolloutBlocker, string>;
+
+const blockerDetail = (blocker: BrainRolloutBlocker): string =>
+  blockerCopy[blocker];
+
+const freshnessStatus = (
+  freshness: BrainRolloutStatusData["freshness"],
+): HealthStatus =>
+  freshness === "current"
+    ? "ready"
+    : freshness === "stale"
+      ? "degraded"
+      : "blocked";
+
+const coverageStatus = (
+  coverage: BrainRolloutStatusData["coverageStatus"],
+): HealthStatus =>
+  coverage === "complete"
+    ? "ready"
+    : coverage === "partial"
+      ? "degraded"
+      : "blocked";
+
+const summarizeChecks = (
+  checks: readonly HealthBoardCheck[],
+): HealthBoardView["summary"] => ({
+  ready: checks.filter(({ status }) => status === "ready").length,
+  degraded: checks.filter(({ status }) => status === "degraded").length,
+  blocked: checks.filter(({ status }) => status === "blocked").length,
+});
+
+const emptyHealthBoardView = (state: "loading" | "error"): HealthBoardView => ({
+  state,
+  checks: [],
+  summary: { ready: 0, degraded: 0, blocked: 0 },
+  checkedAt: null,
+});
+
+const rolloutFailureCheck = (
+  state: Exclude<
+    TemplateDataState<BrainRolloutStatusData, unknown>,
+    { readonly status: "ready" | "empty" | "loading" | "skipped" }
+  >,
+): HealthBoardCheck => {
+  const tag = Reflect.get(Object(state.error), "_tag");
+  const capacity = typeof tag === "string" && tag.includes("Capacity");
+  const integrity = typeof tag === "string" && tag.includes("Integrity");
+  return {
+    label: capacity
+      ? "Rollout status capacity"
+      : integrity
+        ? "Rollout status integrity"
+        : "Rollout status query",
+    status: "blocked",
+    detail: capacity
+      ? "Backend rollout evaluation exceeded its bounded capacity."
+      : integrity
+        ? "Backend rollout evaluation found an integrity conflict."
+        : "The backend rollout status query failed.",
+  };
+};
 
 const titleCaseId = (id: string): string =>
   id
     .split(/[-_]/)
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
-
-const providerGapDetail = (
-  missingEnv: readonly string[],
-  invalidEnv: readonly string[],
-): string => {
-  const missing = missingEnv.length === 0 ? "none" : missingEnv.join(", ");
-  const invalid = invalidEnv.length === 0 ? "none" : invalidEnv.join(", ");
-
-  return `Missing ${missing}; invalid ${invalid}.`;
-};
