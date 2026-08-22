@@ -130,7 +130,7 @@ export const DetailState = ({
     loading: "Loading Brain page",
     skipped: null,
     failure: `Unable to load this Brain page. ${failureMessage}`,
-    ready: "Unable to load this Brain page. ",
+    ready: null,
   }[detail.status];
   if (message === null) return null;
   return (
@@ -253,6 +253,7 @@ const contextContractCopy = (context: BrainContextState): string | null => {
     ready: `ContextPack ready: ${data?.entries.length ?? 0} entries · request ${data?.requestId ?? ""}.`,
     partial: "ContextPack is partial; review coverage and omissions.",
     stale: "ContextPack contains stale or unknown evidence.",
+    blocked: `ContextPack is blocked by backend rollout readiness. ${message}`,
     integrity_failure: `ContextPack integrity check failed. ${message}`,
     capacity_failure: `ContextPack capacity was exceeded. ${message}`,
     unavailable: `ContextPack is unavailable. ${message}`,

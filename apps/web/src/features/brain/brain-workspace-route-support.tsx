@@ -14,10 +14,12 @@ import type {
   BrainSourcesSearchData,
 } from "./brain-surface";
 import {
+  brainReadApiRefs,
   brainCallReviewRefs,
   toBrainSearchState,
   unwrapBrainMutation,
 } from "./brain-surface";
+import type { Ref } from "@confect/core";
 import type {
   CallMaintenanceDecision,
   CallMaintenanceMutationState,
@@ -66,6 +68,29 @@ export const selectedBrainPageKey = (
 export const firstExactCandidate = (
   state: TemplateDataState<BrainSourcesSearchData, unknown>,
 ) => (state.status === "ready" ? state.data.results[0] : undefined);
+
+type ExactSourceCandidate = {
+  readonly sourceRevisionKey: string;
+  readonly publicationSetKey?: string;
+  readonly entryKey?: string;
+};
+
+export const exactSourceQueryArgs = (
+  brainKey: string,
+  candidate: ExactSourceCandidate,
+): Ref.Args<typeof brainReadApiRefs.sourcesGet> =>
+  candidate.publicationSetKey !== undefined && candidate.entryKey !== undefined
+    ? {
+        brainKey,
+        sourceRevisionKey: candidate.sourceRevisionKey,
+        publicationSetKey: candidate.publicationSetKey,
+        entryKey: candidate.entryKey,
+      }
+    : {
+        brainKey,
+        sourceRevisionKey: candidate.sourceRevisionKey,
+        compatibilityMode: "legacy",
+      };
 
 export const presentRouteSearchState = (
   query: string | null,

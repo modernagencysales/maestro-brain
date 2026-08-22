@@ -9,6 +9,30 @@ import type {
   TemplateDataState,
   TemplateTypedFailureState,
 } from "../../adapters/confect-state";
+import type {
+  BrainContextPackCoverage,
+  BrainContextPackData,
+  BrainOmission,
+  BrainSearchCoverage,
+  BrainSearchResult,
+  BrainSourceGetData,
+  BrainSourcesSearchData,
+} from "./brain-read-contract";
+
+export { brainReadApiRefs } from "./brain-read-contract";
+export type {
+  BrainContextPackCoverage,
+  BrainContextPackData,
+  BrainContextPackEntry,
+  BrainOmission,
+  BrainRolloutBlocker,
+  BrainRolloutStatusData,
+  BrainSearchCoverage,
+  BrainSearchResult,
+  BrainSourceGetData,
+  BrainSourcesSearchData,
+  CandidateManifestV2Data,
+} from "./brain-read-contract";
 
 export type BrainContextPackPreview = {
   readonly title: string;
@@ -53,7 +77,6 @@ export type BrainDocumentSection = {
 
 type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
 type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
-type BrainReadApiRefs = TemplateConfectRefs["public"]["brain"]["readApi"];
 type BrainCallReviewRefs = TemplateConfectRefs["public"]["brain"]["callReview"];
 export type BrainPageSummary = {
   readonly pageKey: string;
@@ -80,88 +103,6 @@ export type BrainPageDetail = {
   readonly updatedAt: number;
 };
 export type BrainFreshness = "current" | "stale" | "unknown";
-export type BrainCoverage = {
-  readonly corpusKey: string;
-  readonly sourceKind: string;
-  readonly connectorScopeKey: string;
-  readonly required: boolean;
-  readonly status: "complete" | "partial" | "unavailable" | "unknown";
-  readonly freshness: BrainFreshness;
-  readonly generations?: {
-    readonly connection?: number;
-    readonly allowlist?: number;
-    readonly policy?: number;
-    readonly reconciliation?: number;
-  };
-  readonly lastSuccessfulAt?: number;
-  readonly lastObservedAt?: number;
-  readonly lastReconciledAt?: number;
-  readonly unresolvedFailureCount: number;
-  readonly reason?: string;
-};
-export type BrainOmission = {
-  readonly reason: string;
-  readonly count: number;
-};
-export type BrainSearchResult = {
-  readonly sourceKey: string;
-  readonly sourceRevisionKey: string;
-  readonly publicationSetKey: string;
-  readonly entryKey: string;
-  readonly passageKey: string;
-  readonly startOffset: number;
-  readonly endOffset: number;
-  readonly contentHash: string;
-  readonly kind: "source" | "page" | "projection";
-  readonly unitKey?: string;
-  readonly segmentKey?: string;
-  readonly citationKey: string;
-  readonly title: string;
-  readonly excerpt: string;
-  readonly locator?: string;
-  readonly citationLabel?: string;
-  readonly permalink?: string;
-  readonly authority: "authoritative" | "derived" | "advisory";
-  readonly authorityPolicyKey: string;
-  readonly sourceModifiedAt?: number;
-  readonly observedAt: number;
-  readonly indexedAt: number;
-  readonly freshness: BrainFreshness;
-  readonly truncated: boolean;
-  readonly state: "resolved";
-};
-export type BrainSourcesSearchData = {
-  readonly brainKey: string;
-  readonly results: readonly BrainSearchResult[];
-  readonly coverage: readonly BrainCoverage[];
-  readonly omissions: readonly BrainOmission[];
-};
-export type BrainSourceGetData = BrainSearchResult & {
-  readonly brainKey: string;
-  readonly revisionKey: string;
-  readonly status: string;
-};
-export type BrainContextPackData = {
-  readonly schemaVersion: "1";
-  readonly candidateManifest: {
-    readonly version: "1";
-    readonly hash: string;
-  };
-  readonly requestId: string;
-  readonly organizationKey: string;
-  readonly brainKey: string;
-  readonly question: string;
-  readonly asOf: number;
-  readonly freshness?: { readonly status: BrainFreshness };
-  readonly coverage: readonly BrainCoverage[];
-  readonly entries: readonly BrainSearchResult[];
-  readonly omissions: readonly BrainOmission[];
-  readonly conflicts: readonly {
-    readonly subject: string;
-    readonly revisionKeys: readonly string[];
-    readonly reason?: string;
-  }[];
-};
 
 type BrainReadFailureState =
   | { readonly status: "unavailable"; readonly message: string }
@@ -175,7 +116,7 @@ export type BrainSearchState =
       readonly status: "ready" | "partial" | "stale";
       readonly query: string;
       readonly results: readonly BrainSearchResult[];
-      readonly coverage: readonly BrainCoverage[];
+      readonly coverage: readonly BrainSearchCoverage[];
       readonly omissions: readonly BrainOmission[];
     }
   | (BrainReadFailureState & { readonly query: string });
@@ -186,6 +127,7 @@ export type BrainContextState =
       readonly status: "empty" | "ready" | "partial" | "stale";
       readonly data: BrainContextPackData;
     }
+  | { readonly status: "blocked"; readonly message: string }
   | BrainReadFailureState;
 export type BrainSourceState =
   | { readonly status: "idle" }
@@ -246,11 +188,6 @@ type BrainWorkspacePilotRefs = {
   readonly listReviewQueue: BrainPilotRefs["listReviewQueue"];
   readonly updatePage: BrainPilotRefs["updatePage"];
 };
-type BrainWorkspaceReadApiRefs = {
-  readonly sourcesSearch: BrainReadApiRefs["sourcesSearch"];
-  readonly sourcesGet: BrainReadApiRefs["sourcesGet"];
-  readonly contextGet: BrainReadApiRefs["contextGet"];
-};
 type BrainWorkspaceCallReviewRefs = {
   readonly listCallMaintenanceQueue: BrainCallReviewRefs["listCallMaintenanceQueue"];
   readonly reviewCallMaintenance: BrainCallReviewRefs["reviewCallMaintenance"];
@@ -273,12 +210,6 @@ export const brainPilotRefs: BrainWorkspacePilotRefs = {
   reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
   listReviewQueue: templateConfectRefs.public.brain.pilot.listReviewQueue,
   updatePage: templateConfectRefs.public.brain.pilot.updatePage,
-} as const;
-
-export const brainReadApiRefs: BrainWorkspaceReadApiRefs = {
-  sourcesSearch: templateConfectRefs.public.brain.readApi.sourcesSearch,
-  sourcesGet: templateConfectRefs.public.brain.readApi.sourcesGet,
-  contextGet: templateConfectRefs.public.brain.readApi.contextGet,
 } as const;
 
 export const brainCallReviewRefs: BrainWorkspaceCallReviewRefs = {
@@ -410,20 +341,21 @@ export const unwrapBrainMutation = <T>(
   return result;
 };
 
-type BrainReadiness = "ready" | "empty" | "partial" | "stale" | "unavailable";
+type BrainSearchReadiness =
+  "ready" | "empty" | "partial" | "stale" | "unavailable";
 
-const classifyBrainReadiness = ({
+const classifyBrainSearchReadiness = ({
   entries,
   coverage,
   omissions,
 }: {
   readonly entries: readonly BrainSearchResult[];
-  readonly coverage: readonly BrainCoverage[];
+  readonly coverage: readonly BrainSearchCoverage[];
   readonly omissions: readonly BrainOmission[];
-}): BrainReadiness => {
-  const candidates: readonly (readonly [boolean, BrainReadiness])[] = [
+}): BrainSearchReadiness => {
+  const candidates: readonly (readonly [boolean, BrainSearchReadiness])[] = [
     [
-      entries.length === 0 && coverage.some(requiredCoverageUnavailable),
+      entries.length === 0 && coverage.some(isUnavailableCoverage),
       "unavailable",
     ],
     [
@@ -446,24 +378,27 @@ const classifyBrainReadiness = ({
   return candidates.find(([matches]) => matches)?.[1] ?? "ready";
 };
 
-const unavailableCoverageStatuses = new Set<BrainCoverage["status"]>([
+const unavailableCoverageStatuses = new Set<BrainSearchCoverage["status"]>([
   "unavailable",
   "unknown",
 ]);
 
-const requiredCoverageUnavailable = (coverage: BrainCoverage): boolean =>
-  [coverage.required, unavailableCoverageStatuses.has(coverage.status)].every(
-    Boolean,
-  );
+const isUnavailableCoverage = (
+  coverage: BrainSearchCoverage | BrainContextPackCoverage,
+): boolean => unavailableCoverageStatuses.has(coverage.status);
+
+const requiredCoverageUnavailable = (
+  coverage: BrainContextPackCoverage,
+): boolean => coverage.required && isUnavailableCoverage(coverage);
 
 const hasOmittedResults = ({ count }: BrainOmission): boolean => count > 0;
 const isTruncatedResult = ({ truncated }: BrainSearchResult): boolean =>
   truncated;
-const isIncompleteCoverage = ({ status }: BrainCoverage): boolean =>
+const isIncompleteCoverage = ({ status }: BrainSearchCoverage): boolean =>
   status !== "complete";
 const hasNonCurrentFreshness = ({
   freshness,
-}: BrainSearchResult | BrainCoverage): boolean => freshness !== "current";
+}: BrainSearchResult | BrainSearchCoverage): boolean => freshness !== "current";
 
 const errorStringProperty = (
   error: unknown,
@@ -511,8 +446,8 @@ const defaultReadFailureMessage = {
   unavailable: "Brain data is unavailable.",
 } as const satisfies Record<BrainReadFailureState["status"], string>;
 
-const unavailableCoverageMessage = (
-  coverage: readonly BrainCoverage[],
+const unavailableContextCoverageMessage = (
+  coverage: readonly BrainContextPackCoverage[],
 ): string => {
   const scopes = coverage
     .filter(requiredCoverageUnavailable)
@@ -524,6 +459,17 @@ const unavailableCoverageMessage = (
   return scopes.length === 0
     ? "Required Brain coverage is unavailable."
     : `Required Brain coverage is unavailable for ${scopes.join(", ")}.`;
+};
+
+const unavailableSearchCoverageMessage = (
+  coverage: readonly BrainSearchCoverage[],
+): string => {
+  const sources = coverage
+    .filter(isUnavailableCoverage)
+    .map(({ sourceKind }) => sourceKind);
+  return sources.length === 0
+    ? "Brain search coverage is unavailable."
+    : `Brain search coverage is unavailable for ${sources.join(", ")}.`;
 };
 
 export const toBrainSearchState = (
@@ -538,7 +484,7 @@ const presentBrainSearchData = (
   data: BrainSourcesSearchData,
   query: string,
 ): BrainSearchState => {
-  const readiness = classifyBrainReadiness({
+  const readiness = classifyBrainSearchReadiness({
     entries: data.results,
     coverage: data.coverage,
     omissions: data.omissions,
@@ -548,7 +494,7 @@ const presentBrainSearchData = (
     return {
       status: "unavailable",
       query,
-      message: unavailableCoverageMessage(data.coverage),
+      message: unavailableSearchCoverageMessage(data.coverage),
     };
   }
   return {
@@ -582,18 +528,20 @@ export const toBrainContextState = (
 const presentBrainContextData = (
   data: BrainContextPackData,
 ): BrainContextState => {
-  const readiness = classifyBrainReadiness({
-    entries: data.entries,
-    coverage: data.coverage,
-    omissions: data.omissions,
-  });
-  if (readiness === "unavailable") {
+  if (data.readiness === "blocked")
+    return {
+      status: "blocked",
+      message: "Backend rollout readiness is blocked for this ContextPack.",
+    };
+  if (unavailableCoverageStatuses.has(data.coverageStatus)) {
     return {
       status: "unavailable",
-      message: unavailableCoverageMessage(data.coverage),
+      message: unavailableContextCoverageMessage(data.coverage),
     };
   }
-  return { status: readiness, data };
+  if (data.coverageStatus === "partial") return { status: "partial", data };
+  if (data.freshness !== "current") return { status: "stale", data };
+  return { status: data.entries.length === 0 ? "empty" : "ready", data };
 };
 
 export const toBrainSourceState = (

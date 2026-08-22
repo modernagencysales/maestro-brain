@@ -8,14 +8,11 @@ import type { TemplateDataState } from "../../adapters/confect-state";
 import { useWorkspace } from "../../providers/workspace";
 import { Page } from "@saas-ui/react";
 import type {
-  BrainContextPackData,
   BrainPageDetail,
   BrainPageListData,
   BrainCallMaintenanceQueueData,
   BrainReviewQueueData,
   BrainRevisionHistoryData,
-  BrainSourceGetData,
-  BrainSourcesSearchData,
 } from "./brain-surface";
 import type { CallMaintenanceMutationState } from "./call-maintenance-review";
 import { type BrainRevisionHistoryState } from "./revision-history";
@@ -32,6 +29,7 @@ import {
 import { BrainWorkspace } from "./brain-workspace-view";
 import {
   UnavailableBrainWorkspaceRoute,
+  exactSourceQueryArgs,
   firstExactCandidate,
   presentRouteSearchState,
   requiredQueryArgs,
@@ -113,24 +111,21 @@ export const BrainWorkspaceRoute = () => {
       brainKey: brainKey ?? "",
       query: searchQuery ?? "",
     }),
-  ) as unknown as TemplateDataState<BrainSourcesSearchData, unknown>;
+  );
   const contextPack = useTemplateQuery(
     brainReadApiRefs.contextGet,
     requiredQueryArgs([brainKey, searchQuery], {
       brainKey: brainKey ?? "",
       question: searchQuery ?? "",
     }),
-  ) as unknown as TemplateDataState<BrainContextPackData, unknown>;
+  );
   const exactCandidate = firstExactCandidate(sourcesSearch);
   const exactSource = useTemplateQuery(
     brainReadApiRefs.sourcesGet,
-    requiredQueryArgs([brainKey, exactCandidate], {
-      brainKey: brainKey ?? "",
-      sourceRevisionKey: exactCandidate?.sourceRevisionKey ?? "",
-      publicationSetKey: exactCandidate?.publicationSetKey ?? "",
-      entryKey: exactCandidate?.entryKey ?? "",
-    }),
-  ) as unknown as TemplateDataState<BrainSourceGetData, unknown>;
+    brainKey === null || exactCandidate === undefined
+      ? "skip"
+      : exactSourceQueryArgs(brainKey, exactCandidate),
+  );
   const queue = useTemplateQuery(
     brainPilotRefs.listReviewQueue,
     requiredQueryArgs([brainKey], { brainKey: brainKey ?? "" }),

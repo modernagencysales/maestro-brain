@@ -13,6 +13,7 @@ import {
   type BrainPageListState,
 } from "./brain-workspace";
 import type { BrainSearchResult, BrainWorkspaceAdapter } from "./brain-surface";
+import { contextPackCurrentFixture } from "./brain-read-fixtures";
 
 const routeMocks = vi.hoisted(() => ({
   workspace: null as unknown,
@@ -506,19 +507,7 @@ describe("BrainWorkspace", () => {
     const html = render({
       context: {
         status: "ready",
-        data: {
-          schemaVersion: "1",
-          candidateManifest: { version: "1", hash: "manifest_hash" },
-          requestId: "request_1",
-          organizationKey: "organization_apero",
-          brainKey: "br_01J0000000000000000000000A",
-          question: "proof",
-          asOf: 1_754_000_000_200,
-          coverage: [],
-          entries: [citedResult],
-          conflicts: [],
-          omissions: [],
-        },
+        data: contextPackCurrentFixture,
       },
       source: {
         status: "ready",
@@ -531,7 +520,9 @@ describe("BrainWorkspace", () => {
       },
     });
 
-    expect(html).toContain("ContextPack ready: 1 entries · request request_1");
+    expect(html).toContain(
+      "ContextPack ready: 1 entries · request request_launch",
+    );
     expect(html).toContain(
       "Exact citation verified: publication_positioning_5 / entry_customer_growth",
     );
