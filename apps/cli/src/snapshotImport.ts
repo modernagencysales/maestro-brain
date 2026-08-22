@@ -11,6 +11,11 @@ export type SnapshotNote = {
   readonly markdown: string;
 };
 
+export type SnapshotProvenance = {
+  readonly asOf: string;
+  readonly source: string;
+};
+
 export type SnapshotNotesResult =
   | {
       readonly ok: true;
@@ -25,12 +30,45 @@ const titleFor = (path: string, markdown: string): string => {
   return basename(path, extname(path)).replaceAll(/[-_]+/g, " ").trim();
 };
 
+const isIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.valueOf()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+};
+
+const markdownWithProvenance = (
+  markdown: string,
+  provenance: SnapshotProvenance,
+): string =>
+  [
+    `> Snapshot source: ${provenance.source}`,
+    `> Snapshot date: ${provenance.asOf}`,
+    "> This is reviewed point-in-time evidence, not a live synchronization.",
+    "",
+    markdown,
+  ].join("\n");
+
 export const snapshotNotesForDirectory = (
   directory: string,
+  provenance: SnapshotProvenance,
 ): SnapshotNotesResult => {
   const requested = directory.trim();
   if (!requested)
     return { ok: false, message: "snapshot submit requires a directory." };
+  if (!isIsoDate(provenance.asOf))
+    return {
+      ok: false,
+      message: "snapshot --as-of must be a real date in YYYY-MM-DD format.",
+    };
+  const source = provenance.source.trim();
+  if (!source || source.length > 120 || /[\r\n]/.test(source))
+    return {
+      ok: false,
+      message: "snapshot --source must contain 1 to 120 characters.",
+    };
 
   let root: string;
   try {
@@ -101,7 +139,10 @@ export const snapshotNotesForDirectory = (
     notes.push({
       path: relative(root, path).split("\\").join("/"),
       title: titleFor(path, markdown),
-      markdown,
+      markdown: markdownWithProvenance(markdown, {
+        asOf: provenance.asOf,
+        source,
+      }),
     });
   }
 
