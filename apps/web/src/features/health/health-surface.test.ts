@@ -3,6 +3,7 @@ import { Ref } from "@confect/core";
 import { describe, expect, it } from "vitest";
 
 import { brainReadApiRefs } from "../brain/brain-read-contract";
+import type { BrainRolloutStatusData } from "../brain/brain-read-contract";
 import {
   rolloutBlockedFixture,
   rolloutCapacityFixture,
@@ -19,6 +20,23 @@ import {
   toBrainRolloutHealthBoardView,
 } from "./health-surface";
 
+const rolloutTargetResolutionFixture: BrainRolloutStatusData = {
+  ...rolloutCurrentFixture,
+  readiness: "blocked",
+  promotionReady: false,
+  scopes: rolloutCurrentFixture.scopes.map((scope) => ({
+    ...scope,
+    readiness: "blocked",
+    targetResolution: {
+      counts: [{ state: "retry_wait", count: 1, truncated: false }],
+      unresolvedCount: 1,
+      oldestUnresolvedAt: rolloutCurrentFixture.evaluatedAt - 1_000,
+      truncated: false,
+    },
+    blockers: ["target_resolution_intents_unresolved"],
+  })),
+};
+
 describe("Brain rollout health surface", () => {
   it("covers the canonical rollout fixture matrix", () => {
     const fixtures = [
@@ -31,9 +49,10 @@ describe("Brain rollout health surface", () => {
       rolloutIntegrityFixture,
       rolloutDeadLetterFixture,
       rolloutPausedFixture,
+      rolloutTargetResolutionFixture,
     ];
 
-    expect(fixtures).toHaveLength(9);
+    expect(fixtures).toHaveLength(10);
     expect(fixtures.every(({ statusVersion }) => statusVersion === 1)).toBe(
       true,
     );
@@ -107,6 +126,11 @@ describe("Brain rollout health surface", () => {
       "Dead-letter publication jobs require repair.",
     ],
     ["paused", rolloutPausedFixture, "Ingestion workers are paused."],
+    [
+      "target resolution",
+      rolloutTargetResolutionFixture,
+      "Provider target-resolution intents remain unresolved.",
+    ],
   ] as const)("surfaces %s blockers explicitly", (_name, fixture, copy) => {
     const view = buildBrainRolloutHealthBoardView(fixture);
     const scope = view.checks.find(({ label }) => label.startsWith("Slack"));

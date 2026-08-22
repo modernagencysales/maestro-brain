@@ -88,6 +88,10 @@ export function HealthSurface() {
     brainKey === undefined ? "skip" : { brainKey },
   );
   const view = toBrainRolloutHealthBoardView(rollout);
+  const statusCopy =
+    view.state === "ready"
+      ? `${view.summary.ready} ready · ${view.summary.degraded} degraded · ${view.summary.blocked} blocked`
+      : nonReadyStatusCopy[view.state];
 
   return (
     <Page.Root>
@@ -97,13 +101,7 @@ export function HealthSurface() {
       />
       <Page.Body px={{ base: "4", md: "6" }} pb="8">
         <Stack gap="4">
-          <Text role="status">
-            {view.state === "ready"
-              ? `${view.summary.ready} ready · ${view.summary.degraded} degraded · ${view.summary.blocked} blocked`
-              : view.state === "loading"
-                ? "Loading Brain rollout status."
-                : "Brain rollout status is unavailable."}
-          </Text>
+          <Text role="status">{statusCopy}</Text>
           <TemplateHealthBoard checks={view.checks} state={view.state} />
           {view.checkedAt === null ? null : (
             <Text fontSize="sm">Evaluated {view.checkedAt}.</Text>
@@ -174,29 +172,41 @@ const blockerCopy = {
   projection_population_invalid: "Projection population is invalid.",
   bounded_scan_overflow: "A bounded rollout scan overflowed.",
   target_resolution_intents_unresolved:
-    "Slack target-resolution intents remain unresolved.",
+    "Provider target-resolution intents remain unresolved.",
 } as const satisfies Record<BrainRolloutBlocker, string>;
 
 const blockerDetail = (blocker: BrainRolloutBlocker): string =>
   blockerCopy[blocker];
 
+const nonReadyStatusCopy = {
+  empty: "Brain rollout status is unavailable.",
+  loading: "Loading Brain rollout status.",
+  error: "Brain rollout status is unavailable.",
+} as const;
+
+const freshnessStatusByValue = {
+  current: "ready",
+  stale: "degraded",
+  unknown: "blocked",
+} as const satisfies Record<BrainRolloutStatusData["freshness"], HealthStatus>;
+
 const freshnessStatus = (
   freshness: BrainRolloutStatusData["freshness"],
-): HealthStatus =>
-  freshness === "current"
-    ? "ready"
-    : freshness === "stale"
-      ? "degraded"
-      : "blocked";
+): HealthStatus => freshnessStatusByValue[freshness];
+
+const coverageStatusByValue = {
+  complete: "ready",
+  partial: "degraded",
+  unavailable: "blocked",
+  unknown: "blocked",
+} as const satisfies Record<
+  BrainRolloutStatusData["coverageStatus"],
+  HealthStatus
+>;
 
 const coverageStatus = (
   coverage: BrainRolloutStatusData["coverageStatus"],
-): HealthStatus =>
-  coverage === "complete"
-    ? "ready"
-    : coverage === "partial"
-      ? "degraded"
-      : "blocked";
+): HealthStatus => coverageStatusByValue[coverage];
 
 const summarizeChecks = (
   checks: readonly HealthBoardCheck[],
@@ -213,27 +223,40 @@ const emptyHealthBoardView = (state: "loading" | "error"): HealthBoardView => ({
   checkedAt: null,
 });
 
+const rolloutFailureCopy = {
+  capacity: {
+    label: "Rollout status capacity",
+    detail: "Backend rollout evaluation exceeded its bounded capacity.",
+  },
+  integrity: {
+    label: "Rollout status integrity",
+    detail: "Backend rollout evaluation found an integrity conflict.",
+  },
+  query: {
+    label: "Rollout status query",
+    detail: "The backend rollout status query failed.",
+  },
+} as const;
+
+const failureTagKinds = [
+  ["Capacity", "capacity"],
+  ["Integrity", "integrity"],
+] as const;
+
 const rolloutFailureCheck = (
   state: Exclude<
     TemplateDataState<BrainRolloutStatusData, unknown>,
     { readonly status: "ready" | "empty" | "loading" | "skipped" }
   >,
 ): HealthBoardCheck => {
-  const tag = Reflect.get(Object(state.error), "_tag");
-  const capacity = typeof tag === "string" && tag.includes("Capacity");
-  const integrity = typeof tag === "string" && tag.includes("Integrity");
+  const tag = String(Reflect.get(Object(state.error), "_tag"));
+  const kind =
+    failureTagKinds.find(([fragment]) => tag.includes(fragment))?.[1] ??
+    "query";
   return {
-    label: capacity
-      ? "Rollout status capacity"
-      : integrity
-        ? "Rollout status integrity"
-        : "Rollout status query",
+    label: rolloutFailureCopy[kind].label,
     status: "blocked",
-    detail: capacity
-      ? "Backend rollout evaluation exceeded its bounded capacity."
-      : integrity
-        ? "Backend rollout evaluation found an integrity conflict."
-        : "The backend rollout status query failed.",
+    detail: rolloutFailureCopy[kind].detail,
   };
 };
 
