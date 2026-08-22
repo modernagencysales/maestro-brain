@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -20,6 +21,7 @@ import {
 } from "../confect/brain/retrievalPublication.impl";
 import { retrievalPublicationSubjectKey } from "../confect/brain/retrievalPublication";
 import { retrievalPublicationSubjectIncarnationKey } from "../confect/brain/retrievalPublicationJob";
+import { purgePageOriginEffect } from "../confect/ops/dataLifecycle.impl";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
@@ -1778,6 +1780,307 @@ describe("retrieval publication authority races", () => {
       lastErrorTag: "PublicationAuthoritySuperseded",
     });
     expect(result.currentSets).toEqual([]);
+  });
+
+  it("cannot let a pre-purge cleanup revoke a recreated subject incarnation", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const initialJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(pageJobInput(workspaceId), now),
+          resultSchema(),
+        );
+        const initial = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: initialJobKey,
+            caller: systemCaller,
+            now,
+          }),
+          resultSchema(),
+        );
+        const lifecycleIdentity = pageLifecycleFenceIdentity({
+          organizationKey,
+          workspaceId: String(workspaceId),
+          pageKey,
+        });
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (page._tag === "None") throw new Error("missing purge page");
+            yield* writer
+              .table("brainPages")
+              .patch(page.value._id, {
+                status: "purged",
+                lifecycle: {
+                  state: "purged",
+                  generation: 2,
+                  updatedAt: now + 1,
+                  purgeAfter: now + 1,
+                },
+                updatedAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+            yield* transitionEligibilityFenceEffect({
+              identity: lifecycleIdentity,
+              eligible: false,
+              now: now + 1,
+            });
+          }),
+          resultSchema(),
+        );
+        const cleanupJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              ...pageJobInput(workspaceId),
+              operation: "cleanup",
+              requestGeneration: 2,
+            },
+            now + 1,
+          ),
+          resultSchema(),
+        );
+        const beforePurge = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const subjects = yield* reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_subject", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const cleanupJob = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) => query.eq("jobKey", cleanupJobKey))
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            return { subjects, cleanupJob };
+          }),
+          resultSchema(),
+        );
+        const purged = yield* confect.run(
+          purgePageOriginEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            pageKey,
+            expectedLifecycleGeneration: 2,
+            now: now + 1,
+          }),
+          resultSchema(),
+        );
+        const afterPurge = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const subjects = yield* reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_subject", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const sets = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_brain_source_state_generation", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("originTable", "pageRevisions")
+                  .eq("sourceKey", pageKey),
+              )
+              .take(10)
+              .pipe(Effect.orDie);
+            return { subjects, sets };
+          }),
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            const lifecycle = {
+              state: "active" as const,
+              generation: 3,
+              updatedAt: now + 2,
+              purgeAfter: null,
+            };
+            yield* writer
+              .table("brainPages")
+              .insert({
+                workspaceId,
+                organizationId,
+                slug: "authority-race-recreated",
+                title: "Authority Race Recreated",
+                markdown:
+                  "# Recreated authority\n\nOnly the new incarnation may publish.",
+                sourceKind: "markdown",
+                updatedAt: now + 2,
+                pageKey,
+                parentPageKey: null,
+                siblingSlug: "authority-race-recreated",
+                sortKey: "0000000001",
+                favorite: false,
+                status: "active",
+                currentRevisionKey: successorRevisionKey,
+                lifecycle,
+                createdAt: now + 2,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("pageRevisions")
+              .insert({
+                workspaceId,
+                organizationId,
+                pageKey,
+                revisionKey: successorRevisionKey,
+                priorRevisionKey: null,
+                blockNoteJson: "",
+                markdown:
+                  "# Recreated authority\n\nOnly the new incarnation may publish.",
+                contentHash: "authority-race-recreated-hash",
+                causation: "import",
+                actor: { kind: "migration", id: "authority-race-test" },
+                modelReceiptKey: null,
+                effectKey: "authority-race:recreated",
+                state: "published",
+                lifecycle,
+                createdAt: now + 2,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+            yield* transitionEligibilityFenceEffect({
+              identity: lifecycleIdentity,
+              eligible: true,
+              now: now + 2,
+            });
+          }),
+          resultSchema(),
+        );
+        const recreatedJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              ...pageJobInput(workspaceId),
+              sourceRevisionKey: successorRevisionKey,
+              requestGeneration: 3,
+            },
+            now + 2,
+          ),
+          resultSchema(),
+        );
+        const recreated = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: recreatedJobKey,
+            caller: systemCaller,
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const staleCleanup = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: cleanupJobKey,
+            caller: systemCaller,
+            now: now + 3,
+          }),
+          resultSchema(),
+        );
+        const finalState = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const subjects = yield* reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_subject", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const currentSets = yield* currentPageSets(workspaceId);
+            const entries = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_revision_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("sourceRevisionKey", successorRevisionKey),
+              )
+              .take(10)
+              .pipe(Effect.orDie);
+            const recreatedJob = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) =>
+                query.eq("jobKey", recreatedJobKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            return { subjects, currentSets, entries, recreatedJob };
+          }),
+          resultSchema(),
+        );
+        return {
+          initial,
+          beforePurge,
+          purged,
+          afterPurge,
+          recreated,
+          staleCleanup,
+          finalState,
+        };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.initial.status).toBe("succeeded");
+    expect(result.purged.outcome).toBe("purged");
+    expect(result.beforePurge.subjects).toHaveLength(1);
+    expect(result.afterPurge.subjects).toHaveLength(1);
+    expect(result.afterPurge.subjects[0]?._id).toBe(
+      result.beforePurge.subjects[0]?._id,
+    );
+    expect(result.afterPurge.subjects[0]).toMatchObject({
+      currentPublicationSetKey: null,
+      lastPublicationGeneration: 1,
+    });
+    expect(result.afterPurge.sets).toEqual([]);
+    expect(result.recreated.status).toBe("succeeded");
+    expect(result.staleCleanup).toMatchObject({
+      status: "superseded",
+      attemptCount: 0,
+      lastErrorTag: "PublicationAuthoritySuperseded",
+    });
+    expect(result.finalState.subjects).toHaveLength(1);
+    expect(result.finalState.subjects[0]).toMatchObject({
+      _id: result.beforePurge.subjects[0]?._id,
+      currentPublicationSetKey:
+        result.finalState.currentSets[0]?.publicationSetKey,
+      lastPublicationGeneration: 2,
+    });
+    expect(result.finalState.currentSets).toHaveLength(1);
+    expect(result.finalState.currentSets[0]).toMatchObject({
+      publicationGeneration: 2,
+      sourceRevisionKey: successorRevisionKey,
+      state: "current",
+    });
+    expect(result.finalState.entries.length).toBeGreaterThan(0);
+    expect(
+      result.finalState.entries.map(({ text }) => text).join(" "),
+    ).not.toContain("Only current authority may publish");
+    expect(
+      result.beforePurge.cleanupJob?.authorityEnvelope?.subjectIncarnationKey,
+    ).not.toBe(
+      result.finalState.recreatedJob?.authorityEnvelope?.subjectIncarnationKey,
+    );
   });
 
   it("does not execute a legacy job whose authority envelope is missing", async () => {

@@ -113,6 +113,13 @@ type PublicationEffectError =
   | RetrievalPublicationCapacityExceeded;
 type PublicationMutationServices =
   DatabaseReader | DatabaseWriter | MutationCtx | Scheduler;
+type PurgePublicationSubjectOutput = {
+  readonly outcome: "purged";
+  readonly deletedSets: number;
+  readonly deletedEntries: number;
+  readonly deletedTokens: number;
+  readonly lastPublicationGeneration: number;
+};
 
 const manifestHash = (input: {
   readonly entryKeys: readonly string[];
@@ -1270,6 +1277,162 @@ const cleanupPublicationSubjectEffect = (args: {
       outcome: "revoked" as const,
       entryCount: 0,
       tokenCount: 0,
+    };
+  });
+
+export const purgePublicationSubjectEffect = (args: {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly publicationSubjectKey: string;
+  readonly now: number;
+}): Effect.Effect<
+  PurgePublicationSubjectOutput,
+  | ValidationFailed
+  | RetrievalPublicationConflict
+  | RetrievalPublicationCapacityExceeded,
+  DatabaseReader | DatabaseWriter | MutationCtx
+> =>
+  Effect.gen(function* () {
+    yield* validatePublicationTarget(args);
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const subjects = yield* reader
+      .table("retrievalPublicationSubjects")
+      .index("by_workspace_subject", (query) =>
+        query
+          .eq("workspaceId", args.workspaceId)
+          .eq("publicationSubjectKey", args.publicationSubjectKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const subject = subjects.length === 1 ? subjects[0] : undefined;
+    const sets = yield* reader
+      .table("retrievalPublicationSets")
+      .index("by_workspace_subject_generation", (query) =>
+        query
+          .eq("workspaceId", args.workspaceId)
+          .eq("publicationSubjectKey", args.publicationSubjectKey),
+      )
+      .take(MAX_PRIOR_PUBLICATION_SETS + 1)
+      .pipe(Effect.orDie);
+    if (sets.length > MAX_PRIOR_PUBLICATION_SETS)
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: sets.length,
+        tokenCount: 0,
+      });
+    if (subject === undefined) {
+      if (subjects.length > 1 || sets.length > 0)
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: args.publicationSubjectKey,
+        });
+      return {
+        outcome: "purged" as const,
+        deletedSets: 0,
+        deletedEntries: 0,
+        deletedTokens: 0,
+        lastPublicationGeneration: 0,
+      };
+    }
+    if (
+      subject.organizationKey !== args.organizationKey ||
+      subject.brainKey !== args.brainKey ||
+      sets.some(
+        (set) =>
+          set.organizationKey !== args.organizationKey ||
+          set.brainKey !== args.brainKey ||
+          set.publicationSubjectKey !== subject.publicationSubjectKey,
+      ) ||
+      (subject.currentPublicationSetKey !== null &&
+        !sets.some(
+          (set) =>
+            set.publicationSetKey === subject.currentPublicationSetKey &&
+            set.state === "current",
+        ))
+    )
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey:
+          subject.currentPublicationSetKey ?? subject.publicationSubjectKey,
+      });
+    const entryGroups = yield* Effect.all(
+      sets.map((set) =>
+        reader
+          .table("retrievalEntries")
+          .index("by_workspace_brain_publication_set_entry", (query) =>
+            query
+              .eq("workspaceId", args.workspaceId)
+              .eq("brainKey", args.brainKey)
+              .eq("publicationSetKey", set.publicationSetKey),
+          )
+          .take(MAX_ENTRIES_PER_PUBLICATION_SET + 1)
+          .pipe(Effect.orDie),
+      ),
+    );
+    const tokenGroups = yield* Effect.all(
+      sets.map((set) =>
+        reader
+          .table("retrievalTokens")
+          .index("by_workspace_brain_publication_set_entry", (query) =>
+            query
+              .eq("workspaceId", args.workspaceId)
+              .eq("brainKey", args.brainKey)
+              .eq("publicationSetKey", set.publicationSetKey),
+          )
+          .take(MAX_ACTIVE_PUBLICATION_ROWS + 1)
+          .pipe(Effect.orDie),
+      ),
+    );
+    if (
+      entryGroups.some(
+        (entries) => entries.length > MAX_ENTRIES_PER_PUBLICATION_SET,
+      ) ||
+      tokenGroups.some((tokens) => tokens.length > MAX_ACTIVE_PUBLICATION_ROWS)
+    )
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: entryGroups.flat().length,
+        tokenCount: tokenGroups.flat().length,
+      });
+    const entries = entryGroups.flat();
+    const tokens = tokenGroups.flat();
+    if (
+      entries.length + tokens.length + sets.length + 1 >
+      MAX_PUBLICATION_WRITES
+    )
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: entries.length,
+        tokenCount: tokens.length,
+      });
+
+    yield* removePublicationTokens(tokens);
+    for (const entry of entries)
+      yield* writer
+        .table("retrievalEntries")
+        .delete(entry._id)
+        .pipe(Effect.orDie);
+    for (const set of sets)
+      yield* writer
+        .table("retrievalPublicationSets")
+        .delete(set._id)
+        .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalPublicationSubjects")
+      .patch(subject._id, {
+        currentPublicationSetKey: null,
+        updatedAt: args.now,
+      })
+      .pipe(Effect.orDie);
+    yield* advanceProjectionPopulationForMutationEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      now: args.now,
+    });
+    return {
+      outcome: "purged" as const,
+      deletedSets: sets.length,
+      deletedEntries: entries.length,
+      deletedTokens: tokens.length,
+      lastPublicationGeneration: subject.lastPublicationGeneration,
     };
   });
 
@@ -3185,7 +3348,7 @@ const rebuildRunAuthorityStatusEffect = (job: RetrievalPublicationJobsDoc) =>
 export const enqueueRetrievalPublicationJobEffect = (
   input: EnqueuePublicationJobInput,
   now: number,
-) =>
+): Effect.Effect<string, never, DatabaseReader | DatabaseWriter | Scheduler> =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
@@ -3913,7 +4076,11 @@ export const enqueueOrganizationCorpusRebuildsEffect = (input: {
   readonly sourceRevisionKey: string;
   readonly requestGeneration: number;
   readonly now: number;
-}) =>
+}): Effect.Effect<
+  string[],
+  ValidationFailed,
+  DatabaseReader | DatabaseWriter | Scheduler
+> =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const organization = yield* reader

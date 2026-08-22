@@ -11,6 +11,7 @@ import databaseSchema from "../_generated/schema";
 import {
   DatabaseReader,
   DatabaseWriter,
+  MutationCtx,
   MutationRunner,
   StorageReader,
 } from "../_generated/services";
@@ -22,11 +23,180 @@ import {
 } from "./brainOperationPolicy";
 import { sha256Hex } from "../shared/sha256";
 import { requireBrainAccess } from "../brain/pages.impl";
+import { pageLifecycleFenceIdentity } from "../brain/retrievalEligibility";
+import { retrievalPublicationSubjectKey } from "../brain/retrievalPublication";
+import { purgePublicationSubjectEffect } from "../brain/retrievalPublication.impl";
+import {
+  RetrievalPublicationCapacityExceeded,
+  RetrievalPublicationConflict,
+} from "../brain/retrievalPublication.spec";
 import type { DsarRequestRowValue } from "../tables/dsarRequests";
 import dataLifecycleSpec from "./dataLifecycle.spec";
 import { buildWorkspaceDsarPlan } from "./dataLifecycle";
 import type { BrainExportJobRowValue } from "../tables/brainExportJobs";
 import { ExportForbidden } from "./dataLifecycle.spec";
+
+const MAX_PAGE_REVISIONS_PER_PURGE = 100;
+
+export const purgePageOriginEffect = (input: {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly pageKey: string;
+  readonly expectedLifecycleGeneration: number;
+  readonly now: number;
+}): Effect.Effect<
+  {
+    readonly outcome: "purged";
+    readonly deletedSets: number;
+    readonly deletedEntries: number;
+    readonly deletedTokens: number;
+    readonly lastPublicationGeneration: number;
+    readonly deletedOrigins: number;
+  },
+  | ValidationFailed
+  | RetrievalPublicationConflict
+  | RetrievalPublicationCapacityExceeded,
+  DatabaseReader | DatabaseWriter | MutationCtx
+> =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const [workspace, organization, pages] = yield* Effect.all([
+      reader.table("workspaces").get(input.workspaceId).pipe(Effect.orDie),
+      reader
+        .table("organizations")
+        .index("by_agency_key", (query) =>
+          query.eq("agencyKey", input.organizationKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie),
+      reader
+        .table("brainPages")
+        .index("by_workspace_page_key", (query) =>
+          query
+            .eq("workspaceId", input.workspaceId)
+            .eq("pageKey", input.pageKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie),
+    ]);
+    const page = pages.length === 1 ? pages[0] : undefined;
+    if (
+      workspace === null ||
+      organization === null ||
+      String(organization._id) !== workspace.organizationId ||
+      workspace.brainKey !== input.brainKey ||
+      page === undefined ||
+      String(page.organizationId) !== String(organization._id)
+    )
+      return yield* new ValidationFailed({
+        field: "pageKey",
+        message: "The page purge origin is unavailable.",
+      });
+    if (
+      page.status !== "purged" ||
+      page.lifecycle?.state !== "purged" ||
+      page.lifecycle.generation !== input.expectedLifecycleGeneration ||
+      page.lifecycle.purgeAfter === null ||
+      page.lifecycle.purgeAfter > input.now
+    )
+      return yield* new ValidationFailed({
+        field: "expectedLifecycleGeneration",
+        message: "The page is not eligible for final purge.",
+      });
+    const lifecycleIdentity = pageLifecycleFenceIdentity({
+      organizationKey: input.organizationKey,
+      workspaceId: String(input.workspaceId),
+      pageKey: input.pageKey,
+    });
+    const fences = yield* reader
+      .table("retrievalEligibilityFences")
+      .index("by_organization_kind_controller", (query) =>
+        query
+          .eq("organizationKey", input.organizationKey)
+          .eq("kind", lifecycleIdentity.kind)
+          .eq("controllerKey", lifecycleIdentity.controllerKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (fences.length !== 1 || fences[0]?.eligible !== false)
+      return yield* new ValidationFailed({
+        field: "pageKey",
+        message: "The page lifecycle fence is not revoked for final purge.",
+      });
+    const revisions = yield* reader
+      .table("pageRevisions")
+      .index("by_page_created", (query) =>
+        query.eq("workspaceId", input.workspaceId).eq("pageKey", input.pageKey),
+      )
+      .take(MAX_PAGE_REVISIONS_PER_PURGE + 1)
+      .pipe(Effect.orDie);
+    if (revisions.length > MAX_PAGE_REVISIONS_PER_PURGE)
+      return yield* new ValidationFailed({
+        field: "pageKey",
+        message: "The page revision history exceeds the bounded purge batch.",
+      });
+    const publicationSubjectKey = retrievalPublicationSubjectKey({
+      workspaceId: String(input.workspaceId),
+      brainKey: input.brainKey,
+      corpusKey: "brain-pages",
+      originTable: "pageRevisions",
+      kind: "page",
+      sourceKey: input.pageKey,
+    });
+    const derived = yield* purgePublicationSubjectEffect({
+      organizationKey: input.organizationKey,
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+      publicationSubjectKey,
+      now: input.now,
+    });
+    const residualSets = yield* reader
+      .table("retrievalPublicationSets")
+      .index("by_workspace_brain_source_state_generation", (query) =>
+        query
+          .eq("workspaceId", input.workspaceId)
+          .eq("brainKey", input.brainKey)
+          .eq("originTable", "pageRevisions")
+          .eq("sourceKey", input.pageKey),
+      )
+      .take(1)
+      .pipe(Effect.orDie);
+    const residualEntryGroups = yield* Effect.all(
+      revisions.map((revision) =>
+        reader
+          .table("retrievalEntries")
+          .index("by_workspace_origin_revision_entry", (query) =>
+            query
+              .eq("workspaceId", input.workspaceId)
+              .eq("originTable", "pageRevisions")
+              .eq("sourceRevisionKey", revision.revisionKey),
+          )
+          .take(1)
+          .pipe(Effect.orDie),
+      ),
+    );
+    if (
+      residualSets.length > 0 ||
+      residualEntryGroups.some((entries) => entries.length > 0)
+    )
+      return yield* new ValidationFailed({
+        field: "pageKey",
+        message:
+          "Derived retrieval rows must be drained before final page purge.",
+      });
+    for (const revision of revisions)
+      yield* writer
+        .table("pageRevisions")
+        .delete(revision._id)
+        .pipe(Effect.orDie);
+    yield* writer.table("brainPages").delete(page._id).pipe(Effect.orDie);
+    return {
+      ...derived,
+      deletedOrigins: revisions.length + 1,
+    };
+  });
 
 const scheduleBrainExportRef = Ref.make(
   "brain/exports",
