@@ -5,7 +5,7 @@ import { parseNamedArgs } from "./namedArgs";
 import { cliFailure, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
-import { snapshotNotesForDirectory } from "./snapshotImport";
+import { runSnapshotSubmit } from "./snapshotCommand";
 import {
   doctorBrainEnvironment,
   setupBrainEnvironment,
@@ -286,93 +286,16 @@ export const runCliAsync = async (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
 ): Promise<CliResult> => {
-  if (argv[0] === "snapshot") {
-    if (argv[1] !== "submit")
-      return cliFailure(
-        "snapshot usage: snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>].\n",
-      );
-    const directory = argv[2] ?? "";
-    let asOf: string | undefined;
-    let source = "Claude Ask Apero Advisors";
-    for (let index = 3; index < argv.length; index += 2) {
-      const flag = argv[index];
-      const value = argv[index + 1];
-      if (value === undefined || (flag !== "--as-of" && flag !== "--source"))
-        return cliFailure(
-          "snapshot usage: snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>].\n",
-        );
-      if (flag === "--as-of") asOf = value;
-      else source = value;
-    }
-    if (asOf === undefined)
-      return cliFailure("snapshot submit requires --as-of <YYYY-MM-DD>.\n");
-    const snapshot = snapshotNotesForDirectory(directory, { asOf, source });
-    if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
-
-    const submitted: Array<{
-      readonly path: string;
-      readonly title: string;
-      readonly sourceKey: string | null;
-      readonly status: string | null;
-    }> = [];
-    for (const note of snapshot.notes) {
-      const result = await executeRemoteBrainRequest(
+  if (argv[0] === "snapshot")
+    return await runSnapshotSubmit(argv, (note) =>
+      executeRemoteBrainRequest(
         {
           operationId: "brain.notes.submit",
           input: { title: note.title, markdown: note.markdown },
         },
         config,
-      );
-      if (result.exitCode !== 0) {
-        return {
-          exitCode: 1,
-          stdout: formatJsonOutput({
-            ok: false,
-            operationId: "brain.snapshot.submit",
-            result: { submitted, failedPath: note.path },
-            error: "Snapshot submission stopped at the first rejected file.",
-          }),
-          stderr: result.stderr,
-        };
-      }
-      let sourceKey: string | null = null;
-      let status: string | null = null;
-      try {
-        const response = JSON.parse(result.stdout) as {
-          readonly result?: {
-            readonly sourceKey?: unknown;
-            readonly status?: unknown;
-          };
-        };
-        sourceKey =
-          typeof response.result?.sourceKey === "string"
-            ? response.result.sourceKey
-            : null;
-        status =
-          typeof response.result?.status === "string"
-            ? response.result.status
-            : null;
-      } catch {
-        // executeRemoteBrainRequest already validated the response envelope.
-      }
-      submitted.push({ path: note.path, title: note.title, sourceKey, status });
-    }
-
-    return {
-      exitCode: 0,
-      stdout: formatJsonOutput({
-        ok: true,
-        operationId: "brain.snapshot.submit",
-        result: {
-          directory: snapshot.directory,
-          submittedCount: submitted.length,
-          status: "pending_review",
-          submitted,
-        },
-      }),
-      stderr: "",
-    };
-  }
+      ),
+    );
   if (argv[0] === "setup")
     return argv.length <= 2 &&
       (argv[1] === undefined ||
