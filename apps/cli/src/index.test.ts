@@ -85,7 +85,7 @@ describe("maestro-template CLI", () => {
     expect(result.stdout).toContain("maestro-brain feedback");
     expect(result.stdout).toContain("maestro-brain note --input");
     expect(result.stdout).toContain(
-      "maestro-brain snapshot submit <directory>",
+      "maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD>",
     );
     expect(result.stdout).not.toContain("maestro-template");
   });
@@ -237,7 +237,7 @@ describe("maestro-template CLI", () => {
       .fn<typeof fetch>()
       .mockImplementation(async (_url, init) => {
         const request = JSON.parse(String(init?.body)) as {
-          input: { title: string };
+          input: { title: string; markdown: string };
         };
         return new Response(
           JSON.stringify({
@@ -254,7 +254,7 @@ describe("maestro-template CLI", () => {
 
     try {
       const result = await runCliAsync(
-        ["snapshot", "submit", root],
+        ["snapshot", "submit", root, "--as-of", "2026-08-22"],
         decodeCliRuntimeConfig({
           CONVEX_SITE_URL: "https://brain.example.test",
           MAESTRO_BRAIN_API_KEY: "brain_api_secret",
@@ -270,6 +270,12 @@ describe("maestro-template CLI", () => {
         "ICP",
         "Pricing",
       ]);
+      expect(requests[0].input.markdown).toContain(
+        "> Snapshot source: Claude Ask Apero Advisors",
+      );
+      expect(requests[0].input.markdown).toContain(
+        "> Snapshot date: 2026-08-22",
+      );
       expect(
         parseStdout<{
           result: { submittedCount: number; status: string };
@@ -278,6 +284,42 @@ describe("maestro-template CLI", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("requires valid snapshot provenance before submitting files", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      runCliAsync(["snapshot", "submit", "/missing"]),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "snapshot submit requires --as-of <YYYY-MM-DD>.\n",
+    });
+    await expect(
+      runCliAsync(["snapshot", "submit", "/missing", "--as-of", "2026-02-30"]),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "snapshot --as-of must be a real date in YYYY-MM-DD format.\n",
+    });
+    await expect(
+      runCliAsync([
+        "snapshot",
+        "submit",
+        "/missing",
+        "--as-of",
+        "2026-08-22",
+        "--source",
+        "Claude\nInjected metadata",
+      ]),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "snapshot --source must contain 1 to 120 characters.\n",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([
