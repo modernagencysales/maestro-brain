@@ -16,7 +16,7 @@ Code install that same directory; runtime-specific copies are not maintained.
   readiness, and disclosure policy without source bodies;
 - `skills/ask-apero/references/agent-guidance.md` — answer, citation, freshness,
   conflict, and abstention rules;
-- `skills/ask-apero/references/context-pack-v1.md` — the bounded response checks
+- `skills/ask-apero/references/context-pack-v3.md` — the bounded response checks
   used by the skill;
 - `install.md` — runtime discovery and MCP configuration using secret names
   only;
