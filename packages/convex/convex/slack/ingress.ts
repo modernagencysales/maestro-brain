@@ -7,9 +7,12 @@ import { ingestSlackEvent } from "../../confect/slack/ingress";
 import {
   retrievalPublicationJobKey,
   retrievalPublicationJobRow,
+  retrievalPublicationSubjectIncarnationKey,
+  type RetrievalPublicationFenceSnapshot,
 } from "../../confect/brain/retrievalPublicationJob";
 import {
   retrievalEligibilityFenceKey,
+  retrievalPublicationSubjectKey,
   type RetrievalEligibilityFenceKind,
 } from "../../confect/brain/retrievalPublication";
 const MAX_ACTIVE_POLICIES_PER_CHANNEL = 1;
@@ -56,6 +59,62 @@ type SlackArtifactFenceInput = {
   readonly sourceKey: string;
   readonly lifecycle: { readonly state: string };
   readonly updatedAt: number;
+};
+type FenceIdentity = {
+  readonly organizationKey: string;
+  readonly kind: RetrievalEligibilityFenceKind;
+  readonly controllerKey: string;
+};
+const ensureFenceSnapshot = async (
+  db: IngressDb,
+  input: {
+    readonly identity: FenceIdentity;
+    readonly eligible: boolean;
+    readonly now: number;
+  },
+): Promise<RetrievalPublicationFenceSnapshot> => {
+  const fenceKey = retrievalEligibilityFenceKey(input.identity);
+  const rows = await db
+    .query("retrievalEligibilityFences")
+    .withIndex("by_organization_fence", (query) =>
+      query
+        .eq("organizationKey", input.identity.organizationKey)
+        .eq("fenceKey", fenceKey),
+    )
+    .take(2);
+  if (rows.length > 1) throw new Error("SlackEligibilityFenceConflict");
+  const stored = rows[0];
+  if (stored === undefined) {
+    await db.insert("retrievalEligibilityFences", {
+      schemaVersion: 1,
+      organizationKey: input.identity.organizationKey,
+      fenceKey,
+      kind: input.identity.kind,
+      controllerKey: input.identity.controllerKey,
+      eligibilityGeneration: 1,
+      eligible: input.eligible,
+      updatedAt: input.now,
+    });
+    return {
+      kind: input.identity.kind,
+      fenceKey,
+      eligibilityGeneration: 1,
+      eligible: input.eligible,
+      controllerKey: input.identity.controllerKey,
+    };
+  }
+  if (
+    stored.kind !== input.identity.kind ||
+    stored.controllerKey !== input.identity.controllerKey
+  )
+    throw new Error("SlackEligibilityFenceControllerMismatch");
+  return {
+    kind: stored.kind,
+    fenceKey: stored.fenceKey,
+    eligibilityGeneration: stored.eligibilityGeneration,
+    eligible: stored.eligible,
+    controllerKey: stored.controllerKey,
+  };
 };
 const transitionSlackArtifactFence = async (
   db: IngressDb,
@@ -262,6 +321,62 @@ const resolveTargets = async (
         ),
       );
   }
+  const [revision, artifact, connection] = await Promise.all([
+    ctx.db
+      .query("sourceRevisions")
+      .withIndex("by_source_revision_key", (q) =>
+        q
+          .eq("organizationKey", receipt.organizationKey)
+          .eq("sourceRevisionKey", receipt.sourceRevisionKey ?? ""),
+      )
+      .unique(),
+    ctx.db
+      .query("sourceArtifacts")
+      .withIndex("by_org_source_key", (q) =>
+        q
+          .eq("organizationKey", receipt.organizationKey)
+          .eq("sourceKey", receipt.sourceKey),
+      )
+      .unique(),
+    ctx.db
+      .query("providerConnections")
+      .withIndex("by_connection_key", (q) =>
+        q.eq("connectionKey", receipt.connectionKey),
+      )
+      .unique(),
+  ]);
+  if (revision === null || artifact === null || connection === null)
+    return await retryResolution(
+      ctx,
+      intent._id,
+      receiptId,
+      attemptCount,
+      "SlackPublicationAuthorityUnavailable",
+      now,
+    );
+  const lifecycleFence = await ensureFenceSnapshot(ctx.db, {
+    identity: {
+      organizationKey: receipt.organizationKey,
+      kind: "lifecycle",
+      controllerKey: `slack-source:${receipt.organizationKey}:${receipt.sourceKey}`,
+    },
+    eligible:
+      !revision.tombstone &&
+      revision.lifecycle.state === "active" &&
+      artifact.lifecycle.state === "active",
+    now,
+  });
+  const connectionFence = await ensureFenceSnapshot(ctx.db, {
+    identity: {
+      organizationKey: receipt.organizationKey,
+      kind: "connection",
+      controllerKey: `connection:${receipt.connectionKey}`,
+    },
+    eligible:
+      connection.status === "active" &&
+      connection.connectionGeneration === receipt.connectionGeneration,
+    now,
+  });
   let targetCount = 0;
   for (const workspace of workspaces) {
     if (
@@ -269,6 +384,25 @@ const resolveTargets = async (
       !targetGenerations.has(workspace.brainKey)
     )
       continue;
+    const policyGeneration = targetGenerations.get(workspace.brainKey) ?? 1;
+    const policyFence = await ensureFenceSnapshot(ctx.db, {
+      identity: {
+        organizationKey: receipt.organizationKey,
+        kind: "policy",
+        controllerKey: `slack-policy:${receipt.channelKey}:${workspace.brainKey}`,
+      },
+      eligible: true,
+      now,
+    });
+    const publicationSubjectKey = retrievalPublicationSubjectKey({
+      workspaceId: String(workspace._id),
+      brainKey: workspace.brainKey,
+      corpusKey: "slack",
+      originTable: "sourceRevisions",
+      kind: "slack",
+      sourceKey: receipt.sourceKey,
+      connectorScopeKey: receipt.channelKey,
+    });
     const jobInput = {
       organizationKey: receipt.organizationKey,
       workspaceId: String(workspace._id),
@@ -276,7 +410,34 @@ const resolveTargets = async (
       originKind: "slack" as const,
       sourceKey: receipt.sourceKey,
       sourceRevisionKey: receipt.sourceRevisionKey,
-      requestGeneration: targetGenerations.get(workspace.brainKey) ?? 1,
+      requestGeneration: policyGeneration,
+      authorityContext: {
+        version: 1 as const,
+        publicationSubjectKey,
+        subjectIncarnationKey: retrievalPublicationSubjectIncarnationKey({
+          publicationSubjectKey,
+          lifecycleFenceKey: lifecycleFence.fenceKey,
+          lifecycleGeneration: lifecycleFence.eligibilityGeneration,
+        }),
+        connectorScopeKey: receipt.channelKey,
+        configuration: {
+          requestGeneration: policyGeneration,
+          policyGeneration,
+          routeGeneration: policyGeneration,
+          lifecycleGeneration: artifact.lifecycle.generation,
+          connectionGeneration: receipt.connectionGeneration,
+        },
+        eligibilityFences: [
+          { ...lifecycleFence },
+          { ...policyFence },
+          { ...connectionFence },
+        ],
+        observationFence: {
+          kind: "revision" as const,
+          key: receipt.sourceRevisionKey,
+        },
+        targetResolutionIntentKey: String(intent._id),
+      },
     };
     const jobKey = retrievalPublicationJobKey(jobInput);
     const existing = await ctx.db

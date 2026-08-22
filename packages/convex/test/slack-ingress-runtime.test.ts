@@ -134,6 +134,25 @@ const createPayload = payloadFor("Ev100", {
   permalink: "https://example.test/slack/p/1",
 });
 
+const activeConnectionRow = {
+  provider: "nango" as const,
+  providerConfigKey: "slack",
+  organizationKey: "org_1",
+  connectionKey: "conn_1",
+  connectionGeneration: 2,
+  status: "active" as const,
+  connectSessionId: "session_slack_ingress",
+  nangoConnectionId: "nango_slack_ingress",
+  nangoEndUserId: "end_user_slack_ingress",
+  nangoOrganizationId: "organization_slack_ingress",
+  correlationTag: "slack-ingress-runtime",
+  attemptId: "attempt_slack_ingress",
+  attemptExpiresAt: 2_000_000_000_000,
+  completedAt: 1,
+  createdAt: 1,
+  updatedAt: 1,
+};
+
 describe("Slack Convex ingress", () => {
   it("does not let inactive policy and workspace history consume live fan-out", async () => {
     const t = makeTest();
@@ -155,6 +174,7 @@ describe("Slack Convex ingress", () => {
         createdAt: 1,
         updatedAt: 1,
       });
+      await ctx.db.insert("providerConnections", activeConnectionRow);
       for (let index = 0; index < 27; index += 1)
         await ctx.db.insert("workspaces", {
           organizationId,
@@ -347,6 +367,7 @@ describe("Slack Convex ingress", () => {
         createdAt: 1,
         updatedAt: 1,
       });
+      await ctx.db.insert("providerConnections", activeConnectionRow);
       const targetBrainKeys: string[] = [];
       for (let index = 0; index < 27; index += 1) {
         const brainKey = `brain_${index}`;

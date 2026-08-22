@@ -54,6 +54,11 @@ import retrievalPublicationGroup, {
 import {
   retrievalPublicationJobKey,
   retrievalPublicationJobRow,
+  retrievalPublicationAuthorityDigest,
+  retrievalPublicationAuthorityEnvelope,
+  retrievalPublicationSubjectIncarnationKey,
+  type RetrievalPublicationAuthorityContext,
+  type RetrievalPublicationFenceSnapshot,
   type RetrievalPublicationJobInput,
 } from "./retrievalPublicationJob";
 import type { RetrievalOriginReference } from "./retrievalSchemas";
@@ -1407,20 +1412,561 @@ const publicationJobResult = (row: {
   ...(row.lastErrorTag === undefined ? {} : { lastErrorTag: row.lastErrorTag }),
 });
 
-export const enqueueRetrievalPublicationJobEffect = (
-  input: Omit<RetrievalPublicationJobInput, "workspaceId"> & {
-    readonly workspaceId: GenericId<"workspaces">;
+type EnqueuePublicationJobInput = Omit<
+  RetrievalPublicationJobInput,
+  "workspaceId"
+> & {
+  readonly workspaceId: GenericId<"workspaces">;
+};
+
+const authorityFenceSnapshotEffect = (input: {
+  readonly identity: Parameters<
+    typeof ensureEligibilityFenceEffect
+  >[0]["identity"];
+  readonly eligible: boolean;
+  readonly now: number;
+}) =>
+  ensureEligibilityFenceEffect(input).pipe(
+    Effect.map(({ ref, eligible }): RetrievalPublicationFenceSnapshot => ({
+      ...ref,
+      eligible,
+      controllerKey: input.identity.controllerKey,
+    })),
+  );
+
+const subjectIdentityForJob = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly corpusKey: string;
+  readonly originTable: string;
+  readonly kind: "page" | "slack" | "transcript";
+  readonly sourceKey: string;
+  readonly connectorScopeKey?: string;
+}) =>
+  retrievalPublicationSubjectKey({
+    workspaceId: String(input.workspaceId),
+    brainKey: input.brainKey,
+    corpusKey: input.corpusKey,
+    originTable: input.originTable,
+    kind: input.kind,
+    sourceKey: input.sourceKey,
+    ...(input.connectorScopeKey === undefined
+      ? {}
+      : { connectorScopeKey: input.connectorScopeKey }),
+  });
+
+const authorityContext = (input: {
+  readonly job: EnqueuePublicationJobInput;
+  readonly publicationSubjectKey?: string;
+  readonly connectorScopeKey?: string;
+  readonly configuration?: Omit<
+    RetrievalPublicationAuthorityContext["configuration"],
+    "requestGeneration"
+  >;
+  readonly eligibilityFences?: readonly RetrievalPublicationFenceSnapshot[];
+  readonly observationKind: "revision" | "rebuild";
+  readonly observationGeneration?: number;
+  readonly targetResolutionIntentKey?: string;
+  readonly repairOfJobKey?: string;
+  readonly supersedesJobKey?: string;
+}): RetrievalPublicationAuthorityContext => {
+  const lifecycle = input.eligibilityFences?.find(
+    ({ kind }) => kind === "lifecycle",
+  );
+  return {
+    version: 1,
+    ...(input.publicationSubjectKey === undefined
+      ? {}
+      : {
+          publicationSubjectKey: input.publicationSubjectKey,
+          ...(lifecycle === undefined
+            ? {}
+            : {
+                subjectIncarnationKey:
+                  retrievalPublicationSubjectIncarnationKey({
+                    publicationSubjectKey: input.publicationSubjectKey,
+                    lifecycleFenceKey: lifecycle.fenceKey,
+                    lifecycleGeneration: lifecycle.eligibilityGeneration,
+                  }),
+              }),
+        }),
+    ...(input.connectorScopeKey === undefined
+      ? {}
+      : { connectorScopeKey: input.connectorScopeKey }),
+    configuration: {
+      requestGeneration: input.job.requestGeneration,
+      ...input.configuration,
+    },
+    eligibilityFences: input.eligibilityFences ?? [],
+    observationFence: {
+      kind: input.observationKind,
+      key: input.job.sourceRevisionKey,
+      ...(input.observationGeneration === undefined
+        ? {}
+        : { generation: input.observationGeneration }),
+    },
+    ...(input.targetResolutionIntentKey === undefined
+      ? {}
+      : { targetResolutionIntentKey: input.targetResolutionIntentKey }),
+    ...(input.repairOfJobKey === undefined
+      ? {}
+      : { repairOfJobKey: input.repairOfJobKey }),
+    ...(input.supersedesJobKey === undefined
+      ? {}
+      : { supersedesJobKey: input.supersedesJobKey }),
+  };
+};
+
+const capturePublicationAuthorityContextEffect = (
+  job: EnqueuePublicationJobInput,
+  now: number,
+  linkage: {
+    readonly targetResolutionIntentKey?: string;
+    readonly repairOfJobKey?: string;
+    readonly supersedesJobKey?: string;
+  } = {},
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    if (job.originKind === "page") {
+      const page = yield* reader
+        .table("brainPages")
+        .index("by_workspace_page_key", (query) =>
+          query.eq("workspaceId", job.workspaceId).eq("pageKey", job.sourceKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const identity = pageLifecycleFenceIdentity({
+        organizationKey: job.organizationKey,
+        workspaceId: String(job.workspaceId),
+        pageKey: job.sourceKey,
+      });
+      const lifecycleFence = yield* authorityFenceSnapshotEffect({
+        identity,
+        eligible:
+          page !== null &&
+          page.status === "active" &&
+          page.lifecycle?.state === "active",
+        now,
+      });
+      const publicationSubjectKey = subjectIdentityForJob({
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        corpusKey: "brain-pages",
+        originTable: "pageRevisions",
+        kind: "page",
+        sourceKey: job.sourceKey,
+      });
+      return authorityContext({
+        job,
+        publicationSubjectKey,
+        configuration: {
+          policyGeneration: job.page?.policyGeneration ?? 1,
+          lifecycleGeneration: lifecycleFence.eligibilityGeneration,
+        },
+        eligibilityFences: [lifecycleFence],
+        observationKind: "revision",
+        ...linkage,
+      });
+    }
+
+    if (job.originKind === "slack") {
+      const revision = yield* reader
+        .table("sourceRevisions")
+        .index("by_source_revision_key", (query) =>
+          query
+            .eq("organizationKey", job.organizationKey)
+            .eq("sourceRevisionKey", job.sourceRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const artifact = yield* reader
+        .table("sourceArtifacts")
+        .index("by_org_source_key", (query) =>
+          query
+            .eq("organizationKey", job.organizationKey)
+            .eq("sourceKey", job.sourceKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const policy =
+        revision === null
+          ? null
+          : yield* reader
+              .table("channelRoutingPolicies")
+              .index("by_channel_active", (query) =>
+                query.eq("channelKey", revision.channelKey).eq("active", true),
+              )
+              .take(2)
+              .pipe(
+                Effect.map((rows) =>
+                  rows.length === 1 &&
+                  rows[0]?.mode !== "capture_only" &&
+                  rows[0]?.targetBrainKeys.includes(job.brainKey)
+                    ? (rows[0] ?? null)
+                    : null,
+                ),
+                Effect.orDie,
+              );
+      const connection =
+        revision === null
+          ? null
+          : yield* reader
+              .table("providerConnections")
+              .index("by_connection_key", (query) =>
+                query.eq("connectionKey", revision.connectionKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const connectorScopeKey = revision?.channelKey ?? artifact?.channelKey;
+      const connectionKey = revision?.connectionKey ?? artifact?.connectionKey;
+      const fenceSnapshots = yield* Effect.all([
+        authorityFenceSnapshotEffect({
+          identity: slackSourceLifecycleFenceIdentity({
+            organizationKey: job.organizationKey,
+            sourceKey: job.sourceKey,
+          }),
+          eligible:
+            revision !== null &&
+            artifact !== null &&
+            !revision.tombstone &&
+            revision.lifecycle.state === "active" &&
+            artifact.lifecycle.state === "active",
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: slackPolicyFenceIdentity({
+            organizationKey: job.organizationKey,
+            channelKey: connectorScopeKey ?? "missing",
+            brainKey: job.brainKey,
+          }),
+          eligible: policy !== null,
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectionKey: connectionKey ?? "missing",
+          }),
+          eligible:
+            connection !== null &&
+            connection.status === "active" &&
+            connection.connectionGeneration === revision?.connectionGeneration,
+          now,
+        }),
+      ]);
+      const publicationSubjectKey = subjectIdentityForJob({
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        corpusKey: "slack",
+        originTable: "sourceRevisions",
+        kind: "slack",
+        sourceKey: job.sourceKey,
+        ...(connectorScopeKey === undefined ? {} : { connectorScopeKey }),
+      });
+      return authorityContext({
+        job,
+        publicationSubjectKey,
+        ...(connectorScopeKey === undefined ? {} : { connectorScopeKey }),
+        configuration: {
+          policyGeneration: policy?.policyEpoch ?? 1,
+          routeGeneration: policy?.policyEpoch ?? 1,
+          lifecycleGeneration: artifact?.lifecycle.generation ?? 1,
+          connectionGeneration: revision?.connectionGeneration ?? 1,
+        },
+        eligibilityFences: fenceSnapshots,
+        observationKind: "revision",
+        ...linkage,
+      });
+    }
+
+    if (job.originKind === "transcript") {
+      const revision = yield* reader
+        .table("sourceUnitRevisions")
+        .index("by_unit_revision_key", (query) =>
+          query
+            .eq("organizationKey", job.organizationKey)
+            .eq("unitRevisionKey", job.sourceRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const unit = yield* reader
+        .table("sourceUnits")
+        .index("by_unit_key", (query) =>
+          query
+            .eq("organizationKey", job.organizationKey)
+            .eq("unitKey", job.sourceKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const routes =
+        revision === null
+          ? []
+          : yield* reader
+              .table("callRoutingProposals")
+              .index("by_org_revision", (query) =>
+                query
+                  .eq("organizationKey", job.organizationKey)
+                  .eq("unitRevisionKey", revision.unitRevisionKey),
+              )
+              .take(100)
+              .pipe(Effect.orDie);
+      const route =
+        routes
+          .filter(
+            (candidate) =>
+              candidate.outcome === "routed" &&
+              candidate.brainKey === job.brainKey &&
+              (candidate.status === "current" ||
+                candidate.status === "accepted"),
+          )
+          .sort(
+            (left, right) => right.routeGeneration - left.routeGeneration,
+          )[0] ?? null;
+      const connection =
+        unit === null
+          ? null
+          : yield* reader
+              .table("providerConnections")
+              .index("by_connection_key", (query) =>
+                query.eq("connectionKey", unit.connectionKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const fenceSnapshots = yield* Effect.all([
+        authorityFenceSnapshotEffect({
+          identity: transcriptUnitLifecycleFenceIdentity({
+            organizationKey: job.organizationKey,
+            unitKey: job.sourceKey,
+          }),
+          eligible:
+            revision !== null &&
+            unit !== null &&
+            !revision.tombstone &&
+            unit.lifecycle.state === "active",
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: transcriptRouteFenceIdentity({
+            organizationKey: job.organizationKey,
+            unitKey: job.sourceKey,
+            brainKey: job.brainKey,
+          }),
+          eligible: route !== null,
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectionKey: unit?.connectionKey ?? "missing",
+          }),
+          eligible:
+            connection !== null &&
+            connection.status === "active" &&
+            connection.connectionGeneration === unit?.connectionGeneration,
+          now,
+        }),
+      ]);
+      const publicationSubjectKey = subjectIdentityForJob({
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        corpusKey: "transcripts",
+        originTable: "sourceUnitRevisions",
+        kind: "transcript",
+        sourceKey: job.sourceKey,
+      });
+      return authorityContext({
+        job,
+        publicationSubjectKey,
+        configuration: {
+          policyGeneration: 1,
+          routeGeneration: route?.routeGeneration ?? 1,
+          lifecycleGeneration: unit?.lifecycle.generation ?? 1,
+          connectionGeneration: unit?.connectionGeneration ?? 1,
+        },
+        eligibilityFences: fenceSnapshots,
+        observationKind: "revision",
+        ...linkage,
+      });
+    }
+
+    const fenceSnapshots: RetrievalPublicationFenceSnapshot[] = [];
+    if (
+      job.originKind === "slack_rebuild" &&
+      job.sourceRevisionKey.startsWith("policy:")
+    )
+      fenceSnapshots.push(
+        yield* authorityFenceSnapshotEffect({
+          identity: slackPolicyFenceIdentity({
+            organizationKey: job.organizationKey,
+            channelKey: job.sourceKey,
+            brainKey: job.brainKey,
+          }),
+          eligible: true,
+          now,
+        }),
+      );
+    if (
+      (job.originKind === "slack_rebuild" ||
+        job.originKind === "transcript_rebuild") &&
+      job.sourceRevisionKey.startsWith("connection:")
+    )
+      fenceSnapshots.push(
+        yield* authorityFenceSnapshotEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectionKey: job.sourceKey,
+          }),
+          eligible: job.sourceRevisionKey.includes(":active:"),
+          now,
+        }),
+      );
+    return authorityContext({
+      job,
+      configuration: {},
+      eligibilityFences: fenceSnapshots,
+      observationKind: "rebuild",
+      observationGeneration: job.requestGeneration,
+      ...linkage,
+    });
+  });
+
+const authorityContextFromEnvelope = (
+  envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
+): RetrievalPublicationAuthorityContext => ({
+  version: envelope.version,
+  ...(envelope.publicationSubjectKey === undefined
+    ? {}
+    : { publicationSubjectKey: envelope.publicationSubjectKey }),
+  ...(envelope.subjectIncarnationKey === undefined
+    ? {}
+    : { subjectIncarnationKey: envelope.subjectIncarnationKey }),
+  ...(envelope.connectorScopeKey === undefined
+    ? {}
+    : { connectorScopeKey: envelope.connectorScopeKey }),
+  configuration: {
+    requestGeneration: envelope.configuration.requestGeneration,
+    ...(envelope.configuration.policyGeneration === undefined
+      ? {}
+      : { policyGeneration: envelope.configuration.policyGeneration }),
+    ...(envelope.configuration.routeGeneration === undefined
+      ? {}
+      : { routeGeneration: envelope.configuration.routeGeneration }),
+    ...(envelope.configuration.lifecycleGeneration === undefined
+      ? {}
+      : { lifecycleGeneration: envelope.configuration.lifecycleGeneration }),
+    ...(envelope.configuration.connectionGeneration === undefined
+      ? {}
+      : {
+          connectionGeneration: envelope.configuration.connectionGeneration,
+        }),
   },
+  eligibilityFences: envelope.eligibilityFences,
+  observationFence: {
+    kind: envelope.observationFence.kind,
+    key: envelope.observationFence.key,
+    ...(envelope.observationFence.generation === undefined
+      ? {}
+      : { generation: envelope.observationFence.generation }),
+  },
+  ...(envelope.targetResolutionIntentKey === undefined
+    ? {}
+    : { targetResolutionIntentKey: envelope.targetResolutionIntentKey }),
+  ...(envelope.repairOfJobKey === undefined
+    ? {}
+    : { repairOfJobKey: envelope.repairOfJobKey }),
+  ...(envelope.supersedesJobKey === undefined
+    ? {}
+    : { supersedesJobKey: envelope.supersedesJobKey }),
+});
+
+const jobIdentityInput = (job: RetrievalPublicationJobsDoc) => ({
+  organizationKey: job.organizationKey,
+  workspaceId: String(job.workspaceId),
+  brainKey: job.brainKey,
+  originKind: job.originKind,
+  sourceKey: job.sourceKey,
+  sourceRevisionKey: job.sourceRevisionKey,
+  requestGeneration: job.requestGeneration,
+  ...(job.page === undefined ? {} : { page: job.page }),
+  ...(job.rebuild === undefined
+    ? {}
+    : {
+        rebuild: {
+          limit: job.rebuild.limit,
+          ...(job.rebuild.afterSourceKey === undefined
+            ? {}
+            : { afterSourceKey: job.rebuild.afterSourceKey }),
+          ...(job.rebuild.discoveredCount === undefined
+            ? {}
+            : { discoveredCount: job.rebuild.discoveredCount }),
+          ...(job.rebuild.publishedCount === undefined
+            ? {}
+            : { publishedCount: job.rebuild.publishedCount }),
+        },
+      }),
+});
+
+const supersedePublicationJob = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+  lastErrorTag: string,
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const completed = {
+      status: "superseded" as const,
+      attemptCount: job.attemptCount,
+      nextAttemptAt: at,
+      lastErrorTag,
+      completedAt: at,
+      updatedAt: at,
+    };
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, completed)
+      .pipe(Effect.orDie);
+    return publicationJobResult({ ...job, ...completed });
+  });
+
+const publicationAuthorityLinkageIsValid = (
+  job: RetrievalPublicationJobsDoc,
+  envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
+) => {
+  const rebuild = job.originKind.endsWith("_rebuild");
+  return !(
+    (envelope.repairOfJobKey !== undefined &&
+      envelope.supersedesJobKey !== undefined) ||
+    (rebuild &&
+      (envelope.publicationSubjectKey !== undefined ||
+        envelope.subjectIncarnationKey !== undefined)) ||
+    (!rebuild &&
+      (envelope.publicationSubjectKey === undefined ||
+        envelope.subjectIncarnationKey === undefined)) ||
+    (rebuild && envelope.observationFence.kind !== "rebuild") ||
+    (!rebuild && envelope.observationFence.kind !== "revision") ||
+    (envelope.targetResolutionIntentKey !== undefined &&
+      job.originKind !== "slack")
+  );
+};
+
+export const enqueueRetrievalPublicationJobEffect = (
+  input: EnqueuePublicationJobInput,
   now: number,
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
     const scheduler = yield* Scheduler;
-    const jobKey = retrievalPublicationJobKey({
+    const authorityContextValue =
+      input.authorityContext ??
+      (yield* capturePublicationAuthorityContextEffect(input, now));
+    const persistedInput = {
       ...input,
       workspaceId: String(input.workspaceId),
-    });
+      authorityContext: authorityContextValue,
+    };
+    const jobKey = retrievalPublicationJobKey(persistedInput);
     const existing = yield* reader
       .table("retrievalPublicationJobs")
       .index("by_job_key", (query) => query.eq("jobKey", jobKey))
@@ -1430,10 +1976,7 @@ export const enqueueRetrievalPublicationJobEffect = (
       yield* writer
         .table("retrievalPublicationJobs")
         .insert({
-          ...retrievalPublicationJobRow(
-            { ...input, workspaceId: String(input.workspaceId) },
-            now,
-          ),
+          ...retrievalPublicationJobRow(persistedInput, now),
           workspaceId: input.workspaceId,
         })
         .pipe(Effect.orDie);
@@ -1654,6 +2197,73 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
       job.nextAttemptAt > args.now
     )
       return publicationJobResult(job);
+
+    if (job.authorityEnvelope === undefined) {
+      const legacy = {
+        status: "retry_wait" as const,
+        attemptCount: job.attemptCount,
+        nextAttemptAt: args.now + 24 * 60 * 60 * 1_000,
+        lastErrorTag: "PublicationAuthorityEnvelopeMissing",
+        updatedAt: args.now,
+      };
+      yield* writer
+        .table("retrievalPublicationJobs")
+        .patch(job._id, legacy)
+        .pipe(Effect.orDie);
+      return publicationJobResult({ ...job, ...legacy });
+    }
+    if (!publicationAuthorityLinkageIsValid(job, job.authorityEnvelope))
+      return yield* supersedePublicationJob(
+        job,
+        args.now,
+        "PublicationAuthorityLinkageInvalid",
+      );
+    const capturedContext = authorityContextFromEnvelope(job.authorityEnvelope);
+    const expectedEnvelope = retrievalPublicationAuthorityEnvelope(
+      jobIdentityInput(job),
+      capturedContext,
+      job.authorityEnvelope.capturedAt,
+    );
+    if (
+      expectedEnvelope.authorityDigest !==
+        job.authorityEnvelope.authorityDigest ||
+      expectedEnvelope.stableEffectKey !== job.authorityEnvelope.stableEffectKey
+    )
+      return yield* supersedePublicationJob(
+        job,
+        args.now,
+        "PublicationAuthorityEnvelopeInvalid",
+      );
+    const currentContext = yield* capturePublicationAuthorityContextEffect(
+      {
+        ...jobIdentityInput(job),
+        workspaceId: job.workspaceId,
+      },
+      args.now,
+      {
+        ...(job.authorityEnvelope.targetResolutionIntentKey === undefined
+          ? {}
+          : {
+              targetResolutionIntentKey:
+                job.authorityEnvelope.targetResolutionIntentKey,
+            }),
+        ...(job.authorityEnvelope.repairOfJobKey === undefined
+          ? {}
+          : { repairOfJobKey: job.authorityEnvelope.repairOfJobKey }),
+        ...(job.authorityEnvelope.supersedesJobKey === undefined
+          ? {}
+          : { supersedesJobKey: job.authorityEnvelope.supersedesJobKey }),
+      },
+    );
+    if (
+      retrievalPublicationAuthorityDigest(currentContext) !==
+      job.authorityEnvelope.authorityDigest
+    )
+      return yield* supersedePublicationJob(
+        job,
+        args.now,
+        "PublicationAuthoritySuperseded",
+      );
 
     const caller = {
       kind: "system" as const,

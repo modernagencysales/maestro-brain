@@ -4,6 +4,47 @@ import * as Schema from "effect/Schema";
 import { Id } from "../_generated/id";
 import { NonNegativeInteger, PositiveInteger } from "../brain/retrievalSchemas";
 
+const EligibilityFenceSnapshot = Schema.Struct({
+  kind: Schema.Literal(
+    "lifecycle",
+    "route",
+    "policy",
+    "scope",
+    "allowlist",
+    "connection",
+  ),
+  fenceKey: Schema.String,
+  eligibilityGeneration: PositiveInteger,
+  eligible: Schema.Boolean,
+  controllerKey: Schema.String,
+});
+
+const AuthorityEnvelope = Schema.Struct({
+  version: Schema.Literal(1),
+  publicationSubjectKey: Schema.optional(Schema.String),
+  subjectIncarnationKey: Schema.optional(Schema.String),
+  connectorScopeKey: Schema.optional(Schema.String),
+  configuration: Schema.Struct({
+    requestGeneration: PositiveInteger,
+    policyGeneration: Schema.optional(PositiveInteger),
+    routeGeneration: Schema.optional(PositiveInteger),
+    lifecycleGeneration: Schema.optional(PositiveInteger),
+    connectionGeneration: Schema.optional(PositiveInteger),
+  }),
+  eligibilityFences: Schema.Array(EligibilityFenceSnapshot),
+  observationFence: Schema.Struct({
+    kind: Schema.Literal("revision", "rebuild"),
+    key: Schema.String,
+    generation: Schema.optional(PositiveInteger),
+  }),
+  targetResolutionIntentKey: Schema.optional(Schema.String),
+  repairOfJobKey: Schema.optional(Schema.String),
+  supersedesJobKey: Schema.optional(Schema.String),
+  authorityDigest: Schema.String.pipe(Schema.pattern(/^raud_[a-f0-9]{64}$/)),
+  stableEffectKey: Schema.String.pipe(Schema.pattern(/^rfx_[a-f0-9]{64}$/)),
+  capturedAt: NonNegativeInteger,
+});
+
 const PagePublicationPolicy = Schema.Struct({
   authority: Schema.Literal("authoritative", "derived", "advisory"),
   authorityPolicyKey: Schema.String,
@@ -35,6 +76,7 @@ export const RetrievalPublicationJobRow = Schema.Struct({
   requestGeneration: PositiveInteger,
   page: Schema.optional(PagePublicationPolicy),
   rebuild: Schema.optional(RebuildCursor),
+  authorityEnvelope: Schema.optional(AuthorityEnvelope),
   status: Schema.Literal(
     "pending",
     "retry_wait",
