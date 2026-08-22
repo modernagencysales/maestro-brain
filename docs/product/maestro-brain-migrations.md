@@ -112,6 +112,28 @@ Execute-mode component failures follow the same durable failure receipt path.
   not advance.
 - **Rollback:** deploy the earlier input contract and planner. Optional stored
   order fields remain harmless; do not delete immutable stale observations.
+- **BE2-S1C frozen contract:** `transcript-adapter-order-v1` is the only
+  accepted adapter-order version. New observations persist it on both the
+  immutable revision and current-unit pointer. The registered
+  `backfillTranscriptRevisionOrder` / resume mutations own the run generation,
+  opaque cursor, pinned server-time population, and 1-10 row batch boundary.
+- **BE2-S1C derivation:** an existing compatible stored order is admissible. A
+  missing manual-import order derives only to reconciliation epoch `1` for its
+  single immutable snapshot. A missing live Granola order derives only from the
+  exact stored `providerMetadataJson.updatedAt` evidence selected by the frozen
+  adapter. Fireflies, Gong, Fathom, tombstone, unknown-version, and otherwise
+  incomplete legacy rows are not guessed from `createdAt`, `receivedAt`,
+  revision identity, or content novelty.
+- **BE2-S1C conflicts and receipt:** every scanned unit writes one typed audit
+  item. Equal-order/different-content history, missing provider version or order
+  evidence, ambiguous tombstone/recreation history, corrupt current pointers,
+  excessive history, and a concurrent source-population generation remain
+  blocking conflicts. A second bounded validation pass compares the exact
+  current revision tuple. Only a zero-conflict close persists the one immutable
+  receipt with processed, backfilled, excluded, and conflict counts plus the
+  rolling population digest. A blocked run has no completion digest and reports
+  `readyForPromotion: false`; later narrowing or projection promotion must
+  consume a successful receipt.
 
 ## Grouped call maintenance proposals
 

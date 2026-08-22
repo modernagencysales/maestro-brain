@@ -10,6 +10,7 @@ import { TestConfect } from "@confect/test";
 import type { GenericId, Value } from "convex/values";
 import { defineSchema } from "convex/server";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -44,11 +45,17 @@ import rolloutOperationsImpl, {
   advanceProjectionPopulationEffect,
 } from "../confect/brain/rolloutOperations.impl";
 import rolloutOperations, {
+  backfillTranscriptRevisionOrder,
   migrateLegacyPublicationJobAuthority,
   resumeLegacyPublicationJobAuthorityMigration,
   resumeProjectionBackfill,
+  resumeTranscriptRevisionOrderBackfill,
   startProjectionBackfill,
 } from "../confect/brain/rolloutOperations.spec";
+import { buildCallSourceUnitRows } from "../confect/sources/sourceUnit";
+import { TRANSCRIPT_ADAPTER_ORDER_VERSION } from "../confect/sources/transcriptRevisionOrder";
+import transcriptRevisionOrderMigrationItemsSource from "../confect/tables/transcriptRevisionOrderMigrationItems";
+import transcriptRevisionOrderMigrationsSource from "../confect/tables/transcriptRevisionOrderMigrations";
 import brainProjectionPopulationSource, {
   BrainProjectionPopulationRow,
 } from "../confect/tables/brainProjectionPopulation";
@@ -85,6 +92,12 @@ const connectorScopes = connectorScopesSource("connectorScopes");
 const connectorAllowlistGenerations = connectorAllowlistGenerationsSource(
   "connectorAllowlistGenerations",
 );
+const transcriptRevisionOrderMigrationItems =
+  transcriptRevisionOrderMigrationItemsSource(
+    "transcriptRevisionOrderMigrationItems",
+  );
+const transcriptRevisionOrderMigrations =
+  transcriptRevisionOrderMigrationsSource("transcriptRevisionOrderMigrations");
 const rolloutDatabaseSchema = DatabaseSchema.make({
   ...databaseSchema.tables,
   brainReadModes,
@@ -152,6 +165,14 @@ const refs = {
   resumeLegacyPublicationJobAuthorityMigration: Ref.make(
     "brain/rolloutOperations",
     resumeLegacyPublicationJobAuthorityMigration,
+  ),
+  backfillTranscriptRevisionOrder: Ref.make(
+    "brain/rolloutOperations",
+    backfillTranscriptRevisionOrder,
+  ),
+  resumeTranscriptRevisionOrderBackfill: Ref.make(
+    "brain/rolloutOperations",
+    resumeTranscriptRevisionOrderBackfill,
   ),
 } as const;
 
@@ -1819,5 +1840,140 @@ describe("Brain read rollout operations", () => {
       result.state.population.legacyJobAuthorityMigrationCompletion
         ?.populationGeneration ?? Number.MAX_SAFE_INTEGER,
     );
+  });
+
+  it("registers transcript-order backfill and keeps typed conflicts promotion-blocking", async () => {
+    expect(transcriptRevisionOrderMigrations.indexes).toEqual({
+      by_organization: ["organizationKey"],
+      by_active_run_key: ["activeRunKey"],
+    });
+    expect(transcriptRevisionOrderMigrationItems.indexes).toEqual({
+      by_run_unit: ["runKey", "unitKey"],
+      by_organization_run: ["organizationKey", "runKey"],
+    });
+    expect(
+      rolloutOperations.functions.backfillTranscriptRevisionOrder,
+    ).toMatchObject({ functionVisibility: "internal" });
+    expect(
+      rolloutOperations.functions.resumeTranscriptRevisionOrderBackfill,
+    ).toMatchObject({ functionVisibility: "internal" });
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof rolloutDatabaseSchema>(),
+        );
+        const rows = buildCallSourceUnitRows(
+          {
+            providerKey: "fireflies",
+            connectionKey: "conn_rollout_transcript",
+            externalCallId: "call_rollout_legacy",
+            externalRevisionId: "revision_rollout_legacy",
+            revisionOrder: {
+              kind: "provider_timestamp",
+              timestamp: "2026-08-05T14:00:00.000Z",
+              source: "updated_at",
+            },
+            title: "Legacy rollout call",
+            startedAt: "2026-08-05T14:00:00.000Z",
+            endedAt: null,
+            durationMs: null,
+            organizer: null,
+            participants: [],
+            segments: [
+              {
+                externalSegmentId: "call_rollout_legacy:0",
+                ordinal: 0,
+                evidenceKind: "verbatim_transcript",
+                speakerExternalId: null,
+                speakerLabel: "Speaker",
+                startMs: 0,
+                endMs: null,
+                text: "Legacy transcript without adapter-order evidence.",
+              },
+            ],
+            sourceUrl: "https://example.com/call_rollout_legacy",
+            recordingUrl: null,
+            providerSummary: null,
+            providerMetadataJson: "{}",
+            deleted: false,
+          },
+          {
+            organizationKey,
+            connectionGeneration: 1,
+            receivedAt: now,
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* RolloutDatabaseWriter;
+            const {
+              currentRevisionOrder: _unitOrder,
+              currentRevisionOrderVersion: _unitVersion,
+              ...legacyUnit
+            } = rows.unit;
+            const {
+              revisionOrder: _revisionOrder,
+              revisionOrderVersion: _revisionVersion,
+              ...legacyRevision
+            } = rows.revision;
+            void _unitOrder;
+            void _unitVersion;
+            void _revisionOrder;
+            void _revisionVersion;
+            yield* writer
+              .table("sourceUnits")
+              .insert(legacyUnit)
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("sourceUnitRevisions")
+              .insert(legacyRevision)
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        let progress = yield* confect.mutation(
+          refs.backfillTranscriptRevisionOrder,
+          {
+            organizationKey,
+            adapterOrderVersion: TRANSCRIPT_ADAPTER_ORDER_VERSION,
+            batchSize: 1,
+          },
+        );
+        for (let attempt = 0; attempt < 5 && !progress.terminal; attempt += 1)
+          progress = yield* confect.mutation(
+            refs.resumeTranscriptRevisionOrderBackfill,
+            {
+              runKey: progress.runKey,
+              expectedRunGeneration: progress.runGeneration,
+              batchSize: 1,
+            },
+          );
+        const migration = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* RolloutDatabaseReader;
+            return yield* reader
+              .table("transcriptRevisionOrderMigrations")
+              .index("by_organization", (query) =>
+                query.eq("organizationKey", organizationKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        return { progress, migration };
+      }).pipe(Effect.provide(rolloutTestLayer())),
+    );
+
+    expect(result.progress).toMatchObject({
+      stage: "blocked",
+      processed: 1,
+      conflictCount: 1,
+      blockingConflict: "missing_provider_version",
+      readyForPromotion: false,
+      completionDigest: null,
+    });
+    expect(result.migration.completion).toBeNull();
   });
 });

@@ -9,10 +9,12 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainCorpusHealth from "./tables/brainCorpusHealth";
 import brainExportJobs from "./tables/brainExportJobs";
+import brainFeedbackReports from "./tables/brainFeedbackReports";
 import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainProjectionPopulation from "./tables/brainProjectionPopulation";
 import brainReadModes from "./tables/brainReadModes";
 import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
 import brainSources from "./tables/brainSources";
@@ -25,15 +27,24 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorAllowlistGenerations from "./tables/connectorAllowlistGenerations";
 import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
 import connectorPageChunks from "./tables/connectorPageChunks";
 import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
 import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
 import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
+import connectorScopes from "./tables/connectorScopes";
 import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
+import documentSourceMembershipEdges from "./tables/documentSourceMembershipEdges";
+import documentSourceObjects from "./tables/documentSourceObjects";
+import documentSourceObservations from "./tables/documentSourceObservations";
+import documentSourceOutcomes from "./tables/documentSourceOutcomes";
+import documentSourcePassages from "./tables/documentSourcePassages";
+import documentSourceRevisions from "./tables/documentSourceRevisions";
+import documentSourceScopePointers from "./tables/documentSourceScopePointers";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import dsarRequests from "./tables/dsarRequests";
@@ -73,6 +84,14 @@ import sourceRevisions from "./tables/sourceRevisions";
 import sourceSegments from "./tables/sourceSegments";
 import sourceUnitRevisions from "./tables/sourceUnitRevisions";
 import sourceUnits from "./tables/sourceUnits";
+import structuredQueryFieldRegistrations from "./tables/structuredQueryFieldRegistrations";
+import structuredSourceEntities from "./tables/structuredSourceEntities";
+import structuredSourceFields from "./tables/structuredSourceFields";
+import structuredSourceObservations from "./tables/structuredSourceObservations";
+import structuredSourceRevisions from "./tables/structuredSourceRevisions";
+import structuredSourceRoutes from "./tables/structuredSourceRoutes";
+import transcriptRevisionOrderMigrationItems from "./tables/transcriptRevisionOrderMigrationItems";
+import transcriptRevisionOrderMigrations from "./tables/transcriptRevisionOrderMigrations";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -100,10 +119,12 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof billingPlans |
   typeof brainCorpusHealth |
   typeof brainExportJobs |
+  typeof brainFeedbackReports |
   typeof brainMaintenanceProposalItems |
   typeof brainMaintenanceProposals |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof brainProjectionPopulation |
   typeof brainReadModes |
   typeof brainRequiredScopeIntents |
   typeof brainSources |
@@ -116,15 +137,24 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof claims |
   typeof classificationDecisions |
   typeof concepts |
+  typeof connectorAllowlistGenerations |
   typeof connectorIncrementalCursors |
   typeof connectorPageChunks |
   typeof connectorPageEnvelopes |
   typeof connectorReconciliationRuns |
   typeof connectorReconciliationSeen |
+  typeof connectorScopes |
   typeof connectorSyncStates |
   typeof contextPacks |
   typeof creditLedger |
   typeof documentAnnotations |
+  typeof documentSourceMembershipEdges |
+  typeof documentSourceObjects |
+  typeof documentSourceObservations |
+  typeof documentSourceOutcomes |
+  typeof documentSourcePassages |
+  typeof documentSourceRevisions |
+  typeof documentSourceScopePointers |
   typeof documentVersions |
   typeof documents |
   typeof dsarRequests |
@@ -164,6 +194,14 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof sourceSegments |
   typeof sourceUnitRevisions |
   typeof sourceUnits |
+  typeof structuredQueryFieldRegistrations |
+  typeof structuredSourceEntities |
+  typeof structuredSourceFields |
+  typeof structuredSourceObservations |
+  typeof structuredSourceRevisions |
+  typeof structuredSourceRoutes |
+  typeof transcriptRevisionOrderMigrationItems |
+  typeof transcriptRevisionOrderMigrations |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -190,10 +228,12 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   billingPlans,
   brainCorpusHealth,
   brainExportJobs,
+  brainFeedbackReports,
   brainMaintenanceProposalItems,
   brainMaintenanceProposals,
   brainPageAuditEvents,
   brainPages,
+  brainProjectionPopulation,
   brainReadModes,
   brainRequiredScopeIntents,
   brainSources,
@@ -206,15 +246,24 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   claims,
   classificationDecisions,
   concepts,
+  connectorAllowlistGenerations,
   connectorIncrementalCursors,
   connectorPageChunks,
   connectorPageEnvelopes,
   connectorReconciliationRuns,
   connectorReconciliationSeen,
+  connectorScopes,
   connectorSyncStates,
   contextPacks,
   creditLedger,
   documentAnnotations,
+  documentSourceMembershipEdges,
+  documentSourceObjects,
+  documentSourceObservations,
+  documentSourceOutcomes,
+  documentSourcePassages,
+  documentSourceRevisions,
+  documentSourceScopePointers,
   documentVersions,
   documents,
   dsarRequests,
@@ -254,6 +303,14 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   sourceSegments,
   sourceUnitRevisions,
   sourceUnits,
+  structuredQueryFieldRegistrations,
+  structuredSourceEntities,
+  structuredSourceFields,
+  structuredSourceObservations,
+  structuredSourceRevisions,
+  structuredSourceRoutes,
+  transcriptRevisionOrderMigrationItems,
+  transcriptRevisionOrderMigrations,
   transformBlocks,
   transformDefinitions,
   transformRuns,

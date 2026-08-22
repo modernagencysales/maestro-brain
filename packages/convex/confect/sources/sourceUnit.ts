@@ -2,6 +2,11 @@ import { CanonicalCallTranscript } from "@maestro-template/integrations/transcri
 import * as Schema from "effect/Schema";
 
 import { sha256Hex } from "../shared/sha256";
+import {
+  TRANSCRIPT_ADAPTER_ORDER_VERSION,
+  TranscriptAdapterOrderVersion,
+  transcriptRevisionOrderMatchesFrozenContract,
+} from "./transcriptRevisionOrder";
 
 const NonNegativeInteger = Schema.Number.pipe(
   Schema.int(),
@@ -40,6 +45,7 @@ export const SourceUnitRow = Schema.Struct({
   currentRevisionOrder: Schema.optional(
     CanonicalCallTranscript.fields.revisionOrder,
   ),
+  currentRevisionOrderVersion: Schema.optional(TranscriptAdapterOrderVersion),
   lifecycle: Lifecycle,
   createdAt: NonNegativeInteger,
   updatedAt: NonNegativeInteger,
@@ -52,6 +58,7 @@ export const SourceUnitRevisionRow = Schema.Struct({
   unitRevisionKey: UnitRevisionKey,
   externalRevisionId: Schema.String,
   revisionOrder: Schema.optional(CanonicalCallTranscript.fields.revisionOrder),
+  revisionOrderVersion: Schema.optional(TranscriptAdapterOrderVersion),
   title: Schema.String,
   startedAt: CanonicalCallTranscript.fields.startedAt,
   endedAt: CanonicalCallTranscript.fields.endedAt,
@@ -93,6 +100,14 @@ export const buildCallSourceUnitRows = (
 ) => {
   const authority = Schema.decodeUnknownSync(SourceUnitAuthority)(rawAuthority);
   const input = Schema.decodeUnknownSync(CanonicalCallTranscript)(rawInput);
+  if (
+    !transcriptRevisionOrderMatchesFrozenContract({
+      providerKey: input.providerKey,
+      tombstone: input.deleted,
+      revisionOrder: input.revisionOrder,
+    })
+  )
+    throw new Error("revision order violates frozen adapter contract");
   const segments = [...input.segments].sort(
     (left, right) =>
       left.ordinal - right.ordinal ||
@@ -164,6 +179,7 @@ export const buildCallSourceUnitRows = (
       unitKey,
       currentUnitRevisionKey: unitRevisionKey,
       currentRevisionOrder: input.revisionOrder,
+      currentRevisionOrderVersion: TRANSCRIPT_ADAPTER_ORDER_VERSION,
       lifecycle,
       createdAt: authority.receivedAt,
       updatedAt: authority.receivedAt,
@@ -175,6 +191,7 @@ export const buildCallSourceUnitRows = (
       unitRevisionKey,
       externalRevisionId: input.externalRevisionId,
       revisionOrder: input.revisionOrder,
+      revisionOrderVersion: TRANSCRIPT_ADAPTER_ORDER_VERSION,
       title: input.title,
       startedAt: input.startedAt,
       endedAt: input.endedAt,

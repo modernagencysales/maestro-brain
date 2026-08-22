@@ -9,10 +9,12 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainCorpusHealth from "./tables/brainCorpusHealth";
 import brainExportJobs from "./tables/brainExportJobs";
+import brainFeedbackReports from "./tables/brainFeedbackReports";
 import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainProjectionPopulation from "./tables/brainProjectionPopulation";
 import brainReadModes from "./tables/brainReadModes";
 import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
 import brainSources from "./tables/brainSources";
@@ -25,15 +27,24 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorAllowlistGenerations from "./tables/connectorAllowlistGenerations";
 import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
 import connectorPageChunks from "./tables/connectorPageChunks";
 import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
 import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
 import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
+import connectorScopes from "./tables/connectorScopes";
 import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
+import documentSourceMembershipEdges from "./tables/documentSourceMembershipEdges";
+import documentSourceObjects from "./tables/documentSourceObjects";
+import documentSourceObservations from "./tables/documentSourceObservations";
+import documentSourceOutcomes from "./tables/documentSourceOutcomes";
+import documentSourcePassages from "./tables/documentSourcePassages";
+import documentSourceRevisions from "./tables/documentSourceRevisions";
+import documentSourceScopePointers from "./tables/documentSourceScopePointers";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import dsarRequests from "./tables/dsarRequests";
@@ -73,6 +84,14 @@ import sourceRevisions from "./tables/sourceRevisions";
 import sourceSegments from "./tables/sourceSegments";
 import sourceUnitRevisions from "./tables/sourceUnitRevisions";
 import sourceUnits from "./tables/sourceUnits";
+import structuredQueryFieldRegistrations from "./tables/structuredQueryFieldRegistrations";
+import structuredSourceEntities from "./tables/structuredSourceEntities";
+import structuredSourceFields from "./tables/structuredSourceFields";
+import structuredSourceObservations from "./tables/structuredSourceObservations";
+import structuredSourceRevisions from "./tables/structuredSourceRevisions";
+import structuredSourceRoutes from "./tables/structuredSourceRoutes";
+import transcriptRevisionOrderMigrationItems from "./tables/transcriptRevisionOrderMigrationItems";
+import transcriptRevisionOrderMigrations from "./tables/transcriptRevisionOrderMigrations";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -100,10 +119,12 @@ export default $defineSchema({
   billingPlans: billingPlans.tableDefinition,
   brainCorpusHealth: brainCorpusHealth.tableDefinition,
   brainExportJobs: brainExportJobs.tableDefinition,
+  brainFeedbackReports: brainFeedbackReports.tableDefinition,
   brainMaintenanceProposalItems: brainMaintenanceProposalItems.tableDefinition,
   brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
+  brainProjectionPopulation: brainProjectionPopulation.tableDefinition,
   brainReadModes: brainReadModes.tableDefinition,
   brainRequiredScopeIntents: brainRequiredScopeIntents.tableDefinition,
   brainSources: brainSources.tableDefinition,
@@ -116,15 +137,24 @@ export default $defineSchema({
   claims: claims.tableDefinition,
   classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
+  connectorAllowlistGenerations: connectorAllowlistGenerations.tableDefinition,
   connectorIncrementalCursors: connectorIncrementalCursors.tableDefinition,
   connectorPageChunks: connectorPageChunks.tableDefinition,
   connectorPageEnvelopes: connectorPageEnvelopes.tableDefinition,
   connectorReconciliationRuns: connectorReconciliationRuns.tableDefinition,
   connectorReconciliationSeen: connectorReconciliationSeen.tableDefinition,
+  connectorScopes: connectorScopes.tableDefinition,
   connectorSyncStates: connectorSyncStates.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
   documentAnnotations: documentAnnotations.tableDefinition,
+  documentSourceMembershipEdges: documentSourceMembershipEdges.tableDefinition,
+  documentSourceObjects: documentSourceObjects.tableDefinition,
+  documentSourceObservations: documentSourceObservations.tableDefinition,
+  documentSourceOutcomes: documentSourceOutcomes.tableDefinition,
+  documentSourcePassages: documentSourcePassages.tableDefinition,
+  documentSourceRevisions: documentSourceRevisions.tableDefinition,
+  documentSourceScopePointers: documentSourceScopePointers.tableDefinition,
   documentVersions: documentVersions.tableDefinition,
   documents: documents.tableDefinition,
   dsarRequests: dsarRequests.tableDefinition,
@@ -164,6 +194,14 @@ export default $defineSchema({
   sourceSegments: sourceSegments.tableDefinition,
   sourceUnitRevisions: sourceUnitRevisions.tableDefinition,
   sourceUnits: sourceUnits.tableDefinition,
+  structuredQueryFieldRegistrations: structuredQueryFieldRegistrations.tableDefinition,
+  structuredSourceEntities: structuredSourceEntities.tableDefinition,
+  structuredSourceFields: structuredSourceFields.tableDefinition,
+  structuredSourceObservations: structuredSourceObservations.tableDefinition,
+  structuredSourceRevisions: structuredSourceRevisions.tableDefinition,
+  structuredSourceRoutes: structuredSourceRoutes.tableDefinition,
+  transcriptRevisionOrderMigrationItems: transcriptRevisionOrderMigrationItems.tableDefinition,
+  transcriptRevisionOrderMigrations: transcriptRevisionOrderMigrations.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,

@@ -60,6 +60,10 @@ import {
 } from "./retrievalPublication";
 import type { RetrievalEligibilityFenceRef } from "./retrievalPublication";
 import { migrateLegacyPublicationJobEffect } from "./retrievalPublication.impl";
+import {
+  resumeTranscriptRevisionOrderBackfillEffect,
+  startTranscriptRevisionOrderBackfillEffect,
+} from "./transcriptRevisionOrderMigration";
 import rolloutOperations, {
   ProjectionBackfillCapacityExceeded,
   ProjectionBackfillConflict,
@@ -2447,10 +2451,26 @@ const resumeLegacyPublicationJobAuthorityMigrationImpl = FunctionImpl.make(
     }),
 );
 
+const backfillTranscriptRevisionOrderImpl = FunctionImpl.make(
+  databaseSchema,
+  rolloutOperations,
+  "backfillTranscriptRevisionOrder",
+  startTranscriptRevisionOrderBackfillEffect,
+);
+
+const resumeTranscriptRevisionOrderBackfillImpl = FunctionImpl.make(
+  databaseSchema,
+  rolloutOperations,
+  "resumeTranscriptRevisionOrderBackfill",
+  resumeTranscriptRevisionOrderBackfillEffect,
+);
+
 export default GroupImpl.make(databaseSchema, rolloutOperations).pipe(
   Layer.provide(startImpl),
   Layer.provide(resumeImpl),
   Layer.provide(migrateLegacyPublicationJobAuthorityImpl),
   Layer.provide(resumeLegacyPublicationJobAuthorityMigrationImpl),
+  Layer.provide(backfillTranscriptRevisionOrderImpl),
+  Layer.provide(resumeTranscriptRevisionOrderBackfillImpl),
   GroupImpl.finalize,
 );

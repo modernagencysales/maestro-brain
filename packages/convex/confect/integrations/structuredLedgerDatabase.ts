@@ -10,6 +10,7 @@ import fieldsTable from "../tables/structuredSourceFields";
 import observationsTable from "../tables/structuredSourceObservations";
 import revisionsTable from "../tables/structuredSourceRevisions";
 import routesTable from "../tables/structuredSourceRoutes";
+import queryFieldRegistrationsTable from "../tables/structuredQueryFieldRegistrations";
 
 export const structuredSourceEntities = entitiesTable(
   "structuredSourceEntities",
@@ -22,6 +23,9 @@ export const structuredSourceRevisions = revisionsTable(
   "structuredSourceRevisions",
 );
 export const structuredSourceRoutes = routesTable("structuredSourceRoutes");
+export const structuredQueryFieldRegistrations = queryFieldRegistrationsTable(
+  "structuredQueryFieldRegistrations",
+);
 
 export const structuredLedgerDatabaseSchema = DatabaseSchema.make({
   ...generatedDatabaseSchema.tables,
@@ -30,6 +34,7 @@ export const structuredLedgerDatabaseSchema = DatabaseSchema.make({
   structuredSourceObservations,
   structuredSourceRevisions,
   structuredSourceRoutes,
+  structuredQueryFieldRegistrations,
 });
 
 export const StructuredLedgerDatabaseReader =

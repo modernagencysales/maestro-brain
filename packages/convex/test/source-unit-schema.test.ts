@@ -133,6 +133,11 @@ describe("canonical source units", () => {
       {
         ...call,
         externalRevisionId: "revision_deleted",
+        revisionOrder: {
+          kind: "provider_timestamp",
+          timestamp: "2026-08-05T15:00:00.000Z",
+          source: "_nango_metadata.deleted_at",
+        },
         segments: [],
         deleted: true,
       },

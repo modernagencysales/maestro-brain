@@ -7,6 +7,10 @@ import {
   NonNegativeInteger,
   PositiveInteger,
 } from "./retrievalSchemas";
+import {
+  TranscriptAdapterOrderVersion,
+  TranscriptRevisionOrderConflictKind,
+} from "../sources/transcriptRevisionOrder";
 
 const NullableString = Schema.NullOr(Schema.String);
 const BatchSize = Schema.Number.pipe(
@@ -112,10 +116,51 @@ const LegacyJobAuthorityMigrationProgress = Schema.Struct({
   completionDigest: Schema.NullOr(ContentHash),
 });
 
+export class TranscriptRevisionOrderBackfillNotFound extends Schema.TaggedError<TranscriptRevisionOrderBackfillNotFound>()(
+  "TranscriptRevisionOrderBackfillNotFound",
+  { runKey: Schema.String },
+) {}
+
+export class TranscriptRevisionOrderBackfillConflict extends Schema.TaggedError<TranscriptRevisionOrderBackfillConflict>()(
+  "TranscriptRevisionOrderBackfillConflict",
+  {
+    reason: Schema.Literal(
+      "generation_changed",
+      "adapter_version_changed",
+      "integrity_conflict",
+      "completion_immutable",
+    ),
+    detail: Schema.String,
+  },
+) {}
+
+const TranscriptRevisionOrderBackfillProgress = Schema.Struct({
+  runKey: Schema.String,
+  runGeneration: PositiveInteger,
+  adapterOrderVersion: TranscriptAdapterOrderVersion,
+  stage: Schema.Literal("scanning", "validating", "complete", "blocked"),
+  cursor: NullableString,
+  sourcePopulationGeneration: NonNegativeInteger,
+  pinnedSourcePopulationGeneration: NonNegativeInteger,
+  processed: NonNegativeInteger,
+  backfilled: NonNegativeInteger,
+  excluded: NonNegativeInteger,
+  conflictCount: NonNegativeInteger,
+  blockingConflict: Schema.NullOr(TranscriptRevisionOrderConflictKind),
+  terminal: Schema.Boolean,
+  readyForPromotion: Schema.Boolean,
+  completionDigest: Schema.NullOr(ContentHash),
+});
+
 const Errors = Schema.Union(
   ProjectionBackfillNotFound,
   ProjectionBackfillConflict,
   ProjectionBackfillCapacityExceeded,
+);
+
+const TranscriptRevisionOrderErrors = Schema.Union(
+  TranscriptRevisionOrderBackfillNotFound,
+  TranscriptRevisionOrderBackfillConflict,
 );
 
 export const startProjectionBackfill = FunctionSpec.internalMutation({
@@ -177,8 +222,35 @@ export const resumeLegacyPublicationJobAuthorityMigration =
     error: () => Errors,
   });
 
+export const backfillTranscriptRevisionOrder = FunctionSpec.internalMutation({
+  name: "backfillTranscriptRevisionOrder",
+  args: () =>
+    Schema.Struct({
+      organizationKey: Schema.String,
+      adapterOrderVersion: TranscriptAdapterOrderVersion,
+      batchSize: BatchSize,
+    }),
+  returns: () => TranscriptRevisionOrderBackfillProgress,
+  error: () => TranscriptRevisionOrderErrors,
+});
+
+export const resumeTranscriptRevisionOrderBackfill =
+  FunctionSpec.internalMutation({
+    name: "resumeTranscriptRevisionOrderBackfill",
+    args: () =>
+      Schema.Struct({
+        runKey: Schema.String,
+        expectedRunGeneration: PositiveInteger,
+        batchSize: BatchSize,
+      }),
+    returns: () => TranscriptRevisionOrderBackfillProgress,
+    error: () => TranscriptRevisionOrderErrors,
+  });
+
 export default GroupSpec.make()
   .addFunction(startProjectionBackfill)
   .addFunction(resumeProjectionBackfill)
   .addFunction(migrateLegacyPublicationJobAuthority)
-  .addFunction(resumeLegacyPublicationJobAuthorityMigration);
+  .addFunction(resumeLegacyPublicationJobAuthorityMigration)
+  .addFunction(backfillTranscriptRevisionOrder)
+  .addFunction(resumeTranscriptRevisionOrderBackfill);
