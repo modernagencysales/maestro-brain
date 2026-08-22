@@ -12,17 +12,15 @@ Configuration names:
 - `CONVEX_SITE_URL` — approved HTTPS site origin; not a secret;
 - `MAESTRO_BRAIN_API_KEY` — runtime-local bearer credential; secret.
 
-Provision a separate existing read-only service identity for each installed
-runtime. Each credential must be scoped to `brain:read`, have a viewer ceiling,
-and derive the organization, workspace, and Brain scope server-side. Do not add
-a Brain key or tenant selector to prompts or tool input. Do not share one
-credential between Codex and Claude Code, and never commit a credential value.
-
-Terminal contributors may receive a separate credential with the existing
-`brain:ask` agent scope. That scope also permits the reviewed
-`brain.notes.submit` API path; submitted notes remain pending until the normal
-editor review workflow publishes or rejects them. It does not add an MCP write
-tool.
+Provision a separate existing interactive service identity for each installed
+runtime. Each credential must be scoped to both `brain:read` and `brain:ask`,
+have a viewer ceiling, and derive the organization, workspace, and Brain scope
+server-side. `brain:ask` authorizes grounded answer synthesis and the reviewed
+API-only `brain.notes.submit` contribution path; it does not add an MCP write
+tool. Submitted notes remain pending until the normal editor review workflow
+publishes or rejects them. Do not add a Brain key or tenant selector to prompts
+or tool input. Do not share one credential between Codex and Claude Code, and
+never commit a credential value.
 
 The MCP connection is named `maestro-brain`, uses streamable HTTP at the
 approved `${CONVEX_SITE_URL}/mcp` endpoint, and sends `MAESTRO_BRAIN_API_KEY` as
@@ -101,16 +99,16 @@ pinned Claude Code version's MCP status command before invoking the skill.
 
 ## Configure Claude Cowork
 
-Run `pnpm brain setup cowork` to print a portable remote HTTP MCP descriptor.
-Enter that name, `${CONVEX_SITE_URL}/mcp` URL, and bearer Authorization header
-in Cowork's connector settings. Cowork does not need the repository-local skill:
-after the MCP handshake it can discover the server-delivered `ask-apero` prompt,
-which carries the same retrieval, citation, freshness, and abstention rules.
+Run `pnpm brain setup cowork` to write the portable remote HTTP MCP descriptor
+to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer authentication
+settings in Cowork's connector UI. Cowork does not need the repository-local
+skill: after the MCP handshake it can discover the server-delivered `ask-apero`
+prompt, which carries the same retrieval, citation, freshness, and abstention
+rules.
 
-Because Cowork connector storage is host-managed, setup does not guess or write
-a local Cowork configuration path and does not claim that the connector has been
-activated. Run `pnpm brain doctor` to verify the remote endpoint before testing
-from Cowork.
+Because Cowork connector storage is host-managed, setup writes only the portable
+descriptor and does not claim that the connector has been activated. Run
+`pnpm brain doctor` to verify the remote endpoint before testing from Cowork.
 
 ## Smoke check
 
