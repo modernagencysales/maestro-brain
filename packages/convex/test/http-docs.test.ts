@@ -232,7 +232,7 @@ describe("template HTTP docs routes", () => {
     expect(initialize).toMatchObject({
       jsonrpc: "2.0",
       id: 1,
-      result: { capabilities: { tools: {} } },
+      result: { capabilities: { prompts: {}, tools: {} } },
     });
     expect(listed).toMatchObject({
       jsonrpc: "2.0",
@@ -251,6 +251,136 @@ describe("template HTTP docs routes", () => {
     expect(tools.map((tool) => tool.name)).not.toContain(
       "template.brain.pilot.ask",
     );
+  });
+
+  it("serves the Ask Apero MCP prompt with grounded answer guidance", async () => {
+    const listed = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 3,
+            method: "prompts/list",
+          }),
+        }),
+      ),
+    );
+    const question = "What is Apero's current launch plan?";
+    const prompt = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 4,
+            method: "prompts/get",
+            params: { name: "ask-apero", arguments: { question } },
+          }),
+        }),
+      ),
+    );
+
+    expect(listed).toEqual({
+      jsonrpc: "2.0",
+      id: 3,
+      result: {
+        prompts: [
+          {
+            name: "ask-apero",
+            title: "Ask Apero",
+            description: expect.any(String),
+            arguments: [
+              {
+                name: "question",
+                description: expect.any(String),
+                required: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(prompt).toMatchObject({
+      jsonrpc: "2.0",
+      id: 4,
+      result: {
+        description: expect.any(String),
+        messages: [
+          {
+            role: "user",
+            content: { type: "text", text: expect.any(String) },
+          },
+        ],
+      },
+    });
+    const text = (
+      prompt as {
+        result: { messages: readonly [{ content: { text: string } }] };
+      }
+    ).result.messages[0].content.text;
+    expect(text).toContain(question);
+    expect(text).toContain("template.brain.answers.ask");
+    expect(text).toContain("citations");
+    expect(text).toContain("freshness or readiness");
+    expect(text).toContain("insufficient evidence");
+    expect(text).toContain("Do not invent");
+  });
+
+  it("rejects unknown and invalid Ask Apero MCP prompt requests", async () => {
+    const requestPrompt = async (
+      id: number,
+      params: Record<string, unknown>,
+    ): Promise<unknown> =>
+      await readJson(
+        await handleTemplateHttpRequest(
+          noopCtx,
+          new Request("https://template.local/mcp", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              method: "prompts/get",
+              params,
+            }),
+          }),
+        ),
+      );
+
+    expect(
+      await requestPrompt(5, {
+        name: "not-a-prompt",
+        arguments: { question: "What changed?" },
+      }),
+    ).toEqual({
+      jsonrpc: "2.0",
+      id: 5,
+      error: { code: -32602, message: "Unknown or unavailable MCP prompt." },
+    });
+    for (const [id, question] of [
+      [6, undefined],
+      [7, "   "],
+      [8, 42],
+    ] as const) {
+      expect(
+        await requestPrompt(id, {
+          name: "ask-apero",
+          arguments: { question },
+        }),
+      ).toEqual({
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code: -32602,
+          message: "MCP prompt question must be a non-empty string.",
+        },
+      });
+    }
   });
 
   it("rejects MCP tool calls that are not in the reviewed operation policy", async () => {

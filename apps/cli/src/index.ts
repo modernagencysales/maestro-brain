@@ -5,6 +5,11 @@ import { parseNamedArgs } from "./namedArgs";
 import { cliFailure, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
+import {
+  doctorBrainEnvironment,
+  setupBrainEnvironment,
+  type SetupRuntime,
+} from "./environmentSetup";
 import type {
   CliCapabilityRequest,
   CliResult,
@@ -26,6 +31,14 @@ export const remoteCliOperationRefs: Readonly<Record<string, string>> = {
   "brain.sources.search": "brain.sources.search",
   "brain.sources.get": "brain.sources.get",
   "brain.rollout.status": "brain.rollout.status",
+  "brain.feedback.reportWrongOrStale": "brain.feedback.reportWrongOrStale",
+  "brain.notes.submit": "brain.notes.submit",
+};
+
+type RemoteBrainRequest = {
+  readonly operationId: string;
+  readonly input: Record<string, unknown>;
+  readonly idempotencyKey?: string;
 };
 
 const tenantSelectorNames = new Set([
@@ -75,27 +88,17 @@ const brainApiOrigin = (value: string | undefined): string | undefined => {
   }
 };
 
-const remoteBrainApiResult = async (
-  argv: readonly string[],
+const executeRemoteBrainRequest = async (
+  request: RemoteBrainRequest,
   config: CliRuntimeConfig,
 ): Promise<CliResult> => {
-  const requestedOperationId = argv[2] ?? "";
-  const operationId = remoteCliOperationRefs[requestedOperationId];
+  const operationId = remoteCliOperationRefs[request.operationId];
   if (operationId === undefined) {
     return cliFailure(
-      `Unknown remote Brain operation: ${requestedOperationId}\n`,
+      `Unknown remote Brain operation: ${request.operationId}\n`,
     );
   }
-
-  const parsed = parseNamedArgs(argv.slice(3));
-  if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
-  if (
-    parsed.args.input === undefined ||
-    Object.keys(parsed.args).some((name) => name !== "input")
-  ) {
-    return cliFailure("api call requires only --input.\n");
-  }
-  if (containsTenantSelector(parsed.args.input)) {
+  if (containsTenantSelector(request.input)) {
     return cliFailure(
       "Brain scope must be derived from MAESTRO_BRAIN_API_KEY.\n",
     );
@@ -118,7 +121,12 @@ const remoteBrainApiResult = async (
         authorization: `Bearer ${config.brainApiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ input: parsed.args.input }),
+      body: JSON.stringify({
+        input: request.input,
+        ...(request.idempotencyKey === undefined
+          ? {}
+          : { idempotencyKey: request.idempotencyKey }),
+      }),
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
@@ -143,6 +151,105 @@ const remoteBrainApiResult = async (
     return cliFailure("Brain API request failed.\n");
   }
 };
+
+const remoteBrainApiResult = async (
+  argv: readonly string[],
+  config: CliRuntimeConfig,
+): Promise<CliResult> => {
+  const parsed = parseNamedArgs(argv.slice(3));
+  if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
+  const { input, idempotencyKey, ...unsupported } = parsed.args;
+  if (input === undefined || Object.keys(unsupported).length > 0) {
+    return cliFailure(
+      "api call requires --input and optionally --idempotency-key.\n",
+    );
+  }
+  return await executeRemoteBrainRequest(
+    {
+      operationId: argv[2] ?? "",
+      input,
+      ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    },
+    config,
+  );
+};
+
+const terminalTextRequest = (
+  command: "ask" | "search",
+  argv: readonly string[],
+): RemoteBrainRequest | CliResult => {
+  const text = argv.slice(1).join(" ").trim();
+  if (!text)
+    return cliFailure(
+      `${command} requires a ${command === "ask" ? "question" : "query"}.\n`,
+    );
+  return command === "ask"
+    ? { operationId: "brain.answers.ask", input: { question: text } }
+    : { operationId: "brain.sources.search", input: { query: text } };
+};
+
+const terminalBrainRequest = (
+  argv: readonly string[],
+): RemoteBrainRequest | CliResult | undefined => {
+  const command = argv[0];
+  if (command === "ask" || command === "search")
+    return terminalTextRequest(command, argv);
+  if (command === "source") {
+    const sourceKey = argv[1];
+    const citationParts = sourceKey?.startsWith("citation:")
+      ? sourceKey.slice("citation:".length).split(":")
+      : [];
+    return argv.length === 2 && sourceKey?.trim()
+      ? citationParts.length === 2
+        ? {
+            operationId: "brain.sources.get",
+            input: {
+              publicationSetKey: citationParts[0] as string,
+              entryKey: citationParts[1] as string,
+            },
+          }
+        : {
+            operationId: "brain.sources.get",
+            input: { sourceRevisionKey: sourceKey },
+          }
+      : cliFailure("source requires one source revision key.\n");
+  }
+  if (command === "health")
+    return argv.length === 1
+      ? { operationId: "brain.rollout.status", input: {} }
+      : cliFailure("health takes no arguments.\n");
+  if (command === "note") {
+    const parsed = parseNamedArgs(argv.slice(1));
+    if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
+    const { input, ...unsupported } = parsed.args;
+    return input === undefined ||
+      typeof input.title !== "string" ||
+      typeof input.markdown !== "string" ||
+      Object.keys(unsupported).length > 0
+      ? cliFailure(
+          'note requires --input with string "title" and "markdown".\n',
+        )
+      : { operationId: "brain.notes.submit", input };
+  }
+  if (command !== "feedback") return undefined;
+
+  const parsed = parseNamedArgs(argv.slice(1));
+  if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
+  const { input, idempotencyKey, ...unsupported } = parsed.args;
+  return input === undefined ||
+    idempotencyKey === undefined ||
+    Object.keys(unsupported).length > 0
+    ? cliFailure("feedback requires --input and --idempotency-key.\n")
+    : {
+        operationId: "brain.feedback.reportWrongOrStale",
+        input,
+        idempotencyKey,
+      };
+};
+
+const isCliResult = (
+  value: RemoteBrainRequest | CliResult,
+): value is CliResult => "exitCode" in value;
 
 const runStaticCliCapability = (
   capabilityId: string,
@@ -177,10 +284,31 @@ export const runCli = (
 export const runCliAsync = async (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
-): Promise<CliResult> =>
-  argv[0] === "api" && argv[1] === "call"
-    ? await remoteBrainApiResult(argv, config)
-    : runCli(argv, config);
+): Promise<CliResult> => {
+  if (argv[0] === "setup")
+    return argv.length <= 2 &&
+      (argv[1] === undefined ||
+        (["codex", "claude-code", "cowork"] as const).includes(
+          argv[1] as Exclude<SetupRuntime, "all">,
+        ))
+      ? setupBrainEnvironment({
+          repoRoot: process.cwd(),
+          siteUrl: config.brainSiteUrl,
+          runtime: (argv[1] as SetupRuntime | undefined) ?? "all",
+        })
+      : cliFailure("setup accepts codex, claude-code, or cowork.\n");
+  if (argv[0] === "doctor")
+    return argv.length === 1
+      ? await doctorBrainEnvironment(config)
+      : cliFailure("doctor takes no arguments.\n");
+  if (argv[0] === "api" && argv[1] === "call")
+    return await remoteBrainApiResult(argv, config);
+  const terminalRequest = terminalBrainRequest(argv);
+  if (terminalRequest === undefined) return runCli(argv, config);
+  return isCliResult(terminalRequest)
+    ? terminalRequest
+    : await executeRemoteBrainRequest(terminalRequest, config);
+};
 
 if (
   process.argv[1]?.endsWith("index.ts") ||

@@ -10,7 +10,7 @@ import { ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import { PageNotFound, StaleRevision } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
-import { requireBrainAccess } from "./pages.impl";
+import { requireBrainAccess, requireHeadlessBrainAccess } from "./pages.impl";
 import pilot from "./pilot.spec";
 import {
   buildAskResponse,
@@ -48,6 +48,45 @@ const submitNote = FunctionImpl.make(
         validateText("title", title) ?? validateText("markdown", markdown);
       if (invalid !== null) return yield* invalid;
       const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      const submittedAt = yield* unsafeAssumeClockProvided(
+        Clock.currentTimeMillis,
+      );
+      const sourceKey = sourceKeyFor({
+        brainKey: brain.brainKey,
+        submittedAt,
+        title,
+        markdown,
+      });
+      const writer = yield* DatabaseWriter;
+      yield* writer
+        .table("brainSources")
+        .insert({
+          workspaceId: brain.workspaceId,
+          organizationId: brain.organizationId,
+          sourceKey,
+          title,
+          markdown,
+          status: "pending_review",
+          submittedAt,
+          schemaVersion: 1,
+        })
+        .pipe(Effect.orDie);
+      return { sourceKey, status: "pending_review" as const };
+    }),
+);
+
+const headlessSubmitNote = FunctionImpl.make(
+  databaseSchema,
+  pilot,
+  "headlessSubmitNote",
+  (args) =>
+    Effect.gen(function* () {
+      const title = args.title.trim();
+      const markdown = args.markdown.trim();
+      const invalid =
+        validateText("title", title) ?? validateText("markdown", markdown);
+      if (invalid !== null) return yield* invalid;
+      const brain = yield* requireHeadlessBrainAccess(args);
       const submittedAt = yield* unsafeAssumeClockProvided(
         Clock.currentTimeMillis,
       );
@@ -535,6 +574,7 @@ const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
 
 export default GroupImpl.make(databaseSchema, pilot).pipe(
   Layer.provide(submitNote),
+  Layer.provide(headlessSubmitNote),
   Layer.provide(reviewNote),
   Layer.provide(listReviewQueue),
   Layer.provide(updatePage),

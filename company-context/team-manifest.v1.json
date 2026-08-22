@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "0.3.0",
+  "manifestVersion": "0.4.0",
   "status": "candidate",
   "canonicalSkill": {
     "name": "ask-apero",
@@ -35,6 +35,14 @@
       "path": "/api/brain.feedback.reportWrongOrStale",
       "requiredScope": "brain:read",
       "sourceTextAllowed": false
+    },
+    "terminalContribution": {
+      "status": "implemented-review-queue",
+      "operationId": "brain.notes.submit",
+      "path": "/api/brain.notes.submit",
+      "requiredScope": "brain:ask",
+      "publishedWithoutReview": false,
+      "availableOverMcp": false
     }
   },
   "runtimes": [
@@ -53,6 +61,14 @@
       "liveParity": "pending",
       "skillDiscoveryPath": ".claude/skills/ask-apero",
       "mcpConfigPath": ".mcp.json"
+    },
+    {
+      "name": "claude-cowork",
+      "compatibleVersions": ["host-managed"],
+      "compatibilityLevel": "remote-http-mcp-and-server-prompt",
+      "liveParity": "pending",
+      "skillDiscoveryPath": "mcp://maestro-brain/prompts/ask-apero",
+      "mcpConfigPath": "host-managed connector settings"
     }
   ],
   "unresolvedDecisions": {
