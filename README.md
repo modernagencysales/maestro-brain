@@ -15,6 +15,27 @@ runtimes. See
 [Apero Company Brain Architecture](./docs/product/apero-company-brain-architecture.md)
 for the proposed source, retrieval, credential, and tool-calling boundaries.
 
+## Company Brain terminal quickstart
+
+Teammates using Codex, Claude Code, or Claude Cowork can connect to the shared
+Brain without running the web app. Create a display-once key with `brain:read`
+and `brain:ask` at
+[`/settings`](https://maestro-brain-staging.tim-bb0.workers.dev/settings), then:
+
+```bash
+export CONVEX_SITE_URL="https://perfect-sparrow-808.convex.site"
+export MAESTRO_BRAIN_API_KEY="<display-once-key>"
+pnpm install --frozen-lockfile
+pnpm brain setup codex # or claude-code / cowork
+pnpm brain doctor
+pnpm brain ask "What is our ICP?"
+```
+
+Setup writes project-local runtime configuration. Cowork users import the
+generated `.cowork/maestro-brain.json` descriptor through Cowork's connector UI.
+See [terminal testing](./company-context/terminal-testing.md) for adding notes,
+inspecting/importing Markdown snapshots, and the acceptance checklist.
+
 ## Quickstart
 
 ```bash

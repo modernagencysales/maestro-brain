@@ -89,16 +89,18 @@ To migrate an approved Claude Project or another reviewed Markdown snapshot, put
 its `.md` files in one local directory and submit them together:
 
 ```bash
+pnpm brain snapshot inspect ./apero-snapshot --as-of 2026-08-22
 pnpm brain snapshot submit ./apero-snapshot --as-of 2026-08-22
 ```
 
-The command walks Markdown files in stable path order, uses each first-level
-heading as its title, stamps every page with the required snapshot source and
-date, and stops at the first rejected submission. Override the default source
-label with `--source <name>` when importing something other than the Ask Apero
-Claude Project. The command never prints document bodies. Every submitted file
-still enters `pending_review`; the context owner approves or rejects it in the
-Brain review queue.
+`inspect` performs all local validation without credentials or network access
+and prints file order, derived titles, and byte counts—but never document
+bodies. `submit` walks those files in the same order, stamps every page with the
+required snapshot source and date, and stops at the first rejected submission.
+Override the default source label with `--source <name>` when importing
+something other than the Ask Apero Claude Project. Every submitted file still
+enters `pending_review`; the context owner approves or rejects it in the Brain
+review queue.
 
 The note does not become retrieval evidence until an editor approves it in the
 existing review workflow. Write operations are intentionally unavailable over

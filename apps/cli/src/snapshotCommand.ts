@@ -3,7 +3,7 @@ import { snapshotNotesForDirectory, type SnapshotNote } from "./snapshotImport";
 import type { CliResult } from "./types";
 
 const usage =
-  "snapshot usage: snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>].\n";
+  "snapshot usage: snapshot <inspect|submit> <directory> --as-of <YYYY-MM-DD> [--source <name>].\n";
 const defaultSource = "Claude Ask Apero Advisors";
 
 type SubmitNote = (note: SnapshotNote) => Promise<CliResult>;
@@ -11,6 +11,7 @@ type SubmitNote = (note: SnapshotNote) => Promise<CliResult>;
 type SnapshotOptionsResult =
   | {
       readonly ok: true;
+      readonly action: "inspect" | "submit";
       readonly directory: string;
       readonly asOf: string;
       readonly source: string;
@@ -25,7 +26,8 @@ type SubmittedNote = {
 };
 
 const snapshotOptions = (argv: readonly string[]): SnapshotOptionsResult => {
-  if (argv[1] !== "submit") return { ok: false, result: cliFailure(usage) };
+  if (argv[1] !== "inspect" && argv[1] !== "submit")
+    return { ok: false, result: cliFailure(usage) };
   const tokens = argv.slice(3);
   const flags = tokens.filter((_, index) => index % 2 === 0);
   if (
@@ -45,6 +47,7 @@ const snapshotOptions = (argv: readonly string[]): SnapshotOptionsResult => {
       }
     : {
         ok: true,
+        action: argv[1],
         directory: argv[2] ?? "",
         asOf,
         source: options["--source"] ?? defaultSource,
@@ -92,6 +95,31 @@ export const runSnapshotSubmit = async (
   if (!options.ok) return options.result;
   const snapshot = snapshotNotesForDirectory(options.directory, options);
   if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
+  if (options.action === "inspect") {
+    return {
+      exitCode: 0,
+      stdout: formatJsonOutput({
+        ok: true,
+        operationId: "brain.snapshot.inspect",
+        result: {
+          directory: snapshot.directory,
+          source: options.source,
+          asOf: options.asOf,
+          fileCount: snapshot.notes.length,
+          totalBytes: snapshot.notes.reduce(
+            (total, note) => total + note.bytes,
+            0,
+          ),
+          files: snapshot.notes.map(({ path, title, bytes }) => ({
+            path,
+            title,
+            bytes,
+          })),
+        },
+      }),
+      stderr: "",
+    };
+  }
 
   const submitted: SubmittedNote[] = [];
   for (const note of snapshot.notes) {
@@ -103,9 +131,11 @@ export const runSnapshotSubmit = async (
           ok: false,
           operationId: "brain.snapshot.submit",
           result: { submitted, failedPath: note.path },
-          error: "Snapshot submission stopped at the first rejected file.",
+          error:
+            result.stderr.trim() ||
+            "Snapshot submission stopped at the first rejected file.",
         }),
-        stderr: result.stderr,
+        stderr: "",
       };
     submitted.push(submittedNote(note, result));
   }

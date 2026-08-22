@@ -2,7 +2,7 @@
 import { runTemplateApiOperation } from "@maestro-template/workflow-tooling";
 import { createCliHandlers } from "./commands";
 import { parseNamedArgs } from "./namedArgs";
-import { cliFailure, formatJsonOutput } from "./result";
+import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
 import { runSnapshotSubmit } from "./snapshotCommand";
@@ -131,14 +131,24 @@ const executeRemoteBrainRequest = async (
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const body: unknown = await response.json();
+    const responseText = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(responseText);
+    } catch {
+      return cliFailure(
+        `Brain API returned HTTP ${response.status} with a non-JSON response.\n`,
+      );
+    }
     if (
       body === null ||
       typeof body !== "object" ||
       !("ok" in body) ||
       typeof body.ok !== "boolean"
     ) {
-      return cliFailure("Brain API returned an invalid response.\n");
+      return cliFailure(
+        `Brain API returned HTTP ${response.status} with an invalid response.\n`,
+      );
     }
 
     return {
@@ -149,7 +159,9 @@ const executeRemoteBrainRequest = async (
       stderr: "",
     };
   } catch {
-    return cliFailure("Brain API request failed.\n");
+    return cliFailure(
+      "Could not reach Brain API (network error or timeout).\n",
+    );
   }
 };
 
@@ -277,6 +289,43 @@ const cliHandlers = createCliHandlers({
   },
 });
 
+const commandHelp: Readonly<Record<string, string>> = {
+  setup: [
+    "Configure a terminal runtime in the current repository.",
+    "",
+    "Usage: pnpm brain setup <codex|claude-code|cowork>",
+    "Requires: CONVEX_SITE_URL",
+    "Writes project-local config and never writes MAESTRO_BRAIN_API_KEY.",
+  ].join("\n"),
+  doctor: [
+    "Verify configuration, API access, and hosted MCP prompts/tools.",
+    "",
+    "Usage: pnpm brain doctor",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  note: [
+    "Submit one note to the editor review queue.",
+    "",
+    'Usage: pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  snapshot: [
+    "Inspect or submit a Markdown snapshot in stable path order.",
+    "",
+    "Usage:",
+    "  pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "  pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "Inspect is local and prints metadata only. Submit requires both environment variables.",
+  ].join("\n"),
+};
+
+const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
+  if (argv.length !== 2 || !["--help", "-h"].includes(argv[1] ?? ""))
+    return undefined;
+  const help = commandHelp[argv[0] ?? ""];
+  return help === undefined ? undefined : cliSuccess(`${help}\n`);
+};
+
 export const runCli = (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
@@ -286,6 +335,8 @@ export const runCliAsync = async (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
 ): Promise<CliResult> => {
+  const help = focusedHelp(argv);
+  if (help !== undefined) return help;
   if (argv[0] === "snapshot")
     return await runSnapshotSubmit(argv, (note) =>
       executeRemoteBrainRequest(

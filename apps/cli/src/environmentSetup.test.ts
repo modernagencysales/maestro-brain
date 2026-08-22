@@ -234,7 +234,7 @@ describe("maestro-brain environment setup", () => {
 });
 
 describe("maestro-brain doctor", () => {
-  it("validates the API, MCP initialize, and MCP prompts/list", async () => {
+  it("validates the API, MCP initialize, prompts, and scoped tools", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
       const body = JSON.parse(String(init?.body)) as {
         readonly id?: number;
@@ -252,6 +252,25 @@ describe("maestro-brain doctor", () => {
               protocolVersion: "2025-06-18",
               capabilities: { prompts: {} },
               serverInfo: { name: "maestro-brain", version: "1" },
+            },
+          }),
+        );
+      }
+      if (body.method === "tools/list") {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              tools: [
+                "answers.ask",
+                "context.get",
+                "sources.search",
+                "sources.get",
+              ].map((name) => ({
+                name: `template.brain.${name}`,
+                inputSchema: { type: "object", properties: {} },
+              })),
             },
           }),
         );
@@ -275,15 +294,20 @@ describe("maestro-brain doctor", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: true,
-      checks: [
-        { id: "api", ok: true },
-        { id: "mcp.initialize", ok: true },
-        { id: "mcp.prompts.list", ok: true },
-      ],
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(true);
+    expect(
+      Object.fromEntries(output.checks.map(({ id, ok }) => [id, ok])),
+    ).toMatchObject({
+      api: true,
+      "mcp.initialize": true,
+      "mcp.prompts.list": true,
+      "mcp.tools.list": true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const [, init] of fetchMock.mock.calls) {
       expect(init?.headers).toEqual(
         expect.objectContaining({ authorization: "Bearer brain_api_secret" }),
@@ -305,6 +329,13 @@ describe("maestro-brain doctor", () => {
 
     expect(result.exitCode).toBe(1);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      checks: [
+        { id: "config.siteUrl", ok: false, status: "invalid" },
+        { id: "config.apiKey", ok: false, status: "invalid" },
+      ],
+    });
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
   });
 
@@ -326,7 +357,9 @@ describe("maestro-brain doctor", () => {
                   protocolVersion: "2025-06-18",
                   serverInfo: { name: "maestro-brain" },
                 }
-              : { prompts: [] },
+              : request.method === "prompts/list"
+                ? { prompts: [] }
+                : { tools: [] },
         }),
       );
     });
@@ -340,10 +373,66 @@ describe("maestro-brain doctor", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: false,
-      checks: [{ ok: true }, { ok: true }, { ok: false }],
-    });
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(false);
+    expect(output.checks.find(({ id }) => id === "mcp.prompts.list")?.ok).toBe(
+      false,
+    );
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("rejects hosted tool schemas that expose tenant selectors", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      if (String(url).includes("/api/"))
+        return new Response(JSON.stringify({ ok: true }));
+      const request = JSON.parse(String(init?.body)) as {
+        readonly id: number;
+        readonly method: string;
+      };
+      const result =
+        request.method === "initialize"
+          ? {
+              protocolVersion: "2025-06-18",
+              serverInfo: { name: "maestro-brain" },
+            }
+          : request.method === "prompts/list"
+            ? { prompts: [{ name: "ask-apero" }] }
+            : {
+                tools: [
+                  {
+                    name: "template.brain.answers.ask",
+                    inputSchema: {
+                      type: "object",
+                      properties: { brainKey: { type: "string" } },
+                    },
+                  },
+                ],
+              };
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: request.id, result }),
+      );
+    });
+
+    const result = await doctorBrainEnvironment(
+      {
+        brainSiteUrl: "https://brain.example.test",
+        brainApiKey: "brain_api_secret",
+        providerEnv: {},
+      },
+      fetchMock,
+    );
+
+    expect(result.exitCode).toBe(1);
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(false);
+    expect(output.checks.find(({ id }) => id === "mcp.tools.list")?.ok).toBe(
+      false,
+    );
   });
 });

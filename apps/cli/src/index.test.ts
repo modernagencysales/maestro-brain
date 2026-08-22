@@ -71,23 +71,41 @@ describe("maestro-template CLI", () => {
     expect(result.stderr).toBe("");
   }, 15_000);
 
-  it("prints maestro-brain commands in help", () => {
+  it("prints an agent-oriented Company Brain quickstart in help", () => {
     const result = runCli(["--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("maestro-brain api call");
-    expect(result.stdout).toContain("maestro-brain ask <question>");
-    expect(result.stdout).toContain("maestro-brain search <query>");
+    expect(result.stdout).toContain("Company Brain CLI");
+    expect(result.stdout).toContain("export CONVEX_SITE_URL=");
+    expect(result.stdout).toContain("pnpm brain setup <runtime>");
+    expect(result.stdout).toContain("pnpm brain doctor");
+    expect(result.stdout).toContain("pnpm brain ask <question>");
+    expect(result.stdout).toContain("pnpm brain search <query>");
     expect(result.stdout).toContain(
-      "maestro-brain source <citation-key|source-revision-key>",
+      "pnpm brain source <citation-key|source-revision-key>",
     );
-    expect(result.stdout).toContain("maestro-brain health");
-    expect(result.stdout).toContain("maestro-brain feedback");
-    expect(result.stdout).toContain("maestro-brain note --input");
+    expect(result.stdout).toContain("pnpm brain health");
+    expect(result.stdout).toContain("pnpm brain feedback");
+    expect(result.stdout).toContain("pnpm brain note --input");
     expect(result.stdout).toContain(
-      "maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD>",
+      "pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
     );
-    expect(result.stdout).not.toContain("maestro-template");
+    expect(result.stdout).toContain(
+      "pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD>",
+    );
+    expect(result.stdout).toContain("Advanced template-development commands");
+  });
+
+  it.each([
+    ["setup", "Configure a terminal runtime"],
+    ["doctor", "Verify configuration, API access"],
+    ["note", "Submit one note"],
+    ["snapshot", "Inspect or submit a Markdown snapshot"],
+  ])("prints focused help for %s", async (command, heading) => {
+    const result = await runCliAsync([command, "--help"]);
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(result.stdout).toContain(heading);
   });
 
   it.each([
@@ -281,6 +299,73 @@ describe("maestro-template CLI", () => {
           result: { submittedCount: number; status: string };
         }>(result).result,
       ).toMatchObject({ submittedCount: 2, status: "pending_review" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("inspects a Markdown snapshot without configuration or network access", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-snapshot-"));
+    mkdirSync(join(root, "team"));
+    writeFileSync(join(root, "z-pricing.md"), "# Pricing\n\nMargin guidance.");
+    writeFileSync(join(root, "team", "icp.md"), "# ICP\n\nAgency operators.");
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await runCliAsync([
+        "snapshot",
+        "inspect",
+        root,
+        "--as-of",
+        "2026-08-22",
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+        ok: true,
+        operationId: "brain.snapshot.inspect",
+        result: {
+          fileCount: 2,
+          totalBytes: expect.any(Number),
+          files: [
+            { path: "team/icp.md", title: "ICP", bytes: expect.any(Number) },
+            {
+              path: "z-pricing.md",
+              title: "Pricing",
+              bytes: expect.any(Number),
+            },
+          ],
+        },
+      });
+      expect(result.stdout).not.toContain("Agency operators");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports the environment failure as the snapshot submission error", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-snapshot-"));
+    writeFileSync(join(root, "context.md"), "# Context\n\nReviewed facts.");
+
+    try {
+      const result = await runCliAsync([
+        "snapshot",
+        "submit",
+        root,
+        "--as-of",
+        "2026-08-22",
+      ]);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toBe("");
+      expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+        ok: false,
+        result: { submitted: [], failedPath: "context.md" },
+        error:
+          "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.",
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -531,9 +616,35 @@ describe("maestro-template CLI", () => {
     expect(result).toEqual({
       exitCode: 1,
       stdout: "",
-      stderr: "Brain API request failed.\n",
+      stderr: "Could not reach Brain API (network error or timeout).\n",
     });
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("distinguishes a non-JSON HTTP response from a network failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          new Response("upstream unavailable", { status: 503 }),
+        ),
+    );
+
+    const result = await runCliAsync(
+      ["health"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Brain API returned HTTP 503 with a non-JSON response.\n",
+    });
+    expect(JSON.stringify(result)).not.toContain("upstream unavailable");
   });
 
   it.each([

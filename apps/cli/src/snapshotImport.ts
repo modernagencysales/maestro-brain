@@ -14,6 +14,7 @@ export type SnapshotNote = {
   readonly path: string;
   readonly title: string;
   readonly markdown: string;
+  readonly bytes: number;
 };
 
 export type SnapshotNotesResult =
@@ -84,8 +85,9 @@ export const snapshotNotesForDirectory = (
   const notes: SnapshotNote[] = [];
   for (const path of markdownPaths) {
     let markdown: string;
+    let bytes: number;
     try {
-      const bytes = lstatSync(path).size;
+      bytes = lstatSync(path).size;
       if (bytes > maxSnapshotFileBytes)
         return {
           ok: false,
@@ -110,6 +112,7 @@ export const snapshotNotesForDirectory = (
       path: relative(root, path).split("\\").join("/"),
       title: titleFor(path, markdown),
       markdown: markdownWithSnapshotProvenance(markdown, validatedProvenance),
+      bytes,
     });
   }
 

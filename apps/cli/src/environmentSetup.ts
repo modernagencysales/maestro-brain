@@ -20,9 +20,16 @@ type SetupArtifact = {
 };
 
 type DoctorCheck = {
-  readonly id: "api" | "mcp.initialize" | "mcp.prompts.list";
+  readonly id:
+    | "config.siteUrl"
+    | "config.apiKey"
+    | "api"
+    | "mcp.initialize"
+    | "mcp.prompts.list"
+    | "mcp.tools.list";
   readonly ok: boolean;
   readonly detail: string;
+  readonly status?: "valid" | "missing" | "invalid";
 };
 
 const secretEnvName = "MAESTRO_BRAIN_API_KEY";
@@ -439,12 +446,109 @@ const mcpCheck = async ({
   };
 };
 
+const tenantSelectorNames = new Set([
+  "organizationId",
+  "organizationKey",
+  "agencyKey",
+  "workspaceId",
+  "workspaceKey",
+  "workspaceSlug",
+  "brainId",
+  "brainKey",
+  "userId",
+  "memberId",
+  "keyId",
+  "apiKeyId",
+]);
+
+const containsTenantSelector = (value: unknown): boolean => {
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsTenantSelector);
+  return Object.entries(value).some(
+    ([key, nested]) =>
+      tenantSelectorNames.has(key) || containsTenantSelector(nested),
+  );
+};
+
+const requiredBrainTools = new Set([
+  "template.brain.answers.ask",
+  "template.brain.context.get",
+  "template.brain.sources.search",
+  "template.brain.sources.get",
+]);
+
+const mcpToolsCheck = async (
+  origin: string,
+  apiKey: string,
+  fetcher: typeof fetch,
+): Promise<DoctorCheck> => {
+  const response = await postJson(
+    `${origin}/mcp`,
+    apiKey,
+    { jsonrpc: "2.0", id: 3, method: "tools/list" },
+    fetcher,
+  );
+  const tools = recordValue(recordValue(response.value, "result"), "tools");
+  const toolRecords = Array.isArray(tools) ? tools : [];
+  const names = new Set(
+    toolRecords
+      .map((tool) => recordValue(tool, "name"))
+      .filter((name): name is string => typeof name === "string"),
+  );
+  const missing = [...requiredBrainTools].filter((name) => !names.has(name));
+  const unsafe = toolRecords.some((tool) =>
+    containsTenantSelector(recordValue(tool, "inputSchema")),
+  );
+  const ok = response.ok && missing.length === 0 && !unsafe;
+  return {
+    id: "mcp.tools.list",
+    ok,
+    detail: ok
+      ? `MCP exposes ${toolRecords.length} scoped tools with no tenant selectors.`
+      : unsafe
+        ? "MCP tool schemas expose a forbidden tenant selector."
+        : `MCP tool catalog is missing: ${missing.join(", ") || "valid tools/list response"}.`,
+  };
+};
+
 export const doctorBrainEnvironment = async (
   config: CliRuntimeConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<CliResult> => {
   const origin = brainApiOrigin(config.brainSiteUrl);
   const apiKey = config.brainApiKey;
+  const siteStatus =
+    config.brainSiteUrl === undefined
+      ? "missing"
+      : origin === undefined
+        ? "invalid"
+        : "valid";
+  const keyStatus =
+    apiKey === undefined || apiKey.length === 0
+      ? "missing"
+      : apiKey.trim() !== apiKey
+        ? "invalid"
+        : "valid";
+  const configChecks: DoctorCheck[] = [
+    {
+      id: "config.siteUrl",
+      ok: siteStatus === "valid",
+      status: siteStatus,
+      detail:
+        siteStatus === "valid"
+          ? "CONVEX_SITE_URL is a valid origin."
+          : `CONVEX_SITE_URL is ${siteStatus}.`,
+    },
+    {
+      id: "config.apiKey",
+      ok: keyStatus === "valid",
+      status: keyStatus,
+      detail:
+        keyStatus === "valid"
+          ? "MAESTRO_BRAIN_API_KEY is set."
+          : `MAESTRO_BRAIN_API_KEY is ${keyStatus}.`,
+    },
+  ];
   if (
     origin === undefined ||
     apiKey === undefined ||
@@ -455,15 +559,15 @@ export const doctorBrainEnvironment = async (
       exitCode: 1,
       stdout: formatJsonOutput({
         ok: false,
-        checks: [],
-        detail:
-          "CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY are required and invalid.",
+        checks: configChecks,
+        next: "Export the missing value(s), use an HTTPS origin with no path, then rerun pnpm brain doctor.",
       }),
       stderr: "",
     };
   }
 
   const checks = [
+    ...configChecks,
     await apiCheck(origin, apiKey, fetcher),
     await mcpCheck({
       id: "mcp.initialize",
@@ -479,6 +583,7 @@ export const doctorBrainEnvironment = async (
       apiKey,
       fetcher,
     }),
+    await mcpToolsCheck(origin, apiKey, fetcher),
   ];
   const ok = checks.every((check) => check.ok);
   return {
