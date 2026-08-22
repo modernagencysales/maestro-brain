@@ -6,7 +6,8 @@ hosted Company Brain. It does not require the web application.
 ## What the operator provides
 
 - the hosted `CONVEX_SITE_URL`, including `https://` and no path;
-- a `MAESTRO_BRAIN_API_KEY` issued for the Company Brain;
+- a `MAESTRO_BRAIN_API_KEY` issued for the Company Brain with `brain:read` and
+  `brain:ask` scopes;
 - a checkout of this repository when installing the shared Ask Apero skill.
 
 Keep both values in the terminal's secret environment. Setup writes references
@@ -31,9 +32,10 @@ pnpm brain setup cowork
 
 Codex setup installs the shared Ask Apero skill and adds the remote HTTP MCP
 server to Codex configuration. Claude Code setup installs the same skill and
-adds the server to `.mcp.json`. Cowork setup emits a portable HTTP MCP
-descriptor to enter in Cowork's connector UI; Ask Apero instructions are then
-discovered from the server through MCP prompts.
+adds the server to `.mcp.json`. Cowork setup writes a portable HTTP MCP
+descriptor to `.cowork/maestro-brain.json`; enter its settings in Cowork's
+connector UI. Ask Apero instructions are then discovered from the server through
+MCP prompts.
 
 Setup refuses to overwrite a conflicting skill link or MCP server entry. This
 makes it safe to run in a repository that already has other skills or MCP
@@ -72,12 +74,12 @@ shows whether the resulting corpus is current and complete.
 For a wrong or stale answer, submit the identifiers returned with that answer:
 
 ```bash
-pnpm brain feedback --input '<feedback-json>'
+pnpm brain feedback --idempotency-key feedback-<unique-id> --input '<feedback-json>'
 ```
 
 Feedback records evidence identities and readiness state, not copied source or
-answer text. A key with the optional `brain:ask` scope can also submit a note to
-the existing review queue:
+answer text. The interactive runtime key's `brain:ask` scope also permits a note
+submission to the existing review queue:
 
 ```bash
 pnpm brain note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
