@@ -18,10 +18,11 @@ and derive the organization, workspace, and Brain scope server-side. Do not add
 a Brain key or tenant selector to prompts or tool input. Do not share one
 credential between Codex and Claude Code, and never commit a credential value.
 
-Terminal contributors may receive a separate credential that also has
-`brain:write`. That scope permits only the reviewed `brain.notes.submit` API
-path; submitted notes remain pending until the normal editor review workflow
-publishes or rejects them. It does not add an MCP write tool.
+Terminal contributors may receive a separate credential with the existing
+`brain:ask` agent scope. That scope also permits the reviewed
+`brain.notes.submit` API path; submitted notes remain pending until the normal
+editor review workflow publishes or rejects them. It does not add an MCP write
+tool.
 
 The MCP connection is named `maestro-brain`, uses streamable HTTP at the
 approved `${CONVEX_SITE_URL}/mcp` endpoint, and sends `MAESTRO_BRAIN_API_KEY` as

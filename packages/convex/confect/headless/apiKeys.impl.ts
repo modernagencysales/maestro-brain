@@ -245,9 +245,7 @@ const publicMetadata = (key: ApiKeyRow): PublicApiKeyListItem => ({
   displayPrefix: key.displayPrefix,
   scopes: key.scopes.filter(
     (scope): scope is HeadlessApiKeyScope =>
-      scope === "brain:read" ||
-      scope === "brain:ask" ||
-      scope === "brain:write",
+      scope === "brain:read" || scope === "brain:ask",
   ),
   roleCeiling: "viewer",
   status: key.status,
@@ -704,9 +702,7 @@ const verifyStoredKeyRow = (
   }
   const scopes = key.scopes.filter(
     (scope): scope is HeadlessApiKeyScope =>
-      scope === "brain:read" ||
-      scope === "brain:ask" ||
-      scope === "brain:write",
+      scope === "brain:read" || scope === "brain:ask",
   );
   return {
     ok: true as const,

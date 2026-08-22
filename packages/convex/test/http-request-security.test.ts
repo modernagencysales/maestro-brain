@@ -578,12 +578,12 @@ describe("headless HTTP bearer security", () => {
     ]);
   });
 
-  it("submits terminal notes with server-derived Brain scope and brain:write", async () => {
+  it("submits terminal notes with server-derived Brain scope", async () => {
     const displayKey = "mbk_live_note";
     const keyHash = await hashPresentedApiKey(displayKey);
     const writePrincipal = createHeadlessPrincipal({
       ...principal,
-      scopes: ["brain:read", "brain:write"],
+      scopes: ["brain:read", "brain:ask"],
     });
     const runMutation = vi.fn(async (_ref, input) => {
       if (input.keyHash === keyHash) return null;
@@ -599,7 +599,7 @@ describe("headless HTTP bearer security", () => {
     const response = await handleTemplateHttpRequest(
       {
         runQuery: vi.fn(async (_ref, input) => {
-          expect(input).toEqual({ keyHash, requiredScope: "brain:write" });
+          expect(input).toEqual({ keyHash, requiredScope: "brain:ask" });
           return {
             principal: writePrincipal,
             keyHash,

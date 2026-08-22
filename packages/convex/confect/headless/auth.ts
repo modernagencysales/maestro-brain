@@ -8,11 +8,7 @@ import {
   sha256Base64Url,
 } from "../shared/tokenCrypto";
 
-export const HeadlessApiKeyScope = Schema.Literal(
-  "brain:read",
-  "brain:ask",
-  "brain:write",
-);
+export const HeadlessApiKeyScope = Schema.Literal("brain:read", "brain:ask");
 export type HeadlessApiKeyScope = Schema.Schema.Type<
   typeof HeadlessApiKeyScope
 >;
@@ -264,7 +260,7 @@ const digestIdSuffix = (keyHash: string): string =>
   keyHash.slice(0, DIGEST_ID_PREFIX_LENGTH);
 
 const isHeadlessScope = (scope: ApiKeyScope): scope is HeadlessApiKeyScope =>
-  scope === "brain:read" || scope === "brain:ask" || scope === "brain:write";
+  scope === "brain:read" || scope === "brain:ask";
 
 const raiseTagged = (error: unknown): never => {
   throw error;
@@ -299,10 +295,7 @@ const validateBrainScopes = (
   scopes: readonly string[],
 ): readonly HeadlessApiKeyScope[] => {
   const invalid = scopes.find(
-    (scope) =>
-      scope !== "brain:read" &&
-      scope !== "brain:ask" &&
-      scope !== "brain:write",
+    (scope) => scope !== "brain:read" && scope !== "brain:ask",
   );
 
   if (invalid) {
@@ -603,12 +596,7 @@ const isBrainApiKey = (
   key.brainKey !== undefined &&
   key.roleCeiling === "viewer" &&
   key.principalGeneration !== undefined &&
-  key.scopes.every(
-    (scope) =>
-      scope === "brain:read" ||
-      scope === "brain:ask" ||
-      scope === "brain:write",
-  );
+  key.scopes.every((scope) => scope === "brain:read" || scope === "brain:ask");
 
 export const revokeBrainApiKey = (input: {
   readonly key: ApiKeyRow;

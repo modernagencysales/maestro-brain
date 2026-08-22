@@ -76,8 +76,8 @@ pnpm brain feedback --input '<feedback-json>'
 ```
 
 Feedback records evidence identities and readiness state, not copied source or
-answer text. A key with the optional `brain:write` scope can also submit a note
-to the existing review queue:
+answer text. A key with the optional `brain:ask` scope can also submit a note to
+the existing review queue:
 
 ```bash
 pnpm brain note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'

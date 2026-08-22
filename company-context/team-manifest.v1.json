@@ -40,7 +40,7 @@
       "status": "implemented-review-queue",
       "operationId": "brain.notes.submit",
       "path": "/api/brain.notes.submit",
-      "requiredScope": "brain:write",
+      "requiredScope": "brain:ask",
       "publishedWithoutReview": false,
       "availableOverMcp": false
     }

@@ -11,7 +11,7 @@ export type HeadlessPrincipal = {
 };
 
 const isHeadlessScope = (scope: string): scope is HeadlessApiKeyScope =>
-  scope === "brain:read" || scope === "brain:ask" || scope === "brain:write";
+  scope === "brain:read" || scope === "brain:ask";
 
 export const createHeadlessPrincipal = (
   input: HeadlessPrincipal,

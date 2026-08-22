@@ -7,7 +7,7 @@ import type {
 export type PublicApiKeySettingsMetadata = {
   readonly name: string;
   readonly displayPrefix: string;
-  readonly scopes: readonly ("brain:read" | "brain:ask" | "brain:write")[];
+  readonly scopes: readonly ("brain:read" | "brain:ask")[];
   readonly roleCeiling: "viewer";
   readonly status: "active" | "revoked" | "expired";
   readonly createdAt: number;

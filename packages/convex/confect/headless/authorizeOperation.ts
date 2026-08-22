@@ -73,7 +73,7 @@ const reviewedHeadlessPolicies = [
   {
     operationId: "brain.notes.submit",
     headless: true,
-    requiredScope: "brain:write",
+    requiredScope: "brain:ask",
   },
 ] as const satisfies readonly HeadlessOperationPolicy[];
 
