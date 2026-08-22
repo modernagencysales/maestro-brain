@@ -83,6 +83,18 @@ the existing review queue:
 pnpm brain note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
 ```
 
+To migrate an approved Claude Project or another reviewed Markdown snapshot, put
+its `.md` files in one local directory and submit them together:
+
+```bash
+pnpm brain snapshot submit ./apero-snapshot
+```
+
+The command walks Markdown files in stable path order, uses each first-level
+heading as its title, and stops at the first rejected submission. It never
+prints document bodies. Every submitted file still enters `pending_review`; the
+context owner approves or rejects it in the Brain review queue.
+
 The note does not become retrieval evidence until an editor approves it in the
 existing review workflow. Write operations are intentionally unavailable over
 MCP, so an agent cannot silently modify its own evidence.

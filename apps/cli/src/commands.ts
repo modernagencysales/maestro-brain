@@ -39,6 +39,7 @@ const helpResult = (): CliResult =>
       "maestro-brain health",
       "maestro-brain feedback --idempotency-key <key> --input <json>",
       "maestro-brain note --input <json>",
+      "maestro-brain snapshot submit <directory>",
       "maestro-brain setup [codex|claude-code|cowork]",
       "maestro-brain doctor",
       "maestro-brain describe",

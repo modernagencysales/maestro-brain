@@ -1,6 +1,14 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -76,6 +84,9 @@ describe("maestro-template CLI", () => {
     expect(result.stdout).toContain("maestro-brain health");
     expect(result.stdout).toContain("maestro-brain feedback");
     expect(result.stdout).toContain("maestro-brain note --input");
+    expect(result.stdout).toContain(
+      "maestro-brain snapshot submit <directory>",
+    );
     expect(result.stdout).not.toContain("maestro-template");
   });
 
@@ -214,6 +225,59 @@ describe("maestro-template CLI", () => {
       "https://brain.example.test/api/brain.notes.submit",
       expect.objectContaining({ body: JSON.stringify({ input }) }),
     );
+  });
+
+  it("submits a Markdown snapshot directory to review in stable path order", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-snapshot-"));
+    mkdirSync(join(root, "team"));
+    writeFileSync(join(root, "z-pricing.md"), "# Pricing\n\nMargin guidance.");
+    writeFileSync(join(root, "team", "icp.md"), "# ICP\n\nAgency operators.");
+    writeFileSync(join(root, "ignored.txt"), "not imported");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          input: { title: string };
+        };
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            operationId: "brain.notes.submit",
+            result: {
+              sourceKey: `src_${request.input.title.toLowerCase().padEnd(64, "a").slice(0, 64)}`,
+              status: "pending_review",
+            },
+          }),
+        );
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await runCliAsync(
+        ["snapshot", "submit", root],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const requests = fetchMock.mock.calls.map((call) =>
+        JSON.parse(String(call[1]?.body)),
+      );
+      expect(requests.map((request) => request.input.title)).toEqual([
+        "ICP",
+        "Pricing",
+      ]);
+      expect(
+        parseStdout<{
+          result: { submittedCount: number; status: string };
+        }>(result).result,
+      ).toMatchObject({ submittedCount: 2, status: "pending_review" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it.each([
