@@ -42,4 +42,5 @@ export default Table.make(() => CallRoutingProposalRow)
     "status",
     "brainKey",
   ])
-  .index("by_proposal_key", ["organizationKey", "proposalKey"]);
+  .index("by_proposal_key", ["organizationKey", "proposalKey"])
+  .index("by_organization_updated", ["organizationKey", "updatedAt"]);

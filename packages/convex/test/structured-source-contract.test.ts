@@ -156,6 +156,8 @@ const registry = [
     valueType: "number",
     operators: ["eq", "in", "gte", "lte"],
     index: "by_brain_entity_field_number_value_entity",
+    fieldMappingPolicyKey: "crm_fields_v1",
+    fieldMappingPolicyGeneration: 1,
   },
   {
     entityKind: "opportunity",
@@ -163,6 +165,8 @@ const registry = [
     valueType: "string",
     operators: ["eq", "in"],
     index: "by_brain_entity_field_string_value_entity",
+    fieldMappingPolicyKey: "crm_fields_v1",
+    fieldMappingPolicyGeneration: 1,
   },
 ] as const satisfies readonly StructuredFieldRegistration[];
 
@@ -491,6 +495,8 @@ describe("structured source contract", () => {
             valueType: "string",
             operators: ["eq"],
             index: "by_brain_entity_field_string_value_entity",
+            fieldMappingPolicyKey: "crm_fields_v1",
+            fieldMappingPolicyGeneration: 1,
           },
         ],
         {

@@ -47,4 +47,5 @@ export default Table.make(() =>
     "siblingSlug",
   ])
   .index("by_workspace_status", ["workspaceId", "status"])
+  .index("by_workspace_updated", ["workspaceId", "updatedAt"])
   .index("by_workspace_status_page_key", ["workspaceId", "status", "pageKey"]);

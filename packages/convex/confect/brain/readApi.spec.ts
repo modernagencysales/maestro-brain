@@ -29,6 +29,21 @@ export class CitationIntegrityFailure extends Schema.TaggedError<CitationIntegri
     ),
   },
 ) {}
+export class RetrievalCapacityExceeded extends Schema.TaggedError<RetrievalCapacityExceeded>()(
+  "RetrievalCapacityExceeded",
+  {
+    resource: Schema.Literal(
+      "active_slack_policies",
+      "active_provider_connections",
+      "corpus_health",
+      "current_postings",
+      "unclassified_postings",
+      "revision_entries",
+    ),
+    limit: Schema.Number,
+    observedAtLeast: Schema.Number,
+  },
+) {}
 const Errors = Schema.Union(
   Unauthorized,
   Forbidden,
@@ -38,6 +53,7 @@ const Errors = Schema.Union(
   ValidationFailed,
   SubsystemDisabled,
   CitationIntegrityFailure,
+  RetrievalCapacityExceeded,
 );
 const SearchArgs = Schema.extend(
   BrainSelector,
@@ -178,6 +194,7 @@ const query = <
         "ValidationFailed",
         "SubsystemDisabled",
         "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
       ],
       idempotent: true,
       argsSchemaName: `brain.readApi.${name}.args`,
@@ -212,28 +229,46 @@ export const answersAsk = query(
   AskReturns,
 );
 
-const headlessSourcesSearch = FunctionSpec.internalQuery({
+export const headlessSourcesSearch = FunctionSpec.internalQuery({
   name: "headlessSourcesSearch",
   args: () => Schema.extend(SearchArgs, HeadlessSelector),
   returns: () => SearchReturns,
   error: () => Errors,
 });
-const headlessSourcesGet = FunctionSpec.internalQuery({
+export const headlessSourcesGet = FunctionSpec.internalQuery({
   name: "headlessSourcesGet",
   args: () => Schema.extend(SourceGetArgs, HeadlessSelector),
   returns: () => SourceGetReturns,
   error: () => Errors,
 });
-const headlessContextGet = FunctionSpec.internalQuery({
+export const headlessContextGet = FunctionSpec.internalQuery({
   name: "headlessContextGet",
   args: () => Schema.extend(ContextGetArgs, HeadlessSelector),
   returns: () => ContextReturns,
   error: () => Errors,
 });
-const headlessAnswersAsk = FunctionSpec.internalQuery({
+export const headlessAnswersAsk = FunctionSpec.internalQuery({
   name: "headlessAnswersAsk",
   args: () => Schema.extend(AskArgs, HeadlessSelector),
   returns: () => AskReturns,
+  error: () => Errors,
+});
+export const validationSourcesSearch = FunctionSpec.internalQuery({
+  name: "validationSourcesSearch",
+  args: () => Schema.extend(SearchArgs, HeadlessSelector),
+  returns: () => SearchReturns,
+  error: () => Errors,
+});
+export const validationSourcesGet = FunctionSpec.internalQuery({
+  name: "validationSourcesGet",
+  args: () => Schema.extend(SourceGetArgs, HeadlessSelector),
+  returns: () => SourceGetReturns,
+  error: () => Errors,
+});
+export const validationContextGet = FunctionSpec.internalQuery({
+  name: "validationContextGet",
+  args: () => Schema.extend(ContextGetArgs, HeadlessSelector),
+  returns: () => ContextReturns,
   error: () => Errors,
 });
 
@@ -248,4 +283,7 @@ export default GroupSpec.make()
   .addFunction(headlessSourcesSearch)
   .addFunction(headlessSourcesGet)
   .addFunction(headlessContextGet)
-  .addFunction(headlessAnswersAsk);
+  .addFunction(headlessAnswersAsk)
+  .addFunction(validationSourcesSearch)
+  .addFunction(validationSourcesGet)
+  .addFunction(validationContextGet);

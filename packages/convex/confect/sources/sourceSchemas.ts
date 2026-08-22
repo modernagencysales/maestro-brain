@@ -9,6 +9,12 @@ const NonNegativeInteger = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
 );
 const ProviderObjectId = StableKey;
+const CanonicalProviderSortKey = Schema.String.pipe(
+  Schema.pattern(
+    /^[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+\|[1-9][0-9]*\|(live|backfill|reconciliation)\|[A-Za-z0-9_.:-]+$/,
+  ),
+);
+const ProviderSortKey = Schema.Union(StableKey, CanonicalProviderSortKey);
 const SourceKey = Schema.String.pipe(Schema.pattern(/^src_[A-Za-z0-9_.:-]+$/));
 const RevisionKey = Schema.String.pipe(Schema.pattern(/^srev_[a-f0-9]{64}$/));
 const IsoTimestamp = Schema.String.pipe(
@@ -98,7 +104,7 @@ export const SourceArtifactRow = Schema.Struct({
   sourceKey: SourceKey,
   threadKey: StableKey,
   latestSourceRevisionKey: RevisionKey,
-  latestProviderOrder: StableKey,
+  latestProviderOrder: ProviderSortKey,
   lifecycle: Lifecycle,
   createdAt: NonNegativeInteger,
   updatedAt: NonNegativeInteger,

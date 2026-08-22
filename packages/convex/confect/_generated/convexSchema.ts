@@ -13,6 +13,8 @@ import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItem
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainReadModes from "./tables/brainReadModes";
+import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
 import brainSources from "./tables/brainSources";
 import callRouteMappings from "./tables/callRouteMappings";
 import callRoutingProposals from "./tables/callRoutingProposals";
@@ -23,6 +25,11 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
+import connectorPageChunks from "./tables/connectorPageChunks";
+import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
+import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
+import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
 import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
@@ -32,6 +39,7 @@ import documents from "./tables/documents";
 import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
+import ingestionObligations from "./tables/ingestionObligations";
 import invitations from "./tables/invitations";
 import migrationReceipts from "./tables/migrationReceipts";
 import migrationRuns from "./tables/migrationRuns";
@@ -51,6 +59,8 @@ import retrievalEntries from "./tables/retrievalEntries";
 import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
 import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
+import retrievalRebuildChildren from "./tables/retrievalRebuildChildren";
+import retrievalRebuildRuns from "./tables/retrievalRebuildRuns";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
@@ -94,6 +104,8 @@ export default $defineSchema({
   brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
+  brainReadModes: brainReadModes.tableDefinition,
+  brainRequiredScopeIntents: brainRequiredScopeIntents.tableDefinition,
   brainSources: brainSources.tableDefinition,
   callRouteMappings: callRouteMappings.tableDefinition,
   callRoutingProposals: callRoutingProposals.tableDefinition,
@@ -104,6 +116,11 @@ export default $defineSchema({
   claims: claims.tableDefinition,
   classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
+  connectorIncrementalCursors: connectorIncrementalCursors.tableDefinition,
+  connectorPageChunks: connectorPageChunks.tableDefinition,
+  connectorPageEnvelopes: connectorPageEnvelopes.tableDefinition,
+  connectorReconciliationRuns: connectorReconciliationRuns.tableDefinition,
+  connectorReconciliationSeen: connectorReconciliationSeen.tableDefinition,
   connectorSyncStates: connectorSyncStates.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
@@ -113,6 +130,7 @@ export default $defineSchema({
   dsarRequests: dsarRequests.tableDefinition,
   entitlements: entitlements.tableDefinition,
   featureFlagPolicies: featureFlagPolicies.tableDefinition,
+  ingestionObligations: ingestionObligations.tableDefinition,
   invitations: invitations.tableDefinition,
   migrationReceipts: migrationReceipts.tableDefinition,
   migrationRuns: migrationRuns.tableDefinition,
@@ -132,6 +150,8 @@ export default $defineSchema({
   retrievalPublicationJobs: retrievalPublicationJobs.tableDefinition,
   retrievalPublicationSets: retrievalPublicationSets.tableDefinition,
   retrievalPublicationSubjects: retrievalPublicationSubjects.tableDefinition,
+  retrievalRebuildChildren: retrievalRebuildChildren.tableDefinition,
+  retrievalRebuildRuns: retrievalRebuildRuns.tableDefinition,
   retrievalTokens: retrievalTokens.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   slackIdentityBindings: slackIdentityBindings.tableDefinition,

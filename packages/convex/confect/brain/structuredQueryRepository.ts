@@ -102,7 +102,14 @@ const eligibilityManifestHash = (row: StructuredFieldRow): string =>
   `sha256:${sha256Hex(structuredCanonicalJson(row.eligibilityManifest))}`;
 
 const matchesScan = (row: StructuredFieldRow, scan: StructuredIndexScan) => {
-  if (row.value.type !== scan.valueType) return false;
+  if (
+    row.value.type !== scan.valueType ||
+    row.eligibilityManifest.fieldMappingPolicy.key !==
+      scan.fieldMappingPolicyKey ||
+    row.eligibilityManifest.fieldMappingPolicy.eligibilityGeneration !==
+      scan.fieldMappingPolicyGeneration
+  )
+    return false;
   if (scan.filter.op === "eq" || scan.filter.op === "in")
     return scan.filter.values.some(
       (value) =>

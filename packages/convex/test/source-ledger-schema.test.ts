@@ -1,4 +1,5 @@
 import { convexTest } from "convex-test";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import convexSchema from "../confect/_generated/convexSchema";
@@ -133,6 +134,7 @@ describe("source ledger schema", () => {
       by_source_revision_key: ["organizationKey", "sourceRevisionKey"],
       by_source_provider_order: ["sourceKey", "providerOrder"],
       by_source_created: ["organizationKey", "sourceCreatedAt"],
+      by_organization_ledger: ["organizationKey"],
       by_lifecycle_purge_after: [
         "organizationKey",
         "lifecycle.state",
@@ -292,6 +294,7 @@ describe("source ledger schema", () => {
 
   it("builds exact receipt, artifact, revision, and assembly job rows", () => {
     const rows = buildSourceLedgerRows(capture, { verifiedBinding });
+    if (!rows.artifact) throw new Error("expected an inserted source artifact");
 
     expect(ProviderEventReceiptRow.pipe).toBeDefined();
     expect(rows.receipt).toMatchObject({
@@ -314,6 +317,22 @@ describe("source ledger schema", () => {
         "00000000000000000001|rev_1|agency_acme|slack_agency_acme|2|live|evt_1",
       lifecycle: { state: "active", generation: 1, updatedAt: 1_000 },
     });
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)(rows.artifact),
+    ).not.toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)({
+        ...rows.artifact,
+        latestProviderOrder: "00000000000000000001",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(SourceArtifactRow)({
+        ...rows.artifact,
+        latestProviderOrder:
+          "00000000000000000001|rev_1|agency_acme|slack_agency_acme|2|live|evt_1|unexpected",
+      }),
+    ).toThrow();
     expect(SourceRevisionRow.pipe).toBeDefined();
     expect(rows.revision).toMatchObject({
       schemaVersion: 1,

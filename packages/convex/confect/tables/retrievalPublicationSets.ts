@@ -29,6 +29,8 @@ export const RetrievalPublicationSetRow = Schema.Struct({
   ),
   originTable: Schema.String,
   connectorScopeKey: Schema.optional(Schema.String),
+  connectionKey: Schema.optional(Schema.String),
+  connectionGeneration: Schema.optional(NonNegativeInteger),
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
   routeGeneration: PositiveInteger,
@@ -37,10 +39,29 @@ export const RetrievalPublicationSetRow = Schema.Struct({
   eligibilityFences: Schema.optional(
     Schema.Array(RetrievalEligibilityFenceRef),
   ),
+  eligibilityFenceBackfill: Schema.optional(
+    Schema.Struct({
+      runKey: Schema.String.pipe(Schema.pattern(/^pbrun_[a-f0-9]{64}$/)),
+      runGeneration: PositiveInteger,
+      configurationDigest: ContentHash,
+      backfilledAt: NonNegativeInteger,
+      scannedState: Schema.optional(Schema.Literal("current", "retired")),
+      validationPass: Schema.optional(NonNegativeInteger),
+      validatedAt: Schema.optional(NonNegativeInteger),
+    }),
+  ),
   expectedEntryCount: NonNegativeInteger,
   expectedTokenCount: NonNegativeInteger,
   manifestHash: ContentHash,
   state: Schema.Literal("building", "current", "retired", "failed"),
+  citationInvalidationReceipt: Schema.optional(
+    Schema.Struct({
+      receiptKey: Schema.String.pipe(Schema.pattern(/^rcinv_[a-f0-9]{64}$/)),
+      reason: Schema.Literal("retention_expired", "operator_invalidated"),
+      invalidatedAt: NonNegativeInteger,
+      receiptDigest: ContentHash,
+    }),
+  ),
   createdAt: NonNegativeInteger,
   activatedAt: Schema.optional(NonNegativeInteger),
   retiredAt: Schema.optional(NonNegativeInteger),

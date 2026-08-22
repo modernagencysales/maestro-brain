@@ -24,7 +24,7 @@ const contextGet = makeFunctionReference<
       status: "complete" | "partial" | "unavailable" | "unknown";
     }>;
   }
->("brain/readApi:headlessContextGet");
+>("brain/readApi:validationContextGet");
 const sourcesSearch = makeFunctionReference<
   "query",
   {
@@ -33,7 +33,7 @@ const sourcesSearch = makeFunctionReference<
     brainKey: string;
     query: string;
   }
->("brain/readApi:headlessSourcesSearch");
+>("brain/readApi:validationSourcesSearch");
 const sourcesGet = makeFunctionReference<
   "query",
   {
@@ -42,7 +42,7 @@ const sourcesGet = makeFunctionReference<
     brainKey: string;
     sourceRevisionKey: string;
   }
->("brain/readApi:headlessSourcesGet");
+>("brain/readApi:validationSourcesGet");
 const answersAsk = makeFunctionReference<
   "query",
   {
@@ -53,7 +53,7 @@ const answersAsk = makeFunctionReference<
   }
 >("brain/readApi:headlessAnswersAsk");
 
-describe("headless Brain context", () => {
+describe("headless Brain projection validation context", () => {
   it("reads only pages bound to the authenticated organization, workspace, and Brain", async () => {
     const t = makeTest();
     const ids = await t.run(async (ctx) => {

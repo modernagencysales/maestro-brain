@@ -65,6 +65,8 @@ export type StructuredFieldRegistration = {
   readonly valueType: StructuredValueTag;
   readonly operators: readonly StructuredQueryOperator[];
   readonly index: StructuredFieldIndex;
+  readonly fieldMappingPolicyKey: string;
+  readonly fieldMappingPolicyGeneration: number;
 };
 
 export type NormalizedStructuredFilter = {
@@ -78,6 +80,8 @@ export type StructuredIndexScan = {
   readonly index: StructuredFieldIndex;
   readonly filter: NormalizedStructuredFilter;
   readonly valueType: StructuredValueTag;
+  readonly fieldMappingPolicyKey: string;
+  readonly fieldMappingPolicyGeneration: number;
 };
 
 export type StructuredQueryPlan = {
@@ -331,6 +335,8 @@ export const planStructuredQuery = (
         index: registration.index,
         filter: normalized,
         valueType: registration.valueType,
+        fieldMappingPolicyKey: registration.fieldMappingPolicyKey,
+        fieldMappingPolicyGeneration: registration.fieldMappingPolicyGeneration,
       });
     }
 

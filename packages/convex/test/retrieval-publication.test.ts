@@ -278,7 +278,7 @@ const assertEligibilityManifestFailsClosed = async (
         resultSchema(),
       );
       const search = yield* confect.query(
-        refs.internal.brain.readApi.headlessSourcesSearch,
+        refs.internal.brain.readApi.validationSourcesSearch,
         {
           organizationId,
           workspaceId,
@@ -287,7 +287,7 @@ const assertEligibilityManifestFailsClosed = async (
         },
       );
       const sourceAttempt = yield* confect
-        .query(refs.internal.brain.readApi.headlessSourcesGet, {
+        .query(refs.internal.brain.readApi.validationSourcesGet, {
           organizationId,
           workspaceId,
           brainKey,
@@ -518,7 +518,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -537,7 +537,7 @@ describe("retrieval publication persistence", () => {
           { brainKey, query: "qualified pipeline economics" },
         );
         const context = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -547,16 +547,18 @@ describe("retrieval publication persistence", () => {
         );
         const firstResult = search.results[0];
         if (firstResult === undefined) throw new Error("missing search result");
-        const source = yield* publicReader.query(
-          refs.public.brain.readApi.sourcesGet,
+        const source = yield* confect.query(
+          refs.internal.brain.readApi.validationSourcesGet,
           {
+            organizationId,
+            workspaceId,
             brainKey,
             publicationSetKey: firstResult.publicationSetKey,
             entryKey: firstResult.entryKey,
           },
         );
         const missingTuple = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -634,7 +636,7 @@ describe("retrieval publication persistence", () => {
         citationKey: `citation:${result.first.publicationSetKey}:${result.search.results[0]?.entryKey}`,
       }),
     ]);
-    expect(result.publicSearch).toEqual(result.search);
+    expect(result.publicSearch).toMatchObject({ brainKey, results: [] });
     expect(result.source).toMatchObject({
       publicationSetKey: result.first.publicationSetKey,
       entryKey: result.search.results[0]?.entryKey,
@@ -701,7 +703,7 @@ describe("retrieval publication persistence", () => {
           throw new Error("expected initial page publication");
         }
         const beforeUpdate = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -774,7 +776,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -783,7 +785,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const originalSource = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesGet,
+          refs.internal.brain.readApi.validationSourcesGet,
           {
             organizationId,
             workspaceId,
@@ -859,7 +861,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -871,7 +873,7 @@ describe("retrieval publication persistence", () => {
         if (currentResult === undefined)
           throw new Error("missing search result");
         const currentSource = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesGet,
+          refs.internal.brain.readApi.validationSourcesGet,
           {
             organizationId,
             workspaceId,
@@ -881,7 +883,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const retiredSource = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesGet,
+          refs.internal.brain.readApi.validationSourcesGet,
           {
             organizationId,
             workspaceId,
@@ -1004,7 +1006,10 @@ describe("retrieval publication persistence", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
         const first = yield* confect.run(
           publishPageRevisionEffect(publicationArgs(workspaceId)),
           resultSchema(),
@@ -1014,6 +1019,26 @@ describe("retrieval publication persistence", () => {
             ...publicationArgs(workspaceId),
             policyGeneration: 2,
             now: now + 1,
+          }),
+          resultSchema(),
+        );
+        if (second.outcome !== "published")
+          throw new Error("expected second publication");
+        const secondEntryKey = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const entry = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", second.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (entry === null) throw new Error("missing second entry");
+            return entry.entryKey;
           }),
           resultSchema(),
         );
@@ -1053,6 +1078,15 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const revokedSource = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: second.publicationSetKey,
+            entryKey: secondEntryKey,
+          })
+          .pipe(Effect.either);
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1106,13 +1140,14 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return { first, second, revoked, restored, sets };
+        return { first, second, revoked, revokedSource, restored, sets };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
     expect(result.first).toMatchObject({ publicationGeneration: 1 });
     expect(result.second).toMatchObject({ publicationGeneration: 2 });
     expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(Either.isLeft(result.revokedSource)).toBe(true);
     expect(result.restored).toMatchObject({
       outcome: "published",
       publicationGeneration: 3,
@@ -1150,7 +1185,7 @@ describe("retrieval publication persistence", () => {
           throw new Error("expected page publication");
         }
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -1184,7 +1219,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const sourceAttempt = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -1193,7 +1228,7 @@ describe("retrieval publication persistence", () => {
           })
           .pipe(Effect.either);
         const searchAttempt = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesSearch, {
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
             organizationId,
             workspaceId,
             brainKey,
@@ -1201,7 +1236,7 @@ describe("retrieval publication persistence", () => {
           })
           .pipe(Effect.either);
         const contextAttempt = yield* confect
-          .query(refs.internal.brain.readApi.headlessContextGet, {
+          .query(refs.internal.brain.readApi.validationContextGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -1459,7 +1494,7 @@ describe("retrieval publication persistence", () => {
           throw new Error("expected page publication");
         }
         const beforeArchive = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -1545,7 +1580,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -1554,7 +1589,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAttempt = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -1662,7 +1697,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -1671,7 +1706,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAttempt = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -1886,38 +1921,61 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const nextJobKey = yield* confect.run(
-          Effect.gen(function* () {
-            const reader = yield* DatabaseReader;
-            const jobs = yield* reader
-              .table("retrievalPublicationJobs")
-              .index("by_origin_target", (query) =>
-                query
-                  .eq("workspaceId", workspaceId)
-                  .eq("brainKey", brainKey)
-                  .eq("originKind", "page_rebuild")
-                  .eq("sourceRevisionKey", "rebuild:1"),
-              )
-              .take(3)
-              .pipe(Effect.orDie);
-            const pending = jobs.find(({ status }) => status === "pending");
-            if (pending === undefined) throw new Error("missing continuation");
-            return pending.jobKey;
-          }),
-          resultSchema(),
-        );
-        const second = yield* confect.run(
-          runPublicationJobEffect({
-            jobKey: nextJobKey,
-            caller: {
-              kind: "system",
-              name: "page-rebuild-test",
-              surface: "internal",
-            },
-            now,
-          }),
-          resultSchema(),
-        );
+        const remainingResults: Array<{
+          readonly status: string;
+          readonly attemptCount: number;
+        }> = [];
+        for (let step = 0; step < 40; step += 1) {
+          const nextJobKey = yield* confect.run(
+            Effect.gen(function* () {
+              const reader = yield* DatabaseReader;
+              const jobs = yield* reader
+                .table("retrievalPublicationJobs")
+                .index("by_status_due_job", (query) =>
+                  query.eq("status", "pending"),
+                )
+                .take(100)
+                .pipe(Effect.orDie);
+              return jobs
+                .filter(
+                  (job) =>
+                    job.workspaceId === workspaceId &&
+                    job.brainKey === brainKey,
+                )
+                .sort((left, right) => {
+                  const leftClose = left.rebuild?.phase === "close" ? 1 : 0;
+                  const rightClose = right.rebuild?.phase === "close" ? 1 : 0;
+                  const leftBatch = left.originKind.endsWith("_rebuild")
+                    ? 1
+                    : 0;
+                  const rightBatch = right.originKind.endsWith("_rebuild")
+                    ? 1
+                    : 0;
+                  return (
+                    leftClose - rightClose ||
+                    leftBatch - rightBatch ||
+                    left.jobKey.localeCompare(right.jobKey)
+                  );
+                })[0]?.jobKey;
+            }),
+            resultSchema(),
+          );
+          if (nextJobKey == null) break;
+          remainingResults.push(
+            yield* confect.run(
+              runPublicationJobEffect({
+                jobKey: nextJobKey,
+                caller: {
+                  kind: "system",
+                  name: "page-rebuild-test",
+                  surface: "internal",
+                },
+                now,
+              }),
+              resultSchema(),
+            ),
+          );
+        }
         const state = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1942,11 +2000,30 @@ describe("retrieval publication persistence", () => {
               )
               .first()
               .pipe(Effect.orDie);
-            return { publishedEntries, health };
+            const runs = yield* reader
+              .table("retrievalRebuildRuns")
+              .index("by_workspace_brain_status", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("status", "complete"),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const [run] = runs;
+            if (run === undefined) throw new Error("missing completed run");
+            const jobs = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_rebuild_run_status", (query) =>
+                query.eq("rebuildRunKey", run.rebuildRunKey),
+              )
+              .take(100)
+              .pipe(Effect.orDie);
+            return { publishedEntries, health, runs, jobs };
           }),
           resultSchema(),
         );
-        return { first, second, ...state };
+        return { first, remainingResults, ...state };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -1954,10 +2031,28 @@ describe("retrieval publication persistence", () => {
       status: "succeeded",
       attemptCount: 1,
     });
-    expect(result.second).toMatchObject({
-      status: "succeeded",
-      attemptCount: 1,
+    expect(result.remainingResults.length).toBeGreaterThan(1);
+    expect(
+      result.remainingResults.every(({ status }) => status === "succeeded"),
+    ).toBe(true);
+    expect(result.runs).toHaveLength(1);
+    expect(result.runs[0]).toMatchObject({
+      status: "complete",
+      emittedChildCount: 2,
+      terminalChildCount: 2,
+      blockingChildCount: 0,
+      publishedChildCount: 2,
     });
+    expect(
+      result.jobs.filter(({ parentRebuildJobKey }) => parentRebuildJobKey),
+    ).toHaveLength(2);
+    expect(
+      new Set(
+        result.jobs
+          .filter(({ originKind }) => originKind === "page_rebuild")
+          .map(({ rebuildRunKey }) => rebuildRunKey),
+      ).size,
+    ).toBe(1);
     expect(
       new Set(
         result.publishedEntries.map(
@@ -2273,7 +2368,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const wrongPolicyController = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2293,7 +2388,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const search = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2304,7 +2399,7 @@ describe("retrieval publication persistence", () => {
         const resultEntry = search.results[0];
         if (resultEntry === undefined) throw new Error("missing Slack result");
         const source = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesGet,
+          refs.internal.brain.readApi.validationSourcesGet,
           {
             organizationId,
             workspaceId,
@@ -2419,7 +2514,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterPolicyRemoval = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2428,7 +2523,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const contextAfterPolicyRemoval = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -2437,7 +2532,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAfterPolicyRemoval = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -2456,7 +2551,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterStalePolicyRestore = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2519,7 +2614,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterConnectionRevocation = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2528,7 +2623,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const contextAfterConnectionRevocation = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -2537,7 +2632,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAfterConnectionRevocation = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -2803,7 +2898,7 @@ describe("retrieval publication persistence", () => {
           live.push(yield* publish(revision.label, now));
         const delayedPreCutoff = yield* publish("pre", now + 10_000);
         const beforeAdvance = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2845,7 +2940,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterAdvanceWithoutCleanup = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -2854,7 +2949,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const exactAfterAdvance = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -3110,7 +3205,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const wrongRouteController = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -3130,7 +3225,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const context = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -3142,7 +3237,7 @@ describe("retrieval publication persistence", () => {
         if (resultEntry === undefined)
           throw new Error("missing transcript result");
         const source = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesGet,
+          refs.internal.brain.readApi.validationSourcesGet,
           {
             organizationId,
             workspaceId,
@@ -3201,7 +3296,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterRouteRejection = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -3210,7 +3305,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const searchAfterRouteRejection = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -3219,7 +3314,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAfterRouteRejection = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -3238,7 +3333,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterStaleRouteRestore = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -3278,7 +3373,7 @@ describe("retrieval publication persistence", () => {
           resultSchema(),
         );
         const afterGenerationChange = yield* confect.query(
-          refs.internal.brain.readApi.headlessContextGet,
+          refs.internal.brain.readApi.validationContextGet,
           {
             organizationId,
             workspaceId,
@@ -3287,7 +3382,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const searchAfterGenerationChange = yield* confect.query(
-          refs.internal.brain.readApi.headlessSourcesSearch,
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
             organizationId,
             workspaceId,
@@ -3296,7 +3391,7 @@ describe("retrieval publication persistence", () => {
           },
         );
         const sourceAfterGenerationChange = yield* confect
-          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
             workspaceId,
             brainKey,
@@ -3505,5 +3600,74 @@ describe("retrieval publication persistence", () => {
       tag: "ValidationFailed",
       field: "organizationKey",
     });
+  });
+
+  it("returns typed overflow for a revision-only lookup above its bounded window", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const published = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        if (published.outcome !== "published")
+          throw new Error("expected page publication");
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const original = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (original === null) throw new Error("missing published entry");
+            const { _id, _creationTime, ...row } = original;
+            void _id;
+            void _creationTime;
+            for (let index = 0; index < 21; index += 1) {
+              const suffix = index.toString(16).padStart(64, "0");
+              yield* writer
+                .table("retrievalEntries")
+                .insert({
+                  ...row,
+                  entryKey: `rent_${suffix}`,
+                  passageKey: `rpass_${suffix}`,
+                })
+                .pipe(Effect.orDie);
+            }
+          }),
+          resultSchema(),
+        );
+        return yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: revisionKey,
+          })
+          .pipe(Effect.either);
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result))
+      expect(result.left).toMatchObject({
+        _tag: "RetrievalCapacityExceeded",
+        resource: "revision_entries",
+        limit: 20,
+        observedAtLeast: 21,
+      });
   });
 });

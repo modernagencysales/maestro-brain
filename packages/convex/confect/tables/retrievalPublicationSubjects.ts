@@ -25,6 +25,8 @@ export const RetrievalPublicationSubjectRow = Schema.Struct({
   originTable: Schema.String,
   sourceKey: Schema.String,
   connectorScopeKey: Schema.optional(Schema.String),
+  connectionKey: Schema.optional(Schema.String),
+  connectionGeneration: Schema.optional(NonNegativeInteger),
   currentPublicationSetKey: Schema.NullOr(RetrievalPublicationSetKey),
   lastPublicationGeneration: NonNegativeInteger,
   createdAt: NonNegativeInteger,
@@ -36,5 +38,26 @@ export default Table.make(() => RetrievalPublicationSubjectRow)
   .index("by_workspace_brain_subject", [
     "workspaceId",
     "brainKey",
+    "publicationSubjectKey",
+  ])
+  .index("by_workspace_brain_corpus_subject", [
+    "workspaceId",
+    "brainKey",
+    "corpusKey",
+    "publicationSubjectKey",
+  ])
+  .index("by_workspace_brain_corpus_connector_subject", [
+    "workspaceId",
+    "brainKey",
+    "corpusKey",
+    "connectorScopeKey",
+    "publicationSubjectKey",
+  ])
+  .index("by_workspace_brain_corpus_connection_subject", [
+    "workspaceId",
+    "brainKey",
+    "corpusKey",
+    "connectionKey",
+    "connectionGeneration",
     "publicationSubjectKey",
   ]);

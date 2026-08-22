@@ -164,10 +164,18 @@ describe("canonical source units", () => {
         "providerKey",
         "externalCallId",
       ],
+      by_org_connection_generation_unit_key: [
+        "organizationKey",
+        "connectionKey",
+        "connectionGeneration",
+        "unitKey",
+      ],
       by_unit_key: ["organizationKey", "unitKey"],
       by_org_current_state: ["organizationKey", "lifecycle.state"],
+      by_organization_updated: ["organizationKey", "updatedAt"],
     });
     expect(sourceUnitRevisionsSource("sourceUnitRevisions").indexes).toEqual({
+      by_organization_ledger: ["organizationKey"],
       by_unit_revision_key: ["organizationKey", "unitRevisionKey"],
       by_unit_created: ["organizationKey", "unitKey", "createdAt"],
     });

@@ -14,6 +14,8 @@ export type BrainMaintenanceProposalItemsDoc = Document.Document<typeof schemaDe
 export type BrainMaintenanceProposalsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposals">;
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
+export type BrainReadModesDoc = Document.Document<typeof schemaDefinition, "brainReadModes">;
+export type BrainRequiredScopeIntentsDoc = Document.Document<typeof schemaDefinition, "brainRequiredScopeIntents">;
 export type BrainSourcesDoc = Document.Document<typeof schemaDefinition, "brainSources">;
 export type CallRouteMappingsDoc = Document.Document<typeof schemaDefinition, "callRouteMappings">;
 export type CallRoutingProposalsDoc = Document.Document<typeof schemaDefinition, "callRoutingProposals">;
@@ -24,6 +26,11 @@ export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
 export type ClassificationDecisionsDoc = Document.Document<typeof schemaDefinition, "classificationDecisions">;
 export type ConceptsDoc = Document.Document<typeof schemaDefinition, "concepts">;
+export type ConnectorIncrementalCursorsDoc = Document.Document<typeof schemaDefinition, "connectorIncrementalCursors">;
+export type ConnectorPageChunksDoc = Document.Document<typeof schemaDefinition, "connectorPageChunks">;
+export type ConnectorPageEnvelopesDoc = Document.Document<typeof schemaDefinition, "connectorPageEnvelopes">;
+export type ConnectorReconciliationRunsDoc = Document.Document<typeof schemaDefinition, "connectorReconciliationRuns">;
+export type ConnectorReconciliationSeenDoc = Document.Document<typeof schemaDefinition, "connectorReconciliationSeen">;
 export type ConnectorSyncStatesDoc = Document.Document<typeof schemaDefinition, "connectorSyncStates">;
 export type ContextPacksDoc = Document.Document<typeof schemaDefinition, "contextPacks">;
 export type CreditLedgerDoc = Document.Document<typeof schemaDefinition, "creditLedger">;
@@ -33,6 +40,7 @@ export type DocumentsDoc = Document.Document<typeof schemaDefinition, "documents
 export type DsarRequestsDoc = Document.Document<typeof schemaDefinition, "dsarRequests">;
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
+export type IngestionObligationsDoc = Document.Document<typeof schemaDefinition, "ingestionObligations">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
 export type MigrationReceiptsDoc = Document.Document<typeof schemaDefinition, "migrationReceipts">;
 export type MigrationRunsDoc = Document.Document<typeof schemaDefinition, "migrationRuns">;
@@ -52,6 +60,8 @@ export type RetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "re
 export type RetrievalPublicationJobsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationJobs">;
 export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSets">;
 export type RetrievalPublicationSubjectsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSubjects">;
+export type RetrievalRebuildChildrenDoc = Document.Document<typeof schemaDefinition, "retrievalRebuildChildren">;
+export type RetrievalRebuildRunsDoc = Document.Document<typeof schemaDefinition, "retrievalRebuildRuns">;
 export type RetrievalTokensDoc = Document.Document<typeof schemaDefinition, "retrievalTokens">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
@@ -95,6 +105,8 @@ export interface Docs {
   brainMaintenanceProposals: BrainMaintenanceProposalsDoc;
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
+  brainReadModes: BrainReadModesDoc;
+  brainRequiredScopeIntents: BrainRequiredScopeIntentsDoc;
   brainSources: BrainSourcesDoc;
   callRouteMappings: CallRouteMappingsDoc;
   callRoutingProposals: CallRoutingProposalsDoc;
@@ -105,6 +117,11 @@ export interface Docs {
   claims: ClaimsDoc;
   classificationDecisions: ClassificationDecisionsDoc;
   concepts: ConceptsDoc;
+  connectorIncrementalCursors: ConnectorIncrementalCursorsDoc;
+  connectorPageChunks: ConnectorPageChunksDoc;
+  connectorPageEnvelopes: ConnectorPageEnvelopesDoc;
+  connectorReconciliationRuns: ConnectorReconciliationRunsDoc;
+  connectorReconciliationSeen: ConnectorReconciliationSeenDoc;
   connectorSyncStates: ConnectorSyncStatesDoc;
   contextPacks: ContextPacksDoc;
   creditLedger: CreditLedgerDoc;
@@ -114,6 +131,7 @@ export interface Docs {
   dsarRequests: DsarRequestsDoc;
   entitlements: EntitlementsDoc;
   featureFlagPolicies: FeatureFlagPoliciesDoc;
+  ingestionObligations: IngestionObligationsDoc;
   invitations: InvitationsDoc;
   migrationReceipts: MigrationReceiptsDoc;
   migrationRuns: MigrationRunsDoc;
@@ -133,6 +151,8 @@ export interface Docs {
   retrievalPublicationJobs: RetrievalPublicationJobsDoc;
   retrievalPublicationSets: RetrievalPublicationSetsDoc;
   retrievalPublicationSubjects: RetrievalPublicationSubjectsDoc;
+  retrievalRebuildChildren: RetrievalRebuildChildrenDoc;
+  retrievalRebuildRuns: RetrievalRebuildRunsDoc;
   retrievalTokens: RetrievalTokensDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;

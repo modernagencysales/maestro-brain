@@ -1,4 +1,5 @@
 import { sha256Hex } from "../shared/sha256";
+import type { GenericId } from "convex/values";
 import type { RetrievalEligibilityFenceRef } from "./retrievalPublication";
 
 export type RetrievalPublicationFenceSnapshot = RetrievalEligibilityFenceRef & {
@@ -24,7 +25,8 @@ export type RetrievalPublicationAuthorityContext = {
     readonly key: string;
     readonly generation?: number;
   };
-  readonly targetResolutionIntentKey?: string;
+  readonly targetResolutionIntentKey?: GenericId<"slackPublicationTargetIntents">;
+  readonly targetResolutionGeneration?: number;
   readonly repairOfJobKey?: string;
   readonly supersedesJobKey?: string;
 };
@@ -35,6 +37,12 @@ export type RetrievalPublicationAuthorityEnvelope =
     readonly stableEffectKey: string;
     readonly capturedAt: number;
   };
+
+export type RetrievalPublicationEffectClass =
+  | "direct_publication"
+  | "rebuild_batch"
+  | "attributed_repair"
+  | "migration_replacement";
 
 export type RetrievalPublicationJobInput = {
   readonly organizationKey: string;
@@ -50,12 +58,22 @@ export type RetrievalPublicationJobInput = {
   readonly sourceKey: string;
   readonly sourceRevisionKey: string;
   readonly requestGeneration: number;
+  readonly effectClass?: RetrievalPublicationEffectClass;
+  readonly operation?: "publish" | "cleanup";
+  readonly rebuildRunKey?: string;
+  readonly rebuildRunGeneration?: number;
+  readonly rebuildLedgerHighWater?: number;
+  readonly rebuildPauseEpoch?: number;
+  readonly rebuildPredecessorDigest?: string;
+  readonly parentRebuildJobKey?: string;
   readonly page?: {
     readonly authority: "authoritative" | "derived" | "advisory";
     readonly authorityPolicyKey: string;
     readonly policyGeneration: number;
   };
   readonly rebuild?: {
+    readonly phase?: "scan" | "catch_up" | "set_difference" | "close";
+    readonly phaseHighWater?: number;
     readonly afterSourceKey?: string;
     readonly limit: number;
     readonly discoveredCount?: number;
@@ -80,10 +98,20 @@ const canonicalRebuild = (rebuild: RetrievalPublicationJobInput["rebuild"]) =>
     ? null
     : {
         limit: rebuild.limit,
+        phase: rebuild.phase ?? null,
+        phaseHighWater: rebuild.phaseHighWater ?? null,
         afterSourceKey: rebuild.afterSourceKey ?? null,
         discoveredCount: rebuild.discoveredCount ?? null,
         publishedCount: rebuild.publishedCount ?? null,
       };
+
+export const retrievalPublicationEffectClass = (
+  input: Pick<RetrievalPublicationJobInput, "effectClass" | "originKind">,
+): RetrievalPublicationEffectClass =>
+  input.effectClass ??
+  (input.originKind.endsWith("_rebuild")
+    ? "rebuild_batch"
+    : "direct_publication");
 
 export const retrievalPublicationAuthorityDigest = (
   context: RetrievalPublicationAuthorityContext,
@@ -124,9 +152,17 @@ export const retrievalPublicationAuthorityEnvelope = (
         workspaceId: input.workspaceId,
         brainKey: input.brainKey,
         originKind: input.originKind,
+        effectClass: retrievalPublicationEffectClass(input),
+        operation: input.operation ?? "publish",
         sourceKey: input.sourceKey,
         sourceRevisionKey: input.sourceRevisionKey,
         requestGeneration: input.requestGeneration,
+        rebuildRunKey: input.rebuildRunKey ?? null,
+        rebuildRunGeneration: input.rebuildRunGeneration ?? null,
+        rebuildLedgerHighWater: input.rebuildLedgerHighWater ?? null,
+        rebuildPauseEpoch: input.rebuildPauseEpoch ?? null,
+        rebuildPredecessorDigest: input.rebuildPredecessorDigest ?? null,
+        parentRebuildJobKey: input.parentRebuildJobKey ?? null,
         page: input.page ?? null,
         rebuild: canonicalRebuild(input.rebuild),
         authorityDigest,
@@ -145,9 +181,17 @@ export const retrievalPublicationJobKey = (
       workspaceId: input.workspaceId,
       brainKey: input.brainKey,
       originKind: input.originKind,
+      effectClass: retrievalPublicationEffectClass(input),
+      operation: input.operation ?? "publish",
       sourceKey: input.sourceKey,
       sourceRevisionKey: input.sourceRevisionKey,
       requestGeneration: input.requestGeneration,
+      rebuildRunKey: input.rebuildRunKey ?? null,
+      rebuildRunGeneration: input.rebuildRunGeneration ?? null,
+      rebuildLedgerHighWater: input.rebuildLedgerHighWater ?? null,
+      rebuildPauseEpoch: input.rebuildPauseEpoch ?? null,
+      rebuildPredecessorDigest: input.rebuildPredecessorDigest ?? null,
+      parentRebuildJobKey: input.parentRebuildJobKey ?? null,
       page: input.page ?? null,
       rebuild: canonicalRebuild(input.rebuild),
       authorityDigest:
@@ -170,11 +214,37 @@ export const retrievalPublicationJobRow = (
     brainKey: input.brainKey,
     jobKey: retrievalPublicationJobKey(input),
     originKind: input.originKind,
+    effectClass: retrievalPublicationEffectClass(input),
+    operation: input.operation ?? "publish",
     sourceKey: input.sourceKey,
     sourceRevisionKey: input.sourceRevisionKey,
     requestGeneration: input.requestGeneration,
+    ...(input.rebuildRunKey === undefined
+      ? {}
+      : { rebuildRunKey: input.rebuildRunKey }),
+    ...(input.rebuildRunGeneration === undefined
+      ? {}
+      : { rebuildRunGeneration: input.rebuildRunGeneration }),
+    ...(input.rebuildLedgerHighWater === undefined
+      ? {}
+      : { rebuildLedgerHighWater: input.rebuildLedgerHighWater }),
+    ...(input.rebuildPauseEpoch === undefined
+      ? {}
+      : { rebuildPauseEpoch: input.rebuildPauseEpoch }),
+    ...(input.rebuildPredecessorDigest === undefined
+      ? {}
+      : { rebuildPredecessorDigest: input.rebuildPredecessorDigest }),
+    ...(input.parentRebuildJobKey === undefined
+      ? {}
+      : { parentRebuildJobKey: input.parentRebuildJobKey }),
     ...(input.page === undefined ? {} : { page: input.page }),
     ...(input.rebuild === undefined ? {} : { rebuild: input.rebuild }),
+    ...(input.authorityContext?.targetResolutionIntentKey === undefined
+      ? {}
+      : {
+          targetResolutionIntentKey:
+            input.authorityContext.targetResolutionIntentKey,
+        }),
     ...(input.authorityContext === undefined
       ? {}
       : (() => {
@@ -184,6 +254,7 @@ export const retrievalPublicationJobRow = (
             now,
           );
           return {
+            authorityDigest: authorityEnvelope.authorityDigest,
             authorityEnvelope: {
               ...authorityEnvelope,
               eligibilityFences: authorityEnvelope.eligibilityFences.map(

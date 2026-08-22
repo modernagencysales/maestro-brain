@@ -8,3 +8,7 @@ export const headlessSourcesGet = registeredFunctions.headlessSourcesGet;
 export const headlessSourcesSearch = registeredFunctions.headlessSourcesSearch;
 export const sourcesGet = registeredFunctions.sourcesGet;
 export const sourcesSearch = registeredFunctions.sourcesSearch;
+export const validationContextGet = registeredFunctions.validationContextGet;
+export const validationSourcesGet = registeredFunctions.validationSourcesGet;
+export const validationSourcesSearch =
+  registeredFunctions.validationSourcesSearch;

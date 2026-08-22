@@ -72,6 +72,33 @@ export const connectionFenceIdentity = (input: {
   controllerKey: `connection:${input.connectionKey}`,
 });
 
+export const connectorScopeFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly connectorScopeKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "scope",
+  controllerKey: `connector-scope:${input.connectorScopeKey}`,
+});
+
+export const connectorAllowlistFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly connectorScopeKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "allowlist",
+  controllerKey: `connector-allowlist:${input.connectorScopeKey}`,
+});
+
+export const documentLifecycleFenceIdentity = (input: {
+  readonly organizationKey: string;
+  readonly documentObjectKey: string;
+}): EligibilityFenceIdentity => ({
+  organizationKey: input.organizationKey,
+  kind: "lifecycle",
+  controllerKey: `document-object:${input.organizationKey}:${input.documentObjectKey}`,
+});
+
 const loadEligibilityFence = (identity: EligibilityFenceIdentity) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;

@@ -1,3 +1,4 @@
+import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import {
   authorizeHeadlessOperation,
@@ -36,7 +37,12 @@ export type HeadlessFailureResult = {
   readonly ok: false;
   readonly error: {
     readonly _tag:
-      "Unauthorized" | "ValidationFailed" | "Forbidden" | "RateLimited";
+      | "Unauthorized"
+      | "ValidationFailed"
+      | "Forbidden"
+      | "RateLimited"
+      | "SubsystemDisabled"
+      | "RetrievalCapacityExceeded";
     readonly message: string;
   };
 };
@@ -198,6 +204,26 @@ const headlessOperationKinds = new Set<string>(["query", "mutation", "action"]);
 const isHeadlessOperationKind = (kind: string): kind is HeadlessOperationKind =>
   headlessOperationKinds.has(kind);
 
+const sanitizedDispatchFailure = (
+  error: unknown,
+): HeadlessFailureResult | undefined => {
+  if (
+    !Ref.isConvexError(error) ||
+    typeof error.data !== "object" ||
+    error.data === null ||
+    !("_tag" in error.data)
+  )
+    return undefined;
+  if (error.data._tag === "SubsystemDisabled")
+    return headlessFailure("SubsystemDisabled", "Brain reads are unavailable.");
+  if (error.data._tag === "RetrievalCapacityExceeded")
+    return headlessFailure(
+      "RetrievalCapacityExceeded",
+      "Brain retrieval capacity was exceeded.",
+    );
+  return undefined;
+};
+
 const idempotencyFailureFor = (
   operation: HeadlessManifestOperation,
   idempotencyKey: IdempotencyKeyValidationError | string | undefined,
@@ -302,20 +328,28 @@ const dispatchHeadlessOperation = async (
         action: adapter.runAction,
       }[operationKind]
     : undefined;
-  const result =
-    runner === undefined
-      ? headlessFailure(
-          "ValidationFailed",
-          `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
-        )
-      : ({
-          ok: true,
-          result: await runner(
-            execution.ref,
-            execution.input,
-            execution.operation,
-          ),
-        } satisfies DispatchSuccess);
+  let result: DispatchResult;
+  if (runner === undefined) {
+    result = headlessFailure(
+      "ValidationFailed",
+      `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
+    );
+  } else {
+    try {
+      result = {
+        ok: true,
+        result: await runner(
+          execution.ref,
+          execution.input,
+          execution.operation,
+        ),
+      } satisfies DispatchSuccess;
+    } catch (error) {
+      const sanitized = sanitizedDispatchFailure(error);
+      if (sanitized === undefined) throw error;
+      result = sanitized;
+    }
+  }
 
   return result;
 };

@@ -15,6 +15,7 @@ import {
   retrievalPublicationSubjectKey,
   type RetrievalEligibilityFenceKind,
 } from "../../confect/brain/retrievalPublication";
+import { sha256Hex } from "../../confect/shared/sha256";
 const MAX_ACTIVE_POLICIES_PER_CHANNEL = 1;
 const MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION = 26;
 const args = {
@@ -253,11 +254,19 @@ const resolveTargets = async (
     .withIndex("by_receipt_id", (q) => q.eq("receiptId", receiptId))
     .unique();
   if (intent === null) throw new Error("SlackPublicationTargetIntentMissing");
-  if (intent.status === "succeeded")
+  const legacySucceededIntent =
+    intent.status === "succeeded" &&
+    (intent.resolutionGeneration === undefined ||
+      intent.targetDigest === undefined ||
+      intent.targets === undefined);
+  if (intent.status === "succeeded" && !legacySucceededIntent)
     return {
       status: "succeeded" as const,
       targetCount: intent.targetCount,
     };
+  const resolutionGeneration = legacySucceededIntent
+    ? (intent.resolutionGeneration ?? 0) + 1
+    : (intent.resolutionGeneration ?? 1);
   const attemptCount = intent.attemptCount + 1;
   const organization = await ctx.db
     .query("organizations")
@@ -266,12 +275,17 @@ const resolveTargets = async (
     )
     .unique();
   if (organization === null) {
+    const targetDigest = `sha256:${sha256Hex(JSON.stringify([]))}`;
     await ctx.db.patch(intent._id, {
       status: "succeeded",
       attemptCount,
       nextAttemptAt: now,
       lastErrorTag: null,
+      resolutionGeneration,
+      linkageVersion: 1,
       targetCount: 0,
+      targetDigest,
+      targets: [],
       completedAt: now,
       updatedAt: now,
     });
@@ -377,7 +391,11 @@ const resolveTargets = async (
       connection.connectionGeneration === receipt.connectionGeneration,
     now,
   });
-  let targetCount = 0;
+  const targets: Array<{
+    workspaceId: Id<"workspaces">;
+    brainKey: string;
+    jobKey: string;
+  }> = [];
   for (const workspace of workspaces) {
     if (
       workspace.brainKey === undefined ||
@@ -436,7 +454,8 @@ const resolveTargets = async (
           kind: "revision" as const,
           key: receipt.sourceRevisionKey,
         },
-        targetResolutionIntentKey: String(intent._id),
+        targetResolutionIntentKey: intent._id,
+        targetResolutionGeneration: resolutionGeneration,
       },
     };
     const jobKey = retrievalPublicationJobKey(jobInput);
@@ -444,6 +463,21 @@ const resolveTargets = async (
       .query("retrievalPublicationJobs")
       .withIndex("by_job_key", (q) => q.eq("jobKey", jobKey))
       .unique();
+    if (
+      existing !== null &&
+      (existing.organizationKey !== receipt.organizationKey ||
+        existing.workspaceId !== workspace._id ||
+        existing.brainKey !== workspace.brainKey ||
+        existing.originKind !== "slack" ||
+        existing.effectClass !== "direct_publication" ||
+        existing.sourceKey !== receipt.sourceKey ||
+        existing.sourceRevisionKey !== receipt.sourceRevisionKey ||
+        existing.targetResolutionIntentKey !== intent._id ||
+        existing.authorityEnvelope?.targetResolutionIntentKey !== intent._id ||
+        existing.authorityEnvelope?.targetResolutionGeneration !==
+          resolutionGeneration)
+    )
+      throw new Error("SlackPublicationChildLinkageConflict");
     if (existing === null)
       await ctx.db.insert("retrievalPublicationJobs", {
         ...retrievalPublicationJobRow(jobInput, now),
@@ -463,18 +497,36 @@ const resolveTargets = async (
         },
         now,
       });
-    targetCount += 1;
+    targets.push({
+      workspaceId: workspace._id,
+      brainKey: workspace.brainKey,
+      jobKey,
+    });
   }
+  const targetDigest = `sha256:${sha256Hex(
+    JSON.stringify(
+      targets
+        .map(
+          (target) =>
+            `${String(target.workspaceId)}:${target.brainKey}:${target.jobKey}`,
+        )
+        .sort(),
+    ),
+  )}`;
   await ctx.db.patch(intent._id, {
     status: "succeeded",
     attemptCount,
     nextAttemptAt: now,
     lastErrorTag: null,
-    targetCount,
+    resolutionGeneration,
+    linkageVersion: 1,
+    targetCount: targets.length,
+    targetDigest,
+    targets,
     completedAt: now,
     updatedAt: now,
   });
-  return { status: "succeeded" as const, targetCount };
+  return { status: "succeeded" as const, targetCount: targets.length };
 };
 export const receiveSlackEvent = internalMutation({
   args,
@@ -536,6 +588,7 @@ export const receiveSlackEvent = internalMutation({
         attemptCount: 0,
         nextAttemptAt: i.receivedAt,
         lastErrorTag: null,
+        resolutionGeneration: 1,
         targetCount: 0,
         completedAt: null,
         createdAt: i.receivedAt,
@@ -578,7 +631,13 @@ export const sweepSlackPublicationTargets = internalMutation({
         )
         .take(limit),
     ]);
-    const due = [...pending, ...retryWait]
+    const legacySucceeded = await ctx.db
+      .query("slackPublicationTargetIntents")
+      .withIndex("by_status_linkage_version", (q) =>
+        q.eq("status", "succeeded").eq("linkageVersion", undefined),
+      )
+      .take(limit);
+    const due = [...pending, ...retryWait, ...legacySucceeded]
       .sort(
         (left, right) =>
           left.nextAttemptAt - right.nextAttemptAt ||

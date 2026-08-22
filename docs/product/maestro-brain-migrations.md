@@ -165,6 +165,61 @@ Execute-mode component failures follow the same durable failure receipt path.
   exactly linked complete-envelope job and marked superseded, or remains a typed
   blocking conflict when authority cannot be derived. Missing fields are never
   guessed in place.
+- **BE2-S1A execution:** operators start the internal
+  `migrateLegacyPublicationJobAuthority` mutation with the expected live
+  projection-population generation and configuration digest, then call the
+  resume mutation with the server-issued run key and run generation. Batches are
+  limited to 1-10 rows and advance only with the stored opaque cursor over
+  `by_workspace_brain_job`; callers cannot supply or rewrite a scan cursor. The
+  start transaction pins a server-time scan high-water, so replacements and
+  other jobs created after the run starts are outside its population. Repeating
+  start with the same configuration returns the existing run. A different active
+  configuration or stale generation fails with a typed conflict.
+- **BE2-S1A close receipt:** every in-population job contributes its stable key,
+  prior status/authority digest, and classified outcome to a rolling SHA-256
+  predecessor digest. Progress separately counts processed rows, linked
+  replacements, already-complete authority, terminal history, and conflicts. A
+  replacement is created and the legacy actionable row is superseded in one
+  mutation; each replacement batch also advances the live projection-population
+  generation. The run closes `complete` only with zero conflicts and then
+  persists one immutable receipt binding the run/configuration generations, scan
+  high-water, final population generation and digest, all counts, and completion
+  time. Any conflict closes the run `blocked` without a completion receipt.
+  Later publications may advance the live generation but never rewrite the
+  successful migration receipt; promotion must bind to that receipt and
+  independently prove no actionable incomplete-authority job remains.
+- **BE2-S1B provider-neutral controllers:** add `connectorScopes`, keyed by the
+  stable connector scope, and immutable `connectorAllowlistGenerations`, keyed
+  by scope plus allowlist generation. A document publication is controlled by
+  the exact document-lifecycle, connector-scope, allowlist-generation, and
+  connection tuple captured by its source revision. The rollout rejects missing
+  tuple members, duplicate controller rows, mismatched organization or
+  connection generations, non-current allowlists, and fence-key/controller
+  collisions; it never substitutes provider-specific policy records for these
+  identities.
+- **BE2-S1B execution and population:** after the immutable publication-subject
+  and job-authority receipts exist, operators start `eligibility_fences` through
+  the same internal projection-backfill mutations and server-issued run CAS. The
+  run scans current then retained retired sets at a pinned high-water, captures
+  a second high-water, catches up both states, and validates both populations.
+  Per-set run markers make counting idempotent and correct a set's
+  current/retired census if it changes state during the scan. A new set created
+  after the scan high-water is included only through the bounded catch-up; later
+  live population advances restart validation without rewriting the scan.
+- **BE2-S1B conflicts, invalidation, and close receipt:** every retained set
+  must resolve to one canonical manifest of stable controller identities and
+  current fence generations. A malformed origin/controller tuple or collision
+  adds a blocking conflict and produces no receipt. If a controller generation
+  or tuple changes after that run backfills a set, validation terminates the run
+  as `superseded`, also without a receipt, so operators restart from the new
+  live generation. A retired set may be excluded only by a canonical
+  `citationInvalidationReceipt` bound to its organization, workspace, Brain,
+  publication-set key, reason, and invalidation time; invalid receipts are
+  conflicts. Zero-conflict close writes one immutable receipt binding the run,
+  configuration, scan/catch-up high-waters, population digest, exact current and
+  retained-retired counts, backfilled and explicitly invalidated counts, and
+  fence-backfill generation. Later publications may advance the live population
+  but cannot mutate this completion receipt.
 - **Backfill:** enqueue `page_rebuild`, `slack_rebuild`, or `transcript_rebuild`
   publication jobs with batches of at most five source objects. Each successful
   non-final batch transactionally creates the next cursor-keyed job; provider
@@ -226,6 +281,24 @@ Execute-mode component failures follow the same durable failure receipt path.
   lifecycle and controller eligibility, rollback disables Ask Apero instead of
   exposing legacy evidence.
 
+## Brain read compatibility gate
+
+- **Expand:** add `brainReadModes`, keyed by stable workspace and Brain, with a
+  monotonic mode generation. BE1 accepts only `compatibility` and `disabled`.
+- **Backfill:** none. An absent row deliberately means `compatibility`, so the
+  deployment cannot expose the retrieval projection merely because rollout state
+  has not been written yet.
+- **Read behavior:** public, HTTP, and MCP reads use the compatibility reader in
+  both the absent-row and explicit-`compatibility` states. `disabled` fails with
+  `SubsystemDisabled`. Projection reads remain internal validation operations
+  and are not published in the headless manifest.
+- **Contract:** deferred to BE3. BE3 adds the receipt-bound, compare-and-set
+  promotion operation and only then introduces a projection mode after the
+  required same-SHA and corpus-completeness evidence has been verified.
+- **Rollback:** set the Brain to `disabled` if compatibility reads are unsafe;
+  otherwise remove or retain its `compatibility` row. Do not invent or backfill
+  a projection state during rollback.
+
 ## Slack provider event ordering and replay lookup
 
 - **Expand:** add the `by_connection_generation_provider_event` index to
@@ -272,6 +345,48 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Rollback:** pause the resolution sweeper before deploying an older writer.
   The additive intent table may remain. Rebuild derived Slack publications from
   the immutable ledger; never delete captured revisions.
+
+## Provider reconciliation and ingestion obligations
+
+- **Expand:** add `connectorIncrementalCursors`, `connectorPageEnvelopes`,
+  `connectorPageChunks`, `connectorReconciliationRuns`,
+  `connectorReconciliationSeen`, `brainRequiredScopeIntents`, and
+  `ingestionObligations`, plus the internal provider-reconciliation mutation
+  contract. These are additive tables keyed by the stable connector scope,
+  connection generation, allowlist generation, and reconciliation-run
+  generation; no existing connector-scope row shape is assumed.
+- **Backfill:** none. Existing immutable Slack source revisions and transcript
+  unit revisions remain valid. Reconciliation creates required intents, run
+  receipts, seen markers, and obligations only for newly opened runs.
+- **Flow:** a run advances through
+  `scan -> traversal_closed -> apply_removals -> drain_derived -> complete`.
+  Each page first pins an immutable envelope and ordered chunk descriptors. A
+  chunk transaction verifies its canonical digest and exact immutable
+  Slack/transcript ledger rows, then writes all seen markers, ingestion
+  obligations, and the receipt. The cursor advances only after every declared
+  receipt exists. Removal inference is unavailable before traversal close and
+  ignores ledger observations newer than the run high-water.
+- **Closure:** only `complete` and `policy_excluded` are successful obligation
+  states. Normalization, quarantine, target resolution, capacity, publication,
+  retry, failure, removal, and derived-drain states remain blocking. Final close
+  also requires the current required-scope intent and zero removal/drain cursor
+  or backlog. Activation and restore record the required intent in their owning
+  transaction; ordinary deactivation does not erase it, and only the explicit
+  generation-fenced decommission operation may retire it.
+- **Verify:** run `test/provider-reconciliation.test.ts` and prove successor-run
+  and obsolete-tuple fencing, exact immutable page chunks before cursor advance,
+  rejection of substituted chunks, successful-close-only removals below the
+  ledger fence, every unresolved obligation class remaining nonterminal, final
+  close waiting for removal/drain backlogs, and distinct Slack/transcript origin
+  and membership identities.
+- **Contract:** keep the reconciliation tables and internal mutations additive
+  while live runs establish complete traversal, obligation, removal, and drain
+  receipts for every required provider scope. Narrowing or switching coverage
+  readers is deferred until those current-tuple runs close successfully.
+- **Rollback:** pause new reconciliation runs and their workers. Retain
+  immutable source ledgers, cursors, envelopes, chunk receipts, seen markers,
+  required intents, and obligations for diagnosis and safe resume. Never infer
+  removals from a partial, failed, superseded, or rolled-back run.
 
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document

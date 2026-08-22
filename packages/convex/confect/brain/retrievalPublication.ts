@@ -415,3 +415,16 @@ export const retrievalScore = (input: {
     freshnessScore
   );
 };
+
+export const selectTopRetrievalCandidates = <
+  Candidate extends { readonly score: number; readonly entryKey: string },
+>(
+  candidates: readonly Candidate[],
+  limit = RETRIEVAL_CANDIDATE_LIMIT,
+): Candidate[] =>
+  [...candidates]
+    .sort(
+      (left, right) =>
+        right.score - left.score || left.entryKey.localeCompare(right.entryKey),
+    )
+    .slice(0, limit);

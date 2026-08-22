@@ -19,6 +19,9 @@ import { sha256Hex } from "../shared/sha256";
 import { requireBrainAccess, requireHeadlessBrainAccess } from "./pages.impl";
 import {
   connectionFenceIdentity,
+  connectorAllowlistFenceIdentity,
+  connectorScopeFenceIdentity,
+  documentLifecycleFenceIdentity,
   pageLifecycleFenceIdentity,
   slackPolicyFenceIdentity,
   slackSourceLifecycleFenceIdentity,
@@ -34,6 +37,7 @@ import {
   RETRIEVAL_POSTING_LIMIT,
   retrievalScore,
   retrievalEligibilityFenceKey,
+  selectTopRetrievalCandidates,
   uniqueQueryTokens,
 } from "./retrievalPublication";
 import {
@@ -46,6 +50,7 @@ import {
 } from "./retrieval";
 import readApi, {
   CitationIntegrityFailure,
+  RetrievalCapacityExceeded,
   SearchResult,
 } from "./readApi.spec";
 import {
@@ -55,6 +60,8 @@ import {
 
 const now = () =>
   Clock.currentTimeMillis as Effect.Effect<number, never, never>;
+
+const REVISION_ONLY_LOOKUP_LIMIT = 20;
 
 const ensureOperationEnabled = (workspaceId: string, subsystem: "ask") =>
   Effect.gen(function* () {
@@ -159,6 +166,29 @@ const resolveReadBrain = (selector: ReadSelector) =>
         brainKey: selector.brainKey,
       })
     : requireBrainAccess(selector.brainKey, "viewer");
+
+const requireCompatibilityReadMode = (selector: ReadSelector) =>
+  Effect.gen(function* () {
+    const brain = yield* resolveReadBrain(selector);
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("brainReadModes")
+      .index("by_workspace_brain", (index) =>
+        index
+          .eq("workspaceId", brain.workspaceId)
+          .eq("brainKey", brain.brainKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const row = rows[0];
+    if (
+      rows.length > 1 ||
+      (row !== undefined && row.organizationKey !== brain.organizationKey) ||
+      row?.mode === "disabled"
+    )
+      return yield* new SubsystemDisabled({ subsystem: "brain.read" });
+    return brain;
+  });
 
 const legacyTranscriptResult = (citation: ResolvedTranscriptCitation) => ({
   sourceKey: citation.sourceKey,
@@ -372,14 +402,16 @@ const expectedCorporaFor = (brain: {
         .pipe(Effect.map(Option.getOrNull), Effect.orDie),
     ]);
     if (slackPolicies.length > ACTIVE_SLACK_POLICY_LIMIT)
-      return yield* new ValidationFailed({
-        field: "coverage.slack",
-        message: "Active Slack policy capacity exceeded.",
+      return yield* new RetrievalCapacityExceeded({
+        resource: "active_slack_policies",
+        limit: ACTIVE_SLACK_POLICY_LIMIT,
+        observedAtLeast: slackPolicies.length,
       });
     if (transcriptConnections.length > ACTIVE_PROVIDER_CONNECTION_LIMIT)
-      return yield* new ValidationFailed({
-        field: "coverage.transcripts",
-        message: "Active provider connection capacity exceeded.",
+      return yield* new RetrievalCapacityExceeded({
+        resource: "active_provider_connections",
+        limit: ACTIVE_PROVIDER_CONNECTION_LIMIT,
+        observedAtLeast: transcriptConnections.length,
       });
     const expected = new Set<string>(["brain-pages"]);
     if (
@@ -536,9 +568,10 @@ const searchProjection = (
       expectedCorporaFor(brain),
     ]);
     if (healthRows.length > CORPUS_HEALTH_LIMIT)
-      return yield* new ValidationFailed({
-        field: "coverage",
-        message: "Corpus health capacity exceeded.",
+      return yield* new RetrievalCapacityExceeded({
+        resource: "corpus_health",
+        limit: CORPUS_HEALTH_LIMIT,
+        observedAtLeast: healthRows.length,
       });
     const omissions: Array<{ reason: string; count: number }> = [];
     const publicationSetStates = new Map<
@@ -588,9 +621,10 @@ const searchProjection = (
         .take(remaining + 1)
         .pipe(Effect.orDie);
       if (postings.length > remaining)
-        return yield* new ValidationFailed({
-          field: "query",
-          message: `Current retrieval posting capacity exceeded (${RETRIEVAL_POSTING_LIMIT}).`,
+        return yield* new RetrievalCapacityExceeded({
+          resource: "current_postings",
+          limit: RETRIEVAL_POSTING_LIMIT,
+          observedAtLeast: postingCount + postings.length,
         });
       for (const posting of postings) {
         if (
@@ -623,9 +657,11 @@ const searchProjection = (
         .take(remaining + 1)
         .pipe(Effect.orDie);
       if (postings.length > remaining)
-        return yield* new ValidationFailed({
-          field: "query",
-          message: `Unclassified retrieval posting capacity exceeded (${RETRIEVAL_POSTING_LIMIT}); complete the publication-state backfill.`,
+        return yield* new RetrievalCapacityExceeded({
+          resource: "unclassified_postings",
+          limit: RETRIEVAL_POSTING_LIMIT,
+          observedAtLeast:
+            classifiedPostingCount + unclassifiedCount + postings.length,
         });
       unclassifiedCount += postings.length;
       for (const posting of postings) {
@@ -679,12 +715,7 @@ const searchProjection = (
       };
       score: number;
     }> = [];
-    for (
-      let offset = 0;
-      offset < candidateKeys.length &&
-      active.length < RETRIEVAL_CANDIDATE_LIMIT;
-      offset += 40
-    ) {
+    for (let offset = 0; offset < candidateKeys.length; offset += 40) {
       const keys = candidateKeys.slice(offset, offset + 40);
       const rows = yield* Effect.all(
         keys.map(({ publicationSetKey, entryKey }) =>
@@ -733,12 +764,12 @@ const searchProjection = (
       }
     }
     const perRevision = new Map<string, number>();
-    const results = active
-      .sort(
-        (left, right) =>
-          right.score - left.score ||
-          left.entry.entryKey.localeCompare(right.entry.entryKey),
-      )
+    const results = selectTopRetrievalCandidates(
+      active.map((candidate) => ({
+        ...candidate,
+        entryKey: candidate.entry.entryKey,
+      })),
+    )
       .flatMap(({ entry, evidence }) => {
         const count = perRevision.get(entry.sourceRevisionKey) ?? 0;
         if (count >= 3) return [];
@@ -775,6 +806,51 @@ const searchSources = (
   selector: ReadSelector,
 ) =>
   Effect.gen(function* () {
+    yield* requireCompatibilityReadMode(selector);
+    const query = args.query.trim();
+    if (!query)
+      return yield* new ValidationFailed({
+        field: "query",
+        message: "query is required.",
+      });
+    const legacy = yield* loadTranscriptReadContext(selector);
+    const words = new Set(uniqueQueryTokens(query));
+    const legacyResults = legacy.transcripts
+      .filter((citation) =>
+        uniqueQueryTokens(`${citation.title} ${citation.quotedText}`).some(
+          (token) => words.has(token),
+        ),
+      )
+      .map(legacyTranscriptResult);
+    return {
+      brainKey: legacy.brain.brainKey,
+      results: legacyResults,
+      coverage: [
+        {
+          sourceKind: "transcripts",
+          status: "unknown" as const,
+          freshness: "unknown" as const,
+          reason:
+            "Legacy transcript compatibility path; no publication coverage receipt.",
+        },
+      ],
+      omissions:
+        legacyResults.length === 0
+          ? []
+          : [
+              {
+                reason: "legacy transcript compatibility path",
+                count: legacyResults.length,
+              },
+            ],
+    };
+  });
+
+const validationSearchSources = (
+  args: { readonly brainKey: string; readonly query: string },
+  selector: ReadSelector,
+) =>
+  Effect.gen(function* () {
     const query = args.query.trim();
     if (!query)
       return yield* new ValidationFailed({
@@ -786,47 +862,11 @@ const searchSources = (
       selector,
       RETRIEVAL_CANDIDATE_LIMIT,
     );
-    if (projection.results.length > 0 || args.compatibilityMode !== "legacy")
-      return {
-        brainKey: projection.brain.brainKey,
-        results: projection.results,
-        coverage: projection.coverage,
-        omissions: projection.omissions,
-      };
-    const legacy = yield* loadTranscriptReadContext(selector);
-    const words = new Set(uniqueQueryTokens(query));
-    const legacyResults = legacy.transcripts
-      .filter((citation) =>
-        uniqueQueryTokens(`${citation.title} ${citation.quotedText}`).some(
-          (token) => words.has(token),
-        ),
-      )
-      .map(legacyTranscriptResult);
     return {
       brainKey: projection.brain.brainKey,
-      results: legacyResults,
-      coverage:
-        legacyResults.length === 0
-          ? projection.coverage
-          : [
-              ...projection.coverage,
-              {
-                sourceKind: "transcripts",
-                status: "unknown" as const,
-                freshness: "unknown" as const,
-                reason: "Legacy transcript compatibility path.",
-              },
-            ],
-      omissions:
-        legacyResults.length === 0
-          ? projection.omissions
-          : [
-              ...projection.omissions,
-              {
-                reason: "legacy transcript compatibility path",
-                count: legacyResults.length,
-              },
-            ],
+      results: projection.results,
+      coverage: projection.coverage,
+      omissions: projection.omissions,
     };
   });
 
@@ -841,6 +881,12 @@ const headlessSourcesSearch = FunctionImpl.make(
   readApi,
   "headlessSourcesSearch",
   (args) => searchSources(args, args),
+);
+const validationSourcesSearch = FunctionImpl.make(
+  databaseSchema,
+  readApi,
+  "validationSourcesSearch",
+  (args) => validationSearchSources(args, args),
 );
 
 const citationFailure = (
@@ -946,6 +992,34 @@ const publicationEligibilityMatches = (entry: RetrievalEntriesDoc) =>
             organizationKey: entry.organizationKey,
             unitKey: entry.origin.unitKey,
             brainKey: entry.brainKey,
+          }),
+          connectionFenceIdentity({
+            organizationKey: entry.organizationKey,
+            connectionKey: entry.connectionKey,
+          }),
+        ];
+      }
+      if (entry.origin.kind === "document") {
+        if (
+          entry.connectorScopeKey === undefined ||
+          entry.connectionKey === undefined ||
+          entry.origin.connectorScopeKey !== entry.connectorScopeKey ||
+          entry.origin.connectionKey !== entry.connectionKey ||
+          entry.origin.objectKey !== entry.sourceKey
+        )
+          return null;
+        return [
+          documentLifecycleFenceIdentity({
+            organizationKey: entry.organizationKey,
+            documentObjectKey: entry.origin.objectKey,
+          }),
+          connectorScopeFenceIdentity({
+            organizationKey: entry.organizationKey,
+            connectorScopeKey: entry.connectorScopeKey,
+          }),
+          connectorAllowlistFenceIdentity({
+            organizationKey: entry.organizationKey,
+            connectorScopeKey: entry.connectorScopeKey,
           }),
           connectionFenceIdentity({
             organizationKey: entry.organizationKey,
@@ -1335,7 +1409,7 @@ const verifyCitationEvidence = (
     return yield* citationFailure(entry, "unsupported_origin");
   });
 
-const getSource = (
+const getProjectionSource = (
   args: {
     readonly brainKey: string;
     readonly sourceRevisionKey?: string | undefined;
@@ -1386,8 +1460,14 @@ const getSource = (
                 .eq("brainKey", brain.brainKey)
                 .eq("sourceRevisionKey", requestedRevisionKey ?? ""),
             )
-            .take(20)
+            .take(REVISION_ONLY_LOOKUP_LIMIT + 1)
     ).pipe(Effect.orDie);
+    if (!exactLookup && candidates.length > REVISION_ONLY_LOOKUP_LIMIT)
+      return yield* new RetrievalCapacityExceeded({
+        resource: "revision_entries",
+        limit: REVISION_ONLY_LOOKUP_LIMIT,
+        observedAtLeast: candidates.length,
+      });
     const candidateSets = yield* Effect.all(
       candidates.map((candidate) =>
         reader
@@ -1416,22 +1496,6 @@ const getSource = (
           field: "publicationSetKey",
           message: "Retrieval publication is unavailable or retired.",
         });
-      if (args.compatibilityMode !== "legacy")
-        return yield* new ValidationFailed({
-          field: "sourceRevisionKey",
-          message: "Source revision is unavailable.",
-        });
-      const legacy = yield* loadTranscriptReadContext(selector);
-      const transcript = legacy.transcripts.find(
-        ({ sourceRevisionKey }) => sourceRevisionKey === requestedRevisionKey,
-      );
-      if (transcript !== undefined)
-        return {
-          brainKey: brain.brainKey,
-          ...legacyTranscriptResult(transcript),
-          revisionKey: transcript.sourceRevisionKey,
-          status: "published",
-        };
       return yield* new ValidationFailed({
         field: "sourceRevisionKey",
         message: "Source revision is unavailable.",
@@ -1475,18 +1539,123 @@ const getSource = (
     };
   });
 
+const getCompatibilitySource = (
+  args: {
+    readonly brainKey: string;
+    readonly sourceRevisionKey?: string | undefined;
+    readonly entryKey?: string | undefined;
+    readonly publicationSetKey?: string | undefined;
+  },
+  selector: ReadSelector,
+) =>
+  Effect.gen(function* () {
+    yield* requireCompatibilityReadMode(selector);
+    if (
+      args.sourceRevisionKey === undefined ||
+      args.entryKey !== undefined ||
+      args.publicationSetKey !== undefined
+    )
+      return yield* new ValidationFailed({
+        field: "sourceRevisionKey",
+        message:
+          "Compatibility source-get requires a legacy sourceRevisionKey.",
+      });
+    const legacy = yield* loadTranscriptReadContext(selector);
+    const transcript = legacy.transcripts.find(
+      ({ sourceRevisionKey }) => sourceRevisionKey === args.sourceRevisionKey,
+    );
+    if (transcript === undefined)
+      return yield* new ValidationFailed({
+        field: "sourceRevisionKey",
+        message: "Source revision is unavailable.",
+      });
+    return {
+      brainKey: legacy.brain.brainKey,
+      ...legacyTranscriptResult(transcript),
+      revisionKey: transcript.sourceRevisionKey,
+      status: "published",
+    };
+  });
+
 const sourcesGet = FunctionImpl.make(
   databaseSchema,
   readApi,
   "sourcesGet",
-  (args) => getSource(args, { brainKey: args.brainKey }),
+  (args) => getCompatibilitySource(args, { brainKey: args.brainKey }),
 );
 const headlessSourcesGet = FunctionImpl.make(
   databaseSchema,
   readApi,
   "headlessSourcesGet",
-  (args) => getSource(args, args),
+  (args) => getCompatibilitySource(args, args),
 );
+const validationSourcesGet = FunctionImpl.make(
+  databaseSchema,
+  readApi,
+  "validationSourcesGet",
+  (args) => getProjectionSource(args, args),
+);
+
+const getProjectionContext = (
+  args: {
+    readonly brainKey: string;
+    readonly question?: string | undefined;
+    readonly maxBytes?: number | undefined;
+  },
+  selector: ReadSelector,
+) =>
+  Effect.gen(function* () {
+    const question = args.question?.trim() ?? "";
+    if (!question)
+      return yield* new ValidationFailed({
+        field: "question",
+        message: "question is required for projection validation.",
+      });
+    const byteLimit = Math.min(
+      RETRIEVAL_CONTEXT_MAX_BYTES,
+      Math.max(1, args.maxBytes ?? RETRIEVAL_CONTEXT_MAX_BYTES),
+    );
+    const projection = yield* searchProjection(
+      question,
+      selector,
+      RETRIEVAL_CONTEXT_ENTRY_LIMIT,
+    );
+    let bytes = 0;
+    const entries = projection.results.filter((entry) => {
+      const size = new TextEncoder().encode(entry.excerpt).byteLength;
+      if (bytes + size > byteLimit) return false;
+      bytes += size;
+      return true;
+    });
+    const omittedForBytes = projection.results.length - entries.length;
+    return {
+      requestId: `ctx_${sha256Hex(
+        JSON.stringify({
+          brainKey: projection.brain.brainKey,
+          question,
+          asOf: projection.at,
+          entries: entries.map(({ publicationSetKey, entryKey }) => ({
+            publicationSetKey,
+            entryKey,
+          })),
+        }),
+      )}`,
+      organizationKey: projection.brain.organizationKey,
+      brainKey: projection.brain.brainKey,
+      question,
+      asOf: projection.at,
+      freshness: { status: contextFreshnessFor(projection.coverage) },
+      coverage: projection.coverage,
+      entries,
+      omissions: [
+        ...projection.omissions,
+        ...(omittedForBytes > 0
+          ? [{ reason: "context byte capacity", count: omittedForBytes }]
+          : []),
+      ],
+      conflicts: [],
+    };
+  });
 
 const getContext = (
   args: {
@@ -1499,61 +1668,12 @@ const getContext = (
   selector: ReadSelector,
 ) =>
   Effect.gen(function* () {
+    yield* requireCompatibilityReadMode(selector);
     const question = args.question?.trim() ?? "";
     const byteLimit = Math.min(
       RETRIEVAL_CONTEXT_MAX_BYTES,
       Math.max(1, args.maxBytes ?? RETRIEVAL_CONTEXT_MAX_BYTES),
     );
-    if (question) {
-      const projection = yield* searchProjection(
-        question,
-        selector,
-        RETRIEVAL_CONTEXT_ENTRY_LIMIT,
-      );
-      let bytes = 0;
-      const entries = projection.results.filter((entry) => {
-        const size = new TextEncoder().encode(entry.excerpt).byteLength;
-        if (bytes + size > byteLimit) return false;
-        bytes += size;
-        return true;
-      });
-      const omittedForBytes = projection.results.length - entries.length;
-      return {
-        requestId: `ctx_${sha256Hex(
-          JSON.stringify({
-            brainKey: projection.brain.brainKey,
-            question,
-            asOf: projection.at,
-            entries: entries.map(({ publicationSetKey, entryKey }) => ({
-              publicationSetKey,
-              entryKey,
-            })),
-          }),
-        )}`,
-        organizationKey: projection.brain.organizationKey,
-        brainKey: projection.brain.brainKey,
-        question,
-        asOf: projection.at,
-        freshness: { status: contextFreshnessFor(projection.coverage) },
-        coverage: projection.coverage,
-        entries,
-        omissions: [
-          ...projection.omissions,
-          ...(omittedForBytes > 0
-            ? [{ reason: "context byte capacity", count: omittedForBytes }]
-            : []),
-        ],
-        conflicts: [],
-      };
-    }
-
-    if (args.compatibilityMode !== "legacy")
-      return yield* new ValidationFailed({
-        field: "question",
-        message: "question is required when compatibility mode is disabled.",
-      });
-
-    // Compatibility only for explicitly opted-in pre-projection callers.
     const { brain, pages, citations, transcripts } =
       yield* loadTranscriptReadContext(selector);
     const allowed = args.pageKeys === undefined ? null : new Set(args.pageKeys);
@@ -1665,12 +1785,19 @@ const headlessContextGet = FunctionImpl.make(
   "headlessContextGet",
   (args) => getContext(args, args),
 );
+const validationContextGet = FunctionImpl.make(
+  databaseSchema,
+  readApi,
+  "validationContextGet",
+  (args) => getProjectionContext(args, args),
+);
 
 const askAnswer = (
   args: { readonly brainKey: string; readonly question: string },
   selector: ReadSelector,
 ) =>
   Effect.gen(function* () {
+    yield* requireCompatibilityReadMode(selector);
     const { brain, reader, pages, citations, transcripts } =
       yield* loadTranscriptReadContext(selector);
     yield* ensureOperationEnabled(brain.workspaceId, "ask");
@@ -1727,5 +1854,8 @@ export default GroupImpl.make(databaseSchema, readApi).pipe(
   Layer.provide(headlessSourcesGet),
   Layer.provide(headlessContextGet),
   Layer.provide(headlessAnswersAsk),
+  Layer.provide(validationSourcesSearch),
+  Layer.provide(validationSourcesGet),
+  Layer.provide(validationContextGet),
   GroupImpl.finalize,
 );

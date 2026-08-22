@@ -47,10 +47,26 @@ export const PublishPageRevisionReturns = Schema.Struct({
   tokenCount: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
 });
 
+const RebuildChildAuthority = Schema.Struct({
+  rebuildRunKey: Schema.String,
+  rebuildRunGeneration: PositiveInteger,
+  rebuildLedgerHighWater: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  rebuildPauseEpoch: Schema.Number.pipe(
+    Schema.int(),
+    Schema.greaterThanOrEqualTo(0),
+  ),
+  parentRebuildJobKey: Schema.String,
+  requestGeneration: PositiveInteger,
+});
+
 export const RebuildPageBatchArgs = Schema.Struct({
   organizationKey: Schema.String,
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
+  ledgerHighWater: Schema.optional(
+    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  ),
+  rebuildChildAuthority: Schema.optional(RebuildChildAuthority),
   afterPageKey: Schema.optional(Schema.String),
   limit: Schema.Number.pipe(
     Schema.int(),
@@ -63,6 +79,7 @@ export const RebuildPageBatchArgs = Schema.Struct({
 
 export const RebuildPageBatchReturns = Schema.Struct({
   processed: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  emitted: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   published: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   nextAfterPageKey: Schema.optional(Schema.String),
   hasMore: Schema.Boolean,
@@ -72,6 +89,15 @@ export const RebuildRoutedCorpusBatchArgs = Schema.Struct({
   organizationKey: Schema.String,
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
+  ledgerHighWater: Schema.optional(
+    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  ),
+  rebuildChildAuthority: Schema.optional(RebuildChildAuthority),
+  connectorScopeKey: Schema.optional(Schema.String),
+  connectionKey: Schema.optional(Schema.String),
+  connectionGeneration: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+  ),
   afterSourceKey: Schema.optional(Schema.String),
   limit: Schema.Number.pipe(
     Schema.int(),
@@ -84,6 +110,7 @@ export const RebuildRoutedCorpusBatchArgs = Schema.Struct({
 
 export const RebuildRoutedCorpusBatchReturns = Schema.Struct({
   processed: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  emitted: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   published: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   revoked: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   nextAfterSourceKey: Schema.optional(Schema.String),
@@ -116,6 +143,7 @@ export const RunPublicationJobReturns = Schema.Struct({
     "succeeded",
     "superseded",
     "revoked",
+    "integrity_failure",
     "dead_letter",
   ),
   attemptCount: Schema.Number.pipe(

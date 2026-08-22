@@ -6,6 +6,7 @@ import {
   retrievalEntryKey,
   retrievalPublicationSetKey,
   retrievalScore,
+  selectTopRetrievalCandidates,
   uniqueQueryTokens,
 } from "./retrievalPublication";
 
@@ -125,6 +126,21 @@ describe("retrieval publication domain", () => {
       freshness: "stale",
     });
     expect(strong).toBeGreaterThan(weak);
+  });
+
+  it("applies the declared score before the candidate cap", () => {
+    const candidates = Array.from({ length: 41 }, (_, index) => ({
+      entryKey: `entry-${String(index).padStart(2, "0")}`,
+      score: index === 40 ? 10_000 : 100 - index,
+    }));
+
+    const selected = selectTopRetrievalCandidates(candidates);
+
+    expect(selected).toHaveLength(40);
+    expect(selected[0]?.entryKey).toBe("entry-40");
+    expect(selected.some(({ entryKey }) => entryKey === "entry-39")).toBe(
+      false,
+    );
   });
 
   it("never exceeds the passage byte limit after overlap", () => {

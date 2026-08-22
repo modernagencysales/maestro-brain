@@ -13,6 +13,8 @@ import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItem
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainReadModes from "./tables/brainReadModes";
+import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
 import brainSources from "./tables/brainSources";
 import callRouteMappings from "./tables/callRouteMappings";
 import callRoutingProposals from "./tables/callRoutingProposals";
@@ -23,6 +25,11 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
+import connectorPageChunks from "./tables/connectorPageChunks";
+import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
+import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
+import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
 import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
@@ -32,6 +39,7 @@ import documents from "./tables/documents";
 import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
+import ingestionObligations from "./tables/ingestionObligations";
 import invitations from "./tables/invitations";
 import migrationReceipts from "./tables/migrationReceipts";
 import migrationRuns from "./tables/migrationRuns";
@@ -51,6 +59,8 @@ import retrievalEntries from "./tables/retrievalEntries";
 import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
 import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
+import retrievalRebuildChildren from "./tables/retrievalRebuildChildren";
+import retrievalRebuildRuns from "./tables/retrievalRebuildRuns";
 import retrievalTokens from "./tables/retrievalTokens";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
@@ -94,6 +104,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof brainMaintenanceProposals |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof brainReadModes |
+  typeof brainRequiredScopeIntents |
   typeof brainSources |
   typeof callRouteMappings |
   typeof callRoutingProposals |
@@ -104,6 +116,11 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof claims |
   typeof classificationDecisions |
   typeof concepts |
+  typeof connectorIncrementalCursors |
+  typeof connectorPageChunks |
+  typeof connectorPageEnvelopes |
+  typeof connectorReconciliationRuns |
+  typeof connectorReconciliationSeen |
   typeof connectorSyncStates |
   typeof contextPacks |
   typeof creditLedger |
@@ -113,6 +130,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof dsarRequests |
   typeof entitlements |
   typeof featureFlagPolicies |
+  typeof ingestionObligations |
   typeof invitations |
   typeof migrationReceipts |
   typeof migrationRuns |
@@ -132,6 +150,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof retrievalPublicationJobs |
   typeof retrievalPublicationSets |
   typeof retrievalPublicationSubjects |
+  typeof retrievalRebuildChildren |
+  typeof retrievalRebuildRuns |
   typeof retrievalTokens |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
@@ -174,6 +194,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   brainMaintenanceProposals,
   brainPageAuditEvents,
   brainPages,
+  brainReadModes,
+  brainRequiredScopeIntents,
   brainSources,
   callRouteMappings,
   callRoutingProposals,
@@ -184,6 +206,11 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   claims,
   classificationDecisions,
   concepts,
+  connectorIncrementalCursors,
+  connectorPageChunks,
+  connectorPageEnvelopes,
+  connectorReconciliationRuns,
+  connectorReconciliationSeen,
   connectorSyncStates,
   contextPacks,
   creditLedger,
@@ -193,6 +220,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   dsarRequests,
   entitlements,
   featureFlagPolicies,
+  ingestionObligations,
   invitations,
   migrationReceipts,
   migrationRuns,
@@ -212,6 +240,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   retrievalPublicationJobs,
   retrievalPublicationSets,
   retrievalPublicationSubjects,
+  retrievalRebuildChildren,
+  retrievalRebuildRuns,
   retrievalTokens,
   servicePrincipals,
   slackIdentityBindings,

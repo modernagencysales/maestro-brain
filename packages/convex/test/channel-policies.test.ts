@@ -843,14 +843,14 @@ describe("Slack channel policy contract", () => {
       expect.objectContaining({
         status: "pending",
         sourceKey: joinedChannel.channelKey,
-        rebuild: { limit: 5 },
+        rebuild: expect.objectContaining({ limit: 5 }),
       }),
     ]);
     expect(result.rows.addedTargetJobs).toEqual([
       expect.objectContaining({
         status: "pending",
         sourceKey: joinedChannel.channelKey,
-        rebuild: { limit: 5 },
+        rebuild: expect.objectContaining({ limit: 5 }),
       }),
     ]);
     expect(result.rows.policyFences).toEqual(

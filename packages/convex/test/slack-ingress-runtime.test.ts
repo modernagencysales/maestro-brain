@@ -55,6 +55,21 @@ const sweepSlackPublicationTargets = makeFunctionReference<
   { limit: number; now?: number },
   { scheduled: number }
 >("slack/ingress:sweepSlackPublicationTargets");
+const runPublicationJob = makeFunctionReference<
+  "mutation",
+  {
+    jobKey: string;
+    caller: { kind: "system"; name: string; surface: "internal" };
+    now: number;
+  },
+  {
+    jobKey: string;
+    status: string;
+    attemptCount: number;
+    nextAttemptAt: number;
+    lastErrorTag?: string;
+  }
+>("brain/retrievalPublication:runPublicationJob");
 
 const secret = "signing-secret";
 const nowSeconds = Math.floor(Date.now() / 1_000);
@@ -263,7 +278,104 @@ describe("Slack Convex ingress", () => {
     expect(jobs[0]).toMatchObject({
       brainKey: "brain_target",
       originKind: "slack",
+      effectClass: "direct_publication",
       requestGeneration: 12,
+      targetResolutionIntentKey: expect.any(String),
+    });
+    const [job] = jobs;
+    if (job === undefined) throw new Error("missing publication job");
+    const intent = await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("slackPublicationTargetIntents")
+        .withIndex("by_receipt_id", (q) => q.eq("receiptId", receiptId))
+        .unique();
+      if (row === null) throw new Error("missing target intent");
+      expect(row.targetDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(row.targets).toEqual([
+        {
+          workspaceId: job.workspaceId,
+          brainKey: "brain_target",
+          jobKey: job.jobKey,
+        },
+      ]);
+      return row;
+    });
+    expect(intent.targetCount).toBe(1);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(job._id, {
+        status: "pending",
+        attemptCount: 0,
+        nextAttemptAt: 1_700_000_100_002,
+        lastErrorTag: undefined,
+        completedAt: undefined,
+      });
+      await ctx.db.patch(intent._id, {
+        resolutionGeneration: undefined,
+        linkageVersion: undefined,
+        targetDigest: undefined,
+        targets: undefined,
+      });
+      const legacyIntent = await ctx.db.get(intent._id);
+      expect(legacyIntent).toMatchObject({ status: "succeeded" });
+      expect(legacyIntent?.resolutionGeneration).toBeUndefined();
+      expect(legacyIntent?.linkageVersion).toBeUndefined();
+      expect(legacyIntent?.targetDigest).toBeUndefined();
+      expect(legacyIntent?.targets).toBeUndefined();
+    });
+    expect(
+      await t.mutation(runPublicationJob, {
+        jobKey: job.jobKey,
+        caller: {
+          kind: "system",
+          name: "slack-legacy-linkage-test",
+          surface: "internal",
+        },
+        now: 1_700_000_100_002,
+      }),
+    ).toMatchObject({
+      status: "revoked",
+      attemptCount: 1,
+    });
+    await t.run(async (ctx) => {
+      const migratedIntent = await ctx.db.get(intent._id);
+      expect(migratedIntent?.resolutionGeneration).toBe(
+        intent.resolutionGeneration,
+      );
+      expect(migratedIntent?.linkageVersion).toBe(intent.linkageVersion);
+      expect(migratedIntent?.targetDigest).toBe(intent.targetDigest);
+      expect(migratedIntent?.targets).toEqual(intent.targets);
+      const currentJob = await ctx.db
+        .query("retrievalPublicationJobs")
+        .withIndex("by_job_key", (q) => q.eq("jobKey", job.jobKey))
+        .unique();
+      if (currentJob === null) throw new Error("missing publication job");
+      await ctx.db.patch(intent._id, {
+        resolutionGeneration: intent.resolutionGeneration,
+        linkageVersion: intent.linkageVersion,
+        targetDigest: intent.targetDigest,
+        targets: intent.targets,
+        sourceRevisionKey: "rev_substituted_after_resolution",
+      });
+      await ctx.db.patch(currentJob._id, {
+        status: "pending",
+        nextAttemptAt: 1_700_000_100_003,
+        lastErrorTag: undefined,
+      });
+    });
+    expect(
+      await t.mutation(runPublicationJob, {
+        jobKey: job.jobKey,
+        caller: {
+          kind: "system",
+          name: "slack-linkage-substitution-test",
+          surface: "internal",
+        },
+        now: 1_700_000_100_003,
+      }),
+    ).toMatchObject({
+      status: "integrity_failure",
+      attemptCount: 1,
+      lastErrorTag: "PublicationAuthorityLinkageInvalid",
     });
   });
 

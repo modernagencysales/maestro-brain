@@ -674,7 +674,7 @@ describe("Brain pilot contract", () => {
           brainKey,
           query: "launch",
         });
-        const apiSearchDisabled = yield* editor.query(
+        const apiSearchDefault = yield* editor.query(
           refs.public.brain.readApi.sourcesSearch,
           { brainKey, query: "launch" },
         );
@@ -690,12 +690,13 @@ describe("Brain pilot contract", () => {
             compatibilityMode: "legacy",
           },
         );
-        const apiGetDisabled = yield* editor
-          .query(refs.public.brain.readApi.sourcesGet, {
+        const apiGetDefault = yield* editor.query(
+          refs.public.brain.readApi.sourcesGet,
+          {
             brainKey,
             sourceRevisionKey: transcriptKeys.unitRevisionKey,
-          })
-          .pipe(Effect.flip);
+          },
+        );
         const legacySourceAvailable = yield* editor
           .query(refs.public.brain.readApi.sourcesGet, {
             brainKey,
@@ -714,12 +715,13 @@ describe("Brain pilot contract", () => {
             compatibilityMode: "legacy",
           },
         );
-        const contextDisabled = yield* editor
-          .query(refs.public.brain.readApi.contextGet, {
+        const contextDefault = yield* editor.query(
+          refs.public.brain.readApi.contextGet,
+          {
             brainKey,
             pageKeys: [page.pageKey],
-          })
-          .pipe(Effect.flip);
+          },
+        );
         const apiAsk = yield* editor.query(
           refs.public.brain.readApi.answersAsk,
           {
@@ -756,12 +758,12 @@ describe("Brain pilot contract", () => {
           search,
           ask,
           apiSearch,
-          apiSearchDisabled,
+          apiSearchDefault,
           apiGet,
-          apiGetDisabled,
+          apiGetDefault,
           legacySourceAvailable,
           context,
-          contextDisabled,
+          contextDefault,
           apiAsk,
           isolated,
           afterRevoke,
@@ -803,23 +805,26 @@ describe("Brain pilot contract", () => {
     expect(result.apiSearch.results).toEqual([
       expect.objectContaining(transcriptResult),
     ]);
-    expect(result.apiSearchDisabled.results).toEqual([]);
+    expect(result.apiSearchDefault).toEqual(result.apiSearch);
     expect(result.apiGet).toMatchObject({
       ...transcriptResult,
       revisionKey: transcriptKeys.unitRevisionKey,
       status: "published",
     });
-    expect(result.apiGetDisabled).toMatchObject({
-      _tag: "ValidationFailed",
-      field: "sourceRevisionKey",
-    });
+    expect(result.apiGetDefault).toEqual(result.apiGet);
     expect(result.legacySourceAvailable).toBe(false);
     expect(result.context.entries).toEqual([
       expect.objectContaining(transcriptResult),
     ]);
-    expect(result.contextDisabled).toMatchObject({
-      _tag: "ValidationFailed",
-      field: "question",
+    expect(result.contextDefault).toMatchObject({
+      brainKey: result.context.brainKey,
+      organizationKey: result.context.organizationKey,
+      question: result.context.question,
+      freshness: result.context.freshness,
+      coverage: result.context.coverage,
+      entries: result.context.entries,
+      omissions: result.context.omissions,
+      conflicts: result.context.conflicts,
     });
     expect(result.apiAsk).toMatchObject({
       response: {
@@ -1065,14 +1070,11 @@ describe("Brain pilot contract", () => {
           }),
           Id("retrievalTokens"),
         );
-        const reader = actor(
-          confect,
-          "capacity-reader",
-          "capacity-reader@example.com",
-        );
-        const classified = yield* reader.query(
-          refs.public.brain.readApi.sourcesSearch,
+        const classified = yield* confect.query(
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
             brainKey,
             query: "capacity",
           },
@@ -1105,9 +1107,11 @@ describe("Brain pilot contract", () => {
           }),
           Schema.Boolean,
         );
-        const legacy = yield* reader.query(
-          refs.public.brain.readApi.sourcesSearch,
+        const legacy = yield* confect.query(
+          refs.internal.brain.readApi.validationSourcesSearch,
           {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
             brainKey,
             query: "capacity",
           },
@@ -1138,8 +1142,10 @@ describe("Brain pilot contract", () => {
           }),
           Schema.Boolean,
         );
-        const overflow = yield* reader
-          .query(refs.public.brain.readApi.sourcesSearch, {
+        const overflow = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
             brainKey,
             query: "overflow",
           })
@@ -1148,8 +1154,12 @@ describe("Brain pilot contract", () => {
               onFailure: (error) => ({
                 kind: "failure" as const,
                 tag: error._tag,
-                ...(error._tag === "ValidationFailed"
-                  ? { field: error.field, message: error.message }
+                ...(error._tag === "RetrievalCapacityExceeded"
+                  ? {
+                      resource: error.resource,
+                      limit: error.limit,
+                      observedAtLeast: error.observedAtLeast,
+                    }
                   : {}),
               }),
               onSuccess: () => ({ kind: "success" as const }),
@@ -1170,9 +1180,10 @@ describe("Brain pilot contract", () => {
     expect(result.legacy.omissions).toEqual([]);
     expect(result.overflow).toMatchObject({
       kind: "failure",
-      tag: "ValidationFailed",
-      field: "query",
-      message: "Current retrieval posting capacity exceeded (5000).",
+      tag: "RetrievalCapacityExceeded",
+      resource: "current_postings",
+      limit: 5_000,
+      observedAtLeast: 5_001,
     });
   });
 

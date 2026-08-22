@@ -11,10 +11,14 @@ import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
-import type { RetrievalPublicationJobsDoc } from "../_generated/docs";
+import type {
+  RetrievalPublicationJobsDoc,
+  RetrievalRebuildChildrenDoc,
+} from "../_generated/docs";
 import {
   DatabaseReader,
   DatabaseWriter,
+  MutationCtx,
   Scheduler,
 } from "../_generated/services";
 import { Unauthorized, ValidationFailed } from "../errors";
@@ -41,12 +45,15 @@ import {
 import retrievalPublicationGroup, {
   PublishPageRevisionArgs,
   RebuildPageBatchArgs,
+  RebuildPageBatchReturns,
   RebuildRoutedCorpusBatchArgs,
+  RebuildRoutedCorpusBatchReturns,
   PublishSlackRevisionArgs,
   PublishTranscriptRevisionArgs,
   RunPublicationJobArgs,
   RunPublicationJobReturns,
   SweepPublicationJobsArgs,
+  SweepPublicationJobsReturns,
   RetrievalOriginUnavailable,
   RetrievalPublicationCapacityExceeded,
   RetrievalPublicationConflict,
@@ -61,6 +68,7 @@ import {
   type RetrievalPublicationFenceSnapshot,
   type RetrievalPublicationJobInput,
 } from "./retrievalPublicationJob";
+import { advanceProjectionPopulationForMutationEffect } from "./projectionPopulation";
 import type { RetrievalOriginReference } from "./retrievalSchemas";
 
 const MAX_PUBLICATION_WRITES = 7_000;
@@ -73,6 +81,38 @@ type RunPublicationJobInput = Schema.Schema.Type<typeof RunPublicationJobArgs>;
 type RunPublicationJobOutput = Schema.Schema.Type<
   typeof RunPublicationJobReturns
 >;
+type PublicationOutput =
+  | {
+      readonly outcome: "published" | "duplicate";
+      readonly publicationSetKey: string;
+      readonly publicationGeneration: number;
+      readonly entryCount: number;
+      readonly tokenCount: number;
+    }
+  | {
+      readonly outcome: "stale" | "revoked";
+      readonly publicationSetKey?: undefined;
+      readonly publicationGeneration?: undefined;
+      readonly entryCount: number;
+      readonly tokenCount: number;
+    };
+type RebuildPageBatchOutput = Schema.Schema.Type<
+  typeof RebuildPageBatchReturns
+>;
+type RebuildRoutedCorpusBatchOutput = Schema.Schema.Type<
+  typeof RebuildRoutedCorpusBatchReturns
+>;
+type SweepPublicationJobsOutput = Schema.Schema.Type<
+  typeof SweepPublicationJobsReturns
+>;
+type PublicationEffectError =
+  | Unauthorized
+  | ValidationFailed
+  | RetrievalOriginUnavailable
+  | RetrievalPublicationConflict
+  | RetrievalPublicationCapacityExceeded;
+type PublicationMutationServices =
+  DatabaseReader | DatabaseWriter | MutationCtx | Scheduler;
 
 const manifestHash = (input: {
   readonly entryKeys: readonly string[];
@@ -152,6 +192,8 @@ type PublicationSubjectIdentity = {
   readonly originTable: string;
   readonly sourceKey: string;
   readonly connectorScopeKey?: string | undefined;
+  readonly connectionKey?: string | undefined;
+  readonly connectionGeneration?: number | undefined;
   readonly now: number;
 };
 
@@ -203,6 +245,7 @@ const loadPublicationSubject = (input: PublicationSubjectIdentity) =>
       return {
         publicationSubjectKey,
         subjectId: stored._id,
+        created: false,
         lastPublicationGeneration: stored.lastPublicationGeneration,
         currentSets: current === null ? [] : [current],
       };
@@ -258,6 +301,12 @@ const loadPublicationSubject = (input: PublicationSubjectIdentity) =>
         ...(input.connectorScopeKey === undefined
           ? {}
           : { connectorScopeKey: input.connectorScopeKey }),
+        ...(input.connectionKey === undefined
+          ? {}
+          : { connectionKey: input.connectionKey }),
+        ...(input.connectionGeneration === undefined
+          ? {}
+          : { connectionGeneration: input.connectionGeneration }),
         currentPublicationSetKey,
         lastPublicationGeneration,
         createdAt: input.now,
@@ -267,6 +316,7 @@ const loadPublicationSubject = (input: PublicationSubjectIdentity) =>
     return {
       publicationSubjectKey,
       subjectId,
+      created: true,
       lastPublicationGeneration,
       currentSets,
     };
@@ -293,7 +343,11 @@ export const commitPreparedPublicationEffect = (input: {
   readonly revoked: boolean;
   readonly passages: readonly PreparedPassage[];
   readonly now: number;
-}) =>
+}): Effect.Effect<
+  PublicationOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
@@ -369,6 +423,12 @@ export const commitPreparedPublicationEffect = (input: {
       ...(input.connectorScopeKey === undefined
         ? {}
         : { connectorScopeKey: input.connectorScopeKey }),
+      ...(input.connectionKey === undefined
+        ? {}
+        : { connectionKey: input.connectionKey }),
+      ...(input.connectionGeneration === undefined
+        ? {}
+        : { connectionGeneration: input.connectionGeneration }),
       now: input.now,
     });
     const currentSets = subject.currentSets;
@@ -399,6 +459,13 @@ export const commitPreparedPublicationEffect = (input: {
           updatedAt: input.now,
         })
         .pipe(Effect.orDie);
+      if (subject.created || currentSets.length > 0)
+        yield* advanceProjectionPopulationForMutationEffect({
+          organizationKey: input.organizationKey,
+          workspaceId: input.workspaceId,
+          brainKey: input.brainKey,
+          now: input.now,
+        });
       return {
         outcome: "revoked" as const,
         entryCount: 0,
@@ -410,7 +477,14 @@ export const commitPreparedPublicationEffect = (input: {
       current.policyGeneration === input.policyGeneration &&
       current.routeGeneration === input.routeGeneration &&
       current.lifecycleGeneration === input.lifecycleGeneration
-    )
+    ) {
+      if (subject.created)
+        yield* advanceProjectionPopulationForMutationEffect({
+          organizationKey: input.organizationKey,
+          workspaceId: input.workspaceId,
+          brainKey: input.brainKey,
+          now: input.now,
+        });
       return {
         outcome: "duplicate" as const,
         publicationSetKey: current.publicationSetKey,
@@ -418,6 +492,7 @@ export const commitPreparedPublicationEffect = (input: {
         entryCount: current.expectedEntryCount,
         tokenCount: current.expectedTokenCount,
       };
+    }
     const firstPassage = input.passages[0];
     if (firstPassage === undefined)
       return yield* new RetrievalOriginUnavailable({
@@ -498,6 +573,12 @@ export const commitPreparedPublicationEffect = (input: {
         ...(input.connectorScopeKey === undefined
           ? {}
           : { connectorScopeKey: input.connectorScopeKey }),
+        ...(input.connectionKey === undefined
+          ? {}
+          : { connectionKey: input.connectionKey }),
+        ...(input.connectionGeneration === undefined
+          ? {}
+          : { connectionGeneration: input.connectionGeneration }),
         sourceKey: input.sourceKey,
         sourceRevisionKey: input.sourceRevisionKey,
         passageKey: passage.passageKey,
@@ -565,6 +646,12 @@ export const commitPreparedPublicationEffect = (input: {
         ...(input.connectorScopeKey === undefined
           ? {}
           : { connectorScopeKey: input.connectorScopeKey }),
+        ...(input.connectionKey === undefined
+          ? {}
+          : { connectionKey: input.connectionKey }),
+        ...(input.connectionGeneration === undefined
+          ? {}
+          : { connectionGeneration: input.connectionGeneration }),
         sourceKey: input.sourceKey,
         sourceRevisionKey: input.sourceRevisionKey,
         routeGeneration: input.routeGeneration,
@@ -663,6 +750,12 @@ export const commitPreparedPublicationEffect = (input: {
         .table("brainCorpusHealth")
         .patch(health._id, healthRow)
         .pipe(Effect.orDie);
+    yield* advanceProjectionPopulationForMutationEffect({
+      organizationKey: input.organizationKey,
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+      now: input.now,
+    });
     return {
       outcome: "published" as const,
       publicationSetKey,
@@ -674,7 +767,11 @@ export const commitPreparedPublicationEffect = (input: {
 
 export const publishPageRevisionEffect = (
   args: Schema.Schema.Type<typeof PublishPageRevisionArgs>,
-) =>
+): Effect.Effect<
+  PublicationOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     const reader = yield* DatabaseReader;
@@ -776,6 +873,13 @@ export const publishPageRevisionEffect = (
           updatedAt: args.now,
         })
         .pipe(Effect.orDie);
+      if (subject.created || currentSets.length > 0)
+        yield* advanceProjectionPopulationForMutationEffect({
+          organizationKey: args.organizationKey,
+          workspaceId: args.workspaceId,
+          brainKey: args.brainKey,
+          now: args.now,
+        });
       return {
         outcome: "revoked" as const,
         entryCount: 0,
@@ -799,7 +903,14 @@ export const publishPageRevisionEffect = (
       current?.sourceRevisionKey === args.revisionKey &&
       current.policyGeneration === args.policyGeneration &&
       current.lifecycleGeneration === (page.lifecycle?.generation ?? 1)
-    )
+    ) {
+      if (subject.created)
+        yield* advanceProjectionPopulationForMutationEffect({
+          organizationKey: args.organizationKey,
+          workspaceId: args.workspaceId,
+          brainKey: args.brainKey,
+          now: args.now,
+        });
       return {
         outcome: "duplicate" as const,
         publicationSetKey: current.publicationSetKey,
@@ -807,6 +918,7 @@ export const publishPageRevisionEffect = (
         entryCount: current.expectedEntryCount,
         tokenCount: current.expectedTokenCount,
       };
+    }
 
     const publicationGeneration = subject.lastPublicationGeneration + 1;
     const origin: RetrievalOrigin = {
@@ -1002,6 +1114,12 @@ export const publishPageRevisionEffect = (
         .table("brainCorpusHealth")
         .patch(health._id, healthRow)
         .pipe(Effect.orDie);
+    yield* advanceProjectionPopulationForMutationEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      now: args.now,
+    });
     return {
       outcome: "published" as const,
       publicationSetKey,
@@ -1072,9 +1190,96 @@ const connectionIsCurrent = (input: {
     );
   });
 
+const cleanupPublicationSubjectEffect = (args: {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly publicationSubjectKey: string;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    yield* validatePublicationTarget(args);
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const subjects = yield* reader
+      .table("retrievalPublicationSubjects")
+      .index("by_workspace_subject", (query) =>
+        query
+          .eq("workspaceId", args.workspaceId)
+          .eq("publicationSubjectKey", args.publicationSubjectKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const subject = subjects.length === 1 ? subjects[0] : undefined;
+    if (
+      subject === undefined ||
+      subject.organizationKey !== args.organizationKey ||
+      subject.brainKey !== args.brainKey
+    )
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey: args.publicationSubjectKey,
+      });
+    if (subject.currentPublicationSetKey === null)
+      return {
+        outcome: "duplicate" as const,
+        entryCount: 0,
+        tokenCount: 0,
+      };
+    const sets = yield* reader
+      .table("retrievalPublicationSets")
+      .index("by_workspace_publication_set", (query) =>
+        query
+          .eq("workspaceId", args.workspaceId)
+          .eq("publicationSetKey", subject.currentPublicationSetKey ?? ""),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const current = sets.length === 1 ? sets[0] : undefined;
+    if (
+      current === undefined ||
+      current.state !== "current" ||
+      current.publicationSubjectKey !== subject.publicationSubjectKey
+    )
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey: subject.currentPublicationSetKey,
+      });
+    const tokens = yield* loadCurrentPublicationTokens({
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      publicationSetKeys: [current.publicationSetKey],
+    });
+    yield* removePublicationTokens(tokens);
+    yield* writer
+      .table("retrievalPublicationSets")
+      .patch(current._id, { state: "retired", retiredAt: args.now })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalPublicationSubjects")
+      .patch(subject._id, {
+        currentPublicationSetKey: null,
+        updatedAt: args.now,
+      })
+      .pipe(Effect.orDie);
+    yield* advanceProjectionPopulationForMutationEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      now: args.now,
+    });
+    return {
+      outcome: "revoked" as const,
+      entryCount: 0,
+      tokenCount: 0,
+    };
+  });
+
 export const publishSlackRevisionEffect = (
   args: Schema.Schema.Type<typeof PublishSlackRevisionArgs>,
-) =>
+): Effect.Effect<
+  PublicationOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     yield* validatePublicationTarget(args);
@@ -1227,7 +1432,11 @@ export const publishSlackRevisionEffect = (
 
 export const publishTranscriptRevisionEffect = (
   args: Schema.Schema.Type<typeof PublishTranscriptRevisionArgs>,
-) =>
+): Effect.Effect<
+  PublicationOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     yield* validatePublicationTarget(args);
@@ -1389,6 +1598,7 @@ const terminalPublicationJobStatuses = new Set([
   "succeeded",
   "superseded",
   "revoked",
+  "integrity_failure",
   "dead_letter",
 ]);
 
@@ -1400,6 +1610,7 @@ const publicationJobResult = (row: {
     | "succeeded"
     | "superseded"
     | "revoked"
+    | "integrity_failure"
     | "dead_letter";
   readonly attemptCount: number;
   readonly nextAttemptAt: number;
@@ -1465,8 +1676,10 @@ const authorityContext = (input: {
   >;
   readonly eligibilityFences?: readonly RetrievalPublicationFenceSnapshot[];
   readonly observationKind: "revision" | "rebuild";
+  readonly observationKey?: string;
   readonly observationGeneration?: number;
-  readonly targetResolutionIntentKey?: string;
+  readonly targetResolutionIntentKey?: GenericId<"slackPublicationTargetIntents">;
+  readonly targetResolutionGeneration?: number;
   readonly repairOfJobKey?: string;
   readonly supersedesJobKey?: string;
 }): RetrievalPublicationAuthorityContext => {
@@ -1500,7 +1713,7 @@ const authorityContext = (input: {
     eligibilityFences: input.eligibilityFences ?? [],
     observationFence: {
       kind: input.observationKind,
-      key: input.job.sourceRevisionKey,
+      key: input.observationKey ?? input.job.sourceRevisionKey,
       ...(input.observationGeneration === undefined
         ? {}
         : { generation: input.observationGeneration }),
@@ -1508,6 +1721,9 @@ const authorityContext = (input: {
     ...(input.targetResolutionIntentKey === undefined
       ? {}
       : { targetResolutionIntentKey: input.targetResolutionIntentKey }),
+    ...(input.targetResolutionGeneration === undefined
+      ? {}
+      : { targetResolutionGeneration: input.targetResolutionGeneration }),
     ...(input.repairOfJobKey === undefined
       ? {}
       : { repairOfJobKey: input.repairOfJobKey }),
@@ -1521,7 +1737,8 @@ const capturePublicationAuthorityContextEffect = (
   job: EnqueuePublicationJobInput,
   now: number,
   linkage: {
-    readonly targetResolutionIntentKey?: string;
+    readonly targetResolutionIntentKey?: GenericId<"slackPublicationTargetIntents">;
+    readonly targetResolutionGeneration?: number;
     readonly repairOfJobKey?: string;
     readonly supersedesJobKey?: string;
   } = {},
@@ -1823,10 +2040,21 @@ const capturePublicationAuthorityContextEffect = (
       );
     return authorityContext({
       job,
-      configuration: {},
+      configuration: {
+        ...(job.originKind === "page_rebuild" ||
+        job.sourceRevisionKey.startsWith("policy:")
+          ? { policyGeneration: job.requestGeneration }
+          : {}),
+        ...(job.sourceRevisionKey.startsWith("connection:")
+          ? { connectionGeneration: job.requestGeneration }
+          : {}),
+      },
       eligibilityFences: fenceSnapshots,
       observationKind: "rebuild",
-      observationGeneration: job.requestGeneration,
+      ...(job.rebuildRunKey === undefined
+        ? {}
+        : { observationKey: job.rebuildRunKey }),
+      observationGeneration: job.rebuildRunGeneration ?? job.requestGeneration,
       ...linkage,
     });
   });
@@ -1872,6 +2100,9 @@ const authorityContextFromEnvelope = (
   ...(envelope.targetResolutionIntentKey === undefined
     ? {}
     : { targetResolutionIntentKey: envelope.targetResolutionIntentKey }),
+  ...(envelope.targetResolutionGeneration === undefined
+    ? {}
+    : { targetResolutionGeneration: envelope.targetResolutionGeneration }),
   ...(envelope.repairOfJobKey === undefined
     ? {}
     : { repairOfJobKey: envelope.repairOfJobKey }),
@@ -1885,15 +2116,41 @@ const jobIdentityInput = (job: RetrievalPublicationJobsDoc) => ({
   workspaceId: String(job.workspaceId),
   brainKey: job.brainKey,
   originKind: job.originKind,
+  ...(job.effectClass === undefined ? {} : { effectClass: job.effectClass }),
+  ...(job.operation === undefined ? {} : { operation: job.operation }),
   sourceKey: job.sourceKey,
   sourceRevisionKey: job.sourceRevisionKey,
   requestGeneration: job.requestGeneration,
+  ...(job.rebuildRunKey === undefined
+    ? {}
+    : { rebuildRunKey: job.rebuildRunKey }),
+  ...(job.rebuildRunGeneration === undefined
+    ? {}
+    : { rebuildRunGeneration: job.rebuildRunGeneration }),
+  ...(job.rebuildLedgerHighWater === undefined
+    ? {}
+    : { rebuildLedgerHighWater: job.rebuildLedgerHighWater }),
+  ...(job.rebuildPauseEpoch === undefined
+    ? {}
+    : { rebuildPauseEpoch: job.rebuildPauseEpoch }),
+  ...(job.rebuildPredecessorDigest === undefined
+    ? {}
+    : { rebuildPredecessorDigest: job.rebuildPredecessorDigest }),
+  ...(job.parentRebuildJobKey === undefined
+    ? {}
+    : { parentRebuildJobKey: job.parentRebuildJobKey }),
   ...(job.page === undefined ? {} : { page: job.page }),
   ...(job.rebuild === undefined
     ? {}
     : {
         rebuild: {
           limit: job.rebuild.limit,
+          ...(job.rebuild.phase === undefined
+            ? {}
+            : { phase: job.rebuild.phase }),
+          ...(job.rebuild.phaseHighWater === undefined
+            ? {}
+            : { phaseHighWater: job.rebuild.phaseHighWater }),
           ...(job.rebuild.afterSourceKey === undefined
             ? {}
             : { afterSourceKey: job.rebuild.afterSourceKey }),
@@ -1907,6 +2164,197 @@ const jobIdentityInput = (job: RetrievalPublicationJobsDoc) => ({
       }),
 });
 
+const rebuildChildManifestMatchesJob = (
+  manifest: RetrievalRebuildChildrenDoc,
+  job: RetrievalPublicationJobsDoc,
+) =>
+  manifest.childJobKey === job.jobKey &&
+  manifest.rebuildRunKey === job.rebuildRunKey &&
+  manifest.parentBatchJobKey === job.parentRebuildJobKey &&
+  manifest.originKind === job.originKind &&
+  manifest.operation === job.operation &&
+  manifest.sourceKey === job.sourceKey &&
+  manifest.sourceRevisionKey === job.sourceRevisionKey;
+
+const blockRebuildChildManifestEffect = (
+  manifest: RetrievalRebuildChildrenDoc,
+  at: number,
+  blockingErrorTag: string,
+) =>
+  Effect.gen(function* () {
+    if (manifest.status !== "pending") return;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) =>
+        query.eq("rebuildRunKey", manifest.rebuildRunKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const run = runs.length === 1 ? runs[0] : undefined;
+    yield* writer
+      .table("retrievalRebuildChildren")
+      .patch(manifest._id, {
+        status: "blocked",
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+    if (run === undefined) return;
+    yield* writer
+      .table("retrievalRebuildRuns")
+      .patch(run._id, {
+        status: "blocked",
+        terminalChildCount: run.terminalChildCount + 1,
+        blockingChildCount: run.blockingChildCount + 1,
+        blockingErrorTag,
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const blockUnmanifestedRebuildChildEffect = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const parentRebuildJobKey = job.parentRebuildJobKey;
+    if (parentRebuildJobKey === undefined) return;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const parents = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", parentRebuildJobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const parent = parents.length === 1 ? parents[0] : undefined;
+    if (parent?.rebuildRunKey === undefined) return;
+    const rebuildRunKey = parent.rebuildRunKey;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) => query.eq("rebuildRunKey", rebuildRunKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const run = runs.length === 1 ? runs[0] : undefined;
+    if (run === undefined || run.status === "complete") return;
+    yield* writer
+      .table("retrievalRebuildRuns")
+      .patch(run._id, {
+        status: "blocked",
+        blockingChildCount: run.blockingChildCount + 1,
+        blockingErrorTag: "RebuildChildManifestMissing",
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const recordRebuildChildTerminalEffect = (
+  job: RetrievalPublicationJobsDoc,
+  outcome: "published" | "revoked" | "superseded" | "blocked",
+  at: number,
+) =>
+  Effect.gen(function* () {
+    if (job.parentRebuildJobKey === undefined) return;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const manifests = yield* reader
+      .table("retrievalRebuildChildren")
+      .index("by_child_job_key", (query) => query.eq("childJobKey", job.jobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (manifests.length !== 1) {
+      yield* blockUnmanifestedRebuildChildEffect(job, at);
+      return;
+    }
+    const manifest = manifests[0];
+    if (manifest === undefined || manifest.status !== "pending") return;
+    if (!rebuildChildManifestMatchesJob(manifest, job)) {
+      yield* blockRebuildChildManifestEffect(
+        manifest,
+        at,
+        "RebuildChildManifestMismatch",
+      );
+      return;
+    }
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) =>
+        query.eq("rebuildRunKey", manifest.rebuildRunKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const run = runs.length === 1 ? runs[0] : undefined;
+    if (run === undefined) {
+      yield* writer
+        .table("retrievalRebuildChildren")
+        .patch(manifest._id, { status: "blocked", updatedAt: at })
+        .pipe(Effect.orDie);
+      return;
+    }
+    yield* writer
+      .table("retrievalRebuildChildren")
+      .patch(manifest._id, { status: outcome, updatedAt: at })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalRebuildRuns")
+      .patch(run._id, {
+        terminalChildCount: run.terminalChildCount + 1,
+        ...(outcome === "published"
+          ? { publishedChildCount: run.publishedChildCount + 1 }
+          : {}),
+        ...(outcome === "revoked"
+          ? { revokedChildCount: run.revokedChildCount + 1 }
+          : {}),
+        ...(outcome === "superseded"
+          ? { supersededChildCount: run.supersededChildCount + 1 }
+          : {}),
+        ...(outcome === "blocked"
+          ? {
+              status: "blocked" as const,
+              blockingChildCount: run.blockingChildCount + 1,
+              blockingErrorTag: "RebuildChildBlocked",
+            }
+          : {}),
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const markRebuildRunTerminalEffect = (
+  job: RetrievalPublicationJobsDoc,
+  status: "blocked" | "superseded",
+  lastErrorTag: string,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    if (!job.originKind.endsWith("_rebuild") || job.rebuildRunKey === undefined)
+      return;
+    const rebuildRunKey = job.rebuildRunKey;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) => query.eq("rebuildRunKey", rebuildRunKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (runs.length !== 1) return;
+    const run = runs[0];
+    if (
+      run === undefined ||
+      run.status === "complete" ||
+      run.status === "superseded"
+    )
+      return;
+    yield* writer
+      .table("retrievalRebuildRuns")
+      .patch(run._id, {
+        status,
+        ...(status === "blocked" ? { blockingErrorTag: lastErrorTag } : {}),
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
 const supersedePublicationJob = (
   job: RetrievalPublicationJobsDoc,
   at: number,
@@ -1914,6 +2362,8 @@ const supersedePublicationJob = (
 ) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
+    yield* recordRebuildChildTerminalEffect(job, "superseded", at);
+    yield* markRebuildRunTerminalEffect(job, "superseded", lastErrorTag, at);
     const completed = {
       status: "superseded" as const,
       attemptCount: job.attemptCount,
@@ -1929,12 +2379,55 @@ const supersedePublicationJob = (
     return publicationJobResult({ ...job, ...completed });
   });
 
+const deferLegacyPublicationJob = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+  lastErrorTag: string,
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const deferred = {
+      status: "retry_wait" as const,
+      attemptCount: job.attemptCount,
+      nextAttemptAt: at + 24 * 60 * 60 * 1_000,
+      lastErrorTag,
+      updatedAt: at,
+    };
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, deferred)
+      .pipe(Effect.orDie);
+    return publicationJobResult({ ...job, ...deferred });
+  });
+
 const publicationAuthorityLinkageIsValid = (
   job: RetrievalPublicationJobsDoc,
   envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
 ) => {
   const rebuild = job.originKind.endsWith("_rebuild");
+  const effectClass = job.effectClass;
   return !(
+    effectClass === undefined ||
+    (effectClass === "direct_publication" && rebuild) ||
+    (effectClass === "rebuild_batch" && !rebuild) ||
+    (effectClass === "rebuild_batch" &&
+      (job.rebuildRunKey === undefined ||
+        job.rebuildRunGeneration === undefined ||
+        job.rebuildLedgerHighWater === undefined ||
+        job.rebuildPauseEpoch === undefined ||
+        job.rebuildPredecessorDigest === undefined)) ||
+    (effectClass === "direct_publication" &&
+      (envelope.repairOfJobKey !== undefined ||
+        envelope.supersedesJobKey !== undefined)) ||
+    (effectClass === "rebuild_batch" &&
+      (envelope.repairOfJobKey !== undefined ||
+        envelope.supersedesJobKey !== undefined)) ||
+    (effectClass === "attributed_repair" &&
+      (envelope.repairOfJobKey === undefined ||
+        envelope.supersedesJobKey !== undefined)) ||
+    (effectClass === "migration_replacement" &&
+      (envelope.supersedesJobKey === undefined ||
+        envelope.repairOfJobKey !== undefined)) ||
     (envelope.repairOfJobKey !== undefined &&
       envelope.supersedesJobKey !== undefined) ||
     (rebuild &&
@@ -1944,11 +2437,750 @@ const publicationAuthorityLinkageIsValid = (
       (envelope.publicationSubjectKey === undefined ||
         envelope.subjectIncarnationKey === undefined)) ||
     (rebuild && envelope.observationFence.kind !== "rebuild") ||
+    (rebuild && envelope.observationFence.key !== job.rebuildRunKey) ||
+    (rebuild &&
+      envelope.observationFence.generation !== job.rebuildRunGeneration) ||
     (!rebuild && envelope.observationFence.kind !== "revision") ||
+    envelope.configuration.requestGeneration !== job.requestGeneration ||
+    (!rebuild && envelope.observationFence.key !== job.sourceRevisionKey) ||
     (envelope.targetResolutionIntentKey !== undefined &&
       job.originKind !== "slack")
   );
 };
+
+const publicationJobAuthorityIdentity = (job: RetrievalPublicationJobsDoc) =>
+  JSON.stringify({
+    organizationKey: job.organizationKey,
+    workspaceId: String(job.workspaceId),
+    brainKey: job.brainKey,
+    originKind: job.originKind,
+    sourceKey: job.sourceKey,
+    sourceRevisionKey: job.sourceRevisionKey,
+    requestGeneration: job.requestGeneration,
+    page: job.page ?? null,
+    rebuild: job.rebuild ?? null,
+    targetResolutionIntentKey: job.targetResolutionIntentKey ?? null,
+  });
+
+const unattributedAuthorityContext = (
+  envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
+) => {
+  const context = { ...authorityContextFromEnvelope(envelope) };
+  delete context.repairOfJobKey;
+  delete context.supersedesJobKey;
+  return context;
+};
+
+const linkedPublicationAuthorityIsValidEffect = (
+  job: RetrievalPublicationJobsDoc,
+  envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
+) =>
+  Effect.gen(function* () {
+    const linkedJobKey =
+      envelope.repairOfJobKey ?? envelope.supersedesJobKey ?? null;
+    if (linkedJobKey === null) return true;
+    if (linkedJobKey === job.jobKey) return false;
+    const reader = yield* DatabaseReader;
+    const linkedJobs = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", linkedJobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (linkedJobs.length !== 1) return false;
+    const linked = linkedJobs[0];
+    if (linked === undefined || linked.authorityEnvelope === undefined)
+      return false;
+    if (
+      publicationJobAuthorityIdentity(job) !==
+        publicationJobAuthorityIdentity(linked) ||
+      retrievalPublicationAuthorityDigest(
+        unattributedAuthorityContext(envelope),
+      ) !==
+        retrievalPublicationAuthorityDigest(
+          unattributedAuthorityContext(linked.authorityEnvelope),
+        )
+    )
+      return false;
+    if (job.effectClass === "attributed_repair")
+      return linked.status === "dead_letter";
+    if (job.effectClass === "migration_replacement")
+      return (
+        linked.status === "superseded" &&
+        linked.supersededByJobKey === job.jobKey
+      );
+    return false;
+  });
+
+const targetResolutionPopulationDigest = (
+  jobs: readonly Pick<
+    RetrievalPublicationJobsDoc,
+    "workspaceId" | "brainKey" | "jobKey"
+  >[],
+) =>
+  `sha256:${sha256Hex(
+    JSON.stringify(
+      jobs
+        .map(
+          (candidate) =>
+            `${String(candidate.workspaceId)}:${candidate.brainKey}:${candidate.jobKey}`,
+        )
+        .sort(),
+    ),
+  )}`;
+
+const targetResolutionAuthorityStatusEffect = (
+  job: RetrievalPublicationJobsDoc,
+  envelope: NonNullable<RetrievalPublicationJobsDoc["authorityEnvelope"]>,
+) =>
+  Effect.gen(function* () {
+    const intentKey = envelope.targetResolutionIntentKey;
+    const resolutionGeneration = envelope.targetResolutionGeneration;
+    if (
+      intentKey === undefined &&
+      resolutionGeneration === undefined &&
+      job.targetResolutionIntentKey === undefined
+    )
+      return "valid" as const;
+    if (
+      intentKey !== undefined &&
+      resolutionGeneration === undefined &&
+      job.targetResolutionIntentKey === undefined
+    )
+      return "migration_required" as const;
+    if (
+      intentKey === undefined ||
+      resolutionGeneration === undefined ||
+      job.targetResolutionIntentKey === undefined
+    )
+      return "integrity_failure" as const;
+    if (job.targetResolutionIntentKey !== intentKey)
+      return "integrity_failure" as const;
+
+    const reader = yield* DatabaseReader;
+    const intent = yield* reader
+      .table("slackPublicationTargetIntents")
+      .get(intentKey)
+      .pipe(Effect.orDie);
+    if (intent === null) return "integrity_failure" as const;
+    const missingIntentLinkage = [
+      intent.resolutionGeneration,
+      intent.linkageVersion,
+      intent.targetDigest,
+      intent.targets,
+    ].filter((value) => value === undefined).length;
+    if (missingIntentLinkage === 4) return "migration_required" as const;
+    if (missingIntentLinkage > 0) return "integrity_failure" as const;
+    const intentTargets = intent.targets;
+    if (intentTargets === undefined) return "integrity_failure" as const;
+    if (
+      intent.status !== "succeeded" ||
+      intent.resolutionGeneration !== resolutionGeneration ||
+      intent.organizationKey !== job.organizationKey ||
+      intent.sourceRevisionKey !== job.sourceRevisionKey ||
+      intent.channelKey !== envelope.connectorScopeKey
+    )
+      return "integrity_failure" as const;
+
+    const receipt = yield* reader
+      .table("providerEventReceipts")
+      .get(intent.receiptId)
+      .pipe(Effect.orDie);
+    if (
+      receipt === null ||
+      receipt.organizationKey !== job.organizationKey ||
+      receipt.sourceKey === null ||
+      receipt.sourceRevisionKey === null ||
+      receipt.sourceKey !== job.sourceKey ||
+      receipt.sourceRevisionKey !== job.sourceRevisionKey ||
+      receipt.channelKey !== intent.channelKey ||
+      receipt.channelKey !== envelope.connectorScopeKey ||
+      receipt.connectionGeneration !==
+        envelope.configuration.connectionGeneration
+    )
+      return "integrity_failure" as const;
+
+    const [revisions, artifacts, organizations, workspace, policies] =
+      yield* Effect.all([
+        reader
+          .table("sourceRevisions")
+          .index("by_source_revision_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("sourceRevisionKey", job.sourceRevisionKey),
+          )
+          .take(2),
+        reader
+          .table("sourceArtifacts")
+          .index("by_org_source_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("sourceKey", job.sourceKey),
+          )
+          .take(2),
+        reader
+          .table("organizations")
+          .index("by_agency_key", (query) =>
+            query.eq("agencyKey", job.organizationKey),
+          )
+          .take(2),
+        reader.table("workspaces").get(job.workspaceId),
+        reader
+          .table("channelRoutingPolicies")
+          .index("by_channel_active", (query) =>
+            query.eq("channelKey", intent.channelKey).eq("active", true),
+          )
+          .take(2),
+      ]).pipe(Effect.orDie);
+
+    const revision = revisions.length === 1 ? revisions[0] : undefined;
+    const artifact = artifacts.length === 1 ? artifacts[0] : undefined;
+    const organization =
+      organizations.length === 1 ? organizations[0] : undefined;
+    if (revisions.length > 1 || artifacts.length > 1)
+      return "integrity_failure" as const;
+    if (revisions.length === 0 || artifacts.length === 0)
+      return "superseded" as const;
+    if (
+      revision === undefined ||
+      artifact === undefined ||
+      revision.sourceKey !== receipt.sourceKey ||
+      revision.sourceRevisionKey !== receipt.sourceRevisionKey ||
+      revision.channelKey !== receipt.channelKey ||
+      revision.connectionKey !== receipt.connectionKey ||
+      revision.connectionGeneration !== receipt.connectionGeneration ||
+      artifact.sourceKey !== receipt.sourceKey ||
+      artifact.channelKey !== receipt.channelKey ||
+      artifact.connectionKey !== receipt.connectionKey ||
+      intent.targetCount !== intentTargets.length ||
+      intent.targetDigest !== targetResolutionPopulationDigest(intentTargets) ||
+      new Set(
+        intentTargets.map(
+          (target) =>
+            `${String(target.workspaceId)}:${target.brainKey}:${target.jobKey}`,
+        ),
+      ).size !== intentTargets.length ||
+      !intentTargets.some(
+        (target) =>
+          target.workspaceId === job.workspaceId &&
+          target.brainKey === job.brainKey &&
+          target.jobKey === job.jobKey,
+      )
+    )
+      return "integrity_failure" as const;
+
+    const policy = policies.length === 1 ? policies[0] : undefined;
+    if (
+      organization === undefined ||
+      workspace === null ||
+      policy === undefined ||
+      workspace.organizationId !== organization._id ||
+      workspace.status !== "active" ||
+      workspace.brainKey !== job.brainKey ||
+      policy.organizationKey !== job.organizationKey ||
+      policy.connectionKey !== receipt.connectionKey ||
+      policy.connectionGeneration !== receipt.connectionGeneration ||
+      policy.policyEpoch !== envelope.configuration.policyGeneration ||
+      policy.mode === "capture_only" ||
+      !policy.targetBrainKeys.includes(job.brainKey)
+    )
+      return "superseded" as const;
+
+    const activeWorkspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_status", (query) =>
+        query.eq("organizationId", organization._id).eq("status", "active"),
+      )
+      .take(27)
+      .pipe(Effect.orDie);
+    if (activeWorkspaces.length > 26) return "superseded" as const;
+    const expectedTargets = activeWorkspaces
+      .filter(
+        (target) =>
+          target.brainKey !== undefined &&
+          policy.targetBrainKeys.includes(target.brainKey),
+      )
+      .map((target) => `${String(target._id)}:${target.brainKey}`)
+      .sort();
+    const capturedTargets = intentTargets
+      .map((target) => `${String(target.workspaceId)}:${target.brainKey}`)
+      .sort();
+    return JSON.stringify(expectedTargets) === JSON.stringify(capturedTargets)
+      ? ("valid" as const)
+      : ("superseded" as const);
+  });
+
+const corpusKeyForJob = (
+  originKind: RetrievalPublicationJobsDoc["originKind"],
+): "brain-pages" | "slack" | "transcripts" =>
+  originKind === "page" || originKind === "page_rebuild"
+    ? "brain-pages"
+    : originKind === "slack" || originKind === "slack_rebuild"
+      ? "slack"
+      : "transcripts";
+
+const rebuildLedgerStateEffect = (input: EnqueuePublicationJobInput) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    if (input.originKind === "page_rebuild") {
+      const [latestRevision, latestPage] = yield* Effect.all([
+        reader
+          .table("pageRevisions")
+          .index(
+            "by_workspace_ledger",
+            (query) => query.eq("workspaceId", input.workspaceId),
+            "desc",
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+        reader
+          .table("brainPages")
+          .index(
+            "by_workspace_updated",
+            (query) => query.eq("workspaceId", input.workspaceId),
+            "desc",
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+      ]).pipe(Effect.orDie);
+      const highWater = latestRevision?._creationTime ?? 0;
+      return {
+        highWater,
+        stateDigest: `sha256:${sha256Hex(
+          JSON.stringify({
+            highWater,
+            pageUpdatedHighWater: latestPage?.updatedAt ?? 0,
+          }),
+        )}`,
+      };
+    }
+    if (input.originKind === "slack_rebuild") {
+      const [latestRevision, latestArtifact, latestPolicy] = yield* Effect.all([
+        reader
+          .table("sourceRevisions")
+          .index(
+            "by_organization_ledger",
+            (query) => query.eq("organizationKey", input.organizationKey),
+            "desc",
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+        reader
+          .table("sourceArtifacts")
+          .index(
+            "by_organization_updated",
+            (query) => query.eq("organizationKey", input.organizationKey),
+            "desc",
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+        reader
+          .table("channelRoutingPolicies")
+          .index(
+            "by_organization_created",
+            (query) => query.eq("organizationKey", input.organizationKey),
+            "desc",
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull)),
+      ]).pipe(Effect.orDie);
+      const highWater = latestRevision?._creationTime ?? 0;
+      return {
+        highWater,
+        stateDigest: `sha256:${sha256Hex(
+          JSON.stringify({
+            highWater,
+            artifactUpdatedHighWater: latestArtifact?.updatedAt ?? 0,
+            policyCreatedHighWater: latestPolicy?.createdAt ?? 0,
+          }),
+        )}`,
+      };
+    }
+    const [latestRevision, latestUnit, latestRoute] = yield* Effect.all([
+      reader
+        .table("sourceUnitRevisions")
+        .index(
+          "by_organization_ledger",
+          (query) => query.eq("organizationKey", input.organizationKey),
+          "desc",
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull)),
+      reader
+        .table("sourceUnits")
+        .index(
+          "by_organization_updated",
+          (query) => query.eq("organizationKey", input.organizationKey),
+          "desc",
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull)),
+      reader
+        .table("callRoutingProposals")
+        .index(
+          "by_organization_updated",
+          (query) => query.eq("organizationKey", input.organizationKey),
+          "desc",
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull)),
+    ]).pipe(Effect.orDie);
+    const highWater = latestRevision?._creationTime ?? 0;
+    return {
+      highWater,
+      stateDigest: `sha256:${sha256Hex(
+        JSON.stringify({
+          highWater,
+          unitUpdatedHighWater: latestUnit?.updatedAt ?? 0,
+          routeUpdatedHighWater: latestRoute?.updatedAt ?? 0,
+        }),
+      )}`,
+    };
+  });
+
+const rebuildScopeFor = (input: EnqueuePublicationJobInput) => {
+  const corpusKey = corpusKeyForJob(input.originKind);
+  const connectionScoped = input.sourceRevisionKey.startsWith("connection:");
+  const connectorScoped =
+    input.originKind === "slack_rebuild" &&
+    input.sourceRevisionKey.startsWith("policy:");
+  const scopeKind = connectionScoped
+    ? ("connection" as const)
+    : connectorScoped
+      ? ("connector_scope" as const)
+      : input.originKind === "page_rebuild"
+        ? ("workspace" as const)
+        : ("corpus" as const);
+  const scopeValue =
+    scopeKind === "workspace" ? String(input.workspaceId) : input.sourceKey;
+  const rebuildScopeKey = `rscope_${sha256Hex(
+    JSON.stringify({
+      organizationKey: input.organizationKey,
+      workspaceId: String(input.workspaceId),
+      brainKey: input.brainKey,
+      corpusKey,
+      scopeKind,
+      scopeValue,
+    }),
+  )}`;
+  return { corpusKey, scopeKind, scopeValue, rebuildScopeKey };
+};
+
+const openRetrievalRebuildRunEffect = (
+  input: EnqueuePublicationJobInput,
+  capturedContext: RetrievalPublicationAuthorityContext,
+  now: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    if (
+      input.originKind !== "page_rebuild" &&
+      input.originKind !== "slack_rebuild" &&
+      input.originKind !== "transcript_rebuild"
+    )
+      return yield* Effect.dieMessage(
+        "Only rebuild jobs can open rebuild runs.",
+      );
+    const { corpusKey, scopeKind, scopeValue, rebuildScopeKey } =
+      rebuildScopeFor(input);
+    const policyGeneration =
+      input.originKind === "page_rebuild" ||
+      input.sourceRevisionKey.startsWith("policy:")
+        ? input.requestGeneration
+        : capturedContext.configuration.policyGeneration;
+    const connectionGeneration = input.sourceRevisionKey.startsWith(
+      "connection:",
+    )
+      ? input.requestGeneration
+      : capturedContext.configuration.connectionGeneration;
+    const configuration = {
+      requestGeneration: input.requestGeneration,
+      ...(policyGeneration === undefined ? {} : { policyGeneration }),
+      ...(capturedContext.configuration.routeGeneration === undefined
+        ? {}
+        : { routeGeneration: capturedContext.configuration.routeGeneration }),
+      ...(connectionGeneration === undefined ? {} : { connectionGeneration }),
+    };
+    const configurationDigest = `sha256:${sha256Hex(
+      JSON.stringify(configuration),
+    )}`;
+    const rebuildRunKey = `rrun_${sha256Hex(
+      JSON.stringify({
+        rebuildScopeKey,
+        triggerSourceKey: input.sourceKey,
+        triggerRevisionKey: input.sourceRevisionKey,
+        originKind: input.originKind,
+        configurationDigest,
+        eligibilityFences: capturedContext.eligibilityFences,
+      }),
+    )}`;
+    const existingRuns = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) => query.eq("rebuildRunKey", rebuildRunKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (existingRuns.length > 1)
+      return yield* Effect.dieMessage("Rebuild run identity is not unique.");
+    const existing = existingRuns[0];
+    if (existing !== undefined)
+      return {
+        rebuildRunKey: existing.rebuildRunKey,
+        rebuildRunGeneration: existing.runGeneration,
+        rebuildLedgerHighWater: existing.ledgerHighWater,
+        rebuildPauseEpoch: existing.pauseEpoch,
+        rebuildPredecessorDigest: existing.rootPredecessorDigest,
+        authorityContext: {
+          version: 1 as const,
+          configuration: {
+            requestGeneration: existing.configuration.requestGeneration,
+            ...(existing.configuration.policyGeneration === undefined
+              ? {}
+              : {
+                  policyGeneration: existing.configuration.policyGeneration,
+                }),
+            ...(existing.configuration.routeGeneration === undefined
+              ? {}
+              : { routeGeneration: existing.configuration.routeGeneration }),
+            ...(existing.configuration.connectionGeneration === undefined
+              ? {}
+              : {
+                  connectionGeneration:
+                    existing.configuration.connectionGeneration,
+                }),
+          },
+          eligibilityFences: existing.eligibilityFences,
+          observationFence: {
+            kind: "rebuild" as const,
+            key: existing.rebuildRunKey,
+            generation: existing.runGeneration,
+          },
+        },
+      };
+
+    const latest = yield* reader
+      .table("retrievalRebuildRuns")
+      .index(
+        "by_scope_generation",
+        (query) => query.eq("rebuildScopeKey", rebuildScopeKey),
+        "desc",
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    const runGeneration = (latest?.runGeneration ?? 0) + 1;
+    const ledgerState = yield* rebuildLedgerStateEffect(input);
+    const ledgerHighWater = ledgerState.highWater;
+    const pauseEpoch = 0;
+    const rootPredecessorDigest = `sha256:${sha256Hex(
+      JSON.stringify({ rebuildRunKey, runGeneration, predecessor: "root" }),
+    )}`;
+    const runAuthorityDigest = `sha256:${sha256Hex(
+      JSON.stringify({
+        rebuildRunKey,
+        runGeneration,
+        rebuildScopeKey,
+        configuration,
+        eligibilityFences: capturedContext.eligibilityFences,
+        ledgerHighWater,
+        ledgerStateDigest: ledgerState.stateDigest,
+        pauseEpoch,
+        rootPredecessorDigest,
+      }),
+    )}`;
+    if (
+      latest !== null &&
+      (latest.status === "running" || latest.status === "closing")
+    )
+      yield* writer
+        .table("retrievalRebuildRuns")
+        .patch(latest._id, {
+          status: "superseded",
+          blockingErrorTag: "RebuildSuccessorOpened",
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+    yield* writer
+      .table("retrievalRebuildRuns")
+      .insert({
+        schemaVersion: 1,
+        rebuildRunKey,
+        rebuildScopeKey,
+        organizationKey: input.organizationKey,
+        workspaceId: input.workspaceId,
+        brainKey: input.brainKey,
+        corpusKey,
+        originKind: input.originKind,
+        scopeKind,
+        scopeValue,
+        ...(scopeKind === "connector_scope"
+          ? { connectorScopeKey: scopeValue }
+          : {}),
+        ...(scopeKind === "connection" ? { connectionKey: scopeValue } : {}),
+        triggerSourceKey: input.sourceKey,
+        triggerRevisionKey: input.sourceRevisionKey,
+        runGeneration,
+        configuration,
+        configurationDigest,
+        eligibilityFences: capturedContext.eligibilityFences,
+        runAuthorityDigest,
+        ledgerHighWater,
+        ledgerStateDigest: ledgerState.stateDigest,
+        pauseEpoch,
+        rootPredecessorDigest,
+        openedAt: now,
+        status: "running",
+        headDigest: rootPredecessorDigest,
+        emittedChildCount: 0,
+        terminalChildCount: 0,
+        blockingChildCount: 0,
+        publishedChildCount: 0,
+        revokedChildCount: 0,
+        supersededChildCount: 0,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    return {
+      rebuildRunKey,
+      rebuildRunGeneration: runGeneration,
+      rebuildLedgerHighWater: ledgerHighWater,
+      rebuildPauseEpoch: pauseEpoch,
+      rebuildPredecessorDigest: rootPredecessorDigest,
+      authorityContext: {
+        version: 1 as const,
+        configuration,
+        eligibilityFences: capturedContext.eligibilityFences,
+        observationFence: {
+          kind: "rebuild" as const,
+          key: rebuildRunKey,
+          generation: runGeneration,
+        },
+      },
+    };
+  });
+
+const rebuildRunAuthorityStatusEffect = (job: RetrievalPublicationJobsDoc) =>
+  Effect.gen(function* () {
+    const batchJob = job.originKind.endsWith("_rebuild");
+    const childJob = job.parentRebuildJobKey !== undefined;
+    if (!batchJob && !childJob && job.rebuildRunKey === undefined)
+      return "valid" as const;
+    if (
+      job.rebuildRunKey === undefined ||
+      job.rebuildRunGeneration === undefined ||
+      job.rebuildLedgerHighWater === undefined ||
+      job.rebuildPauseEpoch === undefined ||
+      (batchJob && job.rebuildPredecessorDigest === undefined) ||
+      (childJob && job.parentRebuildJobKey === undefined)
+    )
+      return "migration_required" as const;
+    if (!batchJob && !childJob) return "integrity_failure" as const;
+    const rebuildRunKey = job.rebuildRunKey;
+    const reader = yield* DatabaseReader;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) => query.eq("rebuildRunKey", rebuildRunKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (runs.length !== 1) return "integrity_failure" as const;
+    const run = runs[0];
+    if (run === undefined) return "integrity_failure" as const;
+    if (run.ledgerStateDigest === undefined)
+      return "migration_required" as const;
+    const expectedRunOrigin = batchJob
+      ? job.originKind
+      : job.originKind === "page"
+        ? "page_rebuild"
+        : job.originKind === "slack"
+          ? "slack_rebuild"
+          : "transcript_rebuild";
+    const expectedAuthorityDigest = `sha256:${sha256Hex(
+      JSON.stringify({
+        rebuildRunKey: run.rebuildRunKey,
+        runGeneration: run.runGeneration,
+        rebuildScopeKey: run.rebuildScopeKey,
+        configuration: run.configuration,
+        eligibilityFences: run.eligibilityFences,
+        ledgerHighWater: run.ledgerHighWater,
+        ledgerStateDigest: run.ledgerStateDigest,
+        pauseEpoch: run.pauseEpoch,
+        rootPredecessorDigest: run.rootPredecessorDigest,
+      }),
+    )}`;
+    if (
+      run.organizationKey !== job.organizationKey ||
+      run.workspaceId !== job.workspaceId ||
+      run.brainKey !== job.brainKey ||
+      run.originKind !== expectedRunOrigin ||
+      run.rebuildRunKey !== job.rebuildRunKey ||
+      run.runGeneration !== job.rebuildRunGeneration ||
+      run.ledgerHighWater !== job.rebuildLedgerHighWater ||
+      run.pauseEpoch !== job.rebuildPauseEpoch ||
+      run.runAuthorityDigest !== expectedAuthorityDigest
+    )
+      return "integrity_failure" as const;
+    const latest = yield* reader
+      .table("retrievalRebuildRuns")
+      .index(
+        "by_scope_generation",
+        (query) => query.eq("rebuildScopeKey", run.rebuildScopeKey),
+        "desc",
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (
+      latest === null ||
+      latest.rebuildRunKey !== run.rebuildRunKey ||
+      run.status === "superseded" ||
+      run.status === "complete"
+    )
+      return "superseded" as const;
+    if (run.status === "blocked") return "integrity_failure" as const;
+    if (childJob) {
+      const parentRebuildJobKey = job.parentRebuildJobKey;
+      if (parentRebuildJobKey === undefined)
+        return "integrity_failure" as const;
+      const manifests = yield* reader
+        .table("retrievalRebuildChildren")
+        .index("by_child_job_key", (query) =>
+          query.eq("childJobKey", job.jobKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      const manifest = manifests.length === 1 ? manifests[0] : undefined;
+      if (
+        manifest === undefined ||
+        manifest.status !== "pending" ||
+        !rebuildChildManifestMatchesJob(manifest, job)
+      )
+        return "integrity_failure" as const;
+      const parents = yield* reader
+        .table("retrievalPublicationJobs")
+        .index("by_job_key", (query) => query.eq("jobKey", parentRebuildJobKey))
+        .take(2)
+        .pipe(Effect.orDie);
+      const parent = parents.length === 1 ? parents[0] : undefined;
+      return parent !== undefined &&
+        manifest.parentBatchJobKey === parent.jobKey &&
+        parent.rebuildRunKey === job.rebuildRunKey &&
+        parent.effectClass === "rebuild_batch" &&
+        parent.status === "succeeded"
+        ? ("valid" as const)
+        : ("integrity_failure" as const);
+    }
+    if (run.headDigest !== job.rebuildPredecessorDigest)
+      return "superseded" as const;
+    const samePredecessor = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_rebuild_run_predecessor", (query) =>
+        query
+          .eq("rebuildRunKey", job.rebuildRunKey)
+          .eq("rebuildPredecessorDigest", job.rebuildPredecessorDigest),
+      )
+      .take(3)
+      .pipe(Effect.orDie);
+    return samePredecessor.length === 1 && samePredecessor[0]?._id === job._id
+      ? ("valid" as const)
+      : ("integrity_failure" as const);
+  });
 
 export const enqueueRetrievalPublicationJobEffect = (
   input: EnqueuePublicationJobInput,
@@ -1958,12 +3190,38 @@ export const enqueueRetrievalPublicationJobEffect = (
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
     const scheduler = yield* Scheduler;
-    const authorityContextValue =
-      input.authorityContext ??
-      (yield* capturePublicationAuthorityContextEffect(input, now));
+    let normalizedInput = input;
+    let authorityContextValue = input.authorityContext;
+    if (
+      input.originKind.endsWith("_rebuild") &&
+      input.rebuildRunKey === undefined
+    ) {
+      const captured =
+        authorityContextValue ??
+        (yield* capturePublicationAuthorityContextEffect(input, now));
+      const opened = yield* openRetrievalRebuildRunEffect(input, captured, now);
+      normalizedInput = {
+        ...input,
+        rebuildRunKey: opened.rebuildRunKey,
+        rebuildRunGeneration: opened.rebuildRunGeneration,
+        rebuildLedgerHighWater: opened.rebuildLedgerHighWater,
+        rebuildPauseEpoch: opened.rebuildPauseEpoch,
+        rebuildPredecessorDigest: opened.rebuildPredecessorDigest,
+        rebuild: {
+          ...(input.rebuild ?? { limit: 5 }),
+          phase: input.rebuild?.phase ?? "scan",
+          phaseHighWater: opened.rebuildLedgerHighWater,
+        },
+      };
+      authorityContextValue = opened.authorityContext;
+    }
+    authorityContextValue ??= yield* capturePublicationAuthorityContextEffect(
+      normalizedInput,
+      now,
+    );
     const persistedInput = {
-      ...input,
-      workspaceId: String(input.workspaceId),
+      ...normalizedInput,
+      workspaceId: String(normalizedInput.workspaceId),
       authorityContext: authorityContextValue,
     };
     const jobKey = retrievalPublicationJobKey(persistedInput);
@@ -1977,7 +3235,7 @@ export const enqueueRetrievalPublicationJobEffect = (
         .table("retrievalPublicationJobs")
         .insert({
           ...retrievalPublicationJobRow(persistedInput, now),
-          workspaceId: input.workspaceId,
+          workspaceId: normalizedInput.workspaceId,
         })
         .pipe(Effect.orDie);
     if (
@@ -1999,6 +3257,653 @@ export const enqueueRetrievalPublicationJobEffect = (
         },
       );
     return jobKey;
+  });
+
+export type LegacyPublicationJobMigrationResult =
+  | {
+      readonly kind: "replaced";
+      readonly jobKey: string;
+      readonly replacementJobKey: string;
+    }
+  | {
+      readonly kind: "complete_authority" | "terminal_history";
+      readonly jobKey: string;
+    }
+  | {
+      readonly kind: "conflict";
+      readonly jobKey: string;
+      readonly reason:
+        "origin_missing" | "authority_ambiguous" | "replacement_collision";
+    };
+
+const legacyJobOriginAuthorityStatusEffect = (
+  job: RetrievalPublicationJobsDoc,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    if (job.originKind === "page") {
+      const [pages, revisions] = yield* Effect.all([
+        reader
+          .table("brainPages")
+          .index("by_workspace_page_key", (query) =>
+            query
+              .eq("workspaceId", job.workspaceId)
+              .eq("pageKey", job.sourceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+        reader
+          .table("pageRevisions")
+          .index("by_workspace_revision_key", (query) =>
+            query
+              .eq("workspaceId", job.workspaceId)
+              .eq("revisionKey", job.sourceRevisionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      if (pages.length === 0 || revisions.length === 0)
+        return "origin_missing" as const;
+      if (
+        pages.length !== 1 ||
+        revisions.length !== 1 ||
+        revisions[0]?.pageKey !== job.sourceKey ||
+        pages[0]?.lifecycle === undefined ||
+        job.page === undefined
+      )
+        return "authority_ambiguous" as const;
+      return "valid" as const;
+    }
+    if (job.originKind === "slack") {
+      const [revisions, artifacts] = yield* Effect.all([
+        reader
+          .table("sourceRevisions")
+          .index("by_source_revision_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("sourceRevisionKey", job.sourceRevisionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+        reader
+          .table("sourceArtifacts")
+          .index("by_org_source_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("sourceKey", job.sourceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      const revision = revisions[0];
+      const artifact = artifacts[0];
+      if (revision === undefined || artifact === undefined)
+        return "origin_missing" as const;
+      if (
+        revisions.length !== 1 ||
+        artifacts.length !== 1 ||
+        revision.sourceKey !== job.sourceKey ||
+        artifact.channelKey !== revision.channelKey ||
+        artifact.connectionKey !== revision.connectionKey
+      )
+        return "authority_ambiguous" as const;
+      const [policies, connections] = yield* Effect.all([
+        reader
+          .table("channelRoutingPolicies")
+          .index("by_channel_active", (query) =>
+            query.eq("channelKey", revision.channelKey).eq("active", true),
+          )
+          .take(3)
+          .pipe(Effect.orDie),
+        reader
+          .table("providerConnections")
+          .index("by_connection_key", (query) =>
+            query.eq("connectionKey", revision.connectionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      const matchingPolicies = policies.filter(
+        (policy) =>
+          policy.mode !== "capture_only" &&
+          policy.targetBrainKeys.includes(job.brainKey),
+      );
+      const connection = connections[0];
+      return matchingPolicies.length === 1 &&
+        connections.length === 1 &&
+        connection?.organizationKey === job.organizationKey &&
+        connection.connectionGeneration === revision.connectionGeneration
+        ? ("valid" as const)
+        : ("authority_ambiguous" as const);
+    }
+    if (job.originKind === "transcript") {
+      const [revisions, units] = yield* Effect.all([
+        reader
+          .table("sourceUnitRevisions")
+          .index("by_unit_revision_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("unitRevisionKey", job.sourceRevisionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+        reader
+          .table("sourceUnits")
+          .index("by_unit_key", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("unitKey", job.sourceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      const revision = revisions[0];
+      const unit = units[0];
+      if (revision === undefined || unit === undefined)
+        return "origin_missing" as const;
+      if (
+        revisions.length !== 1 ||
+        units.length !== 1 ||
+        revision.unitKey !== job.sourceKey
+      )
+        return "authority_ambiguous" as const;
+      const [routes, connections] = yield* Effect.all([
+        reader
+          .table("callRoutingProposals")
+          .index("by_org_revision", (query) =>
+            query
+              .eq("organizationKey", job.organizationKey)
+              .eq("unitRevisionKey", revision.unitRevisionKey),
+          )
+          .take(101)
+          .pipe(Effect.orDie),
+        reader
+          .table("providerConnections")
+          .index("by_connection_key", (query) =>
+            query.eq("connectionKey", unit.connectionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      const matchingRoutes = routes.filter(
+        (route) =>
+          route.outcome === "routed" &&
+          route.brainKey === job.brainKey &&
+          (route.status === "current" || route.status === "accepted"),
+      );
+      const connection = connections[0];
+      return matchingRoutes.length === 1 &&
+        connections.length === 1 &&
+        connection?.organizationKey === job.organizationKey &&
+        connection.connectionGeneration === unit.connectionGeneration
+        ? ("valid" as const)
+        : ("authority_ambiguous" as const);
+    }
+    if (
+      job.rebuildRunKey === undefined ||
+      job.rebuildRunGeneration === undefined ||
+      job.rebuildLedgerHighWater === undefined ||
+      job.rebuildPauseEpoch === undefined ||
+      job.rebuildPredecessorDigest === undefined
+    )
+      return "authority_ambiguous" as const;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) =>
+        query.eq("rebuildRunKey", job.rebuildRunKey ?? ""),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    return runs.length === 1 ? ("valid" as const) : ("origin_missing" as const);
+  });
+
+const publicationJobAuthorityEnvelopeIsComplete = (
+  job: RetrievalPublicationJobsDoc,
+): boolean => {
+  const envelope = job.authorityEnvelope;
+  if (
+    envelope === undefined ||
+    job.authorityDigest === undefined ||
+    !publicationAuthorityLinkageIsValid(job, envelope)
+  )
+    return false;
+  const context = authorityContextFromEnvelope(envelope);
+  const expected = retrievalPublicationAuthorityEnvelope(
+    jobIdentityInput(job),
+    context,
+    envelope.capturedAt,
+  );
+  return (
+    expected.authorityDigest === job.authorityDigest &&
+    expected.authorityDigest === envelope.authorityDigest &&
+    expected.stableEffectKey === envelope.stableEffectKey
+  );
+};
+
+export const migrateLegacyPublicationJobEffect: (
+  job: RetrievalPublicationJobsDoc,
+  now: number,
+) => Effect.Effect<
+  LegacyPublicationJobMigrationResult,
+  never,
+  PublicationMutationServices
+> = (job, now) =>
+  Effect.gen(function* () {
+    if (job.status !== "pending" && job.status !== "retry_wait")
+      return { kind: "terminal_history" as const, jobKey: job.jobKey };
+    if (publicationJobAuthorityEnvelopeIsComplete(job))
+      return { kind: "complete_authority" as const, jobKey: job.jobKey };
+    const originStatus = yield* legacyJobOriginAuthorityStatusEffect(job);
+    if (originStatus !== "valid")
+      return {
+        kind: "conflict" as const,
+        jobKey: job.jobKey,
+        reason: originStatus,
+      };
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    let targetResolutionGeneration: number | undefined;
+    if (job.targetResolutionIntentKey !== undefined) {
+      const intent = yield* reader
+        .table("slackPublicationTargetIntents")
+        .get(job.targetResolutionIntentKey)
+        .pipe(Effect.orDie);
+      if (
+        intent === null ||
+        intent.resolutionGeneration === undefined ||
+        intent.linkageVersion !== 1
+      )
+        return {
+          kind: "conflict" as const,
+          jobKey: job.jobKey,
+          reason: "authority_ambiguous" as const,
+        };
+      targetResolutionGeneration = intent.resolutionGeneration;
+    }
+    const migrationInput: EnqueuePublicationJobInput = {
+      ...jobIdentityInput(job),
+      workspaceId: job.workspaceId,
+      effectClass: "migration_replacement",
+      operation: job.operation ?? "publish",
+    };
+    const authorityContextValue =
+      yield* capturePublicationAuthorityContextEffect(migrationInput, now, {
+        ...(job.targetResolutionIntentKey === undefined
+          ? {}
+          : { targetResolutionIntentKey: job.targetResolutionIntentKey }),
+        ...(targetResolutionGeneration === undefined
+          ? {}
+          : { targetResolutionGeneration }),
+        supersedesJobKey: job.jobKey,
+      });
+    const replacementJobKey = yield* enqueueRetrievalPublicationJobEffect(
+      { ...migrationInput, authorityContext: authorityContextValue },
+      now,
+    );
+    const replacements = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", replacementJobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const replacement = replacements[0];
+    if (
+      replacements.length !== 1 ||
+      replacement === undefined ||
+      replacement.effectClass !== "migration_replacement" ||
+      replacement.authorityEnvelope?.supersedesJobKey !== job.jobKey ||
+      !publicationJobAuthorityEnvelopeIsComplete(replacement)
+    )
+      return {
+        kind: "conflict" as const,
+        jobKey: job.jobKey,
+        reason: "replacement_collision" as const,
+      };
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, {
+        status: "superseded",
+        supersededByJobKey: replacementJobKey,
+        lastErrorTag: "LegacyPublicationJobAuthorityMigrated",
+        completedAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    return {
+      kind: "replaced" as const,
+      jobKey: job.jobKey,
+      replacementJobKey,
+    };
+  });
+
+const enqueueUniqueRebuildChildEffect = (
+  input: EnqueuePublicationJobInput & {
+    readonly rebuildRunKey: string;
+    readonly operation?: "publish" | "cleanup";
+  },
+  now: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const authorityContextValue =
+      input.authorityContext ??
+      (yield* capturePublicationAuthorityContextEffect(input, now));
+    const authorityDigest = retrievalPublicationAuthorityDigest(
+      authorityContextValue,
+    );
+    const existingJobs = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_rebuild_child_authority", (query) =>
+        query
+          .eq("rebuildRunKey", input.rebuildRunKey)
+          .eq("originKind", input.originKind)
+          .eq("operation", input.operation ?? "publish")
+          .eq("sourceRevisionKey", input.sourceRevisionKey)
+          .eq("authorityDigest", authorityDigest),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (existingJobs.length > 1)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey: input.rebuildRunKey,
+      });
+    const childJobKey =
+      existingJobs[0]?.jobKey ??
+      (yield* enqueueRetrievalPublicationJobEffect(
+        { ...input, authorityContext: authorityContextValue },
+        now,
+      ));
+    const manifests = yield* reader
+      .table("retrievalRebuildChildren")
+      .index("by_run_child", (query) =>
+        query
+          .eq("rebuildRunKey", input.rebuildRunKey)
+          .eq("childJobKey", childJobKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (manifests.length > 1)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey: input.rebuildRunKey,
+      });
+    if (input.parentRebuildJobKey === undefined)
+      return yield* new ValidationFailed({
+        field: "parentRebuildJobKey",
+        message: "Rebuild children require an emitting batch job.",
+      });
+    const existingManifest = manifests[0];
+    if (existingManifest !== undefined) {
+      if (
+        existingManifest.originKind !== input.originKind ||
+        existingManifest.operation !== (input.operation ?? "publish") ||
+        existingManifest.sourceKey !== input.sourceKey ||
+        existingManifest.sourceRevisionKey !== input.sourceRevisionKey
+      )
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: input.rebuildRunKey,
+        });
+      return false;
+    }
+    yield* writer
+      .table("retrievalRebuildChildren")
+      .insert({
+        schemaVersion: 1,
+        rebuildRunKey: input.rebuildRunKey,
+        childJobKey,
+        parentBatchJobKey: input.parentRebuildJobKey,
+        originKind: input.originKind as "page" | "slack" | "transcript",
+        operation: input.operation ?? "publish",
+        sourceKey: input.sourceKey,
+        sourceRevisionKey: input.sourceRevisionKey,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    return true;
+  });
+
+type RebuildExecutionScope = {
+  readonly connectorScopeKey?: string;
+  readonly connectionKey?: string;
+  readonly connectionGeneration?: number;
+};
+
+const rebuildExecutionScopeEffect = (job: RetrievalPublicationJobsDoc) =>
+  Effect.gen(function* () {
+    if (job.rebuildRunKey === undefined) return {};
+    const rebuildRunKey = job.rebuildRunKey;
+    const reader = yield* DatabaseReader;
+    const runs = yield* reader
+      .table("retrievalRebuildRuns")
+      .index("by_run_key", (query) => query.eq("rebuildRunKey", rebuildRunKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    if (runs.length !== 1)
+      return yield* new ValidationFailed({
+        field: "rebuildRunKey",
+        message: "Rebuild execution requires one immutable run parent.",
+      });
+    const run = runs[0];
+    if (run === undefined)
+      return yield* new ValidationFailed({
+        field: "rebuildRunKey",
+        message: "Rebuild execution requires one immutable run parent.",
+      });
+    return {
+      ...(run.connectorScopeKey === undefined
+        ? {}
+        : { connectorScopeKey: run.connectorScopeKey }),
+      ...(run.connectionKey === undefined
+        ? {}
+        : { connectionKey: run.connectionKey }),
+      ...(run.connectionKey === undefined ||
+      run.configuration.connectionGeneration === undefined
+        ? {}
+        : {
+            connectionGeneration: run.configuration.connectionGeneration,
+          }),
+    } satisfies RebuildExecutionScope;
+  });
+
+const rebuildSetDifferenceBatchEffect = (
+  job: RetrievalPublicationJobsDoc,
+  executionScope: RebuildExecutionScope,
+  now: number,
+) =>
+  Effect.gen(function* () {
+    if (
+      job.rebuild === undefined ||
+      job.rebuildRunKey === undefined ||
+      job.rebuildRunGeneration === undefined ||
+      job.rebuildLedgerHighWater === undefined ||
+      job.rebuildPauseEpoch === undefined
+    )
+      return yield* new ValidationFailed({
+        field: "rebuildRunKey",
+        message: "Set difference requires immutable rebuild authority.",
+      });
+    const reader = yield* DatabaseReader;
+    const corpusKey = corpusKeyForJob(job.originKind);
+    const subjects = yield* (
+      executionScope.connectorScopeKey !== undefined
+        ? reader
+            .table("retrievalPublicationSubjects")
+            .index("by_workspace_brain_corpus_connector_subject", (query) => {
+              const scoped = query
+                .eq("workspaceId", job.workspaceId)
+                .eq("brainKey", job.brainKey)
+                .eq("corpusKey", corpusKey)
+                .eq("connectorScopeKey", executionScope.connectorScopeKey);
+              return job.rebuild?.afterSourceKey === undefined
+                ? scoped
+                : scoped.gt(
+                    "publicationSubjectKey",
+                    job.rebuild.afterSourceKey,
+                  );
+            })
+            .take(job.rebuild.limit + 1)
+        : executionScope.connectionKey !== undefined &&
+            executionScope.connectionGeneration !== undefined
+          ? reader
+              .table("retrievalPublicationSubjects")
+              .index(
+                "by_workspace_brain_corpus_connection_subject",
+                (query) => {
+                  const scoped = query
+                    .eq("workspaceId", job.workspaceId)
+                    .eq("brainKey", job.brainKey)
+                    .eq("corpusKey", corpusKey)
+                    .eq("connectionKey", executionScope.connectionKey)
+                    .eq(
+                      "connectionGeneration",
+                      executionScope.connectionGeneration,
+                    );
+                  return job.rebuild?.afterSourceKey === undefined
+                    ? scoped
+                    : scoped.gt(
+                        "publicationSubjectKey",
+                        job.rebuild.afterSourceKey,
+                      );
+                },
+              )
+              .take(job.rebuild.limit + 1)
+          : reader
+              .table("retrievalPublicationSubjects")
+              .index("by_workspace_brain_corpus_subject", (query) => {
+                const scoped = query
+                  .eq("workspaceId", job.workspaceId)
+                  .eq("brainKey", job.brainKey)
+                  .eq("corpusKey", corpusKey);
+                return job.rebuild?.afterSourceKey === undefined
+                  ? scoped
+                  : scoped.gt(
+                      "publicationSubjectKey",
+                      job.rebuild.afterSourceKey,
+                    );
+              })
+              .take(job.rebuild.limit + 1)
+    ).pipe(Effect.orDie);
+    const batch = subjects.slice(0, job.rebuild.limit);
+    let emitted = 0;
+    for (const subject of batch) {
+      if (subject.currentPublicationSetKey === null) continue;
+      const currentOrigin =
+        subject.originKind === "page"
+          ? yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query
+                  .eq("workspaceId", job.workspaceId)
+                  .eq("pageKey", subject.sourceKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie)
+          : subject.originKind === "slack"
+            ? yield* reader
+                .table("sourceArtifacts")
+                .index("by_org_source_key", (query) =>
+                  query
+                    .eq("organizationKey", job.organizationKey)
+                    .eq("sourceKey", subject.sourceKey),
+                )
+                .first()
+                .pipe(Effect.map(Option.getOrNull), Effect.orDie)
+            : subject.originKind === "transcript"
+              ? yield* reader
+                  .table("sourceUnits")
+                  .index("by_unit_key", (query) =>
+                    query
+                      .eq("organizationKey", job.organizationKey)
+                      .eq("unitKey", subject.sourceKey),
+                  )
+                  .first()
+                  .pipe(Effect.map(Option.getOrNull), Effect.orDie)
+              : null;
+      const originStillOwnsSubject =
+        currentOrigin !== null &&
+        (subject.connectorScopeKey === undefined ||
+          ("channelKey" in currentOrigin &&
+            currentOrigin.channelKey === subject.connectorScopeKey)) &&
+        (subject.connectionKey === undefined ||
+          ("connectionKey" in currentOrigin &&
+            currentOrigin.connectionKey === subject.connectionKey)) &&
+        (subject.connectionGeneration === undefined ||
+          ("connectionGeneration" in currentOrigin &&
+            currentOrigin.connectionGeneration ===
+              subject.connectionGeneration));
+      const originActive =
+        subject.originKind === "page"
+          ? currentOrigin !== null &&
+            "status" in currentOrigin &&
+            currentOrigin.status === "active"
+          : subject.originKind === "slack" ||
+              subject.originKind === "transcript"
+            ? currentOrigin !== null &&
+              originStillOwnsSubject &&
+              "lifecycle" in currentOrigin &&
+              currentOrigin.lifecycle?.state === "active"
+            : false;
+      if (originActive) continue;
+      const sets = yield* reader
+        .table("retrievalPublicationSets")
+        .index("by_workspace_publication_set", (query) =>
+          query
+            .eq("workspaceId", job.workspaceId)
+            .eq("publicationSetKey", subject.currentPublicationSetKey ?? ""),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      const currentSet = sets.length === 1 ? sets[0] : undefined;
+      if (currentSet === undefined)
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: subject.currentPublicationSetKey,
+        });
+      const directOriginKind =
+        subject.originKind === "page"
+          ? ("page" as const)
+          : subject.originKind === "slack"
+            ? ("slack" as const)
+            : ("transcript" as const);
+      if (
+        yield* enqueueUniqueRebuildChildEffect(
+          {
+            organizationKey: job.organizationKey,
+            workspaceId: job.workspaceId,
+            brainKey: job.brainKey,
+            originKind: directOriginKind,
+            operation: "cleanup",
+            sourceKey: subject.sourceKey,
+            sourceRevisionKey: currentSet.sourceRevisionKey,
+            requestGeneration: job.requestGeneration,
+            ...(directOriginKind === "page"
+              ? {
+                  page: {
+                    authority: "derived" as const,
+                    authorityPolicyKey: "company-pages",
+                    policyGeneration: job.requestGeneration,
+                  },
+                }
+              : {}),
+            rebuildRunKey: job.rebuildRunKey,
+            rebuildRunGeneration: job.rebuildRunGeneration,
+            rebuildLedgerHighWater: job.rebuildLedgerHighWater,
+            rebuildPauseEpoch: job.rebuildPauseEpoch,
+            parentRebuildJobKey: job.jobKey,
+          },
+          now,
+        )
+      )
+        emitted += 1;
+    }
+    const nextAfterSourceKey = batch.at(-1)?.publicationSubjectKey;
+    return {
+      processed: batch.length,
+      emitted,
+      published: 0,
+      ...(nextAfterSourceKey === undefined ? {} : { nextAfterSourceKey }),
+      hasMore: subjects.length > job.rebuild.limit,
+    };
   });
 
 export const enqueueOrganizationCorpusRebuildsEffect = (input: {
@@ -2053,15 +3958,6 @@ export const enqueueOrganizationCorpusRebuildsEffect = (input: {
     return jobKeys;
   });
 
-const corpusKeyForJob = (
-  originKind: RetrievalPublicationJobsDoc["originKind"],
-) =>
-  originKind === "page" || originKind === "page_rebuild"
-    ? "brain-pages"
-    : originKind === "slack" || originKind === "slack_rebuild"
-      ? "slack"
-      : "transcripts";
-
 const healthRowsForJob = (job: RetrievalPublicationJobsDoc) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
@@ -2075,7 +3971,13 @@ const healthRowsForJob = (job: RetrievalPublicationJobsDoc) =>
       .pipe(Effect.orDie);
     return {
       corpusKey,
-      rows: rows.filter((row) => row.corpusKey === corpusKey),
+      rows: rows.filter(
+        (row) =>
+          row.corpusKey === corpusKey &&
+          row.connectorScopeKey === job.authorityEnvelope?.connectorScopeKey &&
+          row.connectionGeneration ===
+            job.authorityEnvelope?.configuration.connectionGeneration,
+      ),
     };
   });
 
@@ -2096,6 +3998,18 @@ const markRebuildHealthComplete = (
           workspaceId: job.workspaceId,
           brainKey: job.brainKey,
           corpusKey,
+          ...(job.authorityEnvelope?.connectorScopeKey === undefined
+            ? {}
+            : {
+                connectorScopeKey: job.authorityEnvelope.connectorScopeKey,
+              }),
+          ...(job.authorityEnvelope?.configuration.connectionGeneration ===
+          undefined
+            ? {}
+            : {
+                connectionGeneration:
+                  job.authorityEnvelope.configuration.connectionGeneration,
+              }),
           policyGeneration: Math.max(1, job.requestGeneration),
           reconciliationGeneration: Math.max(1, job.requestGeneration),
           coverageStatus: "complete",
@@ -2132,15 +4046,16 @@ const markRebuildHealthComplete = (
         .pipe(Effect.orDie);
   });
 
-const markPublicationDeadLetter = (
+const markPublicationFailure = (
   job: RetrievalPublicationJobsDoc,
   lastErrorTag: string,
   at: number,
+  kind: "dead letter" | "integrity failure",
 ) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
     const { corpusKey, rows } = yield* healthRowsForJob(job);
-    const degradedReason = `Publication dead letter: ${lastErrorTag}.`;
+    const degradedReason = `Publication ${kind}: ${lastErrorTag}.`;
     if (rows.length === 0) {
       yield* writer
         .table("brainCorpusHealth")
@@ -2150,6 +4065,18 @@ const markPublicationDeadLetter = (
           workspaceId: job.workspaceId,
           brainKey: job.brainKey,
           corpusKey,
+          ...(job.authorityEnvelope?.connectorScopeKey === undefined
+            ? {}
+            : {
+                connectorScopeKey: job.authorityEnvelope.connectorScopeKey,
+              }),
+          ...(job.authorityEnvelope?.configuration.connectionGeneration ===
+          undefined
+            ? {}
+            : {
+                connectionGeneration:
+                  job.authorityEnvelope.configuration.connectionGeneration,
+              }),
           policyGeneration: Math.max(1, job.requestGeneration),
           coverageStatus: "partial",
           freshnessThresholdMs:
@@ -2177,7 +4104,50 @@ const markPublicationDeadLetter = (
         .pipe(Effect.orDie);
   });
 
-export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
+const markPublicationDeadLetter = (
+  job: RetrievalPublicationJobsDoc,
+  lastErrorTag: string,
+  at: number,
+) => markPublicationFailure(job, lastErrorTag, at, "dead letter");
+
+const markPublicationIntegrityFailure = (
+  job: RetrievalPublicationJobsDoc,
+  lastErrorTag: string,
+  at: number,
+) => markPublicationFailure(job, lastErrorTag, at, "integrity failure");
+
+const failPublicationIntegrity = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+  lastErrorTag: string,
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    yield* recordRebuildChildTerminalEffect(job, "blocked", at);
+    yield* markRebuildRunTerminalEffect(job, "blocked", lastErrorTag, at);
+    yield* markPublicationIntegrityFailure(job, lastErrorTag, at);
+    const failed = {
+      status: "integrity_failure" as const,
+      attemptCount: job.attemptCount,
+      nextAttemptAt: at,
+      lastErrorTag,
+      completedAt: at,
+      updatedAt: at,
+    };
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, failed)
+      .pipe(Effect.orDie);
+    return publicationJobResult({ ...job, ...failed });
+  });
+
+export const runPublicationJobEffect = (
+  args: RunPublicationJobInput,
+): Effect.Effect<
+  RunPublicationJobOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     const reader = yield* DatabaseReader;
@@ -2190,7 +4160,7 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
     if (job === null)
       return yield* new ValidationFailed({
         field: "jobKey",
-        message: "Publication job does not exist.",
+        message: `Publication job ${args.jobKey} does not exist.`,
       });
     if (
       terminalPublicationJobStatuses.has(job.status) ||
@@ -2198,22 +4168,37 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
     )
       return publicationJobResult(job);
 
-    if (job.authorityEnvelope === undefined) {
-      const legacy = {
-        status: "retry_wait" as const,
-        attemptCount: job.attemptCount,
-        nextAttemptAt: args.now + 24 * 60 * 60 * 1_000,
-        lastErrorTag: "PublicationAuthorityEnvelopeMissing",
-        updatedAt: args.now,
-      };
-      yield* writer
-        .table("retrievalPublicationJobs")
-        .patch(job._id, legacy)
-        .pipe(Effect.orDie);
-      return publicationJobResult({ ...job, ...legacy });
-    }
+    if (job.authorityEnvelope === undefined)
+      return yield* deferLegacyPublicationJob(
+        job,
+        args.now,
+        "PublicationAuthorityEnvelopeMissing",
+      );
+    if (job.effectClass === undefined)
+      return yield* deferLegacyPublicationJob(
+        job,
+        args.now,
+        "PublicationEffectClassMigrationRequired",
+      );
+    if (job.operation === undefined)
+      return yield* deferLegacyPublicationJob(
+        job,
+        args.now,
+        "PublicationOperationMigrationRequired",
+      );
     if (!publicationAuthorityLinkageIsValid(job, job.authorityEnvelope))
-      return yield* supersedePublicationJob(
+      return yield* failPublicationIntegrity(
+        job,
+        args.now,
+        "PublicationAuthorityLinkageInvalid",
+      );
+    if (
+      !(yield* linkedPublicationAuthorityIsValidEffect(
+        job,
+        job.authorityEnvelope,
+      ))
+    )
+      return yield* failPublicationIntegrity(
         job,
         args.now,
         "PublicationAuthorityLinkageInvalid",
@@ -2229,10 +4214,51 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
         job.authorityEnvelope.authorityDigest ||
       expectedEnvelope.stableEffectKey !== job.authorityEnvelope.stableEffectKey
     )
-      return yield* supersedePublicationJob(
+      return yield* failPublicationIntegrity(
         job,
         args.now,
         "PublicationAuthorityEnvelopeInvalid",
+      );
+    const targetResolutionStatus = yield* targetResolutionAuthorityStatusEffect(
+      job,
+      job.authorityEnvelope,
+    );
+    if (targetResolutionStatus === "migration_required")
+      return yield* deferLegacyPublicationJob(
+        job,
+        args.now,
+        "PublicationTargetLinkageMigrationRequired",
+      );
+    if (targetResolutionStatus === "integrity_failure")
+      return yield* failPublicationIntegrity(
+        job,
+        args.now,
+        "PublicationAuthorityLinkageInvalid",
+      );
+    if (targetResolutionStatus === "superseded")
+      return yield* supersedePublicationJob(
+        job,
+        args.now,
+        "PublicationAuthoritySuperseded",
+      );
+    const rebuildRunStatus = yield* rebuildRunAuthorityStatusEffect(job);
+    if (rebuildRunStatus === "migration_required")
+      return yield* deferLegacyPublicationJob(
+        job,
+        args.now,
+        "PublicationRebuildRunMigrationRequired",
+      );
+    if (rebuildRunStatus === "integrity_failure")
+      return yield* failPublicationIntegrity(
+        job,
+        args.now,
+        "PublicationRebuildRunIntegrityFailure",
+      );
+    if (rebuildRunStatus === "superseded")
+      return yield* supersedePublicationJob(
+        job,
+        args.now,
+        "PublicationRebuildRunSuperseded",
       );
     const currentContext = yield* capturePublicationAuthorityContextEffect(
       {
@@ -2246,6 +4272,12 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
           : {
               targetResolutionIntentKey:
                 job.authorityEnvelope.targetResolutionIntentKey,
+            }),
+        ...(job.authorityEnvelope.targetResolutionGeneration === undefined
+          ? {}
+          : {
+              targetResolutionGeneration:
+                job.authorityEnvelope.targetResolutionGeneration,
             }),
         ...(job.authorityEnvelope.repairOfJobKey === undefined
           ? {}
@@ -2271,6 +4303,23 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
       surface: "internal" as const,
     };
     const execution = Effect.gen(function* () {
+      if (job.operation === "cleanup") {
+        const publicationSubjectKey =
+          job.authorityEnvelope?.publicationSubjectKey;
+        if (publicationSubjectKey === undefined)
+          return yield* new ValidationFailed({
+            field: "publicationSubjectKey",
+            message: "Cleanup requires an exact publication subject.",
+          });
+        const value = yield* cleanupPublicationSubjectEffect({
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          publicationSubjectKey,
+          now: args.now,
+        });
+        return { kind: "publication" as const, value };
+      }
       if (job.originKind === "page") {
         if (job.page === undefined)
           return yield* new ValidationFailed({
@@ -2318,11 +4367,50 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
           field: "rebuild",
           message: "Rebuild cursor and limit are required.",
         });
+      if (
+        job.rebuildRunKey === undefined ||
+        job.rebuildRunGeneration === undefined ||
+        job.rebuildLedgerHighWater === undefined ||
+        job.rebuildPauseEpoch === undefined
+      )
+        return yield* new ValidationFailed({
+          field: "rebuildRunKey",
+          message: "Rebuild child authority is required.",
+        });
+      if (job.rebuild.phase === "set_difference")
+        return {
+          kind: "rebuild" as const,
+          value: yield* rebuildSetDifferenceBatchEffect(
+            job,
+            yield* rebuildExecutionScopeEffect(job),
+            args.now,
+          ),
+        };
+      if (job.rebuild.phase === "close")
+        return {
+          kind: "rebuild" as const,
+          value: {
+            processed: 0,
+            emitted: 0,
+            published: 0,
+            hasMore: false,
+          },
+        };
       if (job.originKind === "page_rebuild") {
         const result = yield* rebuildPageBatchEffect({
           organizationKey: job.organizationKey,
           workspaceId: job.workspaceId,
           brainKey: job.brainKey,
+          ledgerHighWater:
+            job.rebuild.phaseHighWater ?? job.rebuildLedgerHighWater,
+          rebuildChildAuthority: {
+            rebuildRunKey: job.rebuildRunKey,
+            rebuildRunGeneration: job.rebuildRunGeneration,
+            rebuildLedgerHighWater: job.rebuildLedgerHighWater,
+            rebuildPauseEpoch: job.rebuildPauseEpoch,
+            parentRebuildJobKey: job.jobKey,
+            requestGeneration: job.requestGeneration,
+          },
           ...(job.rebuild.afterSourceKey === undefined
             ? {}
             : { afterPageKey: job.rebuild.afterSourceKey }),
@@ -2345,10 +4433,22 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
         job.originKind === "slack_rebuild"
           ? rebuildSlackBatchEffect
           : rebuildTranscriptBatchEffect;
+      const executionScope = yield* rebuildExecutionScopeEffect(job);
       const value = yield* rebuild({
         organizationKey: job.organizationKey,
         workspaceId: job.workspaceId,
         brainKey: job.brainKey,
+        ledgerHighWater:
+          job.rebuild.phaseHighWater ?? job.rebuildLedgerHighWater,
+        rebuildChildAuthority: {
+          rebuildRunKey: job.rebuildRunKey,
+          rebuildRunGeneration: job.rebuildRunGeneration,
+          rebuildLedgerHighWater: job.rebuildLedgerHighWater,
+          rebuildPauseEpoch: job.rebuildPauseEpoch,
+          parentRebuildJobKey: job.jobKey,
+          requestGeneration: job.requestGeneration,
+        },
+        ...executionScope,
         ...(job.rebuild.afterSourceKey === undefined
           ? {}
           : { afterSourceKey: job.rebuild.afterSourceKey }),
@@ -2369,48 +4469,349 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
               exit.value.value.outcome === "revoked"
             ? ("revoked" as const)
             : ("succeeded" as const);
-      if (exit.value.kind === "rebuild" && exit.value.value.hasMore) {
+      let rebuildResultDigest: string | undefined;
+      if (exit.value.kind === "rebuild") {
+        if (
+          job.rebuild === undefined ||
+          job.rebuildRunKey === undefined ||
+          job.rebuildRunGeneration === undefined ||
+          job.rebuildLedgerHighWater === undefined ||
+          job.rebuildPauseEpoch === undefined ||
+          job.rebuildPredecessorDigest === undefined
+        )
+          return yield* new ValidationFailed({
+            field: "rebuildRunKey",
+            message: "Rebuild execution is missing immutable run authority.",
+          });
+        const phase = job.rebuild.phase ?? "scan";
         const afterSourceKey = exit.value.value.nextAfterSourceKey;
-        if (afterSourceKey === undefined)
+        if (exit.value.value.hasMore && afterSourceKey === undefined)
           return yield* new ValidationFailed({
             field: "rebuild.afterSourceKey",
             message: "A rebuild with more rows must return its next cursor.",
           });
-        yield* enqueueRetrievalPublicationJobEffect(
-          {
-            organizationKey: job.organizationKey,
+        const rebuildRunKey = job.rebuildRunKey;
+        rebuildResultDigest = `sha256:${sha256Hex(
+          JSON.stringify({
+            rebuildRunKey,
+            runGeneration: job.rebuildRunGeneration,
+            jobKey: job.jobKey,
+            predecessorDigest: job.rebuildPredecessorDigest,
+            phase,
+            phaseHighWater: job.rebuild.phaseHighWater ?? null,
+            afterSourceKey: job.rebuild.afterSourceKey ?? null,
+            nextAfterSourceKey: afterSourceKey ?? null,
+            processed: exit.value.value.processed,
+            emitted: exit.value.value.emitted,
+            published: exit.value.value.published,
+            hasMore: exit.value.value.hasMore,
+          }),
+        )}`;
+        const runs = yield* reader
+          .table("retrievalRebuildRuns")
+          .index("by_run_key", (query) =>
+            query.eq("rebuildRunKey", rebuildRunKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const run = runs.length === 1 ? runs[0] : undefined;
+        if (run === undefined)
+          return yield* new ValidationFailed({
+            field: "rebuildRunKey",
+            message: "Rebuild run disappeared during execution.",
+          });
+        const discoveredCount =
+          (job.rebuild.discoveredCount ?? 0) + exit.value.value.processed;
+        const publishedCount =
+          (job.rebuild.publishedCount ?? 0) + exit.value.value.published;
+        let nextPhase:
+          "scan" | "catch_up" | "set_difference" | "close" | undefined;
+        let nextAfterSourceKey: string | undefined;
+        let nextPhaseHighWater = job.rebuild.phaseHighWater;
+        let nextPhaseStateDigest: string | undefined;
+        if (exit.value.value.hasMore) {
+          nextPhase = phase;
+          nextAfterSourceKey = afterSourceKey;
+        } else if (phase === "scan") {
+          nextPhase = "catch_up";
+          const nextLedgerState = yield* rebuildLedgerStateEffect({
+            ...jobIdentityInput(job),
             workspaceId: job.workspaceId,
-            brainKey: job.brainKey,
-            originKind: job.originKind,
-            sourceKey: job.sourceKey,
-            sourceRevisionKey: job.sourceRevisionKey,
-            requestGeneration: job.requestGeneration,
-            rebuild: {
-              afterSourceKey,
-              limit: job.rebuild?.limit ?? 1,
-              discoveredCount:
-                (job.rebuild?.discoveredCount ?? 0) +
-                exit.value.value.processed,
-              publishedCount:
-                (job.rebuild?.publishedCount ?? 0) + exit.value.value.published,
+          });
+          nextPhaseHighWater = nextLedgerState.highWater;
+          nextPhaseStateDigest = nextLedgerState.stateDigest;
+        } else if (phase === "catch_up") {
+          nextPhase = "set_difference";
+        } else if (phase === "set_difference") {
+          nextPhase = "close";
+        } else {
+          const currentLedgerState = yield* rebuildLedgerStateEffect({
+            ...jobIdentityInput(job),
+            workspaceId: job.workspaceId,
+          });
+          if (currentLedgerState.stateDigest !== run.catchupStateDigest) {
+            nextPhase = "catch_up";
+            nextPhaseHighWater = currentLedgerState.highWater;
+            nextPhaseStateDigest = currentLedgerState.stateDigest;
+          }
+        }
+        const runProgress = {
+          headDigest: rebuildResultDigest,
+          emittedChildCount: run.emittedChildCount + exit.value.value.emitted,
+          terminalChildCount: run.terminalChildCount,
+          publishedChildCount:
+            run.publishedChildCount + exit.value.value.published,
+          ...(phase === "scan" && !exit.value.value.hasMore
+            ? { scanDigest: rebuildResultDigest }
+            : {}),
+          ...(phase === "catch_up" && !exit.value.value.hasMore
+            ? { catchupDigest: rebuildResultDigest }
+            : {}),
+          ...(phase === "set_difference"
+            ? { setDifferenceDigest: rebuildResultDigest }
+            : {}),
+          ...(phase === "scan" && nextPhase === "catch_up"
+            ? {
+                catchupHighWater: nextPhaseHighWater,
+                catchupStateDigest: nextPhaseStateDigest,
+              }
+            : {}),
+          ...(phase === "close" && nextPhase === "catch_up"
+            ? {
+                catchupHighWater: nextPhaseHighWater,
+                catchupStateDigest: nextPhaseStateDigest,
+              }
+            : {}),
+          updatedAt: args.now,
+        };
+        if (nextPhase !== undefined) {
+          yield* writer
+            .table("retrievalRebuildRuns")
+            .patch(run._id, runProgress)
+            .pipe(Effect.orDie);
+          yield* enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey: job.organizationKey,
+              workspaceId: job.workspaceId,
+              brainKey: job.brainKey,
+              originKind: job.originKind,
+              sourceKey: job.sourceKey,
+              sourceRevisionKey: job.sourceRevisionKey,
+              requestGeneration: job.requestGeneration,
+              rebuildRunKey: job.rebuildRunKey,
+              rebuildRunGeneration: job.rebuildRunGeneration,
+              rebuildLedgerHighWater: job.rebuildLedgerHighWater,
+              rebuildPauseEpoch: job.rebuildPauseEpoch,
+              rebuildPredecessorDigest: rebuildResultDigest,
+              rebuild: {
+                phase: nextPhase,
+                ...(nextPhaseHighWater === undefined
+                  ? {}
+                  : { phaseHighWater: nextPhaseHighWater }),
+                ...(nextAfterSourceKey === undefined
+                  ? {}
+                  : { afterSourceKey: nextAfterSourceKey }),
+                limit: job.rebuild.limit,
+                discoveredCount,
+                publishedCount,
+              },
+              authorityContext: authorityContextFromEnvelope(
+                job.authorityEnvelope,
+              ),
             },
-          },
-          args.now,
-        );
+            args.now,
+          );
+        } else {
+          if (
+            run.scanDigest === undefined ||
+            run.catchupDigest === undefined ||
+            run.setDifferenceDigest === undefined ||
+            run.catchupHighWater === undefined ||
+            run.catchupStateDigest === undefined
+          )
+            return yield* new ValidationFailed({
+              field: "rebuildRunKey",
+              message: "Rebuild close is missing phase receipts.",
+            });
+          const pendingManifests = yield* reader
+            .table("retrievalRebuildChildren")
+            .index("by_run_status_child", (query) =>
+              query
+                .eq("rebuildRunKey", run.rebuildRunKey)
+                .eq("status", "pending"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          const pendingManifest = pendingManifests[0];
+          if (pendingManifest !== undefined) {
+            const manifestedJobs = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) =>
+                query.eq("jobKey", pendingManifest.childJobKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const manifestedJob =
+              manifestedJobs.length === 1 ? manifestedJobs[0] : undefined;
+            if (
+              manifestedJob === undefined ||
+              (manifestedJob.status !== "pending" &&
+                manifestedJob.status !== "retry_wait") ||
+              !rebuildChildManifestMatchesJob(pendingManifest, manifestedJob)
+            ) {
+              yield* blockRebuildChildManifestEffect(
+                pendingManifest,
+                args.now,
+                "RebuildChildManifestMismatch",
+              );
+              return yield* failPublicationIntegrity(
+                job,
+                args.now,
+                "PublicationRebuildChildManifestInvalid",
+              );
+            }
+          }
+          const [pending, retryWait] = yield* Effect.all([
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_rebuild_run_status", (query) =>
+                query
+                  .eq("rebuildRunKey", job.rebuildRunKey)
+                  .eq("status", "pending"),
+              )
+              .take(2),
+            reader
+              .table("retrievalPublicationJobs")
+              .index("by_rebuild_run_status", (query) =>
+                query
+                  .eq("rebuildRunKey", job.rebuildRunKey)
+                  .eq("status", "retry_wait"),
+              )
+              .take(2),
+          ]).pipe(Effect.orDie);
+          const outstandingJobs = [...pending, ...retryWait].filter(
+            (candidate) => candidate._id !== job._id,
+          );
+          if (pendingManifest === undefined && outstandingJobs.length > 0)
+            return yield* failPublicationIntegrity(
+              job,
+              args.now,
+              "PublicationRebuildChildManifestMissing",
+            );
+          if (pendingManifest !== undefined) {
+            yield* writer
+              .table("retrievalRebuildRuns")
+              .patch(run._id, {
+                status: "closing",
+                updatedAt: args.now,
+              })
+              .pipe(Effect.orDie);
+            const waiting = {
+              status: "retry_wait" as const,
+              attemptCount,
+              nextAttemptAt:
+                args.now +
+                PUBLICATION_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
+              lastErrorTag: "RetrievalRebuildNotDrained",
+              updatedAt: args.now,
+            };
+            yield* writer
+              .table("retrievalPublicationJobs")
+              .patch(job._id, waiting)
+              .pipe(Effect.orDie);
+            return publicationJobResult({ ...job, ...waiting });
+          }
+          const childManifests = yield* reader
+            .table("retrievalRebuildChildren")
+            .index("by_run_child", (query) =>
+              query.eq("rebuildRunKey", run.rebuildRunKey),
+            )
+            .take(runProgress.emittedChildCount + 1)
+            .pipe(Effect.orDie);
+          const childManifestCounts = {
+            pending: 0,
+            published: 0,
+            revoked: 0,
+            superseded: 0,
+            blocked: 0,
+          };
+          for (const manifest of childManifests)
+            childManifestCounts[manifest.status] += 1;
+          const terminalChildManifestCount =
+            childManifestCounts.published +
+            childManifestCounts.revoked +
+            childManifestCounts.superseded +
+            childManifestCounts.blocked;
+          if (
+            childManifests.length !== runProgress.emittedChildCount ||
+            childManifestCounts.pending !== 0 ||
+            terminalChildManifestCount !== runProgress.terminalChildCount ||
+            childManifestCounts.published !== runProgress.publishedChildCount ||
+            childManifestCounts.revoked !== run.revokedChildCount ||
+            childManifestCounts.superseded !== run.supersededChildCount ||
+            childManifestCounts.blocked !== run.blockingChildCount
+          )
+            return yield* failPublicationIntegrity(
+              job,
+              args.now,
+              "PublicationRebuildChildManifestCensusInvalid",
+            );
+          const finalChainDigest = rebuildResultDigest;
+          const receiptDigest = `sha256:${sha256Hex(
+            JSON.stringify({
+              rebuildRunKey: run.rebuildRunKey,
+              runGeneration: run.runGeneration,
+              scanDigest: run.scanDigest,
+              catchupDigest: run.catchupDigest,
+              setDifferenceDigest: run.setDifferenceDigest,
+              catchupStateDigest: run.catchupStateDigest,
+              finalChainDigest,
+              emittedChildCount: runProgress.emittedChildCount,
+              terminalChildCount: runProgress.terminalChildCount,
+              publishedChildCount: runProgress.publishedChildCount,
+              completedAt: args.now,
+            }),
+          )}`;
+          yield* writer
+            .table("retrievalRebuildRuns")
+            .patch(run._id, {
+              ...runProgress,
+              status: "complete",
+              completionReceipt: {
+                catchupHighWater: run.catchupHighWater,
+                catchupStateDigest: run.catchupStateDigest,
+                scanDigest: run.scanDigest,
+                catchupDigest: run.catchupDigest,
+                setDifferenceDigest: run.setDifferenceDigest,
+                finalChainDigest,
+                emittedChildCount: runProgress.emittedChildCount,
+                terminalChildCount: runProgress.terminalChildCount,
+                publishedChildCount: runProgress.publishedChildCount,
+                revokedChildCount: run.revokedChildCount,
+                completedAt: args.now,
+                receiptDigest,
+              },
+            })
+            .pipe(Effect.orDie);
+          if (job.originKind === "page_rebuild")
+            yield* markRebuildHealthComplete(
+              job,
+              {
+                discovered: runProgress.emittedChildCount,
+                published: runProgress.publishedChildCount,
+              },
+              args.now,
+            );
+        }
       }
-      if (
-        exit.value.kind === "rebuild" &&
-        !exit.value.value.hasMore &&
-        job.originKind === "page_rebuild"
-      )
-        yield* markRebuildHealthComplete(
+      if (job.parentRebuildJobKey !== undefined)
+        yield* recordRebuildChildTerminalEffect(
           job,
-          {
-            discovered:
-              (job.rebuild?.discoveredCount ?? 0) + exit.value.value.processed,
-            published:
-              (job.rebuild?.publishedCount ?? 0) + exit.value.value.published,
-          },
+          status === "revoked"
+            ? "revoked"
+            : status === "superseded"
+              ? "superseded"
+              : "published",
           args.now,
         );
       const completed = {
@@ -2419,6 +4820,7 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
         nextAttemptAt: args.now,
         completedAt: args.now,
         lastErrorTag: undefined,
+        ...(rebuildResultDigest === undefined ? {} : { rebuildResultDigest }),
         updatedAt: args.now,
       };
       yield* writer
@@ -2456,14 +4858,26 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
       .table("retrievalPublicationJobs")
       .patch(job._id, failed)
       .pipe(Effect.orDie);
-    if (deadLetter)
+    if (deadLetter) {
+      yield* recordRebuildChildTerminalEffect(job, "blocked", args.now);
+      yield* markRebuildRunTerminalEffect(
+        job,
+        "blocked",
+        lastErrorTag,
+        args.now,
+      );
       yield* markPublicationDeadLetter(job, lastErrorTag, args.now);
+    }
     return publicationJobResult({ ...job, ...failed });
   });
 
 export const sweepPublicationJobsEffect = (
   args: Schema.Schema.Type<typeof SweepPublicationJobsArgs>,
-) =>
+): Effect.Effect<
+  SweepPublicationJobsOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     const currentTime = args.now ?? (yield* Clock.currentTimeMillis);
@@ -2510,25 +4924,103 @@ export const sweepPublicationJobsEffect = (
 
 export const rebuildSlackBatchEffect = (
   args: Schema.Schema.Type<typeof RebuildRoutedCorpusBatchArgs>,
-) =>
+): Effect.Effect<
+  RebuildRoutedCorpusBatchOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     yield* validatePublicationTarget(args);
     const reader = yield* DatabaseReader;
-    const artifacts = yield* reader
-      .table("sourceArtifacts")
-      .index("by_org_source_key", (query) => {
-        const scoped = query.eq("organizationKey", args.organizationKey);
-        return args.afterSourceKey === undefined
-          ? scoped
-          : scoped.gt("sourceKey", args.afterSourceKey);
-      })
-      .take(args.limit + 1)
-      .pipe(Effect.orDie);
+    const connectorScopeKey = args.connectorScopeKey;
+    const connectionKey = args.connectionKey;
+    const connectionGeneration = args.connectionGeneration;
+    const artifacts = yield* (
+      connectorScopeKey !== undefined
+        ? reader
+            .table("sourceArtifacts")
+            .index("by_org_channel_source_key", (query) => {
+              const scoped = query
+                .eq("organizationKey", args.organizationKey)
+                .eq("channelKey", connectorScopeKey);
+              return args.afterSourceKey === undefined
+                ? scoped
+                : scoped.gt("sourceKey", args.afterSourceKey);
+            })
+            .take(args.limit + 1)
+        : connectionKey !== undefined && connectionGeneration !== undefined
+          ? reader
+              .table("sourceArtifacts")
+              .index("by_org_connection_generation_source_key", (query) => {
+                const scoped = query
+                  .eq("organizationKey", args.organizationKey)
+                  .eq("connectionKey", connectionKey)
+                  .eq("connectionGeneration", connectionGeneration);
+                return args.afterSourceKey === undefined
+                  ? scoped
+                  : scoped.gt("sourceKey", args.afterSourceKey);
+              })
+              .take(args.limit + 1)
+          : reader
+              .table("sourceArtifacts")
+              .index("by_org_source_key", (query) => {
+                const scoped = query.eq(
+                  "organizationKey",
+                  args.organizationKey,
+                );
+                return args.afterSourceKey === undefined
+                  ? scoped
+                  : scoped.gt("sourceKey", args.afterSourceKey);
+              })
+              .take(args.limit + 1)
+    ).pipe(Effect.orDie);
     const batch = artifacts.slice(0, args.limit);
     let published = 0;
     let revoked = 0;
+    let emitted = 0;
     for (const artifact of batch) {
+      const revision = yield* reader
+        .table("sourceRevisions")
+        .index("by_source_revision_key", (query) =>
+          query
+            .eq("organizationKey", args.organizationKey)
+            .eq("sourceRevisionKey", artifact.latestSourceRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        revision === null ||
+        (args.ledgerHighWater !== undefined &&
+          revision._creationTime > args.ledgerHighWater)
+      )
+        continue;
+      if (args.rebuildChildAuthority !== undefined) {
+        if (
+          yield* enqueueUniqueRebuildChildEffect(
+            {
+              organizationKey: args.organizationKey,
+              workspaceId: args.workspaceId,
+              brainKey: args.brainKey,
+              originKind: "slack",
+              sourceKey: artifact.sourceKey,
+              sourceRevisionKey: artifact.latestSourceRevisionKey,
+              requestGeneration: args.rebuildChildAuthority.requestGeneration,
+              rebuildRunKey: args.rebuildChildAuthority.rebuildRunKey,
+              rebuildRunGeneration:
+                args.rebuildChildAuthority.rebuildRunGeneration,
+              rebuildLedgerHighWater:
+                args.rebuildChildAuthority.rebuildLedgerHighWater,
+              rebuildPauseEpoch: args.rebuildChildAuthority.rebuildPauseEpoch,
+              parentRebuildJobKey:
+                args.rebuildChildAuthority.parentRebuildJobKey,
+            },
+            args.now,
+          )
+        )
+          emitted += 1;
+        continue;
+      }
       const result = yield* publishSlackRevisionEffect({
         organizationKey: args.organizationKey,
         workspaceId: args.workspaceId,
@@ -2544,6 +5036,7 @@ export const rebuildSlackBatchEffect = (
     const nextAfterSourceKey = batch.at(-1)?.sourceKey;
     return {
       processed: batch.length,
+      emitted,
       published,
       revoked,
       ...(nextAfterSourceKey === undefined ? {} : { nextAfterSourceKey }),
@@ -2553,25 +5046,87 @@ export const rebuildSlackBatchEffect = (
 
 export const rebuildTranscriptBatchEffect = (
   args: Schema.Schema.Type<typeof RebuildRoutedCorpusBatchArgs>,
-) =>
+): Effect.Effect<
+  RebuildRoutedCorpusBatchOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     yield* validatePublicationTarget(args);
     const reader = yield* DatabaseReader;
-    const units = yield* reader
-      .table("sourceUnits")
-      .index("by_unit_key", (query) => {
-        const scoped = query.eq("organizationKey", args.organizationKey);
-        return args.afterSourceKey === undefined
-          ? scoped
-          : scoped.gt("unitKey", args.afterSourceKey);
-      })
-      .take(args.limit + 1)
-      .pipe(Effect.orDie);
+    const connectionKey = args.connectionKey;
+    const connectionGeneration = args.connectionGeneration;
+    const units = yield* (
+      connectionKey !== undefined && connectionGeneration !== undefined
+        ? reader
+            .table("sourceUnits")
+            .index("by_org_connection_generation_unit_key", (query) => {
+              const scoped = query
+                .eq("organizationKey", args.organizationKey)
+                .eq("connectionKey", connectionKey)
+                .eq("connectionGeneration", connectionGeneration);
+              return args.afterSourceKey === undefined
+                ? scoped
+                : scoped.gt("unitKey", args.afterSourceKey);
+            })
+            .take(args.limit + 1)
+        : reader
+            .table("sourceUnits")
+            .index("by_unit_key", (query) => {
+              const scoped = query.eq("organizationKey", args.organizationKey);
+              return args.afterSourceKey === undefined
+                ? scoped
+                : scoped.gt("unitKey", args.afterSourceKey);
+            })
+            .take(args.limit + 1)
+    ).pipe(Effect.orDie);
     const batch = units.slice(0, args.limit);
     let published = 0;
     let revoked = 0;
+    let emitted = 0;
     for (const unit of batch) {
+      const revision = yield* reader
+        .table("sourceUnitRevisions")
+        .index("by_unit_revision_key", (query) =>
+          query
+            .eq("organizationKey", args.organizationKey)
+            .eq("unitRevisionKey", unit.currentUnitRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        revision === null ||
+        (args.ledgerHighWater !== undefined &&
+          revision._creationTime > args.ledgerHighWater)
+      )
+        continue;
+      if (args.rebuildChildAuthority !== undefined) {
+        if (
+          yield* enqueueUniqueRebuildChildEffect(
+            {
+              organizationKey: args.organizationKey,
+              workspaceId: args.workspaceId,
+              brainKey: args.brainKey,
+              originKind: "transcript",
+              sourceKey: unit.unitKey,
+              sourceRevisionKey: unit.currentUnitRevisionKey,
+              requestGeneration: args.rebuildChildAuthority.requestGeneration,
+              rebuildRunKey: args.rebuildChildAuthority.rebuildRunKey,
+              rebuildRunGeneration:
+                args.rebuildChildAuthority.rebuildRunGeneration,
+              rebuildLedgerHighWater:
+                args.rebuildChildAuthority.rebuildLedgerHighWater,
+              rebuildPauseEpoch: args.rebuildChildAuthority.rebuildPauseEpoch,
+              parentRebuildJobKey:
+                args.rebuildChildAuthority.parentRebuildJobKey,
+            },
+            args.now,
+          )
+        )
+          emitted += 1;
+        continue;
+      }
       const result = yield* publishTranscriptRevisionEffect({
         organizationKey: args.organizationKey,
         workspaceId: args.workspaceId,
@@ -2587,6 +5142,7 @@ export const rebuildTranscriptBatchEffect = (
     const nextAfterSourceKey = batch.at(-1)?.unitKey;
     return {
       processed: batch.length,
+      emitted,
       published,
       revoked,
       ...(nextAfterSourceKey === undefined ? {} : { nextAfterSourceKey }),
@@ -2633,7 +5189,11 @@ const sweepPublicationJobs = FunctionImpl.make(
 
 export const rebuildPageBatchEffect = (
   args: Schema.Schema.Type<typeof RebuildPageBatchArgs>,
-) =>
+): Effect.Effect<
+  RebuildPageBatchOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
     const reader = yield* DatabaseReader;
@@ -2651,9 +5211,56 @@ export const rebuildPageBatchEffect = (
       .pipe(Effect.orDie);
     const batch = pages.slice(0, args.limit);
     let published = 0;
+    let emitted = 0;
     for (const page of batch) {
       if (page.pageKey === undefined || page.currentRevisionKey == null)
         continue;
+      const revision = yield* reader
+        .table("pageRevisions")
+        .index("by_workspace_revision_key", (query) =>
+          query
+            .eq("workspaceId", args.workspaceId)
+            .eq("revisionKey", page.currentRevisionKey ?? ""),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        revision === null ||
+        (args.ledgerHighWater !== undefined &&
+          revision._creationTime > args.ledgerHighWater)
+      )
+        continue;
+      if (args.rebuildChildAuthority !== undefined) {
+        if (
+          yield* enqueueUniqueRebuildChildEffect(
+            {
+              organizationKey: args.organizationKey,
+              workspaceId: args.workspaceId,
+              brainKey: args.brainKey,
+              originKind: "page",
+              sourceKey: page.pageKey,
+              sourceRevisionKey: page.currentRevisionKey,
+              requestGeneration: args.rebuildChildAuthority.requestGeneration,
+              page: {
+                authority: "derived",
+                authorityPolicyKey: "company-pages",
+                policyGeneration: args.rebuildChildAuthority.requestGeneration,
+              },
+              rebuildRunKey: args.rebuildChildAuthority.rebuildRunKey,
+              rebuildRunGeneration:
+                args.rebuildChildAuthority.rebuildRunGeneration,
+              rebuildLedgerHighWater:
+                args.rebuildChildAuthority.rebuildLedgerHighWater,
+              rebuildPauseEpoch: args.rebuildChildAuthority.rebuildPauseEpoch,
+              parentRebuildJobKey:
+                args.rebuildChildAuthority.parentRebuildJobKey,
+            },
+            args.now,
+          )
+        )
+          emitted += 1;
+        continue;
+      }
       const result = yield* publishPageRevisionEffect({
         organizationKey: args.organizationKey,
         workspaceId: args.workspaceId,
@@ -2672,6 +5279,7 @@ export const rebuildPageBatchEffect = (
     const lastPageKey = batch.at(-1)?.pageKey;
     return {
       processed: batch.length,
+      emitted,
       published,
       ...(lastPageKey === undefined ? {} : { nextAfterPageKey: lastPageKey }),
       hasMore: pages.length > args.limit,
