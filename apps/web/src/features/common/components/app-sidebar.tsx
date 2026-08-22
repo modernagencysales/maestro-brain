@@ -41,7 +41,7 @@ import { InvitePeopleDialog } from "./invite-people";
 import { UserMenu } from "./user-menu";
 import { WorkspacesMenu } from "./workspaces-menu";
 
-export interface AppSidebarProps extends Sidebar.RootProps {}
+export type AppSidebarProps = Sidebar.RootProps;
 
 export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
   const modals = useModals();
@@ -150,7 +150,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
               <Menu.Trigger asChild>
                 <IconButton
                   variant="surface"
-                  size="xs"
+                  size="sm"
                   rounded="full"
                   aria-label="Search"
                 >
@@ -216,7 +216,7 @@ const AppSidebarLink = (props: AppSidebarlink) => {
     <Tooltip
       content={
         <>
-          {label} <Command size="xs">{command}</Command>
+          {label} <Command size="sm">{command}</Command>
         </>
       }
       positioning={{
