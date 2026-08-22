@@ -17,6 +17,7 @@ import {
   normalizeMutationError,
   notifyTemplateMutation,
   type TemplateDataState,
+  type TemplateToastInput,
   useTemplateMutation,
   useTemplateQuery,
 } from "../../adapters/confect-state";
@@ -52,12 +53,7 @@ type PlatformNotificationPreference = Readonly<{
   digest: boolean;
 }>;
 type TemplateToastApi = Readonly<{
-  notify(input: {
-    title: string;
-    description?: string;
-    tone?: string;
-    announcement?: string;
-  }): string;
+  notify(input: TemplateToastInput): string;
 }>;
 const useTemplateToast = (): TemplateToastApi => ({
   notify: () => "golden-toast",
@@ -364,7 +360,6 @@ export function NotificationCenterSurface() {
             announcement: "Notification marked read.",
           });
         }}
-        preferences={view.preferences}
         summary={view.summary}
       />
     </>

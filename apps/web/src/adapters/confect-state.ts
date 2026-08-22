@@ -13,6 +13,11 @@ import type {
 } from "@maestro-template/ui";
 import * as Either from "effect/Either";
 
+export type {
+  TemplateToastApi,
+  TemplateToastInput,
+} from "@maestro-template/ui";
+
 export type TemplateReadyMode = "read" | "edit";
 
 export type TemplateSkippedState = {
@@ -306,7 +311,7 @@ export function notifyTemplateMutation<T, E>({
 }: {
   readonly copy: TemplateMutationToastCopy<T, E>;
   readonly state: TemplateMutationState<T, E>;
-  readonly toast: TemplateToastApi;
+  readonly toast: Pick<TemplateToastApi, "notify">;
 }): string | null {
   const notification = toastForTemplateMutation(state, copy);
 

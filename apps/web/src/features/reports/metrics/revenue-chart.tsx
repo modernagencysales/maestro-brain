@@ -1,8 +1,7 @@
 import * as React from "react";
 
-import { AreaChart } from "@saas-ui/charts";
+import { Box, Text } from "@chakra-ui/react";
 import { format } from "date-fns";
-import { useIntl } from "react-intl";
 
 export interface MetricData {
   timestamp: number;
@@ -10,8 +9,6 @@ export interface MetricData {
 }
 
 export const RevenueChart = ({ data = [] }: { data: MetricData[] }) => {
-  const intl = useIntl();
-
   const parsedData = React.useMemo(
     () =>
       data?.map(({ timestamp, value }) => {
@@ -23,22 +20,36 @@ export const RevenueChart = ({ data = [] }: { data: MetricData[] }) => {
     [data],
   );
 
+  const maximum = Math.max(1, ...parsedData.map((point) => point.Revenue));
+  const points = parsedData
+    .map((point, index) => {
+      const x =
+        parsedData.length > 1 ? (index / (parsedData.length - 1)) * 100 : 50;
+      const y = 100 - (point.Revenue / maximum) * 90;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
   return (
-    <AreaChart
-      data={parsedData}
-      categories={["Revenue"]}
-      strokeWidth="2"
-      variant="gradient"
-      valueFormatter={(value: number) =>
-        intl.formatNumber(value, {
-          currency: "EUR",
-          style: "currency",
-          maximumFractionDigits: 0,
-        })
-      }
-      yAxisWidth={60}
-      showLegend={false}
-      height="300px"
-    />
+    <Box height="300px" position="relative" aria-label="Revenue chart">
+      {parsedData.length ? (
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          width="100%"
+          height="100%"
+        >
+          <polyline
+            points={points}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      ) : (
+        <Text color="fg.muted">No revenue data yet.</Text>
+      )}
+    </Box>
   );
 };

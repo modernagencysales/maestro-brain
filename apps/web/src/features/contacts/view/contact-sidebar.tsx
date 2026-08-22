@@ -24,7 +24,6 @@ import {
 } from "@workspace/ui/tags-list";
 
 import { useTags } from "#features/common/hooks/use-tags";
-import { api } from "#lib/trpc/react";
 
 import { ContactStatus } from "../common/contact-status";
 import { ContactType } from "../common/contact-type";
@@ -49,7 +48,6 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = (props) => {
       boxShadow="md"
       bg="bg.panel"
       borderLeftWidth="1px"
-      size="lg"
       {...rest}
     >
       {contact ? (
@@ -78,11 +76,9 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = (props) => {
 };
 
 function ContactDetails({ contact }: { contact: ContactDTO }) {
-  const tags = contact.tags || [];
+  const [tags, setTags] = React.useState(contact.tags || []);
 
   const allTags = useTags();
-
-  const utils = api.useUtils();
 
   const updateTags = useMutation({
     mutationFn: async (tags: string[]) => {
@@ -94,16 +90,7 @@ function ContactDetails({ contact }: { contact: ContactDTO }) {
        *
        * If the mutation fails, we can use the `onError` callback to revert.
        */
-      utils.contacts.byId.setData(
-        {
-          workspaceId: contact.workspaceId,
-          id: contact.id,
-        },
-        {
-          ...contact,
-          tags,
-        },
-      );
+      setTags(tags);
     },
   });
 
@@ -131,13 +118,7 @@ function ContactDetails({ contact }: { contact: ContactDTO }) {
             }}
           >
             Details
-            <Icon
-              transitionProperty="transform"
-              transitionDuration="fast"
-              _groupOpen={{
-                transform: "rotate(90deg)",
-              }}
-            >
+            <Icon transitionProperty="transform" transitionDuration="fast">
               <LuChevronRight />
             </Icon>
           </Button>
@@ -162,25 +143,30 @@ function ContactDetails({ contact }: { contact: ContactDTO }) {
               value={
                 <TagsList mt="2" ms="-2" ref={tagsAnchor}>
                   {tags.map((t) => {
-                    const tag = allTags?.find((tag) => tag.label === t);
+                    const tag = allTags?.find((tag) => tag.id === t);
                     return (
                       <TagsListItem
                         key={t}
                         icon={<TagColor color={tag?.color || "gray"} />}
                       >
-                        {tag?.label || t}
+                        {tag?.name || t}
                       </TagsListItem>
                     );
                   })}
                   <AddTag
-                    tags={allTags ?? []}
+                    tags={allTags.map((tag) => ({
+                      id: tag.id,
+                      label: tag.name,
+                      color: tag.color ?? undefined,
+                    }))}
                     onCreate={onCreateTags}
                     onChange={onChangeTags}
                     positioning={{
                       placement: "left-start",
                       getAnchorRect: () => {
                         const rect =
-                          tagsAnchor.current!.getBoundingClientRect();
+                          tagsAnchor.current?.getBoundingClientRect() ??
+                          new DOMRect();
 
                         return {
                           x: rect?.x,

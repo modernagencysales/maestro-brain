@@ -54,7 +54,7 @@ export type Activities = Array<
 export interface ActivityTimelineProps {
   activities: Activities;
   currentUser: User;
-  onAddComment: SubmitHandler<Comment>;
+  onAddComment: (data: Comment) => Promise<unknown>;
   onDeleteComment?(id: string | number): Promise<void>;
 }
 
@@ -296,11 +296,7 @@ const ActivityTimelineComment: React.FC<ActivityTimelineCommentProps> = (
 };
 
 const commentSchema = z.object({
-  comment: z
-    .string({
-      required_error: "Please add a comment",
-    })
-    .min(1, "Please add a comment"),
+  comment: z.string().min(1, "Please add a comment"),
 });
 
 interface Comment {
@@ -309,7 +305,7 @@ interface Comment {
 }
 
 interface ActivityTimelineAddCommentProps {
-  onSubmit: (data: Comment) => Promise<any>;
+  onSubmit: (data: Comment) => Promise<unknown>;
   user: User;
 }
 

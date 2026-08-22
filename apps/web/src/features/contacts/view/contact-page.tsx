@@ -108,8 +108,8 @@ export function ContactPage({ params, toolbarItems }: ContactPageProps) {
           gap="0"
         >
           <Tabs.Root
-            variant="pills"
-            size="xs"
+            variant="line"
+            size="sm"
             colorPalette="gray"
             defaultValue="activity"
             lazyMount

@@ -277,7 +277,7 @@ export function ContactsListPage({
       }
     >
       <Button
-        variant="primary"
+        variant="solid"
         colorPalette="accent"
         size="xs"
         onClick={addPerson}
@@ -373,7 +373,7 @@ export function ContactsListPage({
       icon={<LuSquareUser />}
       height="full"
     >
-      <Button variant="primary" colorPalette="accent" onClick={addPerson}>
+      <Button variant="solid" colorPalette="accent" onClick={addPerson}>
         Add a person
       </Button>
       <Button>Import data</Button>

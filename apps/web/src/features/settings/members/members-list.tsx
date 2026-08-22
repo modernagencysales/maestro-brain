@@ -167,9 +167,9 @@ export interface MembersListProps<TMember> extends Omit<
   allowInvite?: boolean;
   multiRoles?: boolean;
   onRemove(member: TMember): void;
-  onInvite(data: InviteData): Promise<any>;
-  onCancelInvite(member: TMember): Promise<any>;
-  onUpdateRoles(member: TMember, roles: string[]): Promise<any>;
+  onInvite(data: InviteData): Promise<unknown>;
+  onCancelInvite(member: TMember): Promise<unknown>;
+  onUpdateRoles(member: TMember, roles: string[]): Promise<unknown>;
 }
 
 export function MembersList<TMember extends Member = Member>({
@@ -220,7 +220,7 @@ export function MembersList<TMember extends Member = Member>({
           onClick={invite.onOpen}
           disabled={!allowInvite}
           colorPalette="accent"
-          variant="glass"
+          variant="surface"
           flexShrink="0"
           size="sm"
         >
@@ -263,7 +263,7 @@ export function MembersList<TMember extends Member = Member>({
 }
 
 function UpdateRolesDialog(props: {
-  onSubmit: (roles: string[]) => Promise<any>;
+  onSubmit: (roles: string[]) => Promise<unknown>;
   multiRoles?: boolean;
   open: boolean;
   onOpenChange: (details: { open: boolean }) => void;

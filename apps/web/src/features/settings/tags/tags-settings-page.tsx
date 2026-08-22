@@ -35,7 +35,7 @@ export function TagsSettingsPage() {
   return (
     <SettingsPage title="Workspace tags" contentWidth="container.md">
       <ManageTags
-        items={tags ?? []}
+        items={[...(tags ?? [])]}
         colors={tagColors}
         onCreate={async (tag) => {
           await createTag.mutateAsync({

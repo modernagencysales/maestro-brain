@@ -1,6 +1,5 @@
 import { HStack, Text } from "@chakra-ui/react";
 import { ColumnDef, DataGrid, DataGridCell } from "@saas-ui-pro/react";
-import { useIntl } from "react-intl";
 
 import { MetricsCard } from "./metrics-card";
 
@@ -26,15 +25,13 @@ const SalesCell: DataGridCell<Data> = (cell) => {
 };
 
 const CurrencyCell: DataGridCell<Data> = ({ getValue }) => {
-  const intl = useIntl();
-
   return (
     <>
-      {intl.formatNumber(getValue<number>(), {
+      {new Intl.NumberFormat(undefined, {
         currency: "EUR",
         style: "currency",
         maximumFractionDigits: 0,
-      })}
+      }).format(getValue<number>())}
     </>
   );
 };

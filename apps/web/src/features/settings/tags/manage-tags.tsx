@@ -92,8 +92,8 @@ const TagListItem: React.FC<TagListItemProps> = (props) => {
       });
 
       setEdit(false);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
       console.error(e);
     } finally {
       setLoading(false);
@@ -159,7 +159,7 @@ const TagListItem: React.FC<TagListItemProps> = (props) => {
           Cancel
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           loading={isLoading}
           onClick={() => onSave()}
@@ -276,8 +276,8 @@ const TagListAddItem: React.FC<TagListAddItemProps> = (props) => {
       await onSaveProp?.(values);
 
       openState.setOpen(false);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
       console.error(e);
     } finally {
       setLoading(false);
@@ -342,7 +342,7 @@ const TagListAddItem: React.FC<TagListAddItemProps> = (props) => {
               Cancel
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               loading={isLoading}
               onClick={() => onSave()}
@@ -419,7 +419,7 @@ export const ManageTags = (props: ManageTagsProps) => {
             />
           </Box>
           <Button
-            variant="primary"
+            variant="solid"
             colorPalette="indigo"
             onClick={() => {
               setEditId(null);

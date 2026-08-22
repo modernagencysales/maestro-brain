@@ -7,7 +7,7 @@ import { ContactDTO } from "@workspace/api/types";
 import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
 import { api } from "#lib/trpc/react";
 
-import { type Activity, ActivityTimeline } from "./activity-timeline";
+import { type Activities, ActivityTimeline } from "./activity-timeline";
 
 export const ActivitiesPanel: React.FC<{
   contact: ContactDTO;
@@ -60,15 +60,15 @@ export const ActivitiesPanel: React.FC<{
       : undefined;
   };
 
-  const activities = (data?.activities || []).map(
+  const activities: Activities = (data?.activities || []).map(
     (activity) =>
       ({
         id: activity.id,
         type: activity.type,
         user: activity.actorId ? getMember(activity.actorId) : undefined,
         data: activity.metadata,
-        date: activity.createdAt,
-      }) as Activity,
+        date: new Date(activity.createdAt),
+      }) as unknown as Activities[number],
   );
 
   return (

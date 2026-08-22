@@ -1,9 +1,11 @@
-import { Badge, Tag, TagProps, Text } from "@chakra-ui/react";
+import { Badge, Box, type BoxProps, Text } from "@chakra-ui/react";
 
 import { useTags } from "../../common/hooks/use-tags";
 
-export const ContactTag: React.FC<TagProps & { tag: string }> = (props) => {
-  const { tag, ...rest } = props;
+export const ContactTag: React.FC<BoxProps & { tag: string; size?: string }> = (
+  props,
+) => {
+  const { tag, size, ...rest } = props;
 
   const tags = useTags();
 
@@ -12,9 +14,18 @@ export const ContactTag: React.FC<TagProps & { tag: string }> = (props) => {
   if (!t) return null;
 
   return (
-    <Tag size="sm" colorScheme="gray" h="6" {...rest}>
+    <Box
+      display="inline-flex"
+      alignItems="center"
+      rounded="full"
+      bg="bg.muted"
+      px="2"
+      h="6"
+      data-size={size}
+      {...rest}
+    >
       <Badge bg={t.color ?? undefined} boxSize="2" rounded="full" me="2" />
       <Text>{t.name}</Text>
-    </Tag>
+    </Box>
   );
 };

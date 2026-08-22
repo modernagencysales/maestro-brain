@@ -1,5 +1,4 @@
 import { platformSelect } from "@saas-ui-pro/react";
-import { HotkeysConfig } from "@saas-ui/react";
 
 export const appHotkeys = {
   general: {
@@ -61,4 +60,4 @@ export const appHotkeys = {
       },
     },
   },
-} satisfies HotkeysConfig;
+} as const;

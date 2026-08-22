@@ -15,8 +15,8 @@ import { useTags } from "../hooks/use-tags";
 export const AppSidebarTags = () => {
   const tags = useTags();
 
-  const getSortedTags = React.useCallback((tags: TagDTO[]) => {
-    return tags as TagDTO[];
+  const getSortedTags = React.useCallback((tags: readonly TagDTO[]) => {
+    return [...tags];
   }, []);
 
   const [sortedTags, setTags] = useControllableState<TagDTO[]>({
@@ -31,12 +31,7 @@ export const AppSidebarTags = () => {
   }
 
   return (
-    <SortableNavGroup
-      title="Tags"
-      isCollapsible
-      items={sortedTags}
-      onSorted={setTags}
-    >
+    <SortableNavGroup items={sortedTags} onSorted={setTags}>
       {sortedTags.map((tag) => (
         <TagLink
           as="a"
@@ -48,8 +43,8 @@ export const AppSidebarTags = () => {
           activeProps={{
             "data-active": true,
           }}
-          icon={<TagColor color={tag.color ?? undefined} />}
         >
+          <TagColor color={tag.color ?? undefined} />
           <Text>{tag.name}</Text>
         </TagLink>
       ))}

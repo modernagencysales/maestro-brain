@@ -13,7 +13,11 @@ describe("web TypeScript boundary", () => {
     };
 
     expect(tsconfig.exclude).toEqual(
-      expect.arrayContaining(["src/**/*.stories.ts", "src/**/*.stories.tsx"]),
+      expect.arrayContaining([
+        "src/**/*.stories.ts",
+        "src/**/*.stories.tsx",
+        "src/**/stories.tsx",
+      ]),
     );
   });
 });

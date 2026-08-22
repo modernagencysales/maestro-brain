@@ -15,6 +15,11 @@ export const ContactTags: React.FC<{ contact: ContactDTO }> = ({ contact }) => {
   const tags = contact.tags || [];
 
   const allTags = useTags();
+  const tagOptions = allTags.map((tag) => ({
+    id: tag.id,
+    label: tag.name,
+    color: tag.color ?? undefined,
+  }));
 
   const utils = api.useUtils();
 
@@ -58,10 +63,10 @@ export const ContactTags: React.FC<{ contact: ContactDTO }> = ({ contact }) => {
         ) : null;
       })}
       <AddTag
-        tags={allTags}
+        tags={tagOptions}
         value={tags}
         onChange={onChangeTags}
-        variant={tags?.length ? "compact" : "default"}
+        variant={tags?.length ? "solid" : "subtle"}
       />
     </TagsList>
   );

@@ -105,7 +105,7 @@ export function MembersSettingsPage() {
         workspace.name || "this workspace"
       }?`,
       confirmProps: {
-        colorScheme: "red",
+        colorPalette: "red",
         children: "Remove",
       },
       onConfirm: async () => {

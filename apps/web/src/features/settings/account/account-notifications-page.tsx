@@ -242,22 +242,22 @@ export function AccountNotificationsPage() {
     >
       <NotificationChannels
         data={{
-          ...settings.data?.channels,
-          ...updateSettings.variables?.channels,
+          ...(settings.data?.channels ?? {}),
+          ...(updateSettings.variables?.channels ?? {}),
         }}
         onUpdate={handleUpdateSettings("channels")}
       />
       <NotificationTopics
         data={{
-          ...settings.data?.topics,
-          ...updateSettings.variables?.topics,
+          ...(settings.data?.topics ?? {}),
+          ...(updateSettings.variables?.topics ?? {}),
         }}
         onUpdate={handleUpdateSettings("topics")}
       />
       <AccountUpdates
         data={{
-          ...settings.data?.newsletters,
-          ...updateSettings.variables?.newsletters,
+          ...(settings.data?.newsletters ?? {}),
+          ...(updateSettings.variables?.newsletters ?? {}),
         }}
         onUpdate={handleUpdateSettings("newsletters")}
       />

@@ -49,7 +49,7 @@ export const Metric = (props: MetricProps) => {
             <DeltaBadge
               deltaType={deltaType}
               isIncreasePositive={isIncreasePositive}
-              variant="ghost"
+              variant="plain"
               px="1"
             >
               {change}%
