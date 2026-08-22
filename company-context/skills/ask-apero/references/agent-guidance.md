@@ -53,9 +53,12 @@ payloads, or irrelevant sensitive excerpts.
 
 ## Tool boundary
 
-This skill is read-only. Do not call provider actions, Brain mutations, or a
-feedback write. On `Unauthorized`, stop and request access through the approved
-channel. On `SubsystemDisabled`, say Ask Apero is unavailable. On schema or
-integrity failure, abstain and preserve the request ID and citation identifiers
-in the current session for authorized diagnosis. Do not retry a write or invent
-a fallback answer.
+This skill's MCP tools are read-only. Do not call provider actions or Brain
+evidence mutations. Wrong/stale reports use the separate approved API surface;
+retain only request ID, candidate-manifest hash, exact citation tuples,
+readiness, category/disposition, and optional evaluation-rerun linkage. Never
+copy source or answer text into feedback. On `Unauthorized`, stop and request
+access through the approved channel. On `SubsystemDisabled`, say Ask Apero is
+unavailable. On schema or integrity failure, abstain and preserve the request ID
+and citation identifiers in the current session for authorized diagnosis. Do not
+retry a write or invent a fallback answer.

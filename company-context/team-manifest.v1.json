@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "0.1.0",
+  "manifestVersion": "0.2.0",
   "status": "candidate",
   "canonicalSkill": {
     "name": "ask-apero",
-    "contractVersion": "0.1.0",
+    "contractVersion": "0.2.0",
     "path": "company-context/skills/ask-apero"
   },
   "endpoint": {
@@ -29,7 +29,13 @@
       "template.brain.sources.get"
     ],
     "writeToolsAllowed": false,
-    "durableFeedback": "deferred"
+    "durableFeedback": {
+      "status": "implemented-api-only",
+      "operationId": "brain.feedback.reportWrongOrStale",
+      "path": "/api/brain.feedback.reportWrongOrStale",
+      "requiredScope": "brain:read",
+      "sourceTextAllowed": false
+    }
   },
   "runtimes": [
     {

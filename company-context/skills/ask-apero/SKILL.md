@@ -6,7 +6,7 @@ description:
   Use for Ask Apero research and decisions; do not use for provider writes or
   unsupported client scope.
 metadata:
-  contract-version: "0.1.0"
+  contract-version: "0.2.0"
 ---
 
 # Ask Apero
@@ -46,8 +46,11 @@ evidence source for this workflow.
 Stop without answering from memory when authorization fails, the subsystem is
 disabled, the response is not ContextPack v1, the candidate manifest is absent,
 an exact citation cannot reopen, or relevant required coverage is unavailable.
-Never invoke provider or Brain write tools. Durable wrong/stale feedback is not
-available in this contract version.
+Never invoke provider or Brain evidence-write tools. If the user reports an
+answer as wrong or stale, preserve the ContextPack request ID,
+candidate-manifest hash, exact cited tuples, readiness snapshot, and selected
+failure category for the approved API-only feedback surface. Do not copy source
+or answer text into the report.
 
 ## Conditional references
 

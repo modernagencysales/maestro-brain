@@ -47,7 +47,13 @@ type TeamManifest = {
     readonly candidateManifestVersion: string;
     readonly requiredTools: readonly string[];
     readonly writeToolsAllowed: boolean;
-    readonly durableFeedback: string;
+    readonly durableFeedback: {
+      readonly status: string;
+      readonly operationId: string;
+      readonly path: string;
+      readonly requiredScope: string;
+      readonly sourceTextAllowed: boolean;
+    };
   };
   readonly runtimes: ReadonlyArray<{
     readonly name: string;
@@ -94,7 +100,7 @@ describe("company-context Ask Apero artifacts", () => {
 
     expect(skillFiles).toEqual(["SKILL.md"]);
     expect(skill).toMatch(/^---\nname: ask-apero\n/);
-    expect(skill).toContain('contract-version: "0.1.0"');
+    expect(skill).toContain('contract-version: "0.2.0"');
     for (const reference of [
       "references/agent-guidance.md",
       "references/context-pack-v1.md",
@@ -110,11 +116,11 @@ describe("company-context Ask Apero artifacts", () => {
   it("pins a read-only endpoint and both runtime discovery contracts", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      manifestVersion: "0.1.0",
+      manifestVersion: "0.2.0",
       status: "candidate",
       canonicalSkill: {
         name: "ask-apero",
-        contractVersion: "0.1.0",
+        contractVersion: "0.2.0",
         path: "company-context/skills/ask-apero",
       },
       endpoint: {
@@ -132,7 +138,13 @@ describe("company-context Ask Apero artifacts", () => {
         schemaVersion: "1",
         candidateManifestVersion: "1",
         writeToolsAllowed: false,
-        durableFeedback: "deferred",
+        durableFeedback: {
+          status: "implemented-api-only",
+          operationId: "brain.feedback.reportWrongOrStale",
+          path: "/api/brain.feedback.reportWrongOrStale",
+          requiredScope: "brain:read",
+          sourceTextAllowed: false,
+        },
       },
     });
     expect(manifest.contextContract.requiredTools).toEqual([
@@ -219,8 +231,7 @@ describe("company-context Ask Apero artifacts", () => {
     expect(combined).not.toMatch(
       /template\.brain\.(?:pages\.)?(?:create|update|delete)/,
     );
-    expect(combined).toMatch(
-      /Durable wrong\/stale feedback is not\s+available/,
-    );
+    expect(combined).toContain("brain.feedback.reportWrongOrStale");
+    expect(combined).toMatch(/without source or\s+answer text/);
   });
 });

@@ -93,5 +93,8 @@ pinned Claude Code version's MCP status command before invoking the skill.
 5. Record the runtime version and ordered candidate-manifest hash in the
    immutable runtime-parity receipt. Do not record source bodies or secrets.
 
-The durable `report wrong or stale` backend function is intentionally deferred.
-Do not configure or simulate a write tool for this artifact slice.
+The durable wrong/stale path is API-only at
+`/api/brain.feedback.reportWrongOrStale` and uses the same bearer-derived Brain
+scope. It stores request/candidate identity, exact citation tuples, readiness,
+category/disposition, and optional evaluation-rerun linkage without source or
+answer text. Do not expose it as an MCP/provider write tool.
