@@ -22,6 +22,13 @@ Code install that same directory; runtime-specific copies are not maintained.
   only;
 - `team-manifest.v1.json` — candidate endpoint, runtime, update, and rollback
   contract.
+- `pilot-config.example.v1.json` — non-secret live rollout inputs, default SLOs,
+  and compare-and-set generations consumed by the rollout preflight.
+
+Copy the pilot example to an ignored or restricted working location, replace
+every placeholder, then run `pnpm company-brain:preflight <path>`. The command
+fails closed on missing values and emits the exact ordered Drive activation,
+configuration, and reconciliation operations without executing them.
 
 ## Boundaries
 

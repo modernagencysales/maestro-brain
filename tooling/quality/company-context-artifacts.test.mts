@@ -238,6 +238,7 @@ describe("company-context Ask Apero artifacts", () => {
     const combined = [
       "company-context/README.md",
       "company-context/install.md",
+      "company-context/pilot-config.example.v1.json",
       "company-context/team-manifest.v1.json",
       "company-context/skills/ask-apero/SKILL.md",
       "company-context/skills/ask-apero/references/glossary.md",
