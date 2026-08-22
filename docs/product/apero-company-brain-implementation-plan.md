@@ -14,6 +14,15 @@ GO for continued local implementation; NO-GO for BE1 merge, shared dogfood, or
 release until the stage-specific gates in this plan pass. This is an execution
 sequence, not evidence that later slices are already implemented.
 
+The acceptance target is deliberately split. WP00-WP09 deliver the **read
+pilot**: provider evidence flows into one cited ContextPack used by Codex and
+Claude Code, with no provider writes. WP07 adds a provider-backed structured
+source when E0-E2 evidence justifies it. WP11 is a separate **CRM/action
+slice**: a typed fact yields an opaque action reference, one agent-owned tool
+request writes the provider through the capability gateway, and a durable
+readback obligation proves the change flowed back through the immutable ledger.
+Passing the read pilot never implies that CRM actions are complete.
+
 **Specification:**
 [Apero Company Brain Product And Technical Specification](./apero-company-brain-spec.md)
 
@@ -335,7 +344,8 @@ type RetrievalEntry = {
   entryKey: string;
   publicationSetKey: string;
   publicationGeneration: number;
-  kind: "page" | "slack" | "transcript" | "document" | "projection";
+  kind:
+    "page" | "slack" | "transcript" | "document" | "structured" | "projection";
   corpusKey: string;
   origin:
     | { kind: "page"; pageKey: string; revisionKey: string }
@@ -352,6 +362,17 @@ type RetrievalEntry = {
         connectorScopeKey: string;
         objectKey: string;
         revisionKey: string;
+      }
+    | {
+        kind: "structured";
+        providerKey: string;
+        connectionKey: string;
+        connectorScopeKey: string;
+        entityKind: string;
+        providerEntityId: string;
+        revisionKey: string;
+        fieldPath: string;
+        valueHash: string;
       }
     | { kind: "projection"; projectionKey: string; revisionKey: string };
   originTable: string;
@@ -439,6 +460,13 @@ Add retrieval-entry indexes for:
 - `(workspaceId, originTable, sourceRevisionKey, entryKey)`;
 - `(workspaceId, connectionKey, connectionGeneration, state)`;
 - `(workspaceId, connectorScopeKey, state)`.
+
+`structured` is direct provider evidence: citation opening reopens the exact
+immutable entity revision and hash-checks the typed field value. `projection` is
+reserved for derived/transitive evidence and remains disabled for the read
+pilot. A structured publication's exact eligibility manifest contains entity
+lifecycle, connector scope, allowlist, connection, and field-mapping-policy
+fences.
 
 Default authority is corpus-specific: dated Claude snapshot pages and
 Slack/transcripts are `advisory`; reviewed Brain pages are `derived` unless page
@@ -801,13 +829,14 @@ include both publication and logical entry identity.
 
 Exact citation opening does not stop at `retrievalEntries`. It follows the
 entry's discriminated origin to the immutable page, Slack, transcript, document,
-or projection revision, reproduces the versioned normalization when necessary,
-verifies passage offsets and content hash, and then returns the stable provider
-locator. A missing or mismatched origin is a typed integrity failure. Add one
-resolver and corruption test per enabled pilot origin variant. The projection
-variant returns typed unsupported until a separate contract defines a bounded
-immutable input-evidence manifest, dependency invalidation, cycle/depth/fan-in
-limits, and the rule that derived authority cannot exceed its validated inputs.
+structured-entity, or projection revision, reproduces the versioned
+normalization when necessary, verifies passage offsets and content hash, and
+then returns the stable provider locator. A missing or mismatched origin is a
+typed integrity failure. Add one resolver and corruption test per enabled pilot
+origin variant. The projection variant returns typed unsupported until a
+separate contract defines a bounded immutable input-evidence manifest,
+dependency invalidation, cycle/depth/fan-in limits, and the rule that derived
+authority cannot exceed its validated inputs.
 
 Citation availability distinguishes supersession from revocation. A citation
 captured before an ordinary content edit or eligibility-preserving policy-only
@@ -1136,6 +1165,29 @@ Before implementation, WP07-S0 freezes the structured-source contract:
   typed ContextPack representation, and narrative/typed conflict behavior;
 - an explicit rejection of unsupported joins or aggregations.
 
+WP07 is delivered as three gated slices:
+
+- **WP07-S0 — contract:** add `origin.kind = "structured"`, its immutable
+  entity/field resolver, eligibility manifest, and a typed
+  `brain.structured.query` contract. The query accepts a bounded conjunction of
+  `{ entityKind, fieldPath, op: "eq" | "in" | "gte" | "lte", value }`, rejects
+  unregistered field/operator pairs and joins, selects only declared indexes,
+  and has deterministic ordering, cursor pagination, and typed capacity
+  overflow. ContextPack v2 adds `structuredFacts` with entity reference, field
+  path, typed value, immutable revision, value hash, authority, timestamps,
+  locator, and optional future `actionRef`; its candidate-manifest hash covers
+  those facts.
+- **WP07-S1 — ingestion:** use the BE2 connector-scope, atomic page-envelope,
+  cursor, observation-order, ingestion-obligation, required-intent, and closed
+  reconciliation contracts. The approved CRM pipeline/view and object classes
+  form the exact connector scope. Coverage cannot become complete before one
+  successful full reconciliation and derived drain for the current scope tuple.
+  This slice depends on BE2-S2 and BE2-S3.
+- **WP07-S2 — publication:** publish direct structured origins, integrate typed
+  facts into ContextPack, health, readiness, and the E2 receipt, and prove exact
+  field-level citation opening in both runtimes. It may not use the disabled
+  `projection` origin as a shortcut.
+
 No WP07 publisher, E2 receipt, or production field mapping begins until this
 contract has named schema/indexes, focused tests, and a context-owner approval.
 
@@ -1241,11 +1293,22 @@ revision/version carried by ContextPack. Immediately before preview and again
 before execution, the capability gateway reads authoritative provider state and
 rejects a stale precondition. It writes the provider system of record only; it
 never patches the Brain projection or declares the result fresh. Confirmed,
-failed, and ambiguous outcomes receive durable receipts. An ambiguous provider
-response triggers read-after-write observation or reconciliation. Only a later
-immutable provider observation may advance the ledger and republish ContextPack.
-Duplicate execution is idempotent, and connection or scope revocation blocks
-both the action and its read-back.
+failed, and ambiguous outcomes receive durable receipts. Every confirmed or
+ambiguous outcome atomically creates a `postActionObservationObligation` linked
+to the action receipt/idempotency key, initiating request and candidate-manifest
+hash, action reference, entity/incarnation, expected pre-write version, provider
+result identifier, reconciliation scope, and readback deadline. Only a later
+immutable provider observation satisfying that obligation may advance the ledger
+and republish ContextPack. A missed deadline degrades the structured scope and
+schedules scoped reconciliation. Duplicate execution returns the original
+action/readback receipt and never writes twice; connection or scope revocation
+blocks both the action and its read-back.
+
+WP11 is complete only when one CRM create/update workflow proves stale-action
+rejection, one provider write under duplicate execution, durable readback after
+both confirmed and ambiguous responses, lost-webhook convergence, refreshed
+typed ContextPack/citation after the new immutable revision, and immediate
+blocking after entity deletion, scope removal, or connection revocation.
 
 ## 8. Recommended Delivery Sequence
 
@@ -1453,13 +1516,14 @@ derives its exact required controller identities from immutable entry fields and
 the current source configuration. Reads and BE3 promotion use the same
 validator.
 
-| Origin     | Required fence kinds                                                  |
-| ---------- | --------------------------------------------------------------------- |
-| Page       | page `lifecycle`                                                      |
-| Slack      | source-artifact `lifecycle`, channel `policy`, and `connection`       |
-| Transcript | source-unit `lifecycle`, accepted `route`, and `connection`           |
-| Document   | object `lifecycle`, connector `scope`, `allowlist`, and `connection`  |
-| Projection | producer `lifecycle` and `policy`, plus declared producer controllers |
+| Origin     | Required fence kinds                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Page       | page `lifecycle`                                                                             |
+| Slack      | source-artifact `lifecycle`, channel `policy`, and `connection`                              |
+| Transcript | source-unit `lifecycle`, accepted `route`, and `connection`                                  |
+| Document   | object `lifecycle`, connector `scope`, `allowlist`, and `connection`                         |
+| Structured | entity `lifecycle`, connector `scope`, `allowlist`, `connection`, and field-mapping `policy` |
+| Projection | producer `lifecycle` and `policy`, plus declared producer controllers                        |
 
 An adapter may add a declared controller only while the total remains at or
 below six. A valid manifest has exactly one reference for each required kind, no
@@ -1554,18 +1618,64 @@ placeholders before BE2-S1B. Fields added to populated job tables remain
 optional through BE1, and new writers populate them immediately. BE2-S1A
 resumably migrates or supersedes every legacy nonterminal job before promotion.
 
+Freeze an explicit `effectClass` and enforce this applicability/cardinality
+matrix before implementation; optional storage for migration compatibility does
+not mean optional runtime authority:
+
+| Effect class                         | Subject/incarnation                                                                        | Observation/run linkage                                                                                                     | Target-resolution linkage                                                                              | Repair/supersession linkage                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| direct publish/retire/revoke/cleanup | exactly one                                                                                | exact immutable revision fence                                                                                              | required only for an ingress job created from all-or-none Slack target resolution; otherwise forbidden | forbidden                                                                           |
+| target resolution                    | exact admitted receipt revision and source incarnation                                     | resolution attempt/configuration generation plus all-or-none target count/digest                                            | exactly one intent; every child has a backlink and terminal close proves no missing/extra child        | forbidden                                                                           |
+| rebuild batch/continuation           | forbidden at batch level; each emitted child publication derives and validates exactly one | exactly one immutable rebuild run plus run generation, scope/config tuple, ledger high-water, cursor and predecessor digest | forbidden                                                                                              | forbidden                                                                           |
+| attributed repair                    | same authority fields as the failed effect                                                 | same immutable revision or rebuild-run authority as the failed effect                                                       | inherited and revalidated when present on the failed effect                                            | exactly one `repairOfJobKey`; `supersedesJobKey` forbidden                          |
+| migration replacement                | same authority fields as the replaced actionable job, or typed conflict                    | exact reconstructed fence/run authority                                                                                     | inherited and revalidated when applicable                                                              | exactly one `supersedesJobKey`; `repairOfJobKey` forbidden; old/new link atomically |
+
+Connector scope is required exactly when that origin already has a real scope
+controller and forbidden when it does not. Every present link is a real unique
+foreign-key lookup, not a string copied back into its own digest. The worker
+must resolve and prove organization/workspace/Brain/subject equality across the
+target-intent -> obligation -> receipt -> immutable origin -> resolved target
+chain. Repair must resolve the exact terminal failed effect and may clear only
+that attributed failure. Missing, extra, cross-scope, cross-Brain, substituted,
+or orphaned links are typed integrity failures and block execution/promotion.
+Target resolution also rechecks policy, connection, organization/workspace, and
+newer-attempt authority before closing; disappearance produces a typed stale or
+zero-target result, never a guessed success. Resolution intent and child jobs
+become terminal atomically only after the exact target population validates.
+
+BE1-S2C also adds a minimal immutable `retrievalRebuildRuns` parent for existing
+page/Slack/transcript rebuilds. Every continuation inherits, without
+recapturing,
+`{ rebuildRunKey, runGeneration, scope/configuration tuple, ledger high-water, pause epoch, cursor, predecessorDigest }`;
+the child identity binds the predecessor and next cursor. Each batch compares
+that tuple, successor-run authority, and high-water before emitting work. Final
+close requires a complete set-difference/catch-up receipt and no nonterminal
+child at or below the high-water. A predecessor or mixed-configuration run
+cannot report complete health or satisfy promotion. BE2 may extend this record,
+but cannot be the first place the authority exists.
+
 **Tests first:** delayed publish/revoke/cleanup after restore and after
 purge/recreation; changed route/policy/connection with the same legacy request
 generation; repair of one terminal effect leaving unrelated dead letters
 degraded; missing envelope fields rejected by projection validation; and lost
-scheduler delivery still converging through the sweeper.
+scheduler delivery still converging through the sweeper. Add link substitution,
+cross-Brain/scope and orphan tests; repair without/wrong `repairOfJobKey`;
+migration with missing or double supersession; configuration/route/connection
+change between rebuild pages; successor run; replayed/substituted child;
+concurrent insert behind the cursor; and stale predecessor final close.
+Target-resolution tests cover policy/connection/workspace changes during delay,
+a resolver older than a successor attempt, target-set substitution, legitimate
+zero-target close after configuration disappearance, and missing/extra child
+jobs before intent success.
 
 **Primary files:**
 
 - `packages/convex/confect/brain/retrievalPublicationJob.ts`
 - `packages/convex/confect/tables/retrievalPublicationJobs.ts`
+- `packages/convex/confect/tables/retrievalRebuildRuns.ts`
 - `packages/convex/confect/brain/retrievalPublication.impl.ts`
 - `packages/convex/confect/brain/retrievalPublication.ts`
+- `packages/convex/convex/slack/ingress.ts`
 - `packages/convex/test/retrieval-publication.test.ts`
 - `packages/convex/test/retrieval-publication-races.test.ts`
 - `packages/convex/test/retrieval-publication-crons.test.ts`
@@ -1575,6 +1685,12 @@ Run Confect codegen when the table/spec changes, every named exact test file,
 Convex typecheck, contracts, migration notes, `git diff --check`, and
 `just verify-full`. Commit only this intention as
 `fix: bind publication jobs to authority envelopes`.
+
+Before close, inventory every `enqueueRetrievalPublicationJobEffect` call and
+every raw `retrievalPublicationJobs` insert. Every new writer must populate the
+complete origin-discriminated envelope in its owning transaction; the exact
+writer list belongs in the PR receipt. The Slack target-resolution wrapper is in
+scope because it inserts the all-or-none target jobs without a second mutation.
 
 ### BE1-S3 Executable Slice — Compatibility-Default Read Gate
 
@@ -1622,14 +1738,18 @@ set/entry/token identity mismatches are counted as typed integrity failures,
 degrade the affected scope, and prevent close rather than being guessed.
 
 Run this through the registered `startProjectionBackfill` phase
-`publication_subjects`. Pin a scan high-water, finish a bounded catch-up, and
-close only when the start/end `projectionPopulationGeneration` matches. Store
-the immutable legacy-population completion digest separately from the live
-population version. Normal publish, retire, revoke, manifest, required-intent,
-job, and obligation mutations advance the live version; they do not invalidate
-or rewrite the historical migration receipt. BE3 computes current integrity
-against the live version instead of treating the legacy digest as a mutable
-snapshot.
+`publication_subjects`. Pin a scan high-water and finish a bounded catch-up.
+After all backfill writes finish, run a read-only, resumable validation/digest
+pass over that pinned population. Capture the population generation before its
+first page, require the same generation on every resumed page, and compare it
+again in the close mutation; a change restarts only the validation pass. Return
+a typed capacity/conflict result instead of using an unbounded scan or closing
+over a mixed digest. Store the immutable legacy-population completion digest
+separately from the live population version. Normal publish, retire, revoke,
+manifest, required-intent, job, and obligation mutations advance the live
+version; they do not invalidate or rewrite the historical migration receipt. BE3
+computes current integrity against the live version instead of treating the
+legacy digest as a mutable snapshot.
 
 Successful close records a Brain-scoped subject-backfill generation plus a
 population digest and proves one subject row, one matching current pointer/set,
@@ -1750,6 +1870,16 @@ stale decommission after restore. Commit as
 `feat: operate brain publication recovery` after the standard codegen,
 contracts, typecheck, migration, diff, and full gates pass.
 
+**Primary files:** `packages/convex/confect/tables/brainPublicationPauses.ts`,
+`packages/convex/confect/tables/brainOperationReceipts.ts`, ingestion-obligation
+and required-intent tables,
+`packages/convex/confect/brain/rolloutOperations.spec.ts` and `.impl.ts`,
+publication worker claim/activation code,
+`packages/convex/test/brain-rollout-operations.test.ts`, and
+`packages/convex/test/retrieval-publication-races.test.ts`. Run Confect codegen,
+both exact tests, Convex typecheck, contracts, migration notes,
+`git diff --check`, and `just verify-full`; commit no other intention.
+
 ### BE2-S2A Executable Slice — Reconciliation Schema And Obligation Capture
 
 **Dependency:** BE2-S1D is green.
@@ -1762,39 +1892,59 @@ Commit as `feat: capture provider ingestion obligations`.
 
 ### BE2-S2B Executable Slice — Atomic Provider Page Ingestion
 
+**Dependency:** BE2-S2A is green.
+
 Implement cursor/page-envelope/chunk CAS, deterministic page digests, provider
 and ledger high-waters, and exact Slack/transcript adapters. A page cursor
 advances only with every observation, seen marker, and obligation derived from
-that page. Commit as `feat: ingest reconciled provider pages`.
+that page. Primary files are the cursor/page-envelope/page-chunk/seen and
+obligation tables, `confect/integrations/providerReconciliation.spec.ts` and
+`.impl.ts`, `confect/integrations/slackReconciliationAdapter.ts`,
+`confect/integrations/transcriptReconciliationAdapter.ts`, and the two focused
+tests below. Commit as `feat: ingest reconciled provider pages`.
 
 ### BE2-S2C Executable Slice — Reconciliation Removal And Drain
+
+**Dependency:** BE2-S2B is green.
 
 Implement `scan -> traversal_closed -> apply_removals -> drain_derived` with
 scope-tuple and successor-run authority plus resumable removal/drain cursors.
 Partial or predecessor runs cannot infer removals or change current health.
+Primary files are the reconciliation-run/seen records,
+`providerReconciliation.spec.ts` and `.impl.ts`, both source adapters,
+retrieval-publication retirement/drain code, and the two focused tests below.
 Commit as `feat: reconcile provider removals`.
 
 ### BE2-S2D Executable Slice — Obligation Closure And Required Intent
+
+**Dependency:** BE2-S2C is green.
 
 Implement final `complete`. It uses the shared obligation predicate and rejects
 quarantine, capacity-blocked resolution, nonterminal intents/jobs, unresolved
 failures, or removal/drain backlog at or below the run high-water. Required
 intent survives deactivation until the explicit generation-fenced decommission
-operation from BE2-S1D. Commit as `feat: close provider ingestion obligations`.
+operation from BE2-S1D. Primary files are the required-intent/obligation and
+reconciliation-run tables, `providerReconciliation.spec.ts` and `.impl.ts`,
+rollout-status predicate helpers, both source adapters, and the two focused
+tests below. Commit as `feat: close provider ingestion obligations`.
 
 Each BE2-S2 slice updates `test/provider-reconciliation.test.ts` plus
 `test/retrieval-publication-races.test.ts`, covering crash boundaries, late
 predecessor close, old scope tuple, unchanged observations in a new tuple,
 partial traversal, live events beyond the high-water, and every nonterminal
-obligation class. Each PR names its exact schema/spec and Slack/transcript
-adapter files, owner, codegen/migration gates, and commit boundary.
+obligation class. Each slice runs both exact tests, Confect codegen, Convex
+typecheck, contracts, migration notes, `git diff --check`, and
+`just verify-full`. A source-specific file may be added only after the PR names
+it; transaction ownership and its gate cannot be deferred to a later slice.
 
 **Primary files:** `confect/tables/connectorScopes.ts`,
 `connectorIncrementalCursors.ts`, `connectorPageEnvelopes.ts`,
 `connectorPageChunks.ts`, `connectorReconciliationRuns.ts`,
 `connectorReconciliationSeen.ts`, `brainRequiredScopeIntents.ts`, and
 `ingestionObligations.ts`; `confect/integrations/providerReconciliation.spec.ts`
-and `.impl.ts`; Slack/transcript adapter hooks; and the two focused tests above.
+and `.impl.ts`; `confect/integrations/slackReconciliationAdapter.ts`;
+`confect/integrations/transcriptReconciliationAdapter.ts`; and the two focused
+tests above.
 
 ### BE2-S3 Executable Slice — Scoped Health And Rollout Status
 
