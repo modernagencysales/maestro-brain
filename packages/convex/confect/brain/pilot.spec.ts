@@ -1,6 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
+import { Id } from "../_generated/id";
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   collectContractManifest,
@@ -27,7 +28,7 @@ const SourceRevisionKey = Schema.Union(
 );
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
 const SourceStatus = Schema.Literal("pending_review", "published", "rejected");
-const SourceSummary = Schema.Struct({
+export const SourceSummary = Schema.Struct({
   sourceKey: SourceKey,
   status: SourceStatus,
 });
@@ -46,7 +47,7 @@ const PilotError = Schema.Union(
   LifecycleRevoked,
   ValidationFailed,
 );
-const SubmitNoteArgs = Schema.extend(
+export const SubmitNoteArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({ title: Schema.String, markdown: Schema.String }),
 );
@@ -163,6 +164,20 @@ const submitNote = defineContractFunction(
     returnsSchema: SourceSummary,
   },
 );
+
+export const headlessSubmitNote = FunctionSpec.internalMutation({
+  name: "headlessSubmitNote",
+  args: () =>
+    Schema.extend(
+      SubmitNoteArgs,
+      Schema.Struct({
+        organizationId: Id("organizations"),
+        workspaceId: Id("workspaces"),
+      }),
+    ),
+  returns: () => SourceSummary,
+  error: () => PilotError,
+});
 
 const reviewNote = defineContractFunction(
   FunctionSpec.publicMutation({
@@ -320,6 +335,7 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 
 export default GroupSpec.make()
   .addFunction(submitNote.spec)
+  .addFunction(headlessSubmitNote)
   .addFunction(reviewNote.spec)
   .addFunction(listReviewQueue.spec)
   .addFunction(search.spec)

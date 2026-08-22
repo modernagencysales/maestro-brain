@@ -10,7 +10,12 @@ import type {
   TemplateApiResult,
 } from "@maestro-template/workflow-tooling";
 import type { providerConfigReport } from "@maestro-template/integrations";
-import { decodeCliRuntimeConfig, runCli, runCliAsync } from "./index";
+import {
+  decodeCliRuntimeConfig,
+  remoteCliOperationRefs,
+  runCli,
+  runCliAsync,
+} from "./index";
 import type { CliResult } from "./types";
 
 type ProviderConfigReport = ReturnType<typeof providerConfigReport>[number];
@@ -63,7 +68,180 @@ describe("maestro-template CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("maestro-brain api call");
+    expect(result.stdout).toContain("maestro-brain ask <question>");
+    expect(result.stdout).toContain("maestro-brain search <query>");
+    expect(result.stdout).toContain(
+      "maestro-brain source <citation-key|source-revision-key>",
+    );
+    expect(result.stdout).toContain("maestro-brain health");
+    expect(result.stdout).toContain("maestro-brain feedback");
+    expect(result.stdout).toContain("maestro-brain note --input");
     expect(result.stdout).not.toContain("maestro-template");
+  });
+
+  it.each([
+    {
+      argv: ["ask", "What", "is", "our", "ICP?"],
+      operationId: "brain.answers.ask",
+      input: { question: "What is our ICP?" },
+    },
+    {
+      argv: ["search", "pricing", "economics"],
+      operationId: "brain.sources.search",
+      input: { query: "pricing economics" },
+    },
+    {
+      argv: ["source", "surev_source_1"],
+      operationId: "brain.sources.get",
+      input: { sourceRevisionKey: "surev_source_1" },
+    },
+    {
+      argv: ["source", "citation:pub_1:entry_1"],
+      operationId: "brain.sources.get",
+      input: { publicationSetKey: "pub_1", entryKey: "entry_1" },
+    },
+    {
+      argv: ["health"],
+      operationId: "brain.rollout.status",
+      input: {},
+    },
+  ])("runs terminal command $argv through $operationId", async (example) => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: example.operationId,
+          result: { command: example.argv[0] },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const config = decodeCliRuntimeConfig({
+      CONVEX_SITE_URL: "https://brain.example.test",
+      MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+    });
+
+    const result = await runCliAsync(example.argv, config);
+
+    expect(result.exitCode).toBe(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://brain.example.test/api/${example.operationId}`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ input: example.input }),
+      }),
+    );
+  });
+
+  it("submits terminal feedback with caller idempotency", async () => {
+    const feedback = {
+      requestId: `ctx_${"a".repeat(64)}`,
+      candidateManifestHash: `sha256:${"b".repeat(64)}`,
+      citations: [],
+      readiness: { asOf: 1, coverage: [] },
+      category: "answer_failure",
+      disposition: "untriaged",
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.feedback.reportWrongOrStale",
+          result: { reportKey: `fbr_${"c".repeat(64)}` },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      [
+        "feedback",
+        "--idempotency-key",
+        "feedback-1",
+        "--input",
+        JSON.stringify(feedback),
+      ],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(remoteCliOperationRefs).toHaveProperty(
+      "brain.feedback.reportWrongOrStale",
+      "brain.feedback.reportWrongOrStale",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.feedback.reportWrongOrStale",
+      expect.objectContaining({
+        body: JSON.stringify({
+          input: feedback,
+          idempotencyKey: "feedback-1",
+        }),
+      }),
+    );
+  });
+
+  it("submits a terminal note to review", async () => {
+    const input = { title: "Pricing", markdown: "Updated margin guidance." };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.notes.submit",
+          result: {
+            sourceKey: `src_${"a".repeat(64)}`,
+            status: "pending_review",
+          },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["note", "--input", JSON.stringify(input)],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.notes.submit",
+      expect.objectContaining({ body: JSON.stringify({ input }) }),
+    );
+  });
+
+  it.each([
+    { argv: ["ask"], message: "ask requires a question.\n" },
+    { argv: ["search"], message: "search requires a query.\n" },
+    {
+      argv: ["source", "one", "two"],
+      message: "source requires one source revision key.\n",
+    },
+    { argv: ["health", "extra"], message: "health takes no arguments.\n" },
+    {
+      argv: ["feedback", "--input", "{}"],
+      message: "feedback requires --input and --idempotency-key.\n",
+    },
+    {
+      argv: ["note", "--input", '{"title":"Missing markdown"}'],
+      message: 'note requires --input with string "title" and "markdown".\n',
+    },
+  ])("validates terminal command $argv", async ({ argv, message }) => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await runCliAsync(argv)).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: message,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("calls an allowed Brain operation with bearer authentication", async () => {

@@ -33,6 +33,14 @@ const providerModes = new Set<ProviderMode>(["fake", "test", "live"]);
 const helpResult = (): CliResult =>
   cliSuccess(
     [
+      "maestro-brain ask <question>",
+      "maestro-brain search <query>",
+      "maestro-brain source <citation-key|source-revision-key>",
+      "maestro-brain health",
+      "maestro-brain feedback --idempotency-key <key> --input <json>",
+      "maestro-brain note --input <json>",
+      "maestro-brain setup [codex|claude-code|cowork]",
+      "maestro-brain doctor",
       "maestro-brain describe",
       "maestro-brain operations list",
       "maestro-brain operations get <id>",
@@ -40,7 +48,7 @@ const helpResult = (): CliResult =>
       "maestro-brain workflow run [--workflow <id>] [--workspace <slug>] [--idempotency-key <key>] [--mode <mode>] [--input <json>]",
       "maestro-brain api catalog",
       "maestro-brain api openapi",
-      "maestro-brain api call <operation-id> --input <json>",
+      "maestro-brain api call <operation-id> --input <json> [--idempotency-key <key>]",
       "maestro-brain mcp tools",
       "maestro-brain mcp call <toolName>",
       "maestro-brain integrations report [fake|test|live]",
