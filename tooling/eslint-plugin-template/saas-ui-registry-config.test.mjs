@@ -49,7 +49,7 @@ describe("Saas UI starter ESLint overrides", () => {
     const config = saasUiStarterReceiptConfig(receiptPath);
     expect(config.files.length).toBeGreaterThan(1);
     expect(config.files).toContain(
-      "apps/web/src/features/common/layouts/app-layout.tsx",
+      "apps/web/src/features/common/layouts/fullscreen-layout.tsx",
     );
     expect(config.files).not.toContain(
       "apps/web/src/features/common/layouts/custom-layout.tsx",
