@@ -18,7 +18,10 @@
     "./transcripts/gong": "./src/transcripts/gong.ts",
     "./transcripts/fathom": "./src/transcripts/fathom.ts",
     "./transcripts/granola": "./src/transcripts/granola.ts",
-    "./transcripts/import": "./src/transcripts/import.ts"
+    "./transcripts/import": "./src/transcripts/import.ts",
+    "./googleDrive/client": "./src/googleDrive/client.ts",
+    "./googleDrive/canonical": "./src/googleDrive/canonical.ts",
+    "./googleDrive/passages": "./src/googleDrive/passages.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
