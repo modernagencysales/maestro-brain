@@ -19,6 +19,7 @@ import {
   type AskPage,
   type AskRevision,
 } from "./retrieval";
+import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
 
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
@@ -166,6 +167,23 @@ const reviewNote = FunctionImpl.make(
             schemaVersion: 1,
           })
           .pipe(Effect.orDie);
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey: brain.organizationKey,
+            workspaceId: brain.workspaceId,
+            brainKey: brain.brainKey,
+            originKind: "page",
+            sourceKey: pageKey,
+            sourceRevisionKey: revisionKey,
+            requestGeneration: 1,
+            page: {
+              authority: "derived",
+              authorityPolicyKey: "company-pages",
+              policyGeneration: 1,
+            },
+          },
+          reviewedAt,
+        );
         yield* writer
           .table("citations")
           .insert({
@@ -312,6 +330,23 @@ const updatePage = FunctionImpl.make(
           schemaVersion: 1,
         })
         .pipe(Effect.orDie);
+      yield* enqueueRetrievalPublicationJobEffect(
+        {
+          organizationKey: brain.organizationKey,
+          workspaceId: brain.workspaceId,
+          brainKey: brain.brainKey,
+          originKind: "page",
+          sourceKey: page.pageKey,
+          sourceRevisionKey: nextRevisionKey,
+          requestGeneration: 1,
+          page: {
+            authority: "derived",
+            authorityPolicyKey: "company-pages",
+            policyGeneration: 1,
+          },
+        },
+        updatedAt,
+      );
       const citations = yield* reader
         .table("citations")
         .index("by_workspace_page", (q) =>

@@ -750,6 +750,23 @@ const reviewCallMaintenance = FunctionImpl.make(
             lifecycle,
           })
           .pipe(Effect.orDie);
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey: brain.organizationKey,
+            workspaceId: brain.workspaceId,
+            brainKey: brain.brainKey,
+            originKind: "page",
+            sourceKey: entry.item.pageKey,
+            sourceRevisionKey: entry.revisionKey,
+            requestGeneration: 1,
+            page: {
+              authority: "derived",
+              authorityPolicyKey: "company-pages",
+              policyGeneration: 1,
+            },
+          },
+          reviewedAt,
+        );
         for (const { citationKey, segment } of entry.citations)
           yield* writer
             .table("citations")
