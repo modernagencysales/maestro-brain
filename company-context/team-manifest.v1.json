@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "0.1.0",
+  "status": "candidate",
+  "canonicalSkill": {
+    "name": "ask-apero",
+    "contractVersion": "0.1.0",
+    "path": "company-context/skills/ask-apero"
+  },
+  "endpoint": {
+    "serverName": "maestro-brain",
+    "transport": "streamable-http",
+    "baseUrlEnv": "CONVEX_SITE_URL",
+    "path": "/mcp",
+    "authentication": {
+      "scheme": "bearer",
+      "secretEnv": "MAESTRO_BRAIN_API_KEY",
+      "requiredScopes": ["brain:read"],
+      "roleCeiling": "viewer",
+      "separateCredentialPerRuntime": true
+    }
+  },
+  "contextContract": {
+    "schemaVersion": "1",
+    "candidateManifestVersion": "1",
+    "requiredTools": [
+      "template.brain.context.get",
+      "template.brain.sources.search",
+      "template.brain.sources.get"
+    ],
+    "writeToolsAllowed": false,
+    "durableFeedback": "deferred"
+  },
+  "runtimes": [
+    {
+      "name": "codex",
+      "compatibleVersions": ["0.148.0"],
+      "compatibilityLevel": "skill-and-mcp-configuration",
+      "liveParity": "pending",
+      "skillDiscoveryPath": ".agents/skills/ask-apero",
+      "mcpConfigPath": "~/.codex/config.toml"
+    },
+    {
+      "name": "claude-code",
+      "compatibleVersions": ["2.1.220"],
+      "compatibilityLevel": "skill-and-mcp-configuration",
+      "liveParity": "pending",
+      "skillDiscoveryPath": ".claude/skills/ask-apero",
+      "mcpConfigPath": ".mcp.json"
+    }
+  ],
+  "unresolvedDecisions": {
+    "contextOwner": "TBD",
+    "engineeringDri": "TBD",
+    "activeAgencyBrainKey": "TBD",
+    "firstTwoDogfoodUsers": "TBD",
+    "freshnessTargets": "TBD",
+    "firstDocumentProvider": "TBD"
+  },
+  "update": {
+    "preconditions": [
+      "use a reviewed Git revision",
+      "validate the canonical skill",
+      "bump the manifest or contract version for behavior changes",
+      "add the exact runtime version only after configuration checks",
+      "keep liveParity pending until an immutable cross-runtime receipt passes"
+    ],
+    "procedure": [
+      "review the company-context diff without source bodies or credentials",
+      "run the artifact and skill validators",
+      "update both runtime links to the same canonical revision",
+      "run the E0 smoke check in each pinned runtime",
+      "publish a new exact-SHA runtime-parity receipt"
+    ]
+  },
+  "rollback": {
+    "procedure": [
+      "disable Ask Apero through the approved read-switch operation",
+      "revoke the affected runtime credential independently",
+      "restore the previous approved manifest and canonical skill revision",
+      "return users to the previous approved Claude workflow",
+      "record the observed rollback result in an exact-SHA receipt"
+    ],
+    "preserve": [
+      "provider ledgers",
+      "Brain page revisions",
+      "retrieval and rollout history",
+      "connector cursors and durable intents"
+    ]
+  }
+}
