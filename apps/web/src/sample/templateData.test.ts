@@ -50,6 +50,7 @@ describe("template sample data", () => {
         "SubsystemDisabled",
         "CitationIntegrityFailure",
         "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
         "RolloutStatusCapacityExceeded",
         "RolloutStatusIntegrityConflict",
       ],
