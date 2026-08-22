@@ -18,11 +18,13 @@ import {
   type TemplateApiRequestBody,
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
+import feedbackSpec from "./brain/feedback.spec";
 import {
   reviewedHeadlessPolicyFor,
   type HeadlessOperationPolicy,
 } from "./headless/authorizeOperation";
 import type { HeadlessPrincipal } from "./headless/principal";
+import { validateCallerIdempotencyKey } from "./shared/idempotencyKey";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
 
@@ -78,6 +80,23 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/openapi.json": { kind: "openapi" },
   "/api/docs": { kind: "docs" },
   "/mcp": { kind: "mcp" },
+  "/api/brain.feedback.reportWrongOrStale": {
+    kind: "operation",
+    operationId: "brain.feedback.reportWrongOrStale",
+  },
+};
+
+const feedbackOperationId = "brain.feedback.reportWrongOrStale";
+
+const feedbackFunction = () => {
+  const spec = feedbackSpec.functions.headlessReportWrongOrStale;
+  if (spec === undefined) {
+    throw new ConvexError({
+      code: "HEADLESS_FEEDBACK_SPEC_MISSING",
+      message: "Missing feedback.headlessReportWrongOrStale spec",
+    });
+  }
+  return Ref.getFunctionReference(Ref.make("brain/feedback", spec));
 };
 
 const operationRefs = {
@@ -88,6 +107,7 @@ const operationRefs = {
   "brain.sources.get": internal.brain.readApi.headlessSourcesGet,
   "brain.context.get": internal.brain.readApi.headlessContextGet,
   "brain.answers.ask": internal.brain.readApi.headlessAnswersAsk,
+  [feedbackOperationId]: feedbackFunction(),
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
@@ -137,11 +157,17 @@ export const templateHttpRoutes = [
     description:
       "Returns the uniform headless error envelope for unknown API operations.",
   },
+  {
+    path: `/api/${feedbackOperationId}`,
+    method: "POST",
+    description: "Records immutable wrong-or-stale Brain feedback.",
+  },
   ...confectManifest.functions
     .filter(
       (entry) =>
         hasSurface(entry, "api") &&
-        (entry.operationId as string) !== "brain.pages.createMarkdown",
+        (entry.operationId as string) !== "brain.pages.createMarkdown" &&
+        (entry.operationId as string) !== feedbackOperationId,
     )
     .map((entry) => ({
       path: `/api/${entry.operationId}`,
@@ -196,6 +222,22 @@ const runTemplateApiOperation = async (
   ctx: HeadlessHttpCtx,
   request: HeadlessExecutorRequest,
 ): Promise<unknown> => {
+  if (request.operationId === feedbackOperationId) {
+    const idempotencyKey = validateCallerIdempotencyKey(request.idempotencyKey);
+    if (!idempotencyKey.ok)
+      return {
+        ok: false,
+        error: {
+          _tag: "ValidationFailed",
+          message: idempotencyKey.error.message,
+        },
+      };
+    const result = await ctx.runMutation(
+      (ctx.operationRefs ?? operationRefs)[feedbackOperationId],
+      { ...request.input, idempotencyKey: idempotencyKey.value },
+    );
+    return { ok: true, operationId: feedbackOperationId, result };
+  }
   return await executeHeadlessOperation(
     {
       refs: ctx.operationRefs ?? operationRefs,
