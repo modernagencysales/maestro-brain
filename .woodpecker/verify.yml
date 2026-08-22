@@ -33,9 +33,28 @@ steps:
       - pnpm check:format
       - pnpm lint
       - pnpm typecheck
-      - pnpm check:effect-diagnostics
-      - pnpm test
-      - pnpm test:tooling
-      - pnpm test:workflow
-      - pnpm test:pr-backlog
+      - |
+        pnpm check:effect-diagnostics & effect_pid=$!
+        pnpm test & product_test_pid=$!
+        pnpm test:tooling & tooling_test_pid=$!
+        pnpm test:workflow & workflow_test_pid=$!
+        pnpm test:pr-backlog & backlog_test_pid=$!
+
+        effect_status=0
+        product_test_status=0
+        tooling_test_status=0
+        workflow_test_status=0
+        backlog_test_status=0
+
+        wait "$effect_pid" || effect_status=$?
+        wait "$product_test_pid" || product_test_status=$?
+        wait "$tooling_test_pid" || tooling_test_status=$?
+        wait "$workflow_test_pid" || workflow_test_status=$?
+        wait "$backlog_test_pid" || backlog_test_status=$?
+
+        test "$effect_status" -eq 0
+        test "$product_test_status" -eq 0
+        test "$tooling_test_status" -eq 0
+        test "$workflow_test_status" -eq 0
+        test "$backlog_test_status" -eq 0
     failure: cancel
