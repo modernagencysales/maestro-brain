@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "organizationKey": "REPLACE_WITH_APERO_ORGANIZATION_KEY",
+  "workspaceId": "REPLACE_WITH_AGENCY_WORKSPACE_ID",
+  "activeAgencyBrainKey": "REPLACE_WITH_AGENCY_BRAIN_KEY",
+  "owners": {
+    "context": "REPLACE_WITH_CONTEXT_OWNER",
+    "engineering": "REPLACE_WITH_ENGINEERING_DRI",
+    "connector": "REPLACE_WITH_CONNECTOR_OWNER"
+  },
+  "evaluationSetRef": "REPLACE_WITH_RESTRICTED_EVALUATION_SET_REFERENCE",
+  "dogfoodUsers": ["REPLACE_WITH_FIRST_USER", "REPLACE_WITH_SECOND_USER"],
+  "sourceSlos": {
+    "brain-pages": {
+      "maxObservationToPublicationMinutes": 2,
+      "maxReconciliationAgeHours": 24,
+      "maxEditPropagationMinutes": 5,
+      "maxRemovalPropagationHours": 1,
+      "maxNonterminalObligationMinutes": 15,
+      "deadLetterEscalationMinutes": 30
+    },
+    "slack": {
+      "maxObservationToPublicationMinutes": 5,
+      "maxReconciliationAgeHours": 24,
+      "maxEditPropagationMinutes": 10,
+      "maxRemovalPropagationHours": 4,
+      "maxNonterminalObligationMinutes": 30,
+      "deadLetterEscalationMinutes": 60
+    },
+    "transcripts": {
+      "maxObservationToPublicationMinutes": 15,
+      "maxReconciliationAgeHours": 24,
+      "maxEditPropagationMinutes": 30,
+      "maxRemovalPropagationHours": 8,
+      "maxNonterminalObligationMinutes": 60,
+      "deadLetterEscalationMinutes": 120
+    },
+    "documents": {
+      "maxObservationToPublicationMinutes": 15,
+      "maxReconciliationAgeHours": 24,
+      "maxEditPropagationMinutes": 30,
+      "maxRemovalPropagationHours": 4,
+      "maxNonterminalObligationMinutes": 60,
+      "deadLetterEscalationMinutes": 120
+    }
+  },
+  "drive": {
+    "connectionKey": "REPLACE_WITH_PROVIDER_CONNECTION_KEY",
+    "connectionGeneration": 1,
+    "allowlistGeneration": 1,
+    "driveId": "REPLACE_WITH_SHARED_DRIVE_ID",
+    "rootFolderIds": ["REPLACE_WITH_ROOT_FOLDER_ID"],
+    "retentionClass": "internal-company-context",
+    "permissionPolicyDigest": "sha256:REPLACE_WITH_64_HEX_CHARACTERS",
+    "expectedScopeGeneration": 0,
+    "expectedIntentGeneration": 0,
+    "expectedConfigurationGeneration": 0
+  }
+}

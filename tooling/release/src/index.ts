@@ -191,6 +191,361 @@ export type ReleaseAlertPlan = {
   readonly metadata: Readonly<Record<string, unknown>>;
 };
 
+export type CompanyBrainRolloutOperation = {
+  readonly order: number;
+  readonly functionName: string;
+  readonly functionType:
+    "internalMutation" | "internalAction" | "internalQuery";
+  readonly args: Readonly<Record<string, unknown>>;
+  readonly successEvidence: string;
+};
+
+export type CompanyBrainRolloutPreflightReport = {
+  readonly ok: boolean;
+  readonly schemaVersion: 1;
+  readonly configPath: string;
+  readonly errors: readonly {
+    readonly path: string;
+    readonly message: string;
+  }[];
+  readonly derived: null | {
+    readonly connectorScopeKey: string;
+    readonly controllingConfigurationDigest: string;
+    readonly rootFolderIds: readonly string[];
+  };
+  readonly operations: readonly CompanyBrainRolloutOperation[];
+};
+
+type JsonRecord = Record<string, unknown>;
+
+const jsonRecord = (value: unknown): JsonRecord | null =>
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+
+const configuredString = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.trim().length > 0 &&
+  !/^(?:TBD|REPLACE(?:_|\b))/i.test(value.trim());
+
+const positiveInteger = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) > 0;
+
+const nonNegativeInteger = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) >= 0;
+
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value !== null && typeof value === "object")
+    return `{${Object.entries(value as JsonRecord)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
+      .join(",")}}`;
+  return JSON.stringify(value) ?? "null";
+};
+
+const credentialPaths = (value: unknown, prefix = ""): readonly string[] => {
+  if (Array.isArray(value))
+    return value.flatMap((nested, index) =>
+      credentialPaths(nested, `${prefix}[${index}]`),
+    );
+  const record = jsonRecord(value);
+  if (record === null) return [];
+  return Object.entries(record).flatMap(([key, nested]) => {
+    const path = prefix.length === 0 ? key : `${prefix}.${key}`;
+    return /(?:secret|token|password|credential|api[_-]?key)/i.test(key)
+      ? [path]
+      : credentialPaths(nested, path);
+  });
+};
+
+const sha256Hex = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
+
+export const buildCompanyBrainRolloutPreflight = (input: {
+  readonly repoRoot: string;
+  readonly configPath: string;
+  readonly now?: number;
+}): CompanyBrainRolloutPreflightReport => {
+  const configPath = resolve(input.repoRoot, input.configPath);
+  const errors: { path: string; message: string }[] = [];
+  if (!existsSync(configPath))
+    return {
+      ok: false,
+      schemaVersion: 1,
+      configPath,
+      errors: [
+        { path: "config", message: "The pilot config file is missing." },
+      ],
+      derived: null,
+      operations: [],
+    };
+
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(readFileSync(configPath, "utf8"));
+  } catch {
+    return {
+      ok: false,
+      schemaVersion: 1,
+      configPath,
+      errors: [
+        { path: "config", message: "The pilot config is not valid JSON." },
+      ],
+      derived: null,
+      operations: [],
+    };
+  }
+
+  const config = jsonRecord(decoded);
+  if (config === null)
+    return {
+      ok: false,
+      schemaVersion: 1,
+      configPath,
+      errors: [
+        { path: "config", message: "The pilot config must be an object." },
+      ],
+      derived: null,
+      operations: [],
+    };
+
+  if (config.schemaVersion !== 1)
+    errors.push({
+      path: "schemaVersion",
+      message: "Expected schema version 1.",
+    });
+  for (const path of credentialPaths(config))
+    errors.push({
+      path,
+      message:
+        "Credentials are forbidden in the rollout config; use the deployment secret store.",
+    });
+  for (const path of [
+    "organizationKey",
+    "workspaceId",
+    "activeAgencyBrainKey",
+    "evaluationSetRef",
+  ] as const)
+    if (!configuredString(config[path]))
+      errors.push({
+        path,
+        message: "Replace the placeholder with a real value.",
+      });
+
+  const owners = jsonRecord(config.owners);
+  for (const owner of ["context", "engineering", "connector"] as const)
+    if (!configuredString(owners?.[owner]))
+      errors.push({
+        path: `owners.${owner}`,
+        message: "Name the accountable owner.",
+      });
+
+  const dogfoodUsers = Array.isArray(config.dogfoodUsers)
+    ? config.dogfoodUsers.filter(configuredString)
+    : [];
+  if (
+    dogfoodUsers.length < 2 ||
+    dogfoodUsers.length !== new Set(dogfoodUsers).size
+  )
+    errors.push({
+      path: "dogfoodUsers",
+      message: "Provide at least two distinct dogfood users.",
+    });
+
+  const sourceSlos = jsonRecord(config.sourceSlos);
+  const sloFields = [
+    "maxObservationToPublicationMinutes",
+    "maxReconciliationAgeHours",
+    "maxEditPropagationMinutes",
+    "maxRemovalPropagationHours",
+    "maxNonterminalObligationMinutes",
+    "deadLetterEscalationMinutes",
+  ] as const;
+  for (const corpus of [
+    "brain-pages",
+    "slack",
+    "transcripts",
+    "documents",
+  ] as const) {
+    const slo = jsonRecord(sourceSlos?.[corpus]);
+    for (const field of sloFields)
+      if (!positiveInteger(slo?.[field]))
+        errors.push({
+          path: `sourceSlos.${corpus}.${field}`,
+          message: "Provide a positive integer threshold.",
+        });
+  }
+
+  const drive = jsonRecord(config.drive);
+  for (const field of ["connectionKey", "driveId", "retentionClass"] as const)
+    if (!configuredString(drive?.[field]))
+      errors.push({
+        path: `drive.${field}`,
+        message: "Replace the placeholder with a real value.",
+      });
+  for (const field of ["connectionGeneration", "allowlistGeneration"] as const)
+    if (!positiveInteger(drive?.[field]))
+      errors.push({
+        path: `drive.${field}`,
+        message: "Provide a positive integer generation.",
+      });
+  for (const field of [
+    "expectedScopeGeneration",
+    "expectedIntentGeneration",
+    "expectedConfigurationGeneration",
+  ] as const)
+    if (!nonNegativeInteger(drive?.[field]))
+      errors.push({
+        path: `drive.${field}`,
+        message: "Provide a non-negative compare-and-set generation.",
+      });
+
+  const rootFolderIds = Array.isArray(drive?.rootFolderIds)
+    ? drive.rootFolderIds.filter(configuredString)
+    : [];
+  const canonicalRootFolderIds = [...new Set(rootFolderIds)].sort();
+  if (
+    rootFolderIds.length === 0 ||
+    rootFolderIds.length > 100 ||
+    rootFolderIds.length !== canonicalRootFolderIds.length
+  )
+    errors.push({
+      path: "drive.rootFolderIds",
+      message: "Provide 1-100 distinct Shared Drive root folder IDs.",
+    });
+  if (
+    typeof drive?.permissionPolicyDigest !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/.test(drive.permissionPolicyDigest)
+  )
+    errors.push({
+      path: "drive.permissionPolicyDigest",
+      message:
+        "Provide a lowercase sha256 digest of the reviewed scope policy.",
+    });
+
+  if (errors.length > 0)
+    return {
+      ok: false,
+      schemaVersion: 1,
+      configPath,
+      errors,
+      derived: null,
+      operations: [],
+    };
+
+  const organizationKey = String(config.organizationKey).trim();
+  const workspaceId = String(config.workspaceId).trim();
+  const brainKey = String(config.activeAgencyBrainKey).trim();
+  const connectionKey = String(drive?.connectionKey).trim();
+  const connectionGeneration = Number(drive?.connectionGeneration);
+  const allowlistGeneration = Number(drive?.allowlistGeneration);
+  const driveId = String(drive?.driveId).trim();
+  const retentionClass = String(drive?.retentionClass).trim();
+  const permissionPolicyDigest = String(drive?.permissionPolicyDigest);
+  const identity = {
+    connectionKey,
+    connectionGeneration,
+    driveId,
+    rootFolderIds: canonicalRootFolderIds,
+    allowlistGeneration,
+  };
+  const connectorScopeKey = `gds_${sha256Hex(stableJson(identity))}`;
+  const controllingConfigurationDigest = `sha256:${sha256Hex(
+    stableJson({
+      organizationKey,
+      workspaceId,
+      brainKey,
+      ...identity,
+      sourceSlos,
+      retentionClass,
+      permissionPolicyDigest,
+    }),
+  )}`;
+  const now = input.now ?? Date.now();
+  const authority = {
+    organizationKey,
+    workspaceId,
+    brainKey,
+    corpusKey: "documents",
+    providerKind: "google_drive",
+    connectorScopeKey,
+    connectionKey,
+    connectionGeneration,
+    allowlistGeneration,
+  } as const;
+  return {
+    ok: true,
+    schemaVersion: 1,
+    configPath,
+    errors: [],
+    derived: {
+      connectorScopeKey,
+      controllingConfigurationDigest,
+      rootFolderIds: canonicalRootFolderIds,
+    },
+    operations: [
+      {
+        order: 1,
+        functionName:
+          "integrations/providerReconciliation:activateRequiredScope",
+        functionType: "internalMutation",
+        args: {
+          ...authority,
+          providerContainerKey: driveId,
+          activationKind:
+            Number(drive?.expectedScopeGeneration) === 0
+              ? "activate"
+              : "restore",
+          expectedScopeGeneration: Number(drive?.expectedScopeGeneration),
+          expectedIntentGeneration: Number(drive?.expectedIntentGeneration),
+          controllingConfigurationDigest,
+          now,
+        },
+        successEvidence:
+          "Record the returned requiredScopeIntentKey, scopeGeneration, and intentGeneration.",
+      },
+      {
+        order: 2,
+        functionName:
+          "integrations/providerReconciliation:upsertDriveScopeConfiguration",
+        functionType: "internalMutation",
+        args: {
+          ...authority,
+          expectedConfigurationGeneration: Number(
+            drive?.expectedConfigurationGeneration,
+          ),
+          driveId,
+          rootFolderIds: canonicalRootFolderIds,
+          sharedDrive: true,
+          retentionClass,
+          permissionPolicyDigest,
+          now,
+        },
+        successEvidence:
+          "Record the returned configurationGeneration and configurationDigest.",
+      },
+      {
+        order: 3,
+        functionName:
+          "integrations/providerReconciliationWorker:startProviderReconciliation",
+        functionType: "internalAction",
+        args: { connectorScopeKey },
+        successEvidence:
+          "Record the reconciliationRunKey, runGeneration, providerHighWater, and scheduled function ID.",
+      },
+      {
+        order: 4,
+        functionName: "brain/rolloutStatus:getBrainRolloutStatus",
+        functionType: "internalQuery",
+        args: { organizationKey, workspaceId, brainKey, now },
+        successEvidence:
+          "Preserve the scope-level blockers and readiness snapshot in the exact-SHA rollout receipt.",
+      },
+    ],
+  };
+};
+
 const pass = (id: string, detail: string) => ({
   id,
   status: "pass" as const,
@@ -1483,7 +1838,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | company-brain-preflight [config-path] | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
       stderr: "",
     };
   }
@@ -1510,6 +1865,19 @@ export const runReleaseCli = (
 
   if (command === "review-completion") {
     const report = buildCompletionAuditReport({ repoRoot: cwd });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "company-brain-preflight") {
+    const report = buildCompanyBrainRolloutPreflight({
+      repoRoot: cwd,
+      configPath: argv[1] ?? "company-context/pilot-config.v1.json",
+    });
 
     return {
       exitCode: report.ok ? 0 : 1,

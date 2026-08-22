@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDeployDoctorReport,
   buildDeploymentIsolationReceipt,
+  buildCompanyBrainRolloutPreflight,
   buildProductionPromotePlan,
   buildRollbackPlan,
   buildStagedReleasePacket,
@@ -42,6 +43,45 @@ const releaseToolingRepoRoot = resolve(
 
 const readReleaseRepoFile = (path: string): string =>
   readFileSync(resolve(releaseToolingRepoRoot, path), "utf8");
+
+const validCompanyBrainPilotConfig = {
+  schemaVersion: 1,
+  organizationKey: "org_apero",
+  workspaceId: "workspace_apero",
+  activeAgencyBrainKey: "brain_apero",
+  owners: {
+    context: "Apero context owner",
+    engineering: "Maestro engineering",
+    connector: "Apero systems owner",
+  },
+  evaluationSetRef: "restricted://ask-apero/e0-v1",
+  dogfoodUsers: ["user-one", "user-two"],
+  sourceSlos: Object.fromEntries(
+    ["brain-pages", "slack", "transcripts", "documents"].map((corpus) => [
+      corpus,
+      {
+        maxObservationToPublicationMinutes: 5,
+        maxReconciliationAgeHours: 24,
+        maxEditPropagationMinutes: 10,
+        maxRemovalPropagationHours: 4,
+        maxNonterminalObligationMinutes: 30,
+        deadLetterEscalationMinutes: 60,
+      },
+    ]),
+  ),
+  drive: {
+    connectionKey: "drive_connection",
+    connectionGeneration: 1,
+    allowlistGeneration: 1,
+    driveId: "shared_drive",
+    rootFolderIds: ["folder_b", "folder_a"],
+    retentionClass: "internal-company-context",
+    permissionPolicyDigest: `sha256:${"a".repeat(64)}`,
+    expectedScopeGeneration: 0,
+    expectedIntentGeneration: 0,
+    expectedConfigurationGeneration: 0,
+  },
+};
 
 const expectBuildkiteSigningSecretWiring = () => {
   const pipeline = readReleaseRepoFile(".buildkite/pipeline.yml");
@@ -234,6 +274,166 @@ const writeProjectConfig = (
 };
 
 describe("release tooling", () => {
+  it("fails the Company Brain rollout preflight on repository placeholders", () => {
+    const result = runReleaseCli(
+      [
+        "company-brain-preflight",
+        "company-context/pilot-config.example.v1.json",
+      ],
+      releaseToolingRepoRoot,
+    );
+    const report = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly errors: readonly { readonly path: string }[];
+      readonly operations: readonly unknown[];
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(report.ok).toBe(false);
+    expect(report.operations).toEqual([]);
+    expect(report.errors.map(({ path }) => path)).toEqual(
+      expect.arrayContaining([
+        "organizationKey",
+        "workspaceId",
+        "activeAgencyBrainKey",
+        "drive.driveId",
+        "drive.permissionPolicyDigest",
+      ]),
+    );
+  });
+
+  it("emits deterministic ordered Drive rollout operations from real inputs", () => {
+    const repoRoot = join(
+      tmpdir(),
+      `maestro-company-brain-rollout-${Math.random().toString(16).slice(2)}`,
+    );
+    mkdirSync(repoRoot, { recursive: true });
+    writeFileSync(
+      join(repoRoot, "pilot.json"),
+      JSON.stringify(validCompanyBrainPilotConfig),
+    );
+
+    try {
+      const report = buildCompanyBrainRolloutPreflight({
+        repoRoot,
+        configPath: "pilot.json",
+        now: 1_787_416_000_000,
+      });
+      expect(report).toMatchObject({
+        ok: true,
+        errors: [],
+        derived: {
+          rootFolderIds: ["folder_a", "folder_b"],
+          connectorScopeKey: expect.stringMatching(/^gds_[a-f0-9]{64}$/),
+          controllingConfigurationDigest: expect.stringMatching(
+            /^sha256:[a-f0-9]{64}$/,
+          ),
+        },
+      });
+      expect(
+        report.operations.map(({ order, functionName }) => ({
+          order,
+          functionName,
+        })),
+      ).toEqual([
+        {
+          order: 1,
+          functionName:
+            "integrations/providerReconciliation:activateRequiredScope",
+        },
+        {
+          order: 2,
+          functionName:
+            "integrations/providerReconciliation:upsertDriveScopeConfiguration",
+        },
+        {
+          order: 3,
+          functionName:
+            "integrations/providerReconciliationWorker:startProviderReconciliation",
+        },
+        {
+          order: 4,
+          functionName: "brain/rolloutStatus:getBrainRolloutStatus",
+        },
+      ]);
+      expect(report.operations[0]?.args).toMatchObject({
+        providerKind: "google_drive",
+        corpusKey: "documents",
+        providerContainerKey: "shared_drive",
+        activationKind: "activate",
+        expectedScopeGeneration: 0,
+        now: 1_787_416_000_000,
+      });
+      expect(report.operations[1]?.args).toMatchObject({
+        rootFolderIds: ["folder_a", "folder_b"],
+        sharedDrive: true,
+        expectedConfigurationGeneration: 0,
+      });
+      expect(report.operations[3]?.args).toEqual({
+        organizationKey: "org_apero",
+        workspaceId: "workspace_apero",
+        brainKey: "brain_apero",
+        now: 1_787_416_000_000,
+      });
+
+      const reversed = {
+        ...validCompanyBrainPilotConfig,
+        drive: {
+          ...validCompanyBrainPilotConfig.drive,
+          rootFolderIds: ["folder_a", "folder_b"],
+        },
+      };
+      writeFileSync(join(repoRoot, "pilot.json"), JSON.stringify(reversed));
+      expect(
+        buildCompanyBrainRolloutPreflight({
+          repoRoot,
+          configPath: "pilot.json",
+          now: 1_787_416_000_000,
+        }).derived?.connectorScopeKey,
+      ).toBe(report.derived?.connectorScopeKey);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects credentials from the Company Brain rollout config", () => {
+    const repoRoot = join(
+      tmpdir(),
+      `maestro-company-brain-secret-${Math.random().toString(16).slice(2)}`,
+    );
+    mkdirSync(repoRoot, { recursive: true });
+    writeFileSync(
+      join(repoRoot, "pilot.json"),
+      JSON.stringify({
+        ...validCompanyBrainPilotConfig,
+        drive: {
+          ...validCompanyBrainPilotConfig.drive,
+          accessToken: "must-not-live-here",
+        },
+      }),
+    );
+
+    try {
+      expect(
+        buildCompanyBrainRolloutPreflight({
+          repoRoot,
+          configPath: "pilot.json",
+        }),
+      ).toMatchObject({
+        ok: false,
+        errors: expect.arrayContaining([
+          {
+            path: "drive.accessToken",
+            message: expect.stringContaining("Credentials are forbidden"),
+          },
+        ]),
+        operations: [],
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("passes for a built static web app", () => {
     const repoRoot = makeRepo();
 
