@@ -37,6 +37,7 @@ const cursor: ConnectorCursorState = {
   ...scope,
   cursorKey: "cursor_provider_reconciliation",
   providerCursor: "cursor-1",
+  traversalComplete: false,
   cursorGeneration: 4,
   activeEnvelopeKey: null,
   lastProviderHighWater: "provider-9",
@@ -72,7 +73,7 @@ describe("provider reconciliation", () => {
               run,
               currentAuthority: scope,
               latestRunGeneration: 6,
-              providerCursor: null,
+              traversalComplete: true,
               activeEnvelopeKey: null,
               now: now + 1,
             }),
@@ -90,7 +91,7 @@ describe("provider reconciliation", () => {
               run,
               currentAuthority: changedTuple,
               latestRunGeneration: run.runGeneration,
-              providerCursor: null,
+              traversalComplete: true,
               activeEnvelopeKey: null,
               now: now + 1,
             }),
@@ -151,6 +152,7 @@ describe("provider reconciliation", () => {
         expectedCursor: "cursor-1",
         expectedCursorGeneration: 4,
         nextCursor: "cursor-2",
+        traversalComplete: false,
         providerHighWater: "provider-10",
         ledgerHighWater: 100.5,
         chunks: [
@@ -215,6 +217,7 @@ describe("provider reconciliation", () => {
 
     expect(advanced).toMatchObject({
       providerCursor: "cursor-2",
+      traversalComplete: false,
       cursorGeneration: 5,
       activeEnvelopeKey: null,
       lastProviderHighWater: "provider-10",
@@ -236,6 +239,85 @@ describe("provider reconciliation", () => {
     expect(Either.isLeft(substituted)).toBe(true);
   });
 
+  it("preserves a terminal provider start token independently from traversal closure", async () => {
+    const run = await unwrap(
+      openReconciliationRunPlan({
+        authority: scope,
+        previousRunGeneration: 0,
+        expectedPreviousRunGeneration: 0,
+        providerHighWater: "provider-10",
+        ledgerHighWater: 100.5,
+        leaseId: "lease-1",
+        leaseGeneration: 1,
+        leaseExpiresAt: now + 60_000,
+        now,
+      }),
+    );
+    const observations = [
+      slackReconciliationObservation({
+        organizationKey: scope.organizationKey,
+        connectionKey: scope.connectionKey,
+        connectionGeneration: scope.connectionGeneration,
+        channelKey: "channel-terminal",
+        sourceKey: "source-terminal",
+        sourceRevisionKey: "revision-terminal",
+        providerObjectKey: "message-terminal",
+        ledgerSequence: 99,
+        observationDigest: `sha256:${"a".repeat(64)}`,
+      }),
+    ];
+    const chunkDigest = providerPageChunkDigest(observations);
+    const page = await unwrap(
+      beginProviderPagePlan({
+        run,
+        currentAuthority: scope,
+        latestRunGeneration: run.runGeneration,
+        cursor,
+        expectedCursor: cursor.providerCursor,
+        expectedCursorGeneration: cursor.cursorGeneration,
+        nextCursor: "new-start-page-token",
+        traversalComplete: true,
+        providerHighWater: "new-start-page-token",
+        ledgerHighWater: 100.5,
+        chunks: [{ chunkIndex: 0, chunkDigest, observationCount: 1 }],
+        now,
+      }),
+    );
+    const chunk = await unwrap(
+      commitProviderPageChunkPlan({
+        envelope: page.envelope,
+        chunkIndex: 0,
+        chunkDigest,
+        observations,
+        existingReceipt: null,
+        now,
+      }),
+    );
+    const advanced = await unwrap(
+      finalizeProviderPagePlan({
+        cursor: page.cursor,
+        envelope: page.envelope,
+        receipts: [chunk.receipt],
+        now: now + 1,
+      }),
+    );
+    expect(advanced).toMatchObject({
+      providerCursor: "new-start-page-token",
+      traversalComplete: true,
+    });
+    const closed = await unwrap(
+      closeReconciliationTraversalPlan({
+        run,
+        currentAuthority: scope,
+        latestRunGeneration: run.runGeneration,
+        traversalComplete: advanced.traversalComplete,
+        activeEnvelopeKey: advanced.activeEnvelopeKey,
+        now: now + 2,
+      }),
+    );
+    expect(closed.status).toBe("traversal_closed");
+  });
+
   it("infers removals only after traversal close and below the ledger high-water", async () => {
     const run = await unwrap(
       openReconciliationRunPlan({
@@ -255,7 +337,7 @@ describe("provider reconciliation", () => {
         run,
         currentAuthority: scope,
         latestRunGeneration: run.runGeneration,
-        providerCursor: null,
+        traversalComplete: true,
         activeEnvelopeKey: null,
         now: now + 1,
       }),
@@ -269,6 +351,7 @@ describe("provider reconciliation", () => {
         candidates: [
           {
             membershipKey: "membership-seen",
+            providerObjectKey: "message-seen",
             originKind: "slack",
             originKey: "source-seen",
             originRevisionKey: "revision-seen",
@@ -276,6 +359,7 @@ describe("provider reconciliation", () => {
           },
           {
             membershipKey: "membership-missing",
+            providerObjectKey: "message-missing",
             originKind: "slack",
             originKey: "source-missing",
             originRevisionKey: "revision-missing",
@@ -283,6 +367,7 @@ describe("provider reconciliation", () => {
           },
           {
             membershipKey: "membership-live-after-fence",
+            providerObjectKey: "message-live",
             originKind: "slack",
             originKey: "source-live",
             originRevisionKey: "revision-live",

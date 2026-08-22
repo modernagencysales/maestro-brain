@@ -1,7 +1,7 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Layer from "effect/Layer";
 
-import driveLedgerDatabaseSchema from "./driveLedgerDatabase";
+import databaseSchema from "../_generated/schema";
 import {
   commitDriveObservation,
   recordDriveSourceOutcome,
@@ -9,20 +9,20 @@ import {
 import driveSource from "./driveSource.spec";
 
 const commitObservation = FunctionImpl.make(
-  driveLedgerDatabaseSchema,
+  databaseSchema,
   driveSource,
   "commitObservation",
   commitDriveObservation,
 );
 
 const recordSourceOutcome = FunctionImpl.make(
-  driveLedgerDatabaseSchema,
+  databaseSchema,
   driveSource,
   "recordSourceOutcome",
   recordDriveSourceOutcome,
 );
 
-export default GroupImpl.make(driveLedgerDatabaseSchema, driveSource).pipe(
+export default GroupImpl.make(databaseSchema, driveSource).pipe(
   Layer.provide(commitObservation),
   Layer.provide(recordSourceOutcome),
   GroupImpl.finalize,

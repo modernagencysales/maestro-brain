@@ -10,6 +10,9 @@ export const SlackPublicationTargetIntentRow = Schema.Struct({
   organizationKey: Schema.String,
   channelKey: Schema.String,
   sourceRevisionKey: Schema.String,
+  providerTargetResolutionIntentId: Schema.optional(
+    Id("providerTargetResolutionIntents"),
+  ),
   status: Schema.Literal("pending", "retry_wait", "succeeded"),
   attemptCount: NonNegativeInteger,
   nextAttemptAt: NonNegativeInteger,
@@ -36,6 +39,12 @@ export const SlackPublicationTargetIntentRow = Schema.Struct({
 
 export default Table.make(() => SlackPublicationTargetIntentRow)
   .index("by_receipt_id", ["receiptId"])
+  .index("by_organization_channel_status", [
+    "organizationKey",
+    "channelKey",
+    "status",
+    "updatedAt",
+  ])
   .index("by_status_due", ["status", "nextAttemptAt", "organizationKey"])
   .index("by_status_linkage_version", [
     "status",

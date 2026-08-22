@@ -137,6 +137,51 @@ export const RecordDriveSourceOutcomeResult = Schema.Struct({
 export type RecordDriveSourceOutcomeResult =
   typeof RecordDriveSourceOutcomeResult.Type;
 
+export const DrivePreparedWrite = Schema.Union(
+  Schema.Struct({
+    kind: Schema.Literal("observation"),
+    args: CommitDriveObservationArgs,
+    expectedPassageCount: NonNegativeInteger,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("outcome"),
+    args: RecordDriveSourceOutcomeArgs,
+  }),
+);
+export type DrivePreparedWrite = typeof DrivePreparedWrite.Type;
+
+export const DriveIngestionReceiptSchema = Schema.Struct({
+  status: Schema.Literal(
+    "committed",
+    "unsupported",
+    "quarantined",
+    "skipped_out_of_scope",
+  ),
+  providerObjectKey: NonEmptyString,
+  classification: Schema.NullOr(DriveLedgerClassification),
+  observationKey: Schema.NullOr(DocumentObservationKey),
+  documentRevisionKey: Schema.NullOr(DocumentRevisionKey),
+  passageCount: NonNegativeInteger,
+  outcomeKey: Schema.NullOr(DocumentOutcomeKey),
+  reason: Schema.NullOr(DriveSourceOutcomeReason),
+  duplicate: Schema.Boolean,
+});
+
+export const PreparedDriveReconciliationPage = Schema.Struct({
+  connectorScopeKey: DriveConnectorScopeKey,
+  cursorBefore: NonEmptyString,
+  cursorAfter: NonEmptyString,
+  terminal: Schema.Boolean,
+  skippedProviderObjectKeys: Schema.Array(NonEmptyString).pipe(
+    Schema.maxItems(1_000),
+  ),
+  chunks: Schema.Array(
+    Schema.Array(DrivePreparedWrite).pipe(Schema.maxItems(100)),
+  ).pipe(Schema.minItems(1), Schema.maxItems(64)),
+});
+export type PreparedDriveReconciliationPage =
+  typeof PreparedDriveReconciliationPage.Type;
+
 export const DrivePassageRowFields = Schema.Struct({
   passageKey: DrivePassageKey,
   ordinal: NonNegativeInteger,

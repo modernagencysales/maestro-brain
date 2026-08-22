@@ -76,6 +76,54 @@ describe("Google Drive API client", () => {
     ).resolves.toEqual({ files: [], nextPageToken: null });
   });
 
+  it("lists a paginated Shared Drive inventory across the complete root allowlist", async () => {
+    const fetch = vi.fn(async (url: string) => {
+      const parsed = new URL(url);
+      expect(parsed.pathname).toBe("/drive/v3/files");
+      expect(parsed.searchParams.get("q")).toBe(
+        "('folder_a' in parents or 'folder_b' in parents) and trashed = false",
+      );
+      expect(parsed.searchParams.get("corpora")).toBe("drive");
+      expect(parsed.searchParams.get("driveId")).toBe("shared_drive_1");
+      expect(parsed.searchParams.get("spaces")).toBe("drive");
+      expect(parsed.searchParams.get("includeItemsFromAllDrives")).toBe("true");
+      expect(parsed.searchParams.get("supportsAllDrives")).toBe("true");
+      expect(parsed.searchParams.get("pageSize")).toBe("100");
+      expect(parsed.searchParams.get("pageToken")).toBe("inventory page 2");
+      return new Response(
+        JSON.stringify({
+          files: [
+            {
+              id: "file_unchanged",
+              name: "Unchanged",
+              mimeType: "text/plain",
+              version: "4",
+              modifiedTime: "2026-08-21T11:59:00.000Z",
+              webViewLink: "https://drive.google.com/open?id=file_unchanged",
+              trashed: false,
+              parents: ["folder_b"],
+            },
+          ],
+          nextPageToken: "inventory page 3",
+        }),
+        { status: 200 },
+      );
+    });
+    const client = makeDriveApiClient({ accessToken: "token", fetch });
+
+    await expect(
+      client.listInventoryPage({
+        driveId: "shared_drive_1",
+        rootFolderIds: ["folder_b", "folder_a", "folder_a"],
+        pageToken: "inventory page 2",
+        pageSize: 100,
+      }),
+    ).resolves.toMatchObject({
+      files: [{ id: "file_unchanged", parents: ["folder_b"] }],
+      nextPageToken: "inventory page 3",
+    });
+  });
+
   it("exports Google Docs as text without putting credentials in the URL", async () => {
     const fetch = vi.fn(async (url: string, init?: RequestInit) => {
       expect(url).toContain("/drive/v3/files/file_1/export?");

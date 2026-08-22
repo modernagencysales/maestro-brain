@@ -4,7 +4,7 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import feedbackDatabaseSchema from "./feedbackDatabase";
+import databaseSchema from "../_generated/schema";
 import { writeFeedbackReport } from "./feedbackRepository";
 import feedback from "./feedback.spec";
 import { requireBrainAccess, requireHeadlessBrainAccess } from "./pages.impl";
@@ -25,7 +25,7 @@ const feedbackTenantFor = (tenant: {
 });
 
 const reportWrongOrStale = FunctionImpl.make(
-  feedbackDatabaseSchema,
+  databaseSchema,
   feedback,
   "reportWrongOrStale",
   (args) =>
@@ -41,7 +41,7 @@ const reportWrongOrStale = FunctionImpl.make(
 );
 
 const headlessReportWrongOrStale = FunctionImpl.make(
-  feedbackDatabaseSchema,
+  databaseSchema,
   feedback,
   "headlessReportWrongOrStale",
   (args) =>
@@ -56,7 +56,7 @@ const headlessReportWrongOrStale = FunctionImpl.make(
     }),
 );
 
-export default GroupImpl.make(feedbackDatabaseSchema, feedback).pipe(
+export default GroupImpl.make(databaseSchema, feedback).pipe(
   Layer.provide(reportWrongOrStale),
   Layer.provide(headlessReportWrongOrStale),
   GroupImpl.finalize,

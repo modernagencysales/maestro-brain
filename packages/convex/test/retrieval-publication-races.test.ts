@@ -1,15 +1,21 @@
 import { TestConfect } from "@confect/test";
+import {
+  DatabaseReader as DatabaseReaderService,
+  DatabaseSchema,
+  DatabaseWriter as DatabaseWriterService,
+} from "@confect/server";
 import type { GenericId, Value } from "convex/values";
+import { defineSchema } from "convex/server";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
-import databaseSchema from "../confect/_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import generatedDatabaseSchema from "../confect/_generated/schema";
 import {
   connectionFenceIdentity,
   pageLifecycleFenceIdentity,
+  slackSourceLifecycleFenceIdentity,
   transcriptRouteFenceIdentity,
   transcriptUnitLifecycleFenceIdentity,
   transitionEligibilityFenceEffect,
@@ -17,12 +23,22 @@ import {
 import {
   commitPreparedPublicationEffect,
   enqueueRetrievalPublicationJobEffect,
+  publishSlackRevisionEffect,
+  publishTranscriptRevisionEffect,
+  rebuildSlackBatchEffect,
+  rebuildTranscriptBatchEffect,
   runPublicationJobEffect,
 } from "../confect/brain/retrievalPublication.impl";
 import { retrievalPublicationSubjectKey } from "../confect/brain/retrievalPublication";
+import {
+  activatePublicationJobLeaseEffect,
+  claimPublicationJobLeaseEffect,
+  publicationPauseKey,
+} from "../confect/brain/publicationWorkerControl";
 import { retrievalPublicationSubjectIncarnationKey } from "../confect/brain/retrievalPublicationJob";
 import { purgePageOriginEffect } from "../confect/ops/dataLifecycle.impl";
-import { testConfectLayer } from "./support/confect";
+import brainPublicationPausesSource from "../confect/tables/brainPublicationPauses";
+import brainPublicationWorkerLeasesSource from "../confect/tables/brainPublicationWorkerLeases";
 
 const now = 1_782_924_800_000;
 const brainKey = "br_0123456789ABCDEFGHJKMNPQRS";
@@ -32,6 +48,45 @@ const connectionKey = "conn_race_1";
 const pageKey = "pag_authority_race_1";
 const revisionKey = "rev_authority_race_1";
 const successorRevisionKey = "rev_authority_race_2";
+const slackSourceKey = "src_slack.convergence";
+const slackRevisionOneKey = `srev_${"1".repeat(64)}`;
+const slackRevisionTwoKey = `srev_${"2".repeat(64)}`;
+const transcriptUnitKey = `sunit_${"3".repeat(64)}`;
+const transcriptRevisionOneKey = `surev_${"4".repeat(64)}`;
+const transcriptRevisionTwoKey = `surev_${"5".repeat(64)}`;
+
+const brainPublicationPauses = brainPublicationPausesSource(
+  "brainPublicationPauses",
+);
+const brainPublicationWorkerLeases = brainPublicationWorkerLeasesSource(
+  "brainPublicationWorkerLeases",
+);
+const raceDatabaseSchema = DatabaseSchema.make({
+  ...generatedDatabaseSchema.tables,
+  brainPublicationPauses,
+  brainPublicationWorkerLeases,
+});
+const raceConvexSchema = defineSchema({
+  ...Object.fromEntries(
+    Object.entries(generatedDatabaseSchema.tables).map(([name, table]) => [
+      name,
+      table.tableDefinition,
+    ]),
+  ),
+  brainPublicationPauses: brainPublicationPauses.tableDefinition,
+  brainPublicationWorkerLeases: brainPublicationWorkerLeases.tableDefinition,
+});
+const databaseSchema = raceDatabaseSchema;
+const raceTestConfectLayer = TestConfect.layer(
+  databaseSchema,
+  raceConvexSchema,
+  import.meta.glob("../convex/**/!(*.*.*)*.*s"),
+);
+const DatabaseReader =
+  DatabaseReaderService.DatabaseReader<typeof raceDatabaseSchema>();
+const DatabaseWriter =
+  DatabaseWriterService.DatabaseWriter<typeof raceDatabaseSchema>();
+const testConfectLayer = raceTestConfectLayer;
 
 const resultSchema = <Result>(): Schema.Schema<Result, Value> =>
   Schema.Any as unknown as Schema.Schema<Result, Value>;
@@ -148,6 +203,481 @@ const pageJobInput = (workspaceId: GenericId<"workspaces">) => ({
     policyGeneration: 1,
   },
 });
+
+const seedSlackCorpus = Effect.gen(function* () {
+  const writer = yield* DatabaseWriter;
+  const { workspaceId } = yield* seedWorkspace;
+  const lifecycle = {
+    state: "active" as const,
+    generation: 1,
+    updatedAt: now,
+    purgeAfter: null,
+  };
+  yield* writer
+    .table("providerConnections")
+    .insert({
+      provider: "nango",
+      providerConfigKey: "slack",
+      organizationKey,
+      connectionKey: "conn_slack_convergence",
+      connectionGeneration: 1,
+      status: "active",
+      connectSessionId: "session_slack_convergence",
+      nangoConnectionId: "nango_slack_convergence",
+      nangoEndUserId: "user_slack_convergence",
+      nangoOrganizationId: "org_slack_convergence",
+      correlationTag: "slack:convergence",
+      attemptId: "attempt_slack_convergence",
+      attemptExpiresAt: now + 60_000,
+      completedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceArtifacts")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      connectionKey: "conn_slack_convergence",
+      connectionGeneration: 1,
+      channelKey: "channel_slack_convergence",
+      externalChannelId: "C_SLACK_CONVERGENCE",
+      providerObjectId: "C_SLACK_CONVERGENCE:1",
+      sourceKey: slackSourceKey,
+      threadKey: "thread_slack_convergence",
+      latestSourceRevisionKey: slackRevisionOneKey,
+      latestProviderOrder: "1",
+      lifecycle,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceRevisions")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      connectionKey: "conn_slack_convergence",
+      connectionGeneration: 1,
+      channelKey: "channel_slack_convergence",
+      sourceKey: slackSourceKey,
+      sourceRevisionKey: slackRevisionOneKey,
+      observationKey: "observation_slack_convergence_1",
+      providerOrder: "1",
+      providerRevisionId: "1",
+      sourceCreatedAt: now,
+      sourceTimestamp: "2026-08-22T10:00:00.000Z",
+      authorSnapshot: {
+        providerUserId: "U_SLACK_CONVERGENCE",
+        displayName: "Slack convergence",
+      },
+      normalizedText: "Slack convergence revision one.",
+      blocksJson: "[]",
+      permalink: "https://slack.example/C_SLACK_CONVERGENCE/p1",
+      contentHash: `sha256:${"6".repeat(64)}`,
+      tombstone: false,
+      lifecycle,
+      createdAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("channelRoutingPolicies")
+    .insert({
+      organizationKey,
+      connectionKey: "conn_slack_convergence",
+      connectionGeneration: 1,
+      channelKey: "channel_slack_convergence",
+      policyEpoch: 1,
+      active: true,
+      mode: "direct",
+      targetBrainKeys: [brainKey],
+      historicalBackfillStartAt: now - 1_000,
+      statusAfterApply: "streaming",
+      createdByRole: "owner",
+      createdAt: now,
+    })
+    .pipe(Effect.orDie);
+  return { workspaceId };
+});
+
+const advanceSlackCorpus = Effect.gen(function* () {
+  const reader = yield* DatabaseReader;
+  const writer = yield* DatabaseWriter;
+  const artifact = yield* reader
+    .table("sourceArtifacts")
+    .index("by_org_source_key", (query) =>
+      query
+        .eq("organizationKey", organizationKey)
+        .eq("sourceKey", slackSourceKey),
+    )
+    .first()
+    .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+  yield* writer
+    .table("sourceRevisions")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      connectionKey: artifact.connectionKey,
+      connectionGeneration: artifact.connectionGeneration,
+      channelKey: artifact.channelKey,
+      sourceKey: slackSourceKey,
+      sourceRevisionKey: slackRevisionTwoKey,
+      observationKey: "observation_slack_convergence_2",
+      providerOrder: "2",
+      providerRevisionId: "2",
+      sourceCreatedAt: now + 1,
+      sourceTimestamp: "2026-08-22T10:01:00.000Z",
+      authorSnapshot: {
+        providerUserId: "U_SLACK_CONVERGENCE",
+        displayName: "Slack convergence",
+      },
+      normalizedText: "Slack convergence revision two is authoritative.",
+      blocksJson: "[]",
+      permalink: "https://slack.example/C_SLACK_CONVERGENCE/p2",
+      contentHash: `sha256:${"7".repeat(64)}`,
+      tombstone: false,
+      lifecycle: artifact.lifecycle,
+      createdAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceArtifacts")
+    .patch(artifact._id, {
+      latestSourceRevisionKey: slackRevisionTwoKey,
+      latestProviderOrder: "2",
+      updatedAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+});
+
+const transitionSlackLifecycle = (
+  state: "active" | "deleted_tombstone",
+  generation: number,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const artifact = yield* reader
+      .table("sourceArtifacts")
+      .index("by_org_source_key", (query) =>
+        query
+          .eq("organizationKey", organizationKey)
+          .eq("sourceKey", slackSourceKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+    yield* writer
+      .table("sourceArtifacts")
+      .patch(artifact._id, {
+        lifecycle: { state, generation, updatedAt: at, purgeAfter: null },
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+    return yield* transitionEligibilityFenceEffect({
+      identity: slackSourceLifecycleFenceIdentity({
+        organizationKey,
+        sourceKey: slackSourceKey,
+      }),
+      eligible: state === "active",
+      now: at,
+    });
+  });
+
+const seedTranscriptCorpus = Effect.gen(function* () {
+  const writer = yield* DatabaseWriter;
+  const { workspaceId } = yield* seedWorkspace;
+  const lifecycle = {
+    state: "active" as const,
+    generation: 1,
+    updatedAt: now,
+    purgeAfter: null,
+  };
+  yield* writer
+    .table("providerConnections")
+    .insert({
+      provider: "nango",
+      providerConfigKey: "fireflies",
+      organizationKey,
+      connectionKey: "conn_transcript_convergence",
+      connectionGeneration: 1,
+      status: "active",
+      connectSessionId: "session_transcript_convergence",
+      nangoConnectionId: "nango_transcript_convergence",
+      nangoEndUserId: "user_transcript_convergence",
+      nangoOrganizationId: "org_transcript_convergence",
+      correlationTag: "transcript:convergence",
+      attemptId: "attempt_transcript_convergence",
+      attemptExpiresAt: now + 60_000,
+      completedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceUnits")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      connectionKey: "conn_transcript_convergence",
+      connectionGeneration: 1,
+      providerKey: "fireflies",
+      externalCallId: "call_transcript_convergence",
+      unitKey: transcriptUnitKey,
+      currentUnitRevisionKey: transcriptRevisionOneKey,
+      lifecycle,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceUnitRevisions")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionOneKey,
+      externalRevisionId: "call_transcript_convergence_1",
+      title: "Transcript convergence one",
+      startedAt: "2026-08-22T10:00:00.000Z",
+      endedAt: "2026-08-22T10:30:00.000Z",
+      durationMs: 1_800_000,
+      organizer: null,
+      participants: [],
+      sourceUrl: "https://calls.example/transcript-convergence/1",
+      recordingUrl: null,
+      providerSummary: null,
+      providerMetadataJson: "{}",
+      contentHash: `sha256:${"8".repeat(64)}`,
+      tombstone: false,
+      createdAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceSegments")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionOneKey,
+      segmentKey: `seg_${"9".repeat(64)}`,
+      externalSegmentId: "segment_transcript_convergence_1",
+      ordinal: 0,
+      evidenceKind: "verbatim_transcript",
+      speakerExternalId: null,
+      speakerLabel: "Founder",
+      startMs: 0,
+      endMs: 2_000,
+      text: "Transcript convergence revision one.",
+      contentHash: `sha256:${"a".repeat(64)}`,
+      createdAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("callRoutingProposals")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      proposalKey: "callroute_transcript_convergence_1",
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionOneKey,
+      sourceLifecycleGeneration: 1,
+      routeGeneration: 1,
+      outcome: "routed",
+      brainKey,
+      candidateBrainKeys: [brainKey],
+      reason: "explicit",
+      status: "accepted",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  return { workspaceId };
+});
+
+const advanceTranscriptCorpus = Effect.gen(function* () {
+  const reader = yield* DatabaseReader;
+  const writer = yield* DatabaseWriter;
+  const unit = yield* reader
+    .table("sourceUnits")
+    .index("by_unit_key", (query) =>
+      query
+        .eq("organizationKey", organizationKey)
+        .eq("unitKey", transcriptUnitKey),
+    )
+    .first()
+    .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+  yield* writer
+    .table("sourceUnitRevisions")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionTwoKey,
+      externalRevisionId: "call_transcript_convergence_2",
+      title: "Transcript convergence two",
+      startedAt: "2026-08-22T11:00:00.000Z",
+      endedAt: "2026-08-22T11:30:00.000Z",
+      durationMs: 1_800_000,
+      organizer: null,
+      participants: [],
+      sourceUrl: "https://calls.example/transcript-convergence/2",
+      recordingUrl: null,
+      providerSummary: null,
+      providerMetadataJson: "{}",
+      contentHash: `sha256:${"b".repeat(64)}`,
+      tombstone: false,
+      createdAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceSegments")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionTwoKey,
+      segmentKey: `seg_${"c".repeat(64)}`,
+      externalSegmentId: "segment_transcript_convergence_2",
+      ordinal: 0,
+      evidenceKind: "verbatim_transcript",
+      speakerExternalId: null,
+      speakerLabel: "Founder",
+      startMs: 0,
+      endMs: 2_000,
+      text: "Transcript convergence revision two is authoritative.",
+      contentHash: `sha256:${"d".repeat(64)}`,
+      createdAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("callRoutingProposals")
+    .insert({
+      schemaVersion: 1,
+      organizationKey,
+      proposalKey: "callroute_transcript_convergence_2",
+      unitKey: transcriptUnitKey,
+      unitRevisionKey: transcriptRevisionTwoKey,
+      sourceLifecycleGeneration: 1,
+      routeGeneration: 2,
+      outcome: "routed",
+      brainKey,
+      candidateBrainKeys: [brainKey],
+      reason: "explicit",
+      status: "accepted",
+      createdAt: now + 1,
+      updatedAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("sourceUnits")
+    .patch(unit._id, {
+      currentUnitRevisionKey: transcriptRevisionTwoKey,
+      updatedAt: now + 1,
+    })
+    .pipe(Effect.orDie);
+});
+
+const transitionTranscriptLifecycle = (
+  state: "active" | "deleted_tombstone",
+  generation: number,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const unit = yield* reader
+      .table("sourceUnits")
+      .index("by_unit_key", (query) =>
+        query
+          .eq("organizationKey", organizationKey)
+          .eq("unitKey", transcriptUnitKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+    yield* writer
+      .table("sourceUnits")
+      .patch(unit._id, {
+        lifecycle: { state, generation, updatedAt: at, purgeAfter: null },
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+    return yield* transitionEligibilityFenceEffect({
+      identity: transcriptUnitLifecycleFenceIdentity({
+        organizationKey,
+        unitKey: transcriptUnitKey,
+      }),
+      eligible: state === "active",
+      now: at,
+    });
+  });
+
+const forcePublicationRetry = (jobKey: string, at: number) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const job = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", jobKey))
+      .first()
+      .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(job._id, {
+        status: "retry_wait",
+        attemptCount: 1,
+        nextAttemptAt: at,
+        lastErrorTag: "InjectedDeliveryRetry",
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const corpusPublicationState = (
+  workspaceId: GenericId<"workspaces">,
+  corpusKey: "slack" | "transcripts",
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const [current, retired, subjects] = yield* Effect.all([
+      reader
+        .table("retrievalPublicationSets")
+        .index("by_workspace_brain_state_publication_set", (query) =>
+          query
+            .eq("workspaceId", workspaceId)
+            .eq("brainKey", brainKey)
+            .eq("state", "current"),
+        )
+        .take(10)
+        .pipe(Effect.orDie),
+      reader
+        .table("retrievalPublicationSets")
+        .index("by_workspace_brain_state_publication_set", (query) =>
+          query
+            .eq("workspaceId", workspaceId)
+            .eq("brainKey", brainKey)
+            .eq("state", "retired"),
+        )
+        .take(10)
+        .pipe(Effect.orDie),
+      reader
+        .table("retrievalPublicationSubjects")
+        .index("by_workspace_brain_corpus_subject", (query) =>
+          query
+            .eq("workspaceId", workspaceId)
+            .eq("brainKey", brainKey)
+            .eq("corpusKey", corpusKey),
+        )
+        .take(10)
+        .pipe(Effect.orDie),
+    ]);
+    return {
+      current: current.filter((set) => set.corpusKey === corpusKey),
+      retired: retired.filter((set) => set.corpusKey === corpusKey),
+      subjects,
+    };
+  });
 
 const systemCaller = {
   kind: "system" as const,
@@ -1543,6 +2073,375 @@ describe("retrieval publication authority races", () => {
     expect(result.state.citationRows.length).toBeGreaterThan(0);
   });
 
+  it("converges Slack update, lifecycle revoke, retry, backfill, and rebuild races", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(
+          seedSlackCorpus,
+          resultSchema(),
+        );
+        const backfilled = yield* confect.run(
+          rebuildSlackBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 10,
+            caller: systemCaller,
+            now,
+          }),
+          resultSchema(),
+        );
+        const delayedJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "slack",
+              sourceKey: slackSourceKey,
+              sourceRevisionKey: slackRevisionOneKey,
+              requestGeneration: 1,
+            },
+            now + 1,
+          ),
+          resultSchema(),
+        );
+        yield* confect.run(advanceSlackCorpus, resultSchema());
+        const updated = yield* confect.run(
+          publishSlackRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: slackRevisionTwoKey,
+            caller: systemCaller,
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const delayed = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: delayedJobKey,
+            caller: systemCaller,
+            now: now + 3,
+          }),
+          resultSchema(),
+        );
+        const revokedFence = yield* confect.run(
+          transitionSlackLifecycle("deleted_tombstone", 2, now + 4),
+          resultSchema(),
+        );
+        const revoked = yield* confect.run(
+          publishSlackRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: slackRevisionTwoKey,
+            caller: systemCaller,
+            now: now + 4,
+          }),
+          resultSchema(),
+        );
+        const restoredFence = yield* confect.run(
+          transitionSlackLifecycle("active", 3, now + 5),
+          resultSchema(),
+        );
+        const retryJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "slack",
+              sourceKey: slackSourceKey,
+              sourceRevisionKey: slackRevisionTwoKey,
+              requestGeneration: 3,
+            },
+            now + 6,
+          ),
+          resultSchema(),
+        );
+        yield* confect.run(
+          forcePublicationRetry(retryJobKey, now + 7),
+          resultSchema(),
+        );
+        const retried = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: retryJobKey,
+            caller: systemCaller,
+            now: now + 7,
+          }),
+          resultSchema(),
+        );
+        const rebuilt = yield* confect.run(
+          rebuildSlackBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 10,
+            caller: systemCaller,
+            now: now + 8,
+          }),
+          resultSchema(),
+        );
+        const state = yield* confect.run(
+          corpusPublicationState(workspaceId, "slack"),
+          resultSchema(),
+        );
+        return {
+          backfilled,
+          updated,
+          delayed,
+          revokedFence,
+          revoked,
+          restoredFence,
+          retried,
+          rebuilt,
+          state,
+        };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.backfilled).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+    });
+    expect(result.updated).toMatchObject({ outcome: "published" });
+    expect(result.delayed).toMatchObject({
+      status: "superseded",
+      attemptCount: 1,
+    });
+    expect(result.revokedFence).toMatchObject({
+      eligible: false,
+      ref: { kind: "lifecycle", eligibilityGeneration: 2 },
+    });
+    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.restoredFence).toMatchObject({
+      eligible: true,
+      ref: { kind: "lifecycle", eligibilityGeneration: 3 },
+    });
+    expect(result.retried).toMatchObject({
+      status: "succeeded",
+      attemptCount: 2,
+    });
+    expect(result.rebuilt).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+    });
+    expect(result.state.current).toHaveLength(1);
+    expect(result.state.current[0]).toMatchObject({
+      originKind: "slack",
+      sourceKey: slackSourceKey,
+      sourceRevisionKey: slackRevisionTwoKey,
+      lifecycleGeneration: 3,
+      publicationGeneration: 3,
+      state: "current",
+    });
+    expect(result.state.retired).toHaveLength(2);
+    expect(
+      result.state.retired.map(({ sourceRevisionKey }) => sourceRevisionKey),
+    ).toEqual(
+      expect.arrayContaining([slackRevisionOneKey, slackRevisionTwoKey]),
+    );
+    expect(result.state.subjects).toHaveLength(1);
+    expect(result.state.subjects[0]).toMatchObject({
+      currentPublicationSetKey: result.state.current[0]?.publicationSetKey,
+      lastPublicationGeneration: 3,
+    });
+  });
+
+  it("converges transcript update, lifecycle revoke, retry, backfill, and rebuild races", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(
+          seedTranscriptCorpus,
+          resultSchema(),
+        );
+        const backfilled = yield* confect.run(
+          rebuildTranscriptBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 10,
+            caller: systemCaller,
+            now,
+          }),
+          resultSchema(),
+        );
+        const delayedJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "transcript",
+              sourceKey: transcriptUnitKey,
+              sourceRevisionKey: transcriptRevisionOneKey,
+              requestGeneration: 1,
+            },
+            now + 1,
+          ),
+          resultSchema(),
+        );
+        yield* confect.run(advanceTranscriptCorpus, resultSchema());
+        const updated = yield* confect.run(
+          publishTranscriptRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: transcriptRevisionTwoKey,
+            caller: systemCaller,
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const delayed = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: delayedJobKey,
+            caller: systemCaller,
+            now: now + 3,
+          }),
+          resultSchema(),
+        );
+        const revokedFence = yield* confect.run(
+          transitionTranscriptLifecycle("deleted_tombstone", 2, now + 4),
+          resultSchema(),
+        );
+        const revoked = yield* confect.run(
+          publishTranscriptRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: transcriptRevisionTwoKey,
+            caller: systemCaller,
+            now: now + 4,
+          }),
+          resultSchema(),
+        );
+        const restoredFence = yield* confect.run(
+          transitionTranscriptLifecycle("active", 3, now + 5),
+          resultSchema(),
+        );
+        const retryJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "transcript",
+              sourceKey: transcriptUnitKey,
+              sourceRevisionKey: transcriptRevisionTwoKey,
+              requestGeneration: 3,
+            },
+            now + 6,
+          ),
+          resultSchema(),
+        );
+        yield* confect.run(
+          forcePublicationRetry(retryJobKey, now + 7),
+          resultSchema(),
+        );
+        const retried = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: retryJobKey,
+            caller: systemCaller,
+            now: now + 7,
+          }),
+          resultSchema(),
+        );
+        const rebuilt = yield* confect.run(
+          rebuildTranscriptBatchEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            limit: 10,
+            caller: systemCaller,
+            now: now + 8,
+          }),
+          resultSchema(),
+        );
+        const state = yield* confect.run(
+          corpusPublicationState(workspaceId, "transcripts"),
+          resultSchema(),
+        );
+        return {
+          backfilled,
+          updated,
+          delayed,
+          revokedFence,
+          revoked,
+          restoredFence,
+          retried,
+          rebuilt,
+          state,
+        };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.backfilled).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+    });
+    expect(result.updated).toMatchObject({ outcome: "published" });
+    expect(result.delayed).toMatchObject({
+      status: "superseded",
+      attemptCount: 1,
+    });
+    expect(result.revokedFence).toMatchObject({
+      eligible: false,
+      ref: { kind: "lifecycle", eligibilityGeneration: 2 },
+    });
+    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.restoredFence).toMatchObject({
+      eligible: true,
+      ref: { kind: "lifecycle", eligibilityGeneration: 3 },
+    });
+    expect(result.retried).toMatchObject({
+      status: "succeeded",
+      attemptCount: 2,
+    });
+    expect(result.rebuilt).toMatchObject({
+      processed: 1,
+      published: 1,
+      revoked: 0,
+      hasMore: false,
+    });
+    expect(result.state.current).toHaveLength(1);
+    expect(result.state.current[0]).toMatchObject({
+      originKind: "transcript",
+      sourceKey: transcriptUnitKey,
+      sourceRevisionKey: transcriptRevisionTwoKey,
+      lifecycleGeneration: 3,
+      publicationGeneration: 3,
+      state: "current",
+    });
+    expect(result.state.retired).toHaveLength(2);
+    expect(
+      result.state.retired.map(({ sourceRevisionKey }) => sourceRevisionKey),
+    ).toEqual(
+      expect.arrayContaining([
+        transcriptRevisionOneKey,
+        transcriptRevisionTwoKey,
+      ]),
+    );
+    expect(result.state.subjects).toHaveLength(1);
+    expect(result.state.subjects[0]).toMatchObject({
+      currentPublicationSetKey: result.state.current[0]?.publicationSetKey,
+      lastPublicationGeneration: 3,
+    });
+  });
+
   it("rejects a delayed G1 publication after lifecycle revoke and restore", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -2334,5 +3233,162 @@ describe("retrieval publication authority races", () => {
       lastErrorTag: "PublicationAuthorityLinkageInvalid",
     });
     expect(result.currentSets).toEqual([]);
+  });
+
+  it("rechecks the pause epoch after claim before activating a publication set", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const job = {
+          organizationKey,
+          workspaceId,
+          brainKey,
+          jobKey: `rjob_${"f".repeat(64)}`,
+          originKind: "page" as const,
+          attemptCount: 0,
+        };
+        const claim = yield* confect.run(
+          claimPublicationJobLeaseEffect({
+            job,
+            now,
+            leaseDurationMs: 60_000,
+          }),
+          resultSchema(),
+        );
+        if (claim.status !== "claimed")
+          return yield* Effect.dieMessage(
+            "Expected a publication lease claim.",
+          );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("brainPublicationPauses")
+              .insert({
+                schemaVersion: 1,
+                organizationKey,
+                workspaceId,
+                brainKey,
+                scopeKey: "brain-pages",
+                pauseKey: publicationPauseKey({
+                  organizationKey,
+                  workspaceId,
+                  brainKey,
+                  scopeKey: "brain-pages",
+                }),
+                pauseEpoch: claim.pauseEpoch + 1,
+                state: "paused",
+                reason: "race fence",
+                pausedAt: now + 1,
+                resumedAt: null,
+                updatedAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const activated = yield* confect.run(
+          activatePublicationJobLeaseEffect({
+            job,
+            leaseKey: claim.leaseKey,
+            expectedPauseEpoch: claim.pauseEpoch,
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const state = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const lease = yield* reader
+              .table("brainPublicationWorkerLeases")
+              .index("by_lease_key", (query) =>
+                query.eq("leaseKey", claim.leaseKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+            const currentSets = yield* currentPageSets(workspaceId);
+            return { lease, currentSets };
+          }),
+          resultSchema(),
+        );
+        return { claim, activated, state };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.claim).toMatchObject({ status: "claimed", pauseEpoch: 0 });
+    expect(result.activated).toBe(false);
+    expect(result.state.lease).toMatchObject({
+      state: "abandoned",
+      releaseReason: "paused",
+    });
+    expect(result.state.currentSets).toEqual([]);
+  });
+
+  it("fails closed when an active lease is misbound to another publication scope", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const job = {
+          organizationKey,
+          workspaceId,
+          brainKey,
+          jobKey: `rjob_${"e".repeat(64)}`,
+          originKind: "page" as const,
+          attemptCount: 0,
+        };
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            const wrongPauseKey = publicationPauseKey({
+              organizationKey,
+              workspaceId,
+              brainKey,
+              scopeKey: "slack",
+            });
+            yield* writer
+              .table("brainPublicationWorkerLeases")
+              .insert({
+                schemaVersion: 1,
+                organizationKey,
+                workspaceId,
+                brainKey,
+                scopeKey: "slack",
+                pauseKey: wrongPauseKey,
+                leaseKey: `bpwl_${"e".repeat(64)}`,
+                jobKey: job.jobKey,
+                pauseEpoch: 0,
+                state: "active",
+                claimedAt: now,
+                expiresAt: now + 60_000,
+                releasedAt: null,
+                releaseReason: null,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        return yield* confect.run(
+          claimPublicationJobLeaseEffect({
+            job,
+            now: now + 1,
+            leaseDurationMs: 60_000,
+          }),
+          resultSchema(),
+        );
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toMatchObject({
+      status: "integrity_failure",
+      scopeKey: "brain-pages",
+      pauseEpoch: 0,
+    });
   });
 });

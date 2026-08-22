@@ -25,6 +25,7 @@ export const DocumentSourcePassageRow = Schema.extend(
     normalizationVersion: Schema.Literal(1),
     incarnation: PositiveInteger,
     recordedAt: NonNegativeInteger,
+    ledgerSequence: Schema.optional(PositiveInteger),
   }),
 );
 

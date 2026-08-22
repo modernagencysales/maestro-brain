@@ -472,9 +472,9 @@ The agent-facing context-pack operation should return:
 
 ```ts
 type ContextPack = {
-  schemaVersion: "1";
+  schemaVersion: "3";
   candidateManifest: {
-    version: "1";
+    version: "2";
     hash: string;
   };
   requestId: string;
@@ -482,6 +482,9 @@ type ContextPack = {
   brainKey: string;
   question: string;
   asOf: number;
+  freshness: "current" | "stale" | "unknown";
+  coverageStatus: "complete" | "partial" | "unavailable" | "unknown";
+  readiness: "ready" | "blocked";
   coverage: Array<{
     corpusKey: string;
     sourceKind: string;
@@ -500,6 +503,7 @@ type ContextPack = {
     unresolvedFailureCount: number;
     reason?: string;
   }>;
+  structuredFacts: StructuredFact[];
   entries: Array<{
     kind: "source" | "page" | "projection";
     brainKey: string;
@@ -527,6 +531,13 @@ type ContextPack = {
     subject: string;
     revisionKeys: string[];
   }>;
+  structuredConflicts: Array<{
+    subject: string;
+    narrativeRevisionKeys: string[];
+    structuredRevisionKeys: string[];
+    reason: "narrative_typed_disagreement";
+    behavior: "expose_both";
+  }>;
   omissions: Array<{
     reason: string;
     count: number;
@@ -535,11 +546,15 @@ type ContextPack = {
 ```
 
 The exact Effect schema and public error set are implementation artifacts. The
-behavioral contract above is ContextPack v1; `omissions` is the canonical
-budget/truncation field for the Confect schema, OpenAPI, MCP, CLI, and runtime
-fixtures. Coverage is never collapsed by `sourceKind`: two connector scopes in
-one corpus remain independently visible, and a healthy sibling cannot hide a
-missing required scope.
+behavioral contract above is ContextPack v3. Candidate-manifest v2 pins both
+narrative entries and structured facts. `freshness` is temporal; it does not
+imply complete coverage. `coverageStatus` is the worst required-scope coverage
+state, and `readiness` is blocked while any required scope or durable ingestion
+obligation is incomplete. `omissions` is the canonical budget/truncation field
+for the Confect schema, OpenAPI, MCP, CLI, and runtime fixtures. Coverage is
+never collapsed by `sourceKind`: two connector scopes in one corpus remain
+independently visible, and a healthy sibling cannot hide a missing required
+scope.
 
 ### 10.3 Supported Brain tools
 

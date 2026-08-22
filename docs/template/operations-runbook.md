@@ -62,6 +62,11 @@ an unparseable model response.
 4. Promote the rollback commit.
 5. Record incident notes and follow-up tests.
 
+Company Brain uses a forward read switch rather than an old-binary deploy. Use
+the ordered
+[Apero Company Brain rollback runbook](../product/apero-company-brain-rollback-runbook.md)
+for read-switch, one-connector, and full-pilot rollback.
+
 ## Provider Outage
 
 1. Enable the relevant kill switch or fake fallback.

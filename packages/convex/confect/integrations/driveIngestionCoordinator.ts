@@ -16,6 +16,7 @@ import { buildDrivePassages } from "@maestro-template/integrations/googleDrive/p
 import type {
   CommitDriveObservationArgs,
   CommitDriveObservationResult,
+  DrivePreparedWrite,
   DriveLedgerClassification,
   DriveSourceOutcomeReason,
   RecordDriveSourceOutcomeArgs,
@@ -77,6 +78,15 @@ export type DriveIngestionPageResult = Readonly<{
   receipts: readonly DriveIngestionReceipt[];
 }>;
 
+export type DrivePreparedPageResult = Readonly<{
+  connectorScopeKey: string;
+  cursorBefore: string;
+  cursorAfter: string;
+  terminal: boolean;
+  writes: readonly DrivePreparedWrite[];
+  skippedProviderObjectKeys: readonly string[];
+}>;
+
 export class DriveIngestionCoordinatorError extends Error {
   readonly _tag = "DriveIngestionCoordinatorError";
 
@@ -121,6 +131,14 @@ type DriveIngestionInput = Readonly<{
     index: number,
   ) => void | Promise<void>;
 }>;
+
+export type DrivePreparationInput = Omit<
+  DriveIngestionInput,
+  "ledger" | "afterDurableWrite"
+> &
+  Readonly<{
+    ledger: Pick<DriveIngestionLedger, "getExpectedIncarnation">;
+  }>;
 
 const causeTag = (error: unknown): string | null => {
   if (error === null || typeof error !== "object") return null;
@@ -228,16 +246,17 @@ const skippedReceipt = (providerObjectKey: string): DriveIngestionReceipt => ({
   duplicate: false,
 });
 
-const recordDecodeOutcome = async (input: {
-  readonly coordinator: DriveIngestionInput;
+const prepareDecodeOutcome = (input: {
+  readonly coordinator: DrivePreparationInput;
   readonly scope: DriveConnectorScope;
   readonly file: DriveFileRecord | null;
   readonly providerObjectKey: string;
   readonly error: DriveSourceDecodeError;
-}): Promise<DriveIngestionReceipt> => {
+}): DrivePreparedWrite => {
   const mapped = outcomeFor(input.error);
-  try {
-    const result = await input.coordinator.ledger.recordSourceOutcome({
+  return {
+    kind: "outcome",
+    args: {
       organizationKey: input.coordinator.organizationKey,
       connectorScopeKey: input.scope.connectorScopeKey,
       connectionKey: input.scope.connectionKey,
@@ -250,15 +269,12 @@ const recordDecodeOutcome = async (input: {
       outcome: mapped.outcome,
       reason: mapped.reason,
       observedAt: input.coordinator.observedAt,
-    });
-    return outcomeReceipt(input.providerObjectKey, result);
-  } catch (error) {
-    throw coordinatorError("ledger_write_failed", error);
-  }
+    },
+  };
 };
 
 const canonicalizeChange = async (input: {
-  readonly coordinator: DriveIngestionInput;
+  readonly coordinator: DrivePreparationInput;
   readonly change: DriveChange;
 }): Promise<CanonicalDriveRevision | DriveSourceDecodeError> => {
   const file = input.change.file;
@@ -317,10 +333,10 @@ const canonicalizeChange = async (input: {
   }
 };
 
-const commitRevision = async (input: {
-  readonly coordinator: DriveIngestionInput;
+const prepareRevision = async (input: {
+  readonly coordinator: DrivePreparationInput;
   readonly revision: CanonicalDriveRevision;
-}): Promise<DriveIngestionReceipt> => {
+}): Promise<DrivePreparedWrite> => {
   let expectedIncarnation: number | null;
   try {
     expectedIncarnation = await input.coordinator.ledger.getExpectedIncarnation(
@@ -339,18 +355,33 @@ const commitRevision = async (input: {
   } catch (error) {
     throw coordinatorError("passage_integrity_failed", error);
   }
-  try {
-    const result = await input.coordinator.ledger.commitObservation({
+  return {
+    kind: "observation",
+    args: {
       organizationKey: input.coordinator.organizationKey,
       revision: input.revision,
       expectedIncarnation,
-    });
+    },
+    expectedPassageCount,
+  };
+};
+
+const commitPreparedWrite = async (
+  input: DriveIngestionInput,
+  write: DrivePreparedWrite,
+): Promise<DriveIngestionReceipt> => {
+  try {
+    if (write.kind === "outcome") {
+      const result = await input.ledger.recordSourceOutcome(write.args);
+      return outcomeReceipt(write.args.providerObjectKey, result);
+    }
+    const result = await input.ledger.commitObservation(write.args);
     if (
       result.documentRevisionKey !== null &&
-      result.passageCount !== expectedPassageCount
+      result.passageCount !== write.expectedPassageCount
     )
       throw coordinatorError("passage_integrity_failed");
-    return committedReceipt(input.revision.providerObjectKey, result);
+    return committedReceipt(write.args.revision.providerObjectKey, result);
   } catch (error) {
     if (error instanceof DriveIngestionCoordinatorError) throw error;
     throw coordinatorError("ledger_write_failed", error);
@@ -373,6 +404,53 @@ const invokeAfterWrite = async (
 export const ingestDriveChangePage = async (
   input: DriveIngestionInput,
 ): Promise<DriveIngestionPageResult> => {
+  const prepared = await prepareDriveChangePage(input);
+  const receipts: DriveIngestionReceipt[] = [];
+  for (const write of prepared.writes) {
+    const receipt = await commitPreparedWrite(input, write);
+    receipts.push(receipt);
+    await invokeAfterWrite(input, receipt, receipts.length - 1);
+  }
+  receipts.push(
+    ...prepared.skippedProviderObjectKeys.map((providerObjectKey) =>
+      skippedReceipt(providerObjectKey),
+    ),
+  );
+  return ingestionResult(prepared, receipts);
+};
+
+const ingestionResult = (
+  prepared: DrivePreparedPageResult,
+  receipts: readonly DriveIngestionReceipt[],
+): DriveIngestionPageResult => ({
+  connectorScopeKey: prepared.connectorScopeKey,
+  cursorBefore: prepared.cursorBefore,
+  cursorAfter: prepared.cursorAfter,
+  terminal: prepared.terminal,
+  committed: receipts.filter(({ status }) => status === "committed").length,
+  duplicates: receipts.filter(({ duplicate }) => duplicate).length,
+  tombstones: receipts.filter(
+    ({ classification }) => classification === "tombstone",
+  ).length,
+  unsupported: receipts.filter(({ status }) => status === "unsupported").length,
+  quarantined: receipts.filter(({ status }) => status === "quarantined").length,
+  skippedOutOfScope: receipts.filter(
+    ({ status }) => status === "skipped_out_of_scope",
+  ).length,
+  receipts,
+});
+
+export const driveIngestionResultFromPrepared = ingestionResult;
+
+export const driveSkippedReceipt = skippedReceipt;
+
+export const driveCommittedReceipt = committedReceipt;
+
+export const driveOutcomeReceipt = outcomeReceipt;
+
+export const prepareDriveChangePage = async (
+  input: DrivePreparationInput,
+): Promise<DrivePreparedPageResult> => {
   if (
     input.organizationKey.trim().length === 0 ||
     input.pageToken.trim().length === 0 ||
@@ -410,7 +488,8 @@ export const ingestDriveChangePage = async (
     (page.nextPageToken !== null && page.newStartPageToken !== null)
   )
     throw coordinatorError("provider_page_invalid");
-  const receipts: DriveIngestionReceipt[] = [];
+  const writes: DrivePreparedWrite[] = [];
+  const skippedProviderObjectKeys: string[] = [];
   for (const change of page.changes) {
     const file = change.file;
     if (file !== null) {
@@ -421,41 +500,29 @@ export const ingestDriveChangePage = async (
         throw coordinatorError("scope_membership_failed", error);
       }
       if (!inScope) {
-        receipts.push(skippedReceipt(change.fileId));
+        skippedProviderObjectKeys.push(change.fileId);
         continue;
       }
     }
     const canonical = await canonicalizeChange({ coordinator: input, change });
-    const receipt =
+    const write =
       canonical instanceof DriveSourceDecodeError
-        ? await recordDecodeOutcome({
+        ? prepareDecodeOutcome({
             coordinator: input,
             scope,
             file,
             providerObjectKey: change.fileId,
             error: canonical,
           })
-        : await commitRevision({ coordinator: input, revision: canonical });
-    receipts.push(receipt);
-    await invokeAfterWrite(input, receipt, receipts.length - 1);
+        : await prepareRevision({ coordinator: input, revision: canonical });
+    writes.push(write);
   }
   return {
     connectorScopeKey: scope.connectorScopeKey,
     cursorBefore: input.pageToken,
     cursorAfter,
     terminal: page.nextPageToken === null,
-    committed: receipts.filter(({ status }) => status === "committed").length,
-    duplicates: receipts.filter(({ duplicate }) => duplicate).length,
-    tombstones: receipts.filter(
-      ({ classification }) => classification === "tombstone",
-    ).length,
-    unsupported: receipts.filter(({ status }) => status === "unsupported")
-      .length,
-    quarantined: receipts.filter(({ status }) => status === "quarantined")
-      .length,
-    skippedOutOfScope: receipts.filter(
-      ({ status }) => status === "skipped_out_of_scope",
-    ).length,
-    receipts,
+    writes,
+    skippedProviderObjectKeys,
   };
 };

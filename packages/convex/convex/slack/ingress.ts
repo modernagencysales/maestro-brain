@@ -5,6 +5,7 @@ import type { Id } from "../_generated/dataModel";
 import type { DatabaseWriter, MutationCtx } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 import {
+  retrievalPublicationAuthorityDigest,
   retrievalPublicationJobKey,
   retrievalPublicationJobRow,
   retrievalPublicationSubjectIncarnationKey,
@@ -15,6 +16,13 @@ import {
   retrievalPublicationSubjectKey,
   type RetrievalEligibilityFenceKind,
 } from "../../confect/brain/retrievalPublication";
+import {
+  providerTargetResolutionAuthorityDigest,
+  providerTargetResolutionIntentKey,
+  providerTargetResolutionPopulationDigest,
+  type LiveCaptureTargetResolutionAuthority,
+  type ProviderTargetResolutionTarget,
+} from "../../confect/brain/providerTargetResolution";
 import { sha256Hex } from "../../confect/shared/sha256";
 const MAX_ACTIVE_POLICIES_PER_CHANNEL = 1;
 const MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION = 26;
@@ -65,6 +73,360 @@ type FenceIdentity = {
   readonly organizationKey: string;
   readonly kind: RetrievalEligibilityFenceKind;
   readonly controllerKey: string;
+};
+const stableKey = (prefix: string, value: unknown): string =>
+  `${prefix}_${sha256Hex(JSON.stringify(value))}`;
+
+const liveSlackParentAuthority = (input: {
+  readonly receiptId: Id<"providerEventReceipts">;
+  readonly organizationKey: string;
+  readonly channelKey: string;
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly sourceKey: string;
+  readonly sourceRevisionKey: string;
+  readonly observationDigest: string;
+  readonly capturedAt: number;
+}): LiveCaptureTargetResolutionAuthority => {
+  const ingestionObligationKey = stableKey("iobl", {
+    authorityKind: "live_capture",
+    providerKind: "slack",
+    receiptId: input.receiptId,
+    connectionKey: input.connectionKey,
+    connectionGeneration: input.connectionGeneration,
+    sourceRevisionKey: input.sourceRevisionKey,
+  });
+  return {
+    authorityKind: "live_capture",
+    targetResolutionIntentKey: providerTargetResolutionIntentKey({
+      ingestionObligationKey,
+    }),
+    ingestionObligationKey,
+    organizationKey: input.organizationKey,
+    corpusKey: "slack",
+    providerKind: "slack",
+    connectorScopeKey: input.channelKey,
+    connectionKey: input.connectionKey,
+    connectionGeneration: input.connectionGeneration,
+    membershipKey: input.sourceKey,
+    originKind: "slack",
+    originKey: input.sourceKey,
+    originRevisionKey: input.sourceRevisionKey,
+    observationDigest: input.observationDigest,
+    resolutionGeneration: 1,
+    captureKey: `slack-receipt:${String(input.receiptId)}`,
+    capturedAt: input.capturedAt,
+  };
+};
+
+const progressSlackLiveParentObligation = async (
+  ctx: MutationCtx,
+  providerIntentId: Id<"providerTargetResolutionIntents">,
+  now: number,
+) => {
+  const intent = await ctx.db.get(providerIntentId);
+  if (intent === null || intent.authorityKind !== "live_capture")
+    throw new Error("SlackProviderTargetResolutionIntentMissing");
+  const parentRows = await ctx.db
+    .query("ingestionObligations")
+    .withIndex("by_ingestion_obligation_key", (query) =>
+      query.eq("ingestionObligationKey", intent.ingestionObligationKey),
+    )
+    .take(2);
+  if (parentRows.length > 1)
+    throw new Error("SlackLiveParentObligationConflict");
+  const parent = parentRows[0];
+  if (
+    parent !== undefined &&
+    (parent.authorityKind !== "live_capture" ||
+      parent.parentIngestionObligationKey !== undefined ||
+      parent.workspaceId !== undefined ||
+      parent.brainKey !== undefined ||
+      parent.allowlistGeneration !== undefined ||
+      parent.requiredScopeIntentKey !== undefined ||
+      parent.organizationKey !== intent.organizationKey ||
+      parent.corpusKey !== "slack" ||
+      parent.providerKind !== "slack" ||
+      parent.connectorScopeKey !== intent.connectorScopeKey ||
+      parent.connectionKey !== intent.connectionKey ||
+      parent.connectionGeneration !== intent.connectionGeneration ||
+      parent.originKind !== "slack" ||
+      parent.originKey !== intent.originKey ||
+      parent.originRevisionKey !== intent.originRevisionKey ||
+      parent.targetResolutionIntentId !== intent._id ||
+      parent.targetResolutionIntentKey !== intent.targetResolutionIntentKey)
+  )
+    throw new Error("SlackLiveParentObligationAuthorityConflict");
+
+  let state:
+    | "target_resolution_pending"
+    | "retry_wait"
+    | "capacity_blocked"
+    | "drain_pending"
+    | "complete"
+    | "policy_excluded"
+    | "failed";
+  let errorTag = intent.lastErrorTag;
+  if (intent.status === "pending") state = "target_resolution_pending";
+  else if (intent.status === "retry_wait")
+    state = /CapacityExceeded$/.test(intent.lastErrorTag ?? "")
+      ? "capacity_blocked"
+      : "retry_wait";
+  else if (intent.status === "capacity_blocked") state = "capacity_blocked";
+  else if (intent.status === "policy_excluded" || intent.status === "stale") {
+    state = "policy_excluded";
+    errorTag = null;
+  } else if (intent.status === "integrity_failure") {
+    state = "failed";
+    errorTag ??= "SlackTargetResolutionIntegrityFailure";
+  } else {
+    const expectedChildKeys = intent.targets.flatMap((target) =>
+      target.childIngestionObligationKey === undefined
+        ? []
+        : [target.childIngestionObligationKey],
+    );
+    const children = await ctx.db
+      .query("ingestionObligations")
+      .withIndex("by_parent_obligation_state", (query) =>
+        query.eq("parentIngestionObligationKey", intent.ingestionObligationKey),
+      )
+      .take(101);
+    const exactChildPopulation =
+      children.length <= 100 &&
+      intent.targetCount > 0 &&
+      expectedChildKeys.length === intent.targetCount &&
+      new Set(expectedChildKeys).size === intent.targetCount &&
+      children.length === intent.targetCount &&
+      children.every(
+        (child) =>
+          child.authorityKind === "live_capture" &&
+          child.targetResolutionIntentId === intent._id &&
+          expectedChildKeys.includes(child.ingestionObligationKey),
+      );
+    if (!exactChildPopulation) {
+      state = children.length > 100 ? "failed" : "drain_pending";
+      errorTag =
+        children.length > 100
+          ? "SlackLiveChildPopulationCapacityExceeded"
+          : null;
+    } else if (
+      children.some(
+        (child) => child.state === "failed" || child.state === "quarantined",
+      )
+    ) {
+      state = "failed";
+      errorTag = "SlackLiveChildFailed";
+    } else if (
+      children.every(
+        (child) =>
+          child.state === "complete" || child.state === "policy_excluded",
+      )
+    ) {
+      state = "complete";
+      errorTag = null;
+    } else {
+      state = "drain_pending";
+      errorTag = null;
+    }
+  }
+  const terminal =
+    state === "complete" || state === "policy_excluded" || state === "failed";
+  const row = {
+    schemaVersion: 1 as const,
+    authorityKind: "live_capture" as const,
+    organizationKey: intent.organizationKey,
+    corpusKey: "slack" as const,
+    providerKind: "slack" as const,
+    connectorScopeKey: intent.connectorScopeKey,
+    connectionKey: intent.connectionKey,
+    connectionGeneration: intent.connectionGeneration,
+    ingestionObligationKey: intent.ingestionObligationKey,
+    cause: "observation" as const,
+    membershipKey: intent.membershipKey,
+    originKind: "slack" as const,
+    originKey: intent.originKey,
+    originRevisionKey: intent.originRevisionKey,
+    ledgerSequence: intent.capturedAt ?? now,
+    state,
+    targetResolutionIntentId: intent._id,
+    targetResolutionIntentKey: intent.targetResolutionIntentKey,
+    publicationJobKeys: [] as string[],
+    errorTag,
+    terminalAt: terminal ? now : null,
+    createdAt: intent.createdAt,
+    updatedAt: now,
+  };
+  if (parent === undefined) await ctx.db.insert("ingestionObligations", row);
+  else if (
+    parent.state !== state ||
+    parent.errorTag !== errorTag ||
+    (terminal ? parent.terminalAt === null : parent.terminalAt !== null)
+  )
+    await ctx.db.patch(parent._id, {
+      state,
+      errorTag,
+      terminalAt: terminal ? now : null,
+      updatedAt: now,
+    });
+};
+
+const ensureSlackRequiredScope = async (
+  ctx: MutationCtx,
+  input: {
+    readonly organizationKey: string;
+    readonly workspaceId: Id<"workspaces">;
+    readonly brainKey: string;
+    readonly connectorScopeKey: string;
+    readonly connectionKey: string;
+    readonly connectionGeneration: number;
+    readonly policyGeneration: number;
+    readonly controllingConfigurationDigest: string;
+    readonly now: number;
+  },
+) => {
+  const allowlistGeneration = input.policyGeneration;
+  const allowlistGenerationKey = stableKey("calg", {
+    connectorScopeKey: input.connectorScopeKey,
+    connectionGeneration: input.connectionGeneration,
+    allowlistGeneration,
+    controllingConfigurationDigest: input.controllingConfigurationDigest,
+  });
+  const allowlists = await ctx.db
+    .query("connectorAllowlistGenerations")
+    .withIndex("by_scope_generation", (query) =>
+      query
+        .eq("connectorScopeKey", input.connectorScopeKey)
+        .eq("allowlistGeneration", allowlistGeneration),
+    )
+    .take(2);
+  if (allowlists.length > 1) throw new Error("SlackAllowlistConflict");
+  const allowlist = allowlists[0];
+  if (
+    allowlist !== undefined &&
+    (allowlist.organizationKey !== input.organizationKey ||
+      allowlist.allowlistGenerationKey !== allowlistGenerationKey ||
+      allowlist.connectionKey !== input.connectionKey ||
+      allowlist.connectionGeneration !== input.connectionGeneration ||
+      allowlist.configurationDigest !== input.controllingConfigurationDigest)
+  )
+    throw new Error("SlackAllowlistAuthorityConflict");
+  if (allowlist === undefined)
+    await ctx.db.insert("connectorAllowlistGenerations", {
+      schemaVersion: 1,
+      organizationKey: input.organizationKey,
+      connectorScopeKey: input.connectorScopeKey,
+      allowlistGenerationKey,
+      connectionKey: input.connectionKey,
+      connectionGeneration: input.connectionGeneration,
+      allowlistGeneration,
+      configurationDigest: input.controllingConfigurationDigest,
+      memberCount: 0,
+      state: "current",
+      createdAt: input.now,
+      supersededAt: null,
+    });
+
+  const scopes = await ctx.db
+    .query("connectorScopes")
+    .withIndex("by_connector_scope_key", (query) =>
+      query.eq("connectorScopeKey", input.connectorScopeKey),
+    )
+    .take(2);
+  if (scopes.length > 1) throw new Error("SlackConnectorScopeConflict");
+  const scope = scopes[0];
+  if (
+    scope !== undefined &&
+    (scope.organizationKey !== input.organizationKey ||
+      scope.providerKind !== "slack" ||
+      scope.providerContainerKey !== input.connectorScopeKey ||
+      scope.connectionKey !== input.connectionKey)
+  )
+    throw new Error("SlackConnectorScopeAuthorityConflict");
+  if (scope === undefined)
+    await ctx.db.insert("connectorScopes", {
+      schemaVersion: 1,
+      organizationKey: input.organizationKey,
+      connectorScopeKey: input.connectorScopeKey,
+      providerKind: "slack",
+      providerContainerKey: input.connectorScopeKey,
+      connectionKey: input.connectionKey,
+      currentConnectionGeneration: input.connectionGeneration,
+      currentAllowlistGeneration: allowlistGeneration,
+      scopeGeneration: 1,
+      state: "active",
+      createdAt: input.now,
+      updatedAt: input.now,
+    });
+  else if (
+    scope.state !== "active" ||
+    scope.currentConnectionGeneration !== input.connectionGeneration ||
+    scope.currentAllowlistGeneration !== allowlistGeneration
+  )
+    await ctx.db.patch(scope._id, {
+      currentConnectionGeneration: input.connectionGeneration,
+      currentAllowlistGeneration: allowlistGeneration,
+      scopeGeneration: scope.scopeGeneration + 1,
+      state: "active",
+      updatedAt: input.now,
+    });
+
+  const requiredScopeIntentKey = stableKey("brsi", {
+    workspaceId: input.workspaceId,
+    brainKey: input.brainKey,
+    corpusKey: "slack",
+    providerKind: "slack",
+    connectorScopeKey: input.connectorScopeKey,
+  });
+  const intents = await ctx.db
+    .query("brainRequiredScopeIntents")
+    .withIndex("by_required_scope_intent_key", (query) =>
+      query.eq("requiredScopeIntentKey", requiredScopeIntentKey),
+    )
+    .take(2);
+  if (intents.length > 1) throw new Error("SlackRequiredScopeConflict");
+  const existing = intents[0];
+  const intentGeneration =
+    existing !== undefined &&
+    existing.organizationKey === input.organizationKey &&
+    existing.workspaceId === input.workspaceId &&
+    existing.brainKey === input.brainKey &&
+    existing.corpusKey === "slack" &&
+    existing.providerKind === "slack" &&
+    existing.connectorScopeKey === input.connectorScopeKey &&
+    existing.connectionKey === input.connectionKey &&
+    existing.connectionGeneration === input.connectionGeneration &&
+    existing.allowlistGeneration === allowlistGeneration &&
+    existing.controllingConfigurationDigest ===
+      input.controllingConfigurationDigest &&
+    existing.state === "required"
+      ? existing.intentGeneration
+      : (existing?.intentGeneration ?? 0) + 1;
+  const required = {
+    schemaVersion: 1 as const,
+    organizationKey: input.organizationKey,
+    workspaceId: input.workspaceId,
+    brainKey: input.brainKey,
+    corpusKey: "slack" as const,
+    providerKind: "slack" as const,
+    connectorScopeKey: input.connectorScopeKey,
+    connectionKey: input.connectionKey,
+    connectionGeneration: input.connectionGeneration,
+    allowlistGeneration,
+    requiredScopeIntentKey,
+    intentGeneration,
+    controllingConfigurationDigest: input.controllingConfigurationDigest,
+    state: "required" as const,
+    decommissionGeneration: null,
+    activatedAt:
+      existing?.state === "required" ? existing.activatedAt : input.now,
+    decommissionedAt: null,
+    updatedAt: input.now,
+  };
+  if (existing === undefined)
+    await ctx.db.insert("brainRequiredScopeIntents", required);
+  else if (intentGeneration !== existing.intentGeneration)
+    await ctx.db.patch(existing._id, required);
+  return { requiredScopeIntentKey, allowlistGeneration };
 };
 const ensureFenceSnapshot = async (
   db: IngressDb,
@@ -221,6 +583,7 @@ const artifactFor = async (
 const retryResolution = async (
   ctx: MutationCtx,
   intentId: Id<"slackPublicationTargetIntents">,
+  providerIntentId: Id<"providerTargetResolutionIntents">,
   receiptId: Id<"providerEventReceipts">,
   attemptCount: number,
   errorTag: string,
@@ -235,6 +598,21 @@ const retryResolution = async (
     targetCount: 0,
     updatedAt: now,
   });
+  const providerIntent = await ctx.db.get(providerIntentId);
+  if (providerIntent === null)
+    throw new Error("SlackProviderTargetResolutionIntentMissing");
+  await ctx.db.patch(providerIntentId, {
+    status: "retry_wait",
+    attemptCount: providerIntent.attemptCount + 1,
+    nextAttemptAt: now + delay,
+    lastErrorTag: errorTag,
+    targetCount: 0,
+    targetDigest: null,
+    targets: [],
+    completedAt: null,
+    updatedAt: now,
+  });
+  await progressSlackLiveParentObligation(ctx, providerIntentId, now);
   await ctx.scheduler.runAfter(delay, resolveSlackPublicationTargetsRef, {
     receiptId,
     now: now + delay,
@@ -254,16 +632,67 @@ const resolveTargets = async (
     .withIndex("by_receipt_id", (q) => q.eq("receiptId", receiptId))
     .unique();
   if (intent === null) throw new Error("SlackPublicationTargetIntentMissing");
+  if (intent.providerTargetResolutionIntentId === undefined)
+    throw new Error("SlackProviderTargetResolutionIntentMissing");
+  const providerIntent = await ctx.db.get(
+    intent.providerTargetResolutionIntentId,
+  );
+  if (
+    providerIntent === null ||
+    providerIntent.authorityKind !== "live_capture" ||
+    providerIntent.providerKind !== "slack" ||
+    providerIntent.organizationKey !== receipt.organizationKey ||
+    providerIntent.connectorScopeKey !== receipt.channelKey ||
+    providerIntent.connectionKey !== receipt.connectionKey ||
+    providerIntent.connectionGeneration !== receipt.connectionGeneration ||
+    providerIntent.originKind !== "slack" ||
+    providerIntent.originKey !== receipt.sourceKey ||
+    providerIntent.originRevisionKey !== receipt.sourceRevisionKey
+  )
+    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
   const legacySucceededIntent =
     intent.status === "succeeded" &&
     (intent.resolutionGeneration === undefined ||
       intent.targetDigest === undefined ||
       intent.targets === undefined);
-  if (intent.status === "succeeded" && !legacySucceededIntent)
+  if (
+    legacySucceededIntent &&
+    (providerIntent.status === "succeeded" ||
+      providerIntent.status === "policy_excluded")
+  ) {
+    const legacyTargets = providerIntent.targets.map((target) => ({
+      workspaceId: target.workspaceId,
+      brainKey: target.brainKey,
+      jobKey: target.jobKey,
+    }));
+    const targetDigest = `sha256:${sha256Hex(
+      JSON.stringify(
+        legacyTargets
+          .map(
+            (target) =>
+              `${String(target.workspaceId)}:${target.brainKey}:${target.jobKey}`,
+          )
+          .sort(),
+      ),
+    )}`;
+    await ctx.db.patch(intent._id, {
+      resolutionGeneration: intent.resolutionGeneration ?? 1,
+      linkageVersion: 1,
+      targetCount: legacyTargets.length,
+      targetDigest,
+      targets: legacyTargets,
+      updatedAt: now,
+    });
+    await progressSlackLiveParentObligation(ctx, providerIntent._id, now);
+    return { status: "succeeded" as const, targetCount: legacyTargets.length };
+  }
+  if (intent.status === "succeeded" && !legacySucceededIntent) {
+    await progressSlackLiveParentObligation(ctx, providerIntent._id, now);
     return {
       status: "succeeded" as const,
       targetCount: intent.targetCount,
     };
+  }
   const resolutionGeneration = legacySucceededIntent
     ? (intent.resolutionGeneration ?? 0) + 1
     : (intent.resolutionGeneration ?? 1);
@@ -289,6 +718,18 @@ const resolveTargets = async (
       completedAt: now,
       updatedAt: now,
     });
+    await ctx.db.patch(providerIntent._id, {
+      status: "policy_excluded",
+      attemptCount: providerIntent.attemptCount + 1,
+      nextAttemptAt: now,
+      lastErrorTag: null,
+      targetCount: 0,
+      targetDigest: providerTargetResolutionPopulationDigest([]),
+      targets: [],
+      completedAt: now,
+      updatedAt: now,
+    });
+    await progressSlackLiveParentObligation(ctx, providerIntent._id, now);
     return { status: "succeeded" as const, targetCount: 0 };
   }
   const [policies, workspaces] = await Promise.all([
@@ -309,6 +750,7 @@ const resolveTargets = async (
     return await retryResolution(
       ctx,
       intent._id,
+      providerIntent._id,
       receiptId,
       attemptCount,
       "SlackActivePolicyCapacityExceeded",
@@ -318,6 +760,7 @@ const resolveTargets = async (
     return await retryResolution(
       ctx,
       intent._id,
+      providerIntent._id,
       receiptId,
       attemptCount,
       "SlackActiveWorkspaceCapacityExceeded",
@@ -363,6 +806,7 @@ const resolveTargets = async (
     return await retryResolution(
       ctx,
       intent._id,
+      providerIntent._id,
       receiptId,
       attemptCount,
       "SlackPublicationAuthorityUnavailable",
@@ -391,7 +835,28 @@ const resolveTargets = async (
       connection.connectionGeneration === receipt.connectionGeneration,
     now,
   });
-  const targets: Array<{
+  const providerTargets: Array<
+    ProviderTargetResolutionTarget & {
+      workspaceId: Id<"workspaces">;
+      childIngestionObligationKey: string;
+    }
+  > = [];
+  const controllingConfigurationDigest = `sha256:${sha256Hex(
+    JSON.stringify({
+      authorityKind: "live_capture",
+      providerKind: "slack",
+      organizationKey: receipt.organizationKey,
+      connectorScopeKey: receipt.channelKey,
+      connectionKey: receipt.connectionKey,
+      connectionGeneration: receipt.connectionGeneration,
+      policies: policies.map((policy) => ({
+        policyEpoch: policy.policyEpoch,
+        mode: policy.mode,
+        targetBrainKeys: [...policy.targetBrainKeys].sort(),
+      })),
+    }),
+  )}`;
+  const legacyTargets: Array<{
     workspaceId: Id<"workspaces">;
     brainKey: string;
     jobKey: string;
@@ -403,6 +868,24 @@ const resolveTargets = async (
     )
       continue;
     const policyGeneration = targetGenerations.get(workspace.brainKey) ?? 1;
+    const requiredScope = await ensureSlackRequiredScope(ctx, {
+      organizationKey: receipt.organizationKey,
+      workspaceId: workspace._id,
+      brainKey: workspace.brainKey,
+      connectorScopeKey: receipt.channelKey,
+      connectionKey: receipt.connectionKey,
+      connectionGeneration: receipt.connectionGeneration,
+      policyGeneration,
+      controllingConfigurationDigest,
+      now,
+    });
+    const childIngestionObligationKey = stableKey("iobl", {
+      authorityKind: "live_capture",
+      parentIngestionObligationKey: providerIntent.ingestionObligationKey,
+      workspaceId: workspace._id,
+      brainKey: workspace.brainKey,
+      resolutionGeneration: providerIntent.resolutionGeneration,
+    });
     const policyFence = await ensureFenceSnapshot(ctx.db, {
       identity: {
         organizationKey: receipt.organizationKey,
@@ -428,6 +911,9 @@ const resolveTargets = async (
       originKind: "slack" as const,
       sourceKey: receipt.sourceKey,
       sourceRevisionKey: receipt.sourceRevisionKey,
+      ingestionObligationKey: childIngestionObligationKey,
+      providerTargetResolutionIntentId: providerIntent._id,
+      providerTargetResolutionGeneration: providerIntent.resolutionGeneration,
       requestGeneration: policyGeneration,
       authorityContext: {
         version: 1 as const,
@@ -456,9 +942,14 @@ const resolveTargets = async (
         },
         targetResolutionIntentKey: intent._id,
         targetResolutionGeneration: resolutionGeneration,
+        providerTargetResolutionIntentId: providerIntent._id,
+        providerTargetResolutionGeneration: providerIntent.resolutionGeneration,
       },
     };
     const jobKey = retrievalPublicationJobKey(jobInput);
+    const authorityDigest = retrievalPublicationAuthorityDigest(
+      jobInput.authorityContext,
+    );
     const existing = await ctx.db
       .query("retrievalPublicationJobs")
       .withIndex("by_job_key", (q) => q.eq("jobKey", jobKey))
@@ -472,12 +963,71 @@ const resolveTargets = async (
         existing.effectClass !== "direct_publication" ||
         existing.sourceKey !== receipt.sourceKey ||
         existing.sourceRevisionKey !== receipt.sourceRevisionKey ||
+        existing.ingestionObligationKey !== childIngestionObligationKey ||
+        existing.providerTargetResolutionIntentId !== providerIntent._id ||
+        existing.providerTargetResolutionGeneration !==
+          providerIntent.resolutionGeneration ||
         existing.targetResolutionIntentKey !== intent._id ||
         existing.authorityEnvelope?.targetResolutionIntentKey !== intent._id ||
         existing.authorityEnvelope?.targetResolutionGeneration !==
           resolutionGeneration)
     )
       throw new Error("SlackPublicationChildLinkageConflict");
+    const children = await ctx.db
+      .query("ingestionObligations")
+      .withIndex("by_ingestion_obligation_key", (query) =>
+        query.eq("ingestionObligationKey", childIngestionObligationKey),
+      )
+      .take(2);
+    if (children.length > 1)
+      throw new Error("SlackIngestionObligationConflict");
+    const child = children[0];
+    if (
+      child !== undefined &&
+      (child.authorityKind !== "live_capture" ||
+        child.parentIngestionObligationKey !==
+          providerIntent.ingestionObligationKey ||
+        child.organizationKey !== receipt.organizationKey ||
+        child.workspaceId !== workspace._id ||
+        child.brainKey !== workspace.brainKey ||
+        child.requiredScopeIntentKey !== requiredScope.requiredScopeIntentKey ||
+        child.originRevisionKey !== receipt.sourceRevisionKey ||
+        child.targetResolutionIntentId !== providerIntent._id ||
+        child.publicationJobKeys.length !== 1 ||
+        child.publicationJobKeys[0] !== jobKey)
+    )
+      throw new Error("SlackIngestionObligationAuthorityConflict");
+    if (child === undefined)
+      await ctx.db.insert("ingestionObligations", {
+        schemaVersion: 1,
+        authorityKind: "live_capture",
+        parentIngestionObligationKey: providerIntent.ingestionObligationKey,
+        organizationKey: receipt.organizationKey,
+        workspaceId: workspace._id,
+        brainKey: workspace.brainKey,
+        corpusKey: "slack",
+        providerKind: "slack",
+        connectorScopeKey: receipt.channelKey,
+        connectionKey: receipt.connectionKey,
+        connectionGeneration: receipt.connectionGeneration,
+        allowlistGeneration: requiredScope.allowlistGeneration,
+        ingestionObligationKey: childIngestionObligationKey,
+        requiredScopeIntentKey: requiredScope.requiredScopeIntentKey,
+        cause: "observation",
+        membershipKey: providerIntent.membershipKey,
+        originKind: "slack",
+        originKey: receipt.sourceKey,
+        originRevisionKey: receipt.sourceRevisionKey,
+        ledgerSequence: providerIntent.capturedAt ?? now,
+        state: "publication_pending",
+        targetResolutionIntentId: providerIntent._id,
+        targetResolutionIntentKey: providerIntent.targetResolutionIntentKey,
+        publicationJobKeys: [jobKey],
+        errorTag: null,
+        terminalAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     if (existing === null)
       await ctx.db.insert("retrievalPublicationJobs", {
         ...retrievalPublicationJobRow(jobInput, now),
@@ -497,15 +1047,22 @@ const resolveTargets = async (
         },
         now,
       });
-    targets.push({
+    legacyTargets.push({
       workspaceId: workspace._id,
       brainKey: workspace.brainKey,
       jobKey,
     });
+    providerTargets.push({
+      workspaceId: workspace._id,
+      brainKey: workspace.brainKey,
+      jobKey,
+      authorityDigest,
+      childIngestionObligationKey,
+    });
   }
   const targetDigest = `sha256:${sha256Hex(
     JSON.stringify(
-      targets
+      legacyTargets
         .map(
           (target) =>
             `${String(target.workspaceId)}:${target.brainKey}:${target.jobKey}`,
@@ -520,13 +1077,28 @@ const resolveTargets = async (
     lastErrorTag: null,
     resolutionGeneration,
     linkageVersion: 1,
-    targetCount: targets.length,
+    targetCount: legacyTargets.length,
     targetDigest,
-    targets,
+    targets: legacyTargets,
     completedAt: now,
     updatedAt: now,
   });
-  return { status: "succeeded" as const, targetCount: targets.length };
+  await ctx.db.patch(providerIntent._id, {
+    status: providerTargets.length === 0 ? "policy_excluded" : "succeeded",
+    attemptCount: providerIntent.attemptCount + 1,
+    nextAttemptAt: now,
+    lastErrorTag: null,
+    targetCount: providerTargets.length,
+    targetDigest: providerTargetResolutionPopulationDigest(providerTargets),
+    targets: providerTargets,
+    completedAt: now,
+    updatedAt: now,
+  });
+  await progressSlackLiveParentObligation(ctx, providerIntent._id, now);
+  return {
+    status: "succeeded" as const,
+    targetCount: legacyTargets.length,
+  };
 };
 export const receiveSlackEvent = internalMutation({
   args,
@@ -572,7 +1144,76 @@ export const receiveSlackEvent = internalMutation({
     );
     if (result.sourceRevisionKey === undefined) return result;
     const receipt = await receiptFor(ctx.db, i);
-    if (receipt === null) throw new Error("SlackCaptureReceiptMissing");
+    if (receipt === null || receipt.sourceKey === null)
+      throw new Error("SlackCaptureReceiptMissing");
+    const revision = await ctx.db
+      .query("sourceRevisions")
+      .withIndex("by_source_revision_key", (query) =>
+        query
+          .eq("organizationKey", receipt.organizationKey)
+          .eq("sourceRevisionKey", result.sourceRevisionKey ?? ""),
+      )
+      .unique();
+    if (
+      revision === null ||
+      revision.sourceKey !== receipt.sourceKey ||
+      revision.connectionKey !== receipt.connectionKey ||
+      revision.connectionGeneration !== receipt.connectionGeneration
+    )
+      throw new Error("SlackCaptureRevisionAuthorityMissing");
+    const providerAuthority = liveSlackParentAuthority({
+      receiptId: receipt._id,
+      organizationKey: receipt.organizationKey,
+      channelKey: receipt.channelKey,
+      connectionKey: receipt.connectionKey,
+      connectionGeneration: receipt.connectionGeneration,
+      sourceKey: receipt.sourceKey,
+      sourceRevisionKey: result.sourceRevisionKey,
+      observationDigest: revision.contentHash,
+      capturedAt: receipt.receivedAt,
+    });
+    const providerRows = await ctx.db
+      .query("providerTargetResolutionIntents")
+      .withIndex("by_target_resolution_intent_key", (query) =>
+        query.eq(
+          "targetResolutionIntentKey",
+          providerAuthority.targetResolutionIntentKey,
+        ),
+      )
+      .take(2);
+    if (providerRows.length > 1)
+      throw new Error("SlackProviderTargetResolutionConflict");
+    const existingProvider = providerRows[0];
+    if (
+      existingProvider !== undefined &&
+      (existingProvider.authorityKind !== "live_capture" ||
+        existingProvider.authorityDigest !==
+          providerTargetResolutionAuthorityDigest(providerAuthority))
+    )
+      throw new Error("SlackProviderTargetResolutionAuthorityConflict");
+    const providerTargetResolutionIntentId =
+      existingProvider?._id ??
+      (await ctx.db.insert("providerTargetResolutionIntents", {
+        schemaVersion: 1,
+        ...providerAuthority,
+        authorityDigest:
+          providerTargetResolutionAuthorityDigest(providerAuthority),
+        status: "pending",
+        attemptCount: 0,
+        nextAttemptAt: i.receivedAt,
+        lastErrorTag: null,
+        targetCount: 0,
+        targetDigest: null,
+        targets: [],
+        completedAt: null,
+        createdAt: i.receivedAt,
+        updatedAt: i.receivedAt,
+      }));
+    await progressSlackLiveParentObligation(
+      ctx,
+      providerTargetResolutionIntentId,
+      i.receivedAt,
+    );
     const existingIntent = await ctx.db
       .query("slackPublicationTargetIntents")
       .withIndex("by_receipt_id", (q) => q.eq("receiptId", receipt._id))
@@ -584,6 +1225,7 @@ export const receiveSlackEvent = internalMutation({
         organizationKey: receipt.organizationKey,
         channelKey: receipt.channelKey,
         sourceRevisionKey: result.sourceRevisionKey,
+        providerTargetResolutionIntentId,
         status: "pending",
         attemptCount: 0,
         nextAttemptAt: i.receivedAt,
@@ -594,6 +1236,16 @@ export const receiveSlackEvent = internalMutation({
         createdAt: i.receivedAt,
         updatedAt: i.receivedAt,
       });
+    else if (existingIntent.providerTargetResolutionIntentId === undefined)
+      await ctx.db.patch(existingIntent._id, {
+        providerTargetResolutionIntentId,
+        updatedAt: i.receivedAt,
+      });
+    else if (
+      existingIntent.providerTargetResolutionIntentId !==
+      providerTargetResolutionIntentId
+    )
+      throw new Error("SlackProviderTargetResolutionLinkageConflict");
     await ctx.scheduler.runAfter(0, resolveSlackPublicationTargetsRef, {
       receiptId: receipt._id,
       now: i.receivedAt,

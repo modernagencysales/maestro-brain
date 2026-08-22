@@ -37,6 +37,7 @@ export const DocumentSourceObservationRow = Schema.Struct({
   incarnation: PositiveInteger,
   observedAt: NonNegativeInteger,
   recordedAt: NonNegativeInteger,
+  ledgerSequence: Schema.optional(PositiveInteger),
 });
 
 export default Table.make(() => DocumentSourceObservationRow)

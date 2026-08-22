@@ -117,6 +117,19 @@ const driveFile = (value: unknown): DriveFileRecord | null => {
 const quoteDriveQueryValue = (value: string): string =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
+const rootFolderQuery = (rootFolderIds: readonly string[]): string => {
+  const roots = [...new Set(rootFolderIds.map((root) => root.trim()))].sort();
+  if (
+    roots.length === 0 ||
+    roots.length > 100 ||
+    roots.some((root) => root.length === 0)
+  )
+    throw new DriveApiClientError("invalid_request", false, null, null);
+  return `(${roots
+    .map((root) => `'${quoteDriveQueryValue(root)}' in parents`)
+    .join(" or ")}) and trashed = false`;
+};
+
 export const makeDriveApiClient = (
   input: Readonly<{
     accessToken: string;
@@ -243,6 +256,51 @@ export const makeDriveApiClient = (
       url.searchParams.set("supportsAllDrives", "true");
       url.searchParams.set("fields", `files(${FILE_FIELDS}),nextPageToken`);
       if (args.pageToken !== null) {
+        url.searchParams.set("pageToken", args.pageToken);
+      }
+      const payload = await getJson(url);
+      if (!Array.isArray(payload.files)) {
+        throw new DriveApiClientError("invalid_response", false, 200, null);
+      }
+      const files = payload.files.map((value) => {
+        const decoded = driveFile(value);
+        if (decoded === null) {
+          throw new DriveApiClientError("invalid_response", false, 200, null);
+        }
+        return decoded;
+      });
+      return { files, nextPageToken: nullableString(payload.nextPageToken) };
+    },
+
+    listInventoryPage: async (
+      args: Readonly<{
+        driveId: string;
+        rootFolderIds: readonly string[];
+        pageToken: string | null;
+        pageSize: number;
+      }>,
+    ): Promise<
+      Readonly<{
+        files: readonly DriveFileRecord[];
+        nextPageToken: string | null;
+      }>
+    > => {
+      if (args.driveId.trim().length === 0) {
+        throw new DriveApiClientError("invalid_request", false, null, null);
+      }
+      const url = new URL("/drive/v3/files", baseUrl);
+      url.searchParams.set("q", rootFolderQuery(args.rootFolderIds));
+      url.searchParams.set("pageSize", String(pageSize(args.pageSize)));
+      url.searchParams.set("corpora", "drive");
+      url.searchParams.set("driveId", args.driveId);
+      url.searchParams.set("spaces", "drive");
+      url.searchParams.set("includeItemsFromAllDrives", "true");
+      url.searchParams.set("supportsAllDrives", "true");
+      url.searchParams.set("fields", `files(${FILE_FIELDS}),nextPageToken`);
+      if (args.pageToken !== null) {
+        if (args.pageToken.trim().length === 0) {
+          throw new DriveApiClientError("invalid_request", false, null, null);
+        }
         url.searchParams.set("pageToken", args.pageToken);
       }
       const payload = await getJson(url);

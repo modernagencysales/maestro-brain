@@ -2,6 +2,7 @@ import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
 
 import { ContentHash, NonNegativeInteger } from "../brain/retrievalSchemas";
+import { DriveIngestionReceiptSchema } from "../integrations/driveLedgerSchemas";
 
 export const ConnectorPageChunkRow = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -18,6 +19,9 @@ export const ConnectorPageChunkRow = Schema.Struct({
   seenCount: NonNegativeInteger,
   obligationCount: NonNegativeInteger,
   commitDigest: ContentHash,
+  driveReceipts: Schema.optional(
+    Schema.Array(DriveIngestionReceiptSchema).pipe(Schema.maxItems(100)),
+  ),
   committedAt: NonNegativeInteger,
 });
 

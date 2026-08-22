@@ -51,6 +51,8 @@ const createAdapter = (
 describe("headless executor", () => {
   it("exposes reviewed Brain reads and rejects the deleted legacy page write", () => {
     expect(findHeadlessOperation("brain.pages.list", "api")).toBeDefined();
+    expect(findHeadlessOperation("brain.rollout.status", "api")).toBeDefined();
+    expect(findHeadlessOperation("brain.rollout.status", "cli")).toBeDefined();
     expect(
       findHeadlessOperation("brain.pages.createMarkdown", "api"),
     ).toBeUndefined();

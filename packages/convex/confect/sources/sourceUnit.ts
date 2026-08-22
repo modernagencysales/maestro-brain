@@ -71,6 +71,7 @@ export const SourceUnitRevisionRow = Schema.Struct({
   providerMetadataJson: Schema.String,
   contentHash: Hash,
   tombstone: Schema.Boolean,
+  ledgerSequence: Schema.optional(PositiveInteger),
   createdAt: NonNegativeInteger,
 });
 

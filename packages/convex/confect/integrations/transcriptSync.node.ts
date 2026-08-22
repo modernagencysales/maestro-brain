@@ -273,15 +273,20 @@ export const runTranscriptSyncPage = async (input: {
     readonly nextCursor: string | null;
   }>;
   readonly normalize: (record: unknown) => Promise<CanonicalCallTranscript>;
-  readonly ingest: (
+  readonly ingest?: (
     call: CanonicalCallTranscript,
   ) => Promise<"inserted" | "duplicate" | "stale" | "tombstone">;
-  readonly commit: (result: {
+  readonly commit?: (result: {
     readonly expectedCursor: string | null;
     readonly nextCursor: string | null;
     readonly discovered: number;
     readonly ingested: number;
     readonly duplicates: number;
+  }) => Promise<unknown>;
+  readonly ingestPage?: (input: {
+    readonly expectedCursor: string | null;
+    readonly nextCursor: string | null;
+    readonly calls: readonly CanonicalCallTranscript[];
   }) => Promise<unknown>;
   readonly fail: (failure: Failure) => Promise<unknown>;
 }): Promise<
@@ -290,10 +295,23 @@ export const runTranscriptSyncPage = async (input: {
 > => {
   try {
     const page = await input.listPage();
+    const calls: CanonicalCallTranscript[] = [];
+    for (const record of page.records)
+      calls.push(await input.normalize(record));
+    if (input.ingestPage !== undefined) {
+      await input.ingestPage({
+        expectedCursor: input.cursor,
+        nextCursor: page.nextCursor,
+        calls,
+      });
+      return { kind: "committed", nextCursor: page.nextCursor };
+    }
+    if (input.ingest === undefined || input.commit === undefined)
+      throw new Error("Transcript page ingestion callback is missing");
     let ingested = 0;
     let duplicates = 0;
-    for (const record of page.records) {
-      const outcome = await input.ingest(await input.normalize(record));
+    for (const call of calls) {
+      const outcome = await input.ingest(call);
       if (outcome === "duplicate") duplicates += 1;
       else ingested += 1;
     }

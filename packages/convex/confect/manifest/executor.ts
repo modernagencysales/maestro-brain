@@ -42,7 +42,9 @@ export type HeadlessFailureResult = {
       | "Forbidden"
       | "RateLimited"
       | "SubsystemDisabled"
-      | "RetrievalCapacityExceeded";
+      | "RetrievalCapacityExceeded"
+      | "RolloutStatusCapacityExceeded"
+      | "RolloutStatusIntegrityConflict";
     readonly message: string;
   };
 };
@@ -220,6 +222,16 @@ const sanitizedDispatchFailure = (
     return headlessFailure(
       "RetrievalCapacityExceeded",
       "Brain retrieval capacity was exceeded.",
+    );
+  if (error.data._tag === "RolloutStatusCapacityExceeded")
+    return headlessFailure(
+      "RolloutStatusCapacityExceeded",
+      "Brain rollout status exceeded its bounded evaluation capacity.",
+    );
+  if (error.data._tag === "RolloutStatusIntegrityConflict")
+    return headlessFailure(
+      "RolloutStatusIntegrityConflict",
+      "Brain rollout status detected an integrity conflict.",
     );
   return undefined;
 };

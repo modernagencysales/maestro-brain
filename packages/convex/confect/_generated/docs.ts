@@ -13,9 +13,13 @@ export type BrainExportJobsDoc = Document.Document<typeof schemaDefinition, "bra
 export type BrainFeedbackReportsDoc = Document.Document<typeof schemaDefinition, "brainFeedbackReports">;
 export type BrainMaintenanceProposalItemsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposalItems">;
 export type BrainMaintenanceProposalsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposals">;
+export type BrainOperationReceiptsDoc = Document.Document<typeof schemaDefinition, "brainOperationReceipts">;
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
 export type BrainProjectionPopulationDoc = Document.Document<typeof schemaDefinition, "brainProjectionPopulation">;
+export type BrainProjectionValidationReceiptsDoc = Document.Document<typeof schemaDefinition, "brainProjectionValidationReceipts">;
+export type BrainPublicationPausesDoc = Document.Document<typeof schemaDefinition, "brainPublicationPauses">;
+export type BrainPublicationWorkerLeasesDoc = Document.Document<typeof schemaDefinition, "brainPublicationWorkerLeases">;
 export type BrainReadModesDoc = Document.Document<typeof schemaDefinition, "brainReadModes">;
 export type BrainRequiredScopeIntentsDoc = Document.Document<typeof schemaDefinition, "brainRequiredScopeIntents">;
 export type BrainSourcesDoc = Document.Document<typeof schemaDefinition, "brainSources">;
@@ -48,9 +52,11 @@ export type DocumentSourceRevisionsDoc = Document.Document<typeof schemaDefiniti
 export type DocumentSourceScopePointersDoc = Document.Document<typeof schemaDefinition, "documentSourceScopePointers">;
 export type DocumentVersionsDoc = Document.Document<typeof schemaDefinition, "documentVersions">;
 export type DocumentsDoc = Document.Document<typeof schemaDefinition, "documents">;
+export type DriveScopeConfigurationsDoc = Document.Document<typeof schemaDefinition, "driveScopeConfigurations">;
 export type DsarRequestsDoc = Document.Document<typeof schemaDefinition, "dsarRequests">;
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
+export type IngestionObligationRepairEffectsDoc = Document.Document<typeof schemaDefinition, "ingestionObligationRepairEffects">;
 export type IngestionObligationsDoc = Document.Document<typeof schemaDefinition, "ingestionObligations">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
 export type MigrationReceiptsDoc = Document.Document<typeof schemaDefinition, "migrationReceipts">;
@@ -66,6 +72,7 @@ export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition, "providerEventReceipts">;
+export type ProviderTargetResolutionIntentsDoc = Document.Document<typeof schemaDefinition, "providerTargetResolutionIntents">;
 export type RetrievalEligibilityFencesDoc = Document.Document<typeof schemaDefinition, "retrievalEligibilityFences">;
 export type RetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "retrievalEntries">;
 export type RetrievalPublicationJobsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationJobs">;
@@ -73,6 +80,7 @@ export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinit
 export type RetrievalPublicationSubjectsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSubjects">;
 export type RetrievalRebuildChildrenDoc = Document.Document<typeof schemaDefinition, "retrievalRebuildChildren">;
 export type RetrievalRebuildRunsDoc = Document.Document<typeof schemaDefinition, "retrievalRebuildRuns">;
+export type RetrievalTokenCatalogDoc = Document.Document<typeof schemaDefinition, "retrievalTokenCatalog">;
 export type RetrievalTokensDoc = Document.Document<typeof schemaDefinition, "retrievalTokens">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
@@ -123,9 +131,13 @@ export interface Docs {
   brainFeedbackReports: BrainFeedbackReportsDoc;
   brainMaintenanceProposalItems: BrainMaintenanceProposalItemsDoc;
   brainMaintenanceProposals: BrainMaintenanceProposalsDoc;
+  brainOperationReceipts: BrainOperationReceiptsDoc;
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
   brainProjectionPopulation: BrainProjectionPopulationDoc;
+  brainProjectionValidationReceipts: BrainProjectionValidationReceiptsDoc;
+  brainPublicationPauses: BrainPublicationPausesDoc;
+  brainPublicationWorkerLeases: BrainPublicationWorkerLeasesDoc;
   brainReadModes: BrainReadModesDoc;
   brainRequiredScopeIntents: BrainRequiredScopeIntentsDoc;
   brainSources: BrainSourcesDoc;
@@ -158,9 +170,11 @@ export interface Docs {
   documentSourceScopePointers: DocumentSourceScopePointersDoc;
   documentVersions: DocumentVersionsDoc;
   documents: DocumentsDoc;
+  driveScopeConfigurations: DriveScopeConfigurationsDoc;
   dsarRequests: DsarRequestsDoc;
   entitlements: EntitlementsDoc;
   featureFlagPolicies: FeatureFlagPoliciesDoc;
+  ingestionObligationRepairEffects: IngestionObligationRepairEffectsDoc;
   ingestionObligations: IngestionObligationsDoc;
   invitations: InvitationsDoc;
   migrationReceipts: MigrationReceiptsDoc;
@@ -176,6 +190,7 @@ export interface Docs {
   promptRegistry: PromptRegistryDoc;
   providerConnections: ProviderConnectionsDoc;
   providerEventReceipts: ProviderEventReceiptsDoc;
+  providerTargetResolutionIntents: ProviderTargetResolutionIntentsDoc;
   retrievalEligibilityFences: RetrievalEligibilityFencesDoc;
   retrievalEntries: RetrievalEntriesDoc;
   retrievalPublicationJobs: RetrievalPublicationJobsDoc;
@@ -183,6 +198,7 @@ export interface Docs {
   retrievalPublicationSubjects: RetrievalPublicationSubjectsDoc;
   retrievalRebuildChildren: RetrievalRebuildChildrenDoc;
   retrievalRebuildRuns: RetrievalRebuildRunsDoc;
+  retrievalTokenCatalog: RetrievalTokenCatalogDoc;
   retrievalTokens: RetrievalTokensDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;

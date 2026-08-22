@@ -306,20 +306,40 @@ Execute-mode component failures follow the same durable failure receipt path.
 ## Brain read compatibility gate
 
 - **Expand:** add `brainReadModes`, keyed by stable workspace and Brain, with a
-  monotonic mode generation. BE1 accepts only `compatibility` and `disabled`.
+  monotonic mode generation, and add immutable
+  `brainProjectionValidationReceipts`. Add `projection` only with the registered
+  validation, promotion, and rollback operations; clients never patch a mode row
+  or validation receipt directly. The same additive release registers the
+  publication pause, worker lease, operation receipt, and ingestion-repair
+  effect tables required by the readiness validator.
 - **Backfill:** none. An absent row deliberately means `compatibility`, so the
   deployment cannot expose the retrieval projection merely because rollout state
-  has not been written yet.
-- **Read behavior:** public, HTTP, and MCP reads use the compatibility reader in
-  both the absent-row and explicit-`compatibility` states. `disabled` fails with
-  `SubsystemDisabled`. Projection reads remain internal validation operations
-  and are not published in the headless manifest.
-- **Contract:** deferred to BE3. BE3 adds the receipt-bound, compare-and-set
-  promotion operation and only then introduces a projection mode after the
-  required same-SHA and corpus-completeness evidence has been verified.
-- **Rollback:** set the Brain to `disabled` if compatibility reads are unsafe;
-  otherwise remove or retain its `compatibility` row. Do not invent or backfill
-  a projection state during rollback.
+  has not been written yet. This repository has not yet entered live use, so no
+  legacy publication dead letters require a `healthFailureActive` attribution
+  backfill. If a deployment inspection finds any before promotion, halt and
+  migrate each exact unresolved job rather than inferring attribution from an
+  aggregate health count.
+- **Validate:** the server reruns the bounded rollout validators and creates a
+  30-minute, single-Brain receipt bound to server build metadata, the exact
+  configuration and required-intent generations, reconciliation/rebuild
+  high-waters, projection population generation/digests, and complete live
+  job/obligation counts. Validation facts are not client arguments.
+- **Read behavior:** absent and explicit `compatibility` modes use the fenced
+  compatibility reader. `projection` routes Search, Source Get, ContextPack,
+  HTTP, CLI, and MCP through the same publication projection. `disabled` fails
+  with `SubsystemDisabled`.
+- **Contract:** only the registered compare-and-set promotion mutation can
+  consume the exact unexpired receipt and select `projection`. It reruns the
+  shared validators and rejects any changed population, manifest, high-water,
+  job, obligation, or configuration value. A receipt is single-use even when a
+  later attempt would otherwise be idempotent.
+- **Rollback:** use the forward `rollbackBrainReadMode` operation. It selects
+  `disabled`, so no compatibility path can silently re-expose stale evidence.
+  After repair, validation may bind that exact disabled mode and the same
+  receipt-bound promotion operation may restore `projection`. Preserve source
+  ledgers, connector cursors, durable intents, projection history, validation
+  receipts, and repair receipts for diagnosis. Do not deploy a pre-schema binary
+  as rollback.
 
 ## Slack provider event ordering and replay lookup
 

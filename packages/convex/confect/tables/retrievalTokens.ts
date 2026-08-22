@@ -18,6 +18,8 @@ export const RetrievalTokenRow = Schema.Struct({
   tokenizerVersion: Schema.Literal(1),
   token: Schema.String,
   entryKey: RetrievalEntryKey,
+  corpusKey: Schema.optional(Schema.String),
+  evidenceAt: Schema.optional(NonNegativeInteger),
   authorityRank: Schema.Literal(1, 2, 3),
   termFrequency: NonNegativeInteger,
   inTitle: Schema.Boolean,

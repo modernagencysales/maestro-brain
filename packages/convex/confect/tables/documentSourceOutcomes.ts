@@ -27,6 +27,7 @@ export const DocumentSourceOutcomeRow = Schema.Struct({
   reason: DriveSourceOutcomeReason,
   observedAt: NonNegativeInteger,
   recordedAt: NonNegativeInteger,
+  ledgerSequence: Schema.optional(PositiveInteger),
 });
 
 export default Table.make(() => DocumentSourceOutcomeRow)

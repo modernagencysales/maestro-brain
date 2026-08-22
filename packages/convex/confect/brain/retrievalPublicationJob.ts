@@ -27,6 +27,8 @@ export type RetrievalPublicationAuthorityContext = {
   };
   readonly targetResolutionIntentKey?: GenericId<"slackPublicationTargetIntents">;
   readonly targetResolutionGeneration?: number;
+  readonly providerTargetResolutionIntentId?: GenericId<"providerTargetResolutionIntents">;
+  readonly providerTargetResolutionGeneration?: number;
   readonly repairOfJobKey?: string;
   readonly supersedesJobKey?: string;
 };
@@ -53,10 +55,14 @@ export type RetrievalPublicationJobInput = {
     | "page_rebuild"
     | "slack"
     | "transcript"
+    | "document"
     | "slack_rebuild"
     | "transcript_rebuild";
   readonly sourceKey: string;
   readonly sourceRevisionKey: string;
+  readonly ingestionObligationKey?: string;
+  readonly providerTargetResolutionIntentId?: GenericId<"providerTargetResolutionIntents">;
+  readonly providerTargetResolutionGeneration?: number;
   readonly requestGeneration: number;
   readonly effectClass?: RetrievalPublicationEffectClass;
   readonly operation?: "publish" | "cleanup";
@@ -156,6 +162,11 @@ export const retrievalPublicationAuthorityEnvelope = (
         operation: input.operation ?? "publish",
         sourceKey: input.sourceKey,
         sourceRevisionKey: input.sourceRevisionKey,
+        ingestionObligationKey: input.ingestionObligationKey ?? null,
+        providerTargetResolutionIntentId:
+          input.providerTargetResolutionIntentId ?? null,
+        providerTargetResolutionGeneration:
+          input.providerTargetResolutionGeneration ?? null,
         requestGeneration: input.requestGeneration,
         rebuildRunKey: input.rebuildRunKey ?? null,
         rebuildRunGeneration: input.rebuildRunGeneration ?? null,
@@ -185,6 +196,11 @@ export const retrievalPublicationJobKey = (
       operation: input.operation ?? "publish",
       sourceKey: input.sourceKey,
       sourceRevisionKey: input.sourceRevisionKey,
+      ingestionObligationKey: input.ingestionObligationKey ?? null,
+      providerTargetResolutionIntentId:
+        input.providerTargetResolutionIntentId ?? null,
+      providerTargetResolutionGeneration:
+        input.providerTargetResolutionGeneration ?? null,
       requestGeneration: input.requestGeneration,
       rebuildRunKey: input.rebuildRunKey ?? null,
       rebuildRunGeneration: input.rebuildRunGeneration ?? null,
@@ -218,6 +234,9 @@ export const retrievalPublicationJobRow = (
     operation: input.operation ?? "publish",
     sourceKey: input.sourceKey,
     sourceRevisionKey: input.sourceRevisionKey,
+    ...(input.ingestionObligationKey === undefined
+      ? {}
+      : { ingestionObligationKey: input.ingestionObligationKey }),
     requestGeneration: input.requestGeneration,
     ...(input.rebuildRunKey === undefined
       ? {}
@@ -244,6 +263,14 @@ export const retrievalPublicationJobRow = (
       : {
           targetResolutionIntentKey:
             input.authorityContext.targetResolutionIntentKey,
+        }),
+    ...(input.authorityContext?.providerTargetResolutionIntentId === undefined
+      ? {}
+      : {
+          providerTargetResolutionIntentId:
+            input.authorityContext.providerTargetResolutionIntentId,
+          providerTargetResolutionGeneration:
+            input.authorityContext.providerTargetResolutionGeneration,
         }),
     ...(input.authorityContext === undefined
       ? {}

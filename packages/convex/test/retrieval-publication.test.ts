@@ -11,10 +11,14 @@ import refs from "../confect/_generated/refs";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import {
   commitPreparedPublicationEffect,
+  completedRebuildFailureState,
   publishPageRevisionEffect,
 } from "../confect/brain/retrievalPublication.impl";
 import {
+  connectorAllowlistFenceIdentity,
+  connectorScopeFenceIdentity,
   connectionFenceIdentity,
+  documentLifecycleFenceIdentity,
   slackPolicyFenceIdentity,
   transcriptRouteFenceIdentity,
   transitionEligibilityFenceEffect,
@@ -28,6 +32,7 @@ import {
   type RetrievalEligibilityFenceRef,
   type RetrievalOrigin,
 } from "../confect/brain/retrievalPublication";
+import { retrievalTokenCatalogDigest } from "../confect/brain/retrievalTokenCatalog";
 import {
   enqueueOrganizationCorpusRebuildsEffect,
   enqueueRetrievalPublicationJobEffect,
@@ -57,6 +62,15 @@ const expectCitationFailure = (value: unknown, reason: string) =>
     _tag: "Left",
     left: {
       _tag: "CitationIntegrityFailure",
+      reason,
+    },
+  });
+
+const expectRetrievalIntegrityFailure = (value: unknown, reason: string) =>
+  expect(value).toMatchObject({
+    _tag: "Left",
+    left: {
+      _tag: "RetrievalIntegrityFailure",
       reason,
     },
   });
@@ -199,6 +213,18 @@ const publicationArgs = (workspaceId: GenericId<"workspaces">) => ({
   now,
 });
 
+const loadTokenCatalog = (workspaceId: GenericId<"workspaces">) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    return yield* reader
+      .table("retrievalTokenCatalog")
+      .index("by_workspace_brain_token", (query) =>
+        query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+  });
+
 const assertEligibilityManifestFailsClosed = async (
   corrupt: (
     ref: RetrievalEligibilityFenceRef,
@@ -277,15 +303,14 @@ const assertEligibilityManifestFailsClosed = async (
         }),
         resultSchema(),
       );
-      const search = yield* confect.query(
-        refs.internal.brain.readApi.validationSourcesSearch,
-        {
+      const search = yield* confect
+        .query(refs.internal.brain.readApi.validationSourcesSearch, {
           organizationId,
           workspaceId,
           brainKey,
           query: "qualified pipeline",
-        },
-      );
+        })
+        .pipe(Effect.either);
       const sourceAttempt = yield* confect
         .query(refs.internal.brain.readApi.validationSourcesGet, {
           organizationId,
@@ -298,11 +323,35 @@ const assertEligibilityManifestFailsClosed = async (
       return { search, sourceAttempt };
     }).pipe(Effect.provide(testConfectLayer())),
   );
-  expect(result.search.results).toEqual([]);
-  expectCitationFailure(result.sourceAttempt, "origin_mismatch");
+  expectRetrievalIntegrityFailure(
+    result.search,
+    "eligibility_integrity_failure",
+  );
+  expectRetrievalIntegrityFailure(
+    result.sourceAttempt,
+    "eligibility_integrity_failure",
+  );
 };
 
 describe("retrieval publication persistence", () => {
+  it("does not hide unresolved failures when a rebuild completes", () => {
+    expect(
+      completedRebuildFailureState({
+        failedCount: 2,
+        degradedReason: "Two attributed dead letters remain unresolved.",
+      }),
+    ).toEqual({
+      coverageStatus: "partial",
+      failedCount: 2,
+      degradedReason: "Two attributed dead letters remain unresolved.",
+    });
+    expect(completedRebuildFailureState({ failedCount: 0 })).toEqual({
+      coverageStatus: "complete",
+      failedCount: 0,
+      degradedReason: undefined,
+    });
+  });
+
   it("derives a revision-independent publication subject per connector scope", () => {
     const origin = {
       organizationKey,
@@ -382,8 +431,58 @@ describe("retrieval publication persistence", () => {
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
         const { workspaceId } = yield* confect.run(seedPage, resultSchema());
+        const fencesByScope = yield* confect.run(
+          Effect.gen(function* () {
+            const lifecycle = yield* transitionEligibilityFenceEffect({
+              identity: documentLifecycleFenceIdentity({
+                organizationKey,
+                documentObjectKey: "drive-object-1",
+              }),
+              eligible: true,
+              now,
+            });
+            const connection = yield* transitionEligibilityFenceEffect({
+              identity: connectionFenceIdentity({
+                organizationKey,
+                connectionKey: "drive-connection",
+              }),
+              eligible: true,
+              now,
+            });
+            const forScope = (connectorScopeKey: string) =>
+              Effect.gen(function* () {
+                const scope = yield* transitionEligibilityFenceEffect({
+                  identity: connectorScopeFenceIdentity({
+                    organizationKey,
+                    connectorScopeKey,
+                  }),
+                  eligible: true,
+                  now,
+                });
+                const allowlist = yield* transitionEligibilityFenceEffect({
+                  identity: connectorAllowlistFenceIdentity({
+                    organizationKey,
+                    connectorScopeKey,
+                  }),
+                  eligible: true,
+                  now,
+                });
+                return [
+                  lifecycle.ref,
+                  scope.ref,
+                  allowlist.ref,
+                  connection.ref,
+                ] as const;
+              });
+            return {
+              "scope-a": yield* forScope("scope-a"),
+              "scope-b": yield* forScope("scope-b"),
+            };
+          }),
+          resultSchema(),
+        );
         const publish = (
-          connectorScopeKey: string,
+          connectorScopeKey: "scope-a" | "scope-b",
           revisionKey: string,
           at: number,
         ) =>
@@ -404,6 +503,7 @@ describe("retrieval publication persistence", () => {
             policyGeneration: 1,
             lifecycleGeneration: 1,
             routeGeneration: 1,
+            eligibilityFences: fencesByScope[connectorScopeKey],
             revoked: false,
             passages: [
               {
@@ -588,7 +688,8 @@ describe("retrieval publication persistence", () => {
               )
               .collect()
               .pipe(Effect.orDie);
-            return { sets, entries };
+            const catalog = yield* loadTokenCatalog(workspaceId);
+            return { sets, entries, catalog };
           }),
           resultSchema(),
         );
@@ -616,6 +717,20 @@ describe("retrieval publication persistence", () => {
     });
     expect(result.stored.sets).toHaveLength(1);
     expect(result.stored.entries).toHaveLength(1);
+    expect(result.stored.catalog).not.toHaveLength(0);
+    expect(
+      result.stored.catalog.reduce(
+        (total, row) => total + row.expectedPostingCount,
+        0,
+      ),
+    ).toBe(result.first.tokenCount);
+    expect(
+      new Set(
+        result.stored.catalog.flatMap(({ contributions }) =>
+          contributions.map(({ publicationSetKey }) => publicationSetKey),
+        ),
+      ),
+    ).toEqual(new Set([result.first.publicationSetKey]));
     expect(result.stored.entries[0]).toMatchObject({
       brainKey,
       sourceKey: pageKey,
@@ -649,10 +764,13 @@ describe("retrieval publication persistence", () => {
       field: "publicationSetKey",
     });
     expect(result.context).toMatchObject({
+      schemaVersion: "3",
       organizationKey,
       brainKey,
       question: "What is the pipeline economics model?",
-      freshness: { status: "stale" },
+      freshness: "unknown",
+      coverageStatus: "unavailable",
+      readiness: "blocked",
       entries: [
         {
           sourceRevisionKey: revisionKey,
@@ -661,8 +779,332 @@ describe("retrieval publication persistence", () => {
           passageKey: result.search.results[0]?.passageKey,
         },
       ],
-      coverage: [{ sourceKind: "brain-pages", status: "partial" }],
+      coverage: [],
     });
+  });
+
+  it("fails search and ContextPack integrity after the sole current posting is deleted", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const published = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        if (published.outcome !== "published")
+          throw new Error("expected page publication");
+        const catalogBefore = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const postings = yield* reader
+              .table("retrievalTokens")
+              .index(
+                "by_workspace_brain_token_publication_state_authority_entry",
+                (query) =>
+                  query
+                    .eq("workspaceId", workspaceId)
+                    .eq("brainKey", brainKey)
+                    .eq("token", "apero")
+                    .eq("publicationState", "current"),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            if (postings.length !== 1)
+              throw new Error("expected one current Apero posting");
+            const catalogs = yield* reader
+              .table("retrievalTokenCatalog")
+              .index("by_workspace_brain_token", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("token", "apero"),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const posting = postings[0];
+            if (posting === undefined) throw new Error("missing posting");
+            yield* writer
+              .table("retrievalTokens")
+              .delete(posting._id)
+              .pipe(Effect.orDie);
+            return catalogs;
+          }),
+          resultSchema(),
+        );
+        const replay = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        const searchAttempt = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "apero",
+          })
+          .pipe(Effect.either);
+        const contextAttempt = yield* confect
+          .query(refs.internal.brain.readApi.validationContextGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is Apero?",
+          })
+          .pipe(Effect.either);
+        return {
+          published,
+          catalogBefore,
+          replay,
+          searchAttempt,
+          contextAttempt,
+        };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.catalogBefore).toEqual([
+      expect.objectContaining({
+        token: "apero",
+        expectedPostingCount: 1,
+        expectedPostingDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+      }),
+    ]);
+    expect(result.replay).toEqual({
+      ...result.published,
+      outcome: "duplicate",
+    });
+    for (const attempt of [result.searchAttempt, result.contextAttempt])
+      expect(attempt).toMatchObject({
+        _tag: "Left",
+        left: {
+          _tag: "RetrievalIntegrityFailure",
+          token: "apero",
+          reason: "posting_count_mismatch",
+          expectedPostingCount: 1,
+          observedPostingCount: 0,
+        },
+      });
+  });
+
+  it("rejects a current posting whose organization identity was corrupted", async () => {
+    const attempt = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const published = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        if (published.outcome !== "published")
+          throw new Error("expected page publication");
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const posting = yield* reader
+              .table("retrievalTokens")
+              .index(
+                "by_workspace_brain_token_publication_state_authority_entry",
+                (query) =>
+                  query
+                    .eq("workspaceId", workspaceId)
+                    .eq("brainKey", brainKey)
+                    .eq("token", "apero")
+                    .eq("publicationState", "current"),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+            yield* writer
+              .table("retrievalTokens")
+              .patch(posting._id, { organizationKey: "ag_wrong_tenant" })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        return yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "apero",
+          })
+          .pipe(Effect.either);
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(attempt).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RetrievalIntegrityFailure",
+        token: "apero",
+        reason: "catalog_identity_mismatch",
+      },
+    });
+  });
+
+  it("rejects catalog-declared query populations above the global posting budget before scanning postings", async () => {
+    const attempt = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            for (const [index, token, postingCount] of [
+              [0, "alpha", 2_501],
+              [1, "beta", 2_500],
+            ] as const) {
+              const contributions = [
+                {
+                  publicationSetKey: `rset_${String(index).repeat(64)}`,
+                  postingCount,
+                  postingDigest: `sha256:${String(index).repeat(64)}`,
+                },
+              ];
+              yield* writer
+                .table("retrievalTokenCatalog")
+                .insert({
+                  schemaVersion: 1,
+                  organizationKey,
+                  workspaceId,
+                  brainKey,
+                  tokenizerVersion: 1,
+                  token,
+                  expectedPostingCount: postingCount,
+                  expectedPostingDigest:
+                    retrievalTokenCatalogDigest(contributions),
+                  contributions,
+                  updatedAt: now,
+                })
+                .pipe(Effect.orDie);
+            }
+          }),
+          resultSchema(),
+        );
+        return yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "alpha beta",
+          })
+          .pipe(Effect.either);
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(attempt).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RetrievalCapacityExceeded",
+        resource: "current_postings",
+        limit: 5_000,
+        observedAtLeast: 5_001,
+      },
+    });
+  });
+
+  it("fails search and ContextPack integrity when a current posting loses its entry", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const published = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        if (published.outcome !== "published")
+          throw new Error("expected page publication");
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const postings = yield* reader
+              .table("retrievalTokens")
+              .index(
+                "by_workspace_brain_token_publication_state_authority_entry",
+                (query) =>
+                  query
+                    .eq("workspaceId", workspaceId)
+                    .eq("brainKey", brainKey)
+                    .eq("token", "apero")
+                    .eq("publicationState", "current"),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const posting = postings[0];
+            if (postings.length !== 1 || posting === undefined)
+              throw new Error("expected one current Apero posting");
+            const entries = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", posting.publicationSetKey)
+                  .eq("entryKey", posting.entryKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const entry = entries[0];
+            if (entries.length !== 1 || entry === undefined)
+              throw new Error("expected one retrieval entry");
+            yield* writer
+              .table("retrievalEntries")
+              .delete(entry._id)
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const searchAttempt = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "apero",
+          })
+          .pipe(Effect.either);
+        const contextAttempt = yield* confect
+          .query(refs.internal.brain.readApi.validationContextGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is Apero?",
+          })
+          .pipe(Effect.either);
+        return { searchAttempt, contextAttempt };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    for (const attempt of [result.searchAttempt, result.contextAttempt])
+      expect(attempt).toMatchObject({
+        _tag: "Left",
+        left: {
+          _tag: "RetrievalIntegrityFailure",
+          token: "apero",
+          reason: "entry_missing",
+        },
+      });
   });
 
   it("does not publish a stale revision", async () => {
@@ -1087,6 +1529,10 @@ describe("retrieval publication persistence", () => {
             entryKey: secondEntryKey,
           })
           .pipe(Effect.either);
+        const catalogAfterRevoke = yield* confect.run(
+          loadTokenCatalog(workspaceId),
+          resultSchema(),
+        );
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1123,6 +1569,10 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const catalogAfterRestore = yield* confect.run(
+          loadTokenCatalog(workspaceId),
+          resultSchema(),
+        );
         const sets = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1140,7 +1590,16 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return { first, second, revoked, revokedSource, restored, sets };
+        return {
+          first,
+          second,
+          revoked,
+          revokedSource,
+          catalogAfterRevoke,
+          restored,
+          catalogAfterRestore,
+          sets,
+        };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -1148,10 +1607,25 @@ describe("retrieval publication persistence", () => {
     expect(result.second).toMatchObject({ publicationGeneration: 2 });
     expect(result.revoked).toMatchObject({ outcome: "revoked" });
     expect(Either.isLeft(result.revokedSource)).toBe(true);
+    expect(result.catalogAfterRevoke).toEqual([]);
     expect(result.restored).toMatchObject({
       outcome: "published",
       publicationGeneration: 3,
     });
+    expect(result.catalogAfterRestore).not.toHaveLength(0);
+    expect(
+      result.catalogAfterRestore.reduce(
+        (total, row) => total + row.expectedPostingCount,
+        0,
+      ),
+    ).toBe(result.restored.tokenCount);
+    expect(
+      new Set(
+        result.catalogAfterRestore.flatMap(({ contributions }) =>
+          contributions.map(({ publicationSetKey }) => publicationSetKey),
+        ),
+      ),
+    ).toEqual(new Set([result.restored.publicationSetKey]));
     expect(
       new Set(
         result.sets.map(({ publicationSubjectKey }) => publicationSubjectKey),
@@ -1696,15 +2170,14 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const search = yield* confect.query(
-          refs.internal.brain.readApi.validationSourcesSearch,
-          {
+        const search = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
             organizationId,
             workspaceId,
             brainKey,
             query: "qualified pipeline",
-          },
-        );
+          })
+          .pipe(Effect.either);
         const sourceAttempt = yield* confect
           .query(refs.internal.brain.readApi.validationSourcesGet, {
             organizationId,
@@ -1717,8 +2190,14 @@ describe("retrieval publication persistence", () => {
         return { search, sourceAttempt };
       }).pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.search.results).toEqual([]);
-    expectCitationFailure(result.sourceAttempt, "origin_mismatch");
+    expectRetrievalIntegrityFailure(
+      result.search,
+      "eligibility_integrity_failure",
+    );
+    expectRetrievalIntegrityFailure(
+      result.sourceAttempt,
+      "eligibility_integrity_failure",
+    );
   });
 
   it("fails current publication closed for a duplicated fence manifest", () =>
@@ -1801,7 +2280,7 @@ describe("retrieval publication persistence", () => {
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
         const { workspaceId } = yield* confect.run(seedPage, resultSchema());
-        return yield* confect.run(
+        const rebuilt = yield* confect.run(
           rebuildPageBatchEffect({
             organizationKey,
             workspaceId,
@@ -1816,14 +2295,26 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
+        const catalog = yield* confect.run(
+          loadTokenCatalog(workspaceId),
+          resultSchema(),
+        );
+        return { rebuilt, catalog };
       }).pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result).toMatchObject({
+    expect(result.rebuilt).toMatchObject({
       processed: 1,
       published: 1,
       hasMore: false,
       nextAfterPageKey: pageKey,
     });
+    expect(result.catalog).not.toHaveLength(0);
+    expect(
+      result.catalog.reduce(
+        (total, row) => total + row.expectedPostingCount,
+        0,
+      ),
+    ).toBeGreaterThan(0);
   });
 
   it("continues a durable page rebuild until every batch succeeds", async () => {
@@ -2166,7 +2657,86 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        return { failed, health };
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const revisions = yield* reader
+              .table("pageRevisions")
+              .index("by_page_created", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const original = revisions[0];
+            if (original === undefined)
+              return yield* Effect.dieMessage("missing original revision");
+            const { _id, _creationTime, ...row } = original;
+            void _id;
+            void _creationTime;
+            yield* writer
+              .table("pageRevisions")
+              .insert({
+                ...row,
+                revisionKey: missingRevisionKey,
+                priorRevisionKey: original.revisionKey,
+                effectKey: "publication-dead-letter-repair",
+                createdAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+            const jobs = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) => query.eq("jobKey", jobKey))
+              .take(2)
+              .pipe(Effect.orDie);
+            const job = jobs[0];
+            if (jobs.length !== 1 || job === undefined)
+              return yield* Effect.dieMessage("missing failed job");
+            yield* writer
+              .table("retrievalPublicationJobs")
+              .patch(job._id, {
+                status: "retry_wait",
+                attemptCount: 0,
+                nextAttemptAt: now + 1,
+                lastErrorTag: undefined,
+                completedAt: undefined,
+                updatedAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const repaired = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey,
+            caller: {
+              kind: "system",
+              name: "publication-dead-letter-repair-test",
+              surface: "internal",
+            },
+            now: now + 2,
+          }),
+          resultSchema(),
+        );
+        const repairedHealth = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            return yield* reader
+              .table("brainCorpusHealth")
+              .index("by_workspace_brain_corpus_scope_connection", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("corpusKey", "brain-pages")
+                  .eq("connectorScopeKey", undefined)
+                  .eq("connectionGeneration", undefined),
+              )
+              .first()
+              .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        return { failed, health, repaired, repairedHealth };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.failed).toMatchObject({
@@ -2179,6 +2749,16 @@ describe("retrieval publication persistence", () => {
       failedCount: 1,
       degradedReason: expect.stringContaining("RetrievalOriginUnavailable"),
     });
+    expect(result.repaired).toMatchObject({
+      status: "succeeded",
+    });
+    if (Option.isNone(result.repairedHealth))
+      throw new Error("missing repaired corpus health");
+    expect(result.repairedHealth.value).toMatchObject({
+      coverageStatus: "partial",
+      failedCount: 0,
+    });
+    expect(result.repairedHealth.value.degradedReason).toBeUndefined();
   });
 
   it("publishes a routed Slack revision with its immutable origin", async () => {
@@ -2367,15 +2947,14 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const wrongPolicyController = yield* confect.query(
-          refs.internal.brain.readApi.validationSourcesSearch,
-          {
+        const wrongPolicyController = yield* confect
+          .query(refs.internal.brain.readApi.validationSourcesSearch, {
             organizationId,
             workspaceId,
             brainKey,
             query: "repeatable qualified pipeline",
-          },
-        );
+          })
+          .pipe(Effect.either);
         yield* confect.run(
           DatabaseWriter.pipe(
             Effect.flatMap((writer) =>
@@ -2698,7 +3277,10 @@ describe("retrieval publication persistence", () => {
         }),
       ]),
     );
-    expect(result.wrongPolicyController.results).toEqual([]);
+    expectRetrievalIntegrityFailure(
+      result.wrongPolicyController,
+      "eligibility_integrity_failure",
+    );
     expect(result.search.results).toEqual([
       expect.objectContaining({
         sourceRevisionKey,
@@ -3204,15 +3786,14 @@ describe("retrieval publication persistence", () => {
           }),
           resultSchema(),
         );
-        const wrongRouteController = yield* confect.query(
-          refs.internal.brain.readApi.validationContextGet,
-          {
+        const wrongRouteController = yield* confect
+          .query(refs.internal.brain.readApi.validationContextGet, {
             organizationId,
             workspaceId,
             brainKey,
             question: "What is the qualified pipeline close-rate target?",
-          },
-        );
+          })
+          .pipe(Effect.either);
         yield* confect.run(
           DatabaseWriter.pipe(
             Effect.flatMap((writer) =>
@@ -3450,7 +4031,10 @@ describe("retrieval publication persistence", () => {
         }),
       ]),
     );
-    expect(result.wrongRouteController.entries).toEqual([]);
+    expectRetrievalIntegrityFailure(
+      result.wrongRouteController,
+      "eligibility_integrity_failure",
+    );
     expect(result.context.entries).toEqual([
       expect.objectContaining({
         sourceRevisionKey: unitRevisionKey,

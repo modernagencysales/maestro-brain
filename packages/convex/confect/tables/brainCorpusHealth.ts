@@ -38,4 +38,11 @@ export default Table.make(() => BrainCorpusHealthRow)
     "corpusKey",
     "connectorScopeKey",
   ])
+  .index("by_workspace_brain_corpus_scope_connection", [
+    "workspaceId",
+    "brainKey",
+    "corpusKey",
+    "connectorScopeKey",
+    "connectionGeneration",
+  ])
   .index("by_workspace_brain", ["workspaceId", "brainKey"]);

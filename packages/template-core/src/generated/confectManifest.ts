@@ -19,6 +19,10 @@ export const confectManifest = {
         "ValidationFailed",
         "SubsystemDisabled",
         "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.answersAsk.args",
@@ -39,6 +43,10 @@ export const confectManifest = {
         "ValidationFailed",
         "SubsystemDisabled",
         "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.contextGet.args",
@@ -330,6 +338,25 @@ export const confectManifest = {
     },
     {
       namespace: "brain.readApi",
+      name: "brainRolloutStatus",
+      operationId: "brain.rollout.status",
+      kind: "query",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "ValidationFailed",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.readApi.brainRolloutStatus.args",
+      returnsSchemaName: "brain.readApi.brainRolloutStatus.returns",
+    },
+    {
+      namespace: "brain.readApi",
       name: "sourcesGet",
       operationId: "brain.sources.get",
       kind: "query",
@@ -343,6 +370,10 @@ export const confectManifest = {
         "ValidationFailed",
         "SubsystemDisabled",
         "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesGet.args",
@@ -363,6 +394,10 @@ export const confectManifest = {
         "ValidationFailed",
         "SubsystemDisabled",
         "CitationIntegrityFailure",
+        "RetrievalCapacityExceeded",
+        "RetrievalIntegrityFailure",
+        "RolloutStatusCapacityExceeded",
+        "RolloutStatusIntegrityConflict",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesSearch.args",
@@ -1688,6 +1723,1056 @@ const sharedConfectJsonSchemas = {
     $id: "/schemas/unknown",
     title: "unknown",
   },
+  "brain.readApi.brainRolloutStatus.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.brainRolloutStatus.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: [
+      "statusVersion",
+      "organizationKey",
+      "workspaceId",
+      "brainKey",
+      "evaluatedAt",
+      "freshness",
+      "coverageStatus",
+      "readiness",
+      "promotionReady",
+      "projection",
+      "scopes",
+      "alerts",
+    ],
+    properties: {
+      statusVersion: {
+        type: "number",
+        enum: [1],
+      },
+      organizationKey: {
+        type: "string",
+      },
+      workspaceId: {
+        type: "string",
+      },
+      brainKey: {
+        type: "string",
+      },
+      evaluatedAt: {
+        type: "integer",
+        description: "a non-negative number",
+        title: "greaterThanOrEqualTo(0)",
+        minimum: 0,
+      },
+      freshness: {
+        type: "string",
+        enum: ["current", "stale", "unknown"],
+      },
+      coverageStatus: {
+        type: "string",
+        enum: ["complete", "partial", "unavailable", "unknown"],
+      },
+      readiness: {
+        type: "string",
+        enum: ["ready", "blocked"],
+      },
+      promotionReady: {
+        type: "boolean",
+      },
+      projection: {
+        type: "object",
+        required: [
+          "present",
+          "projectionPopulationGeneration",
+          "subjectBackfillGeneration",
+          "subjectPopulationDigest",
+          "subjectCompletionDigest",
+          "subjectValidated",
+          "fenceBackfillGeneration",
+          "fencePopulationDigest",
+          "fenceCompletionDigest",
+          "fenceValidated",
+          "conflictCount",
+          "capacityCount",
+        ],
+        properties: {
+          present: {
+            type: "boolean",
+          },
+          projectionPopulationGeneration: {
+            type: "integer",
+            description: "a non-negative number",
+            title: "greaterThanOrEqualTo(0)",
+            minimum: 0,
+          },
+          subjectBackfillGeneration: {
+            type: "integer",
+            description: "a non-negative number",
+            title: "greaterThanOrEqualTo(0)",
+            minimum: 0,
+          },
+          subjectPopulationDigest: {
+            anyOf: [
+              {
+                type: "string",
+                description:
+                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                pattern: "^sha256:[a-f0-9]{64}$",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          subjectCompletionDigest: {
+            anyOf: [
+              {
+                type: "string",
+                description:
+                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                pattern: "^sha256:[a-f0-9]{64}$",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          subjectValidated: {
+            type: "boolean",
+          },
+          fenceBackfillGeneration: {
+            type: "integer",
+            description: "a non-negative number",
+            title: "greaterThanOrEqualTo(0)",
+            minimum: 0,
+          },
+          fencePopulationDigest: {
+            anyOf: [
+              {
+                type: "string",
+                description:
+                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                pattern: "^sha256:[a-f0-9]{64}$",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          fenceCompletionDigest: {
+            anyOf: [
+              {
+                type: "string",
+                description:
+                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                pattern: "^sha256:[a-f0-9]{64}$",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          fenceValidated: {
+            type: "boolean",
+          },
+          conflictCount: {
+            type: "integer",
+            description: "a non-negative number",
+            title: "greaterThanOrEqualTo(0)",
+            minimum: 0,
+          },
+          capacityCount: {
+            type: "integer",
+            description: "a non-negative number",
+            title: "greaterThanOrEqualTo(0)",
+            minimum: 0,
+          },
+        },
+        additionalProperties: false,
+      },
+      scopes: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "requiredScopeIntentKey",
+            "intentGeneration",
+            "corpusKey",
+            "providerKind",
+            "connectorScopeKey",
+            "configuration",
+            "eligibility",
+            "reconciliation",
+            "rebuild",
+            "health",
+            "freshness",
+            "coverageStatus",
+            "readiness",
+            "obligations",
+            "publication",
+            "targetResolution",
+            "workers",
+            "failures",
+            "blockers",
+          ],
+          properties: {
+            requiredScopeIntentKey: {
+              type: "string",
+            },
+            intentGeneration: {
+              type: "integer",
+              description: "a positive number",
+              title: "greaterThan(0)",
+              exclusiveMinimum: 0,
+            },
+            corpusKey: {
+              type: "string",
+              enum: ["slack", "transcripts", "documents"],
+            },
+            providerKind: {
+              type: "string",
+              enum: ["slack", "transcript", "google_drive"],
+            },
+            connectorScopeKey: {
+              type: "string",
+            },
+            configuration: {
+              type: "object",
+              required: [
+                "connectionKey",
+                "connectionGeneration",
+                "allowlistGeneration",
+                "controllingConfigurationDigest",
+                "connectorState",
+                "allowlistState",
+                "tupleMatches",
+              ],
+              properties: {
+                connectionKey: {
+                  type: "string",
+                },
+                connectionGeneration: {
+                  type: "integer",
+                  description: "a positive number",
+                  title: "greaterThan(0)",
+                  exclusiveMinimum: 0,
+                },
+                allowlistGeneration: {
+                  type: "integer",
+                  description: "a positive number",
+                  title: "greaterThan(0)",
+                  exclusiveMinimum: 0,
+                },
+                controllingConfigurationDigest: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                  pattern: "^sha256:[a-f0-9]{64}$",
+                },
+                connectorState: {
+                  type: "string",
+                  enum: ["active", "revoked", "missing"],
+                },
+                allowlistState: {
+                  type: "string",
+                  enum: ["current", "superseded", "revoked", "missing"],
+                },
+                tupleMatches: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            eligibility: {
+              type: "object",
+              required: ["status", "failureCount"],
+              properties: {
+                status: {
+                  type: "string",
+                  enum: ["eligible", "ineligible", "integrity_failure"],
+                },
+                failureCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+              },
+              additionalProperties: false,
+            },
+            reconciliation: {
+              type: "object",
+              required: [
+                "runKey",
+                "runGeneration",
+                "status",
+                "providerHighWater",
+                "ledgerHighWater",
+                "completedAt",
+                "completionDigest",
+                "blockingObligationCount",
+                "truncated",
+              ],
+              properties: {
+                runKey: {
+                  anyOf: [
+                    {
+                      type: "string",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                runGeneration: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                status: {
+                  anyOf: [
+                    {
+                      type: "string",
+                      enum: [
+                        "scan",
+                        "traversal_closed",
+                        "apply_removals",
+                        "drain_derived",
+                        "complete",
+                        "superseded",
+                        "blocked",
+                      ],
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                providerHighWater: {
+                  anyOf: [
+                    {
+                      type: "string",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                ledgerHighWater: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                completedAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                completionDigest: {
+                  anyOf: [
+                    {
+                      type: "string",
+                      description:
+                        "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                      pattern: "^sha256:[a-f0-9]{64}$",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                blockingObligationCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                truncated: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            rebuild: {
+              type: "object",
+              required: [
+                "runKey",
+                "runGeneration",
+                "status",
+                "ledgerHighWater",
+                "catchupHighWater",
+                "completionDigest",
+                "blockingChildCount",
+                "truncated",
+              ],
+              properties: {
+                runKey: {
+                  anyOf: [
+                    {
+                      type: "string",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                runGeneration: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                status: {
+                  anyOf: [
+                    {
+                      type: "string",
+                      enum: [
+                        "running",
+                        "closing",
+                        "complete",
+                        "superseded",
+                        "blocked",
+                      ],
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                ledgerHighWater: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                catchupHighWater: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                completionDigest: {
+                  anyOf: [
+                    {
+                      type: "string",
+                      description:
+                        "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                      pattern: "^sha256:[a-f0-9]{64}$",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                blockingChildCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                truncated: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            health: {
+              type: "object",
+              required: [
+                "rowPresent",
+                "lastObservedAt",
+                "lastPublishedAt",
+                "lastReconciledAt",
+                "freshnessThresholdMs",
+                "failedCount",
+                "degradedReason",
+              ],
+              properties: {
+                rowPresent: {
+                  type: "boolean",
+                },
+                lastObservedAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                lastPublishedAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                lastReconciledAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                freshnessThresholdMs: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                failedCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                degradedReason: {
+                  anyOf: [
+                    {
+                      type: "string",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+              },
+              additionalProperties: false,
+            },
+            freshness: {
+              type: "string",
+              enum: ["current", "stale", "unknown"],
+            },
+            coverageStatus: {
+              type: "string",
+              enum: ["complete", "partial", "unavailable", "unknown"],
+            },
+            readiness: {
+              type: "string",
+              enum: ["ready", "blocked"],
+            },
+            obligations: {
+              type: "object",
+              required: [
+                "counts",
+                "nonterminalCount",
+                "oldestNonterminalAt",
+                "truncated",
+              ],
+              properties: {
+                counts: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["state", "count", "truncated"],
+                    properties: {
+                      state: {
+                        type: "string",
+                        enum: [
+                          "captured",
+                          "normalization_pending",
+                          "quarantined",
+                          "target_resolution_pending",
+                          "capacity_blocked",
+                          "publication_pending",
+                          "retry_wait",
+                          "removal_pending",
+                          "drain_pending",
+                          "complete",
+                          "policy_excluded",
+                          "failed",
+                        ],
+                      },
+                      count: {
+                        type: "integer",
+                        description: "a non-negative number",
+                        title: "greaterThanOrEqualTo(0)",
+                        minimum: 0,
+                      },
+                      truncated: {
+                        type: "boolean",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                nonterminalCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                oldestNonterminalAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                truncated: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            publication: {
+              type: "object",
+              required: [
+                "counts",
+                "unresolvedCount",
+                "deadLetters",
+                "truncated",
+              ],
+              properties: {
+                counts: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["state", "count", "truncated"],
+                    properties: {
+                      state: {
+                        type: "string",
+                        enum: [
+                          "pending",
+                          "retry_wait",
+                          "succeeded",
+                          "superseded",
+                          "revoked",
+                          "integrity_failure",
+                          "dead_letter",
+                        ],
+                      },
+                      count: {
+                        type: "integer",
+                        description: "a non-negative number",
+                        title: "greaterThanOrEqualTo(0)",
+                        minimum: 0,
+                      },
+                      truncated: {
+                        type: "boolean",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                unresolvedCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                deadLetters: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: [
+                      "jobKey",
+                      "effectClass",
+                      "attemptCount",
+                      "lastErrorTag",
+                      "repairOfJobKey",
+                    ],
+                    properties: {
+                      jobKey: {
+                        type: "string",
+                      },
+                      effectClass: {
+                        anyOf: [
+                          {
+                            type: "string",
+                          },
+                          {
+                            type: "null",
+                          },
+                        ],
+                      },
+                      attemptCount: {
+                        type: "integer",
+                        description: "a non-negative number",
+                        title: "greaterThanOrEqualTo(0)",
+                        minimum: 0,
+                      },
+                      lastErrorTag: {
+                        anyOf: [
+                          {
+                            type: "string",
+                          },
+                          {
+                            type: "null",
+                          },
+                        ],
+                      },
+                      repairOfJobKey: {
+                        anyOf: [
+                          {
+                            type: "string",
+                          },
+                          {
+                            type: "null",
+                          },
+                        ],
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                  description: "an array of at most 20 item(s)",
+                  title: "maxItems(20)",
+                  maxItems: 20,
+                },
+                truncated: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            targetResolution: {
+              type: "object",
+              required: [
+                "counts",
+                "unresolvedCount",
+                "oldestUnresolvedAt",
+                "truncated",
+              ],
+              properties: {
+                counts: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["state", "count", "truncated"],
+                    properties: {
+                      state: {
+                        type: "string",
+                        enum: [
+                          "pending",
+                          "retry_wait",
+                          "capacity_blocked",
+                          "integrity_failure",
+                        ],
+                      },
+                      count: {
+                        type: "integer",
+                        description: "a non-negative number",
+                        title: "greaterThanOrEqualTo(0)",
+                        minimum: 0,
+                      },
+                      truncated: {
+                        type: "boolean",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                  description: "an array of at most 4 item(s)",
+                  title: "maxItems(4)",
+                  maxItems: 4,
+                },
+                unresolvedCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                oldestUnresolvedAt: {
+                  anyOf: [
+                    {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                truncated: {
+                  type: "boolean",
+                },
+              },
+              additionalProperties: false,
+            },
+            workers: {
+              type: "object",
+              required: ["pauseEpoch", "state"],
+              properties: {
+                pauseEpoch: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                state: {
+                  type: "string",
+                  enum: ["running", "paused"],
+                },
+              },
+              additionalProperties: false,
+            },
+            failures: {
+              type: "object",
+              required: [
+                "capacityCount",
+                "publicationIntegrityCount",
+                "eligibilityIntegrityCount",
+              ],
+              properties: {
+                capacityCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                publicationIntegrityCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                eligibilityIntegrityCount: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+              },
+              additionalProperties: false,
+            },
+            blockers: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: [
+                  "missing_health",
+                  "freshness_stale",
+                  "freshness_unknown",
+                  "coverage_incomplete",
+                  "configuration_mismatch",
+                  "scope_revoked",
+                  "eligibility_ineligible",
+                  "eligibility_integrity_failure",
+                  "reconciliation_incomplete",
+                  "obligations_nonterminal",
+                  "publication_jobs_unresolved",
+                  "target_resolution_intents_unresolved",
+                  "dead_letter",
+                  "quarantine",
+                  "cursor_stalled",
+                  "workers_paused",
+                  "capacity_failure",
+                  "publication_integrity_failure",
+                  "projection_population_invalid",
+                  "bounded_scan_overflow",
+                ],
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+        description: "an array of at most 10 item(s)",
+        title: "maxItems(10)",
+        maxItems: 10,
+      },
+      alerts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "alertKey",
+            "kind",
+            "severity",
+            "dri",
+            "connectorScopeKey",
+            "requiredScopeIntentKey",
+            "intentGeneration",
+            "connectionGeneration",
+            "allowlistGeneration",
+            "reconciliationRunKey",
+            "count",
+            "oldestAt",
+            "entityKeys",
+            "runbookLink",
+          ],
+          properties: {
+            alertKey: {
+              type: "string",
+              description: "a string matching the pattern ^ralt_[a-f0-9]{64}$",
+              pattern: "^ralt_[a-f0-9]{64}$",
+            },
+            kind: {
+              type: "string",
+              enum: [
+                "freshness_breach",
+                "reconciliation_breach",
+                "oldest_obligation_breach",
+                "dead_letter",
+                "quarantine",
+                "stalled_cursor",
+                "integrity_failure",
+                "retrieval_capacity_overflow",
+                "bounded_scan_overflow",
+              ],
+            },
+            severity: {
+              type: "string",
+              enum: ["warning", "critical"],
+            },
+            dri: {
+              type: "string",
+              enum: ["workspace_owner"],
+            },
+            connectorScopeKey: {
+              type: "string",
+            },
+            requiredScopeIntentKey: {
+              type: "string",
+            },
+            intentGeneration: {
+              type: "integer",
+              description: "a positive number",
+              title: "greaterThan(0)",
+              exclusiveMinimum: 0,
+            },
+            connectionGeneration: {
+              type: "integer",
+              description: "a positive number",
+              title: "greaterThan(0)",
+              exclusiveMinimum: 0,
+            },
+            allowlistGeneration: {
+              type: "integer",
+              description: "a positive number",
+              title: "greaterThan(0)",
+              exclusiveMinimum: 0,
+            },
+            reconciliationRunKey: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            count: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            oldestAt: {
+              anyOf: [
+                {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            entityKeys: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              description: "an array of at most 20 item(s)",
+              title: "maxItems(20)",
+              maxItems: 20,
+            },
+            runbookLink: {
+              type: "string",
+              enum: ["docs/template/operations-runbook.md#incident"],
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
   "brain.readApi.contextGet.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1722,51 +2807,124 @@ const sharedConfectJsonSchemas = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
     required: [
+      "schemaVersion",
+      "candidateManifest",
       "requestId",
       "organizationKey",
       "brainKey",
       "question",
       "asOf",
+      "freshness",
+      "coverageStatus",
+      "readiness",
       "coverage",
       "entries",
-      "omissions",
+      "structuredFacts",
       "conflicts",
+      "structuredConflicts",
+      "omissions",
     ],
     properties: {
+      schemaVersion: {
+        type: "string",
+        enum: ["3"],
+      },
+      candidateManifest: {
+        type: "object",
+        required: ["version", "hash"],
+        properties: {
+          version: {
+            type: "string",
+            enum: ["2"],
+          },
+          hash: {
+            type: "string",
+            description: "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+            pattern: "^sha256:[a-f0-9]{64}$",
+          },
+        },
+        additionalProperties: false,
+      },
       requestId: {
         type: "string",
+        description: "a string at most 2048 character(s) long",
+        title: "maxLength(2048)",
+        minLength: 1,
+        maxLength: 2048,
       },
       organizationKey: {
         type: "string",
+        description: "a string at most 2048 character(s) long",
+        title: "maxLength(2048)",
+        minLength: 1,
+        maxLength: 2048,
       },
       brainKey: {
         type: "string",
+        description: "a string at most 2048 character(s) long",
+        title: "maxLength(2048)",
+        minLength: 1,
+        maxLength: 2048,
       },
       question: {
         type: "string",
       },
       asOf: {
-        type: "number",
+        type: "integer",
+        description: "a non-negative number",
+        title: "greaterThanOrEqualTo(0)",
+        minimum: 0,
       },
       freshness: {
-        type: "object",
-        required: ["status"],
-        properties: {
-          status: {
-            type: "string",
-            enum: ["current", "stale", "unknown"],
-          },
-        },
-        additionalProperties: false,
+        type: "string",
+        enum: ["current", "stale", "unknown"],
+      },
+      coverageStatus: {
+        type: "string",
+        enum: ["complete", "partial", "unavailable", "unknown"],
+      },
+      readiness: {
+        type: "string",
+        enum: ["ready", "blocked"],
       },
       coverage: {
         type: "array",
         items: {
           type: "object",
-          required: ["sourceKind", "status", "freshness"],
+          required: [
+            "corpusKey",
+            "sourceKind",
+            "connectorScopeKey",
+            "required",
+            "status",
+            "freshness",
+            "generations",
+            "unresolvedFailureCount",
+          ],
           properties: {
+            corpusKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
             sourceKind: {
               type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            connectorScopeKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            required: {
+              type: "boolean",
             },
             status: {
               type: "string",
@@ -1776,8 +2934,54 @@ const sharedConfectJsonSchemas = {
               type: "string",
               enum: ["current", "stale", "unknown"],
             },
-            lastSuccessfulAt: {
-              type: "number",
+            generations: {
+              type: "object",
+              required: [],
+              properties: {
+                connection: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                allowlist: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                policy: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                reconciliation: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+              },
+              additionalProperties: false,
+            },
+            lastObservedAt: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            lastReconciledAt: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            unresolvedFailureCount: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
             },
             reason: {
               type: "string",
@@ -1785,69 +2989,41 @@ const sharedConfectJsonSchemas = {
           },
           additionalProperties: false,
         },
+        description: "an array of at most 200 item(s)",
+        title: "maxItems(200)",
+        maxItems: 200,
       },
       entries: {
         type: "array",
         items: {
           type: "object",
           required: [
+            "kind",
+            "brainKey",
+            "title",
+            "excerpt",
             "sourceKey",
-            "sourceRevisionKey",
-            "entryKey",
+            "revisionKey",
             "publicationSetKey",
+            "entryKey",
             "passageKey",
             "startOffset",
             "endOffset",
-            "contentHash",
-            "kind",
-            "citationKey",
-            "title",
-            "excerpt",
             "authority",
-            "authorityPolicyKey",
-            "observedAt",
-            "indexedAt",
             "freshness",
             "truncated",
-            "state",
           ],
           properties: {
-            sourceKey: {
-              type: "string",
-            },
-            sourceRevisionKey: {
-              type: "string",
-            },
-            entryKey: {
-              type: "string",
-            },
-            publicationSetKey: {
-              type: "string",
-            },
-            passageKey: {
-              type: "string",
-            },
-            startOffset: {
-              type: "number",
-            },
-            endOffset: {
-              type: "number",
-            },
-            contentHash: {
-              type: "string",
-            },
             kind: {
               type: "string",
               enum: ["source", "page", "projection"],
             },
-            unitKey: {
+            brainKey: {
               type: "string",
-            },
-            segmentKey: {
-              type: "string",
-            },
-            citationKey: {
-              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
             },
             title: {
               type: "string",
@@ -1855,30 +3031,97 @@ const sharedConfectJsonSchemas = {
             excerpt: {
               type: "string",
             },
+            sourceKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            revisionKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            publicationSetKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            entryKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            passageKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            unitKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            segmentKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            startOffset: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            endOffset: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
             locator: {
               type: "string",
             },
-            citationLabel: {
+            contentHash: {
               type: "string",
-            },
-            permalink: {
-              type: "string",
+              description:
+                "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+              pattern: "^sha256:[a-f0-9]{64}$",
             },
             authority: {
               type: "string",
               enum: ["authoritative", "derived", "advisory"],
             },
-            authorityPolicyKey: {
-              type: "string",
-            },
             sourceModifiedAt: {
-              type: "number",
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
             },
             observedAt: {
-              type: "number",
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
             },
             indexedAt: {
-              type: "number",
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
             },
             freshness: {
               type: "string",
@@ -1887,13 +3130,432 @@ const sharedConfectJsonSchemas = {
             truncated: {
               type: "boolean",
             },
+            sourceRevisionKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            citationKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            citationLabel: {
+              type: "string",
+            },
+            permalink: {
+              type: "string",
+            },
+            authorityPolicyKey: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
             state: {
               type: "string",
-              enum: ["resolved"],
+              enum: ["resolved", "superseded"],
             },
           },
           additionalProperties: false,
         },
+        description: "an array of at most 40 item(s)",
+        title: "maxItems(40)",
+        maxItems: 40,
+      },
+      structuredFacts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "origin",
+            "entity",
+            "fieldPath",
+            "value",
+            "revision",
+            "valueHash",
+            "authority",
+            "sourceModifiedAt",
+            "observedAt",
+            "locator",
+          ],
+          properties: {
+            origin: {
+              type: "object",
+              required: [
+                "kind",
+                "organizationKey",
+                "workspaceId",
+                "brainKey",
+                "structuredEntityKey",
+                "structuredRevisionKey",
+                "structuredObservationKey",
+                "structuredRouteKey",
+                "fieldPath",
+                "valueHash",
+              ],
+              properties: {
+                kind: {
+                  type: "string",
+                  enum: ["structured"],
+                },
+                organizationKey: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                workspaceId: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                brainKey: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                structuredEntityKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sent_[a-f0-9]{64}$",
+                  pattern: "^sent_[a-f0-9]{64}$",
+                },
+                structuredRevisionKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^srev_[a-f0-9]{64}$",
+                  pattern: "^srev_[a-f0-9]{64}$",
+                },
+                structuredObservationKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sobs_[a-f0-9]{64}$",
+                  pattern: "^sobs_[a-f0-9]{64}$",
+                },
+                structuredRouteKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sroute_[a-f0-9]{64}$",
+                  pattern: "^sroute_[a-f0-9]{64}$",
+                },
+                fieldPath: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                valueHash: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+                  pattern: "^sha256:[a-f0-9]{64}$",
+                },
+              },
+              additionalProperties: false,
+            },
+            entity: {
+              type: "object",
+              required: [
+                "structuredEntityKey",
+                "providerKey",
+                "entityKind",
+                "providerEntityId",
+                "incarnation",
+              ],
+              properties: {
+                structuredEntityKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^sent_[a-f0-9]{64}$",
+                  pattern: "^sent_[a-f0-9]{64}$",
+                },
+                providerKey: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                entityKind: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                providerEntityId: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                incarnation: {
+                  type: "integer",
+                  description: "a positive number",
+                  title: "greaterThan(0)",
+                  exclusiveMinimum: 0,
+                },
+              },
+              additionalProperties: false,
+            },
+            fieldPath: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            value: {
+              anyOf: [
+                {
+                  type: "object",
+                  required: ["type", "value"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["string"],
+                    },
+                    value: {
+                      type: "string",
+                      description: "a string at most 2048 character(s) long",
+                      title: "maxLength(2048)",
+                      maxLength: 2048,
+                    },
+                  },
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  required: ["type", "value"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["number"],
+                    },
+                    value: {
+                      type: "number",
+                    },
+                  },
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  required: ["type", "value"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["boolean"],
+                    },
+                    value: {
+                      type: "boolean",
+                    },
+                  },
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  required: ["type", "value"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["timestamp"],
+                    },
+                    value: {
+                      type: "integer",
+                      description: "a non-negative number",
+                      title: "greaterThanOrEqualTo(0)",
+                      minimum: 0,
+                    },
+                  },
+                  additionalProperties: false,
+                },
+              ],
+            },
+            revision: {
+              type: "object",
+              required: [
+                "structuredRevisionKey",
+                "providerRevision",
+                "observationOrder",
+                "incarnation",
+              ],
+              properties: {
+                structuredRevisionKey: {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^srev_[a-f0-9]{64}$",
+                  pattern: "^srev_[a-f0-9]{64}$",
+                },
+                providerRevision: {
+                  type: "string",
+                  description: "a string at most 2048 character(s) long",
+                  title: "maxLength(2048)",
+                  minLength: 1,
+                  maxLength: 2048,
+                },
+                observationOrder: {
+                  type: "integer",
+                  description: "a non-negative number",
+                  title: "greaterThanOrEqualTo(0)",
+                  minimum: 0,
+                },
+                incarnation: {
+                  type: "integer",
+                  description: "a positive number",
+                  title: "greaterThan(0)",
+                  exclusiveMinimum: 0,
+                },
+              },
+              additionalProperties: false,
+            },
+            valueHash: {
+              type: "string",
+              description:
+                "a string matching the pattern ^sha256:[a-f0-9]{64}$",
+              pattern: "^sha256:[a-f0-9]{64}$",
+            },
+            authority: {
+              type: "string",
+              enum: ["authoritative", "derived", "advisory"],
+            },
+            sourceModifiedAt: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            observedAt: {
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
+            },
+            locator: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            actionRef: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+          },
+          additionalProperties: false,
+        },
+        description: "an array of at most 400 item(s)",
+        title: "maxItems(400)",
+        maxItems: 400,
+      },
+      conflicts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["subject", "revisionKeys"],
+          properties: {
+            subject: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            revisionKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                description: "a string at most 2048 character(s) long",
+                title: "maxLength(2048)",
+                minLength: 1,
+                maxLength: 2048,
+              },
+              description: "an array of at most 100 item(s)",
+              title: "maxItems(100)",
+              maxItems: 100,
+            },
+          },
+          additionalProperties: false,
+        },
+        description: "an array of at most 100 item(s)",
+        title: "maxItems(100)",
+        maxItems: 100,
+      },
+      structuredConflicts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "subject",
+            "narrativeRevisionKeys",
+            "structuredRevisionKeys",
+            "reason",
+            "behavior",
+          ],
+          properties: {
+            subject: {
+              type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
+            },
+            narrativeRevisionKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                description: "a string at most 2048 character(s) long",
+                title: "maxLength(2048)",
+                minLength: 1,
+                maxLength: 2048,
+              },
+              description: "an array of at most 100 item(s)",
+              title: "maxItems(100)",
+              maxItems: 100,
+            },
+            structuredRevisionKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                description: "a string at most 2048 character(s) long",
+                title: "maxLength(2048)",
+                minLength: 1,
+                maxLength: 2048,
+              },
+              description: "an array of at most 100 item(s)",
+              title: "maxItems(100)",
+              maxItems: 100,
+            },
+            reason: {
+              type: "string",
+              enum: ["narrative_typed_disagreement"],
+            },
+            behavior: {
+              type: "string",
+              enum: ["expose_both"],
+            },
+          },
+          additionalProperties: false,
+        },
+        description: "an array of at most 100 item(s)",
+        title: "maxItems(100)",
+        maxItems: 100,
       },
       omissions: {
         type: "array",
@@ -1903,35 +3565,23 @@ const sharedConfectJsonSchemas = {
           properties: {
             reason: {
               type: "string",
+              description: "a string at most 2048 character(s) long",
+              title: "maxLength(2048)",
+              minLength: 1,
+              maxLength: 2048,
             },
             count: {
-              type: "number",
+              type: "integer",
+              description: "a non-negative number",
+              title: "greaterThanOrEqualTo(0)",
+              minimum: 0,
             },
           },
           additionalProperties: false,
         },
-      },
-      conflicts: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["subject", "revisionKeys", "reason"],
-          properties: {
-            subject: {
-              type: "string",
-            },
-            revisionKeys: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-            },
-            reason: {
-              type: "string",
-            },
-          },
-          additionalProperties: false,
-        },
+        description: "an array of at most 100 item(s)",
+        title: "maxItems(100)",
+        maxItems: 100,
       },
     },
     additionalProperties: false,
@@ -2414,6 +4064,12 @@ const sharedConfectJsonSchemas = {
                 "workspaces",
                 "workspaceMembers",
                 "brainPages",
+                "retrievalPublicationSubjects",
+                "retrievalEligibilityFences",
+                "retrievalPublicationSets",
+                "retrievalEntries",
+                "retrievalTokenCatalog",
+                "retrievalTokens",
                 "workflowRuns",
                 "workflowStageRuns",
                 "workflowRunEvents",
@@ -2470,6 +4126,12 @@ const sharedConfectJsonSchemas = {
                 "workspaces",
                 "workspaceMembers",
                 "brainPages",
+                "retrievalPublicationSubjects",
+                "retrievalEligibilityFences",
+                "retrievalPublicationSets",
+                "retrievalEntries",
+                "retrievalTokenCatalog",
+                "retrievalTokens",
                 "workflowRuns",
                 "workflowStageRuns",
                 "workflowRunEvents",
@@ -2644,6 +4306,12 @@ const sharedConfectJsonSchemas = {
                       "workspaces",
                       "workspaceMembers",
                       "brainPages",
+                      "retrievalPublicationSubjects",
+                      "retrievalEligibilityFences",
+                      "retrievalPublicationSets",
+                      "retrievalEntries",
+                      "retrievalTokenCatalog",
+                      "retrievalTokens",
                       "workflowRuns",
                       "workflowStageRuns",
                       "workflowRunEvents",
@@ -2700,6 +4368,12 @@ const sharedConfectJsonSchemas = {
                       "workspaces",
                       "workspaceMembers",
                       "brainPages",
+                      "retrievalPublicationSubjects",
+                      "retrievalEligibilityFences",
+                      "retrievalPublicationSets",
+                      "retrievalEntries",
+                      "retrievalTokenCatalog",
+                      "retrievalTokens",
                       "workflowRuns",
                       "workflowStageRuns",
                       "workflowRunEvents",

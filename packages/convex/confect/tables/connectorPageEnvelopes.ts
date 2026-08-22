@@ -7,6 +7,9 @@ import {
   NonNegativeInteger,
   PositiveInteger,
 } from "../brain/retrievalSchemas";
+import { PreparedDriveReconciliationPage } from "../integrations/driveLedgerSchemas";
+import { PreparedSlackReconciliationPage } from "../integrations/slackReconciliationAdapter";
+import { PreparedTranscriptReconciliationPage } from "../integrations/transcriptReconciliationAdapter";
 
 const NonNegativeNumber = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0));
 
@@ -21,8 +24,8 @@ export const ConnectorPageEnvelopeRow = Schema.Struct({
   organizationKey: Schema.String,
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
-  corpusKey: Schema.Literal("slack", "transcripts"),
-  providerKind: Schema.Literal("slack", "transcript"),
+  corpusKey: Schema.Literal("slack", "transcripts", "documents"),
+  providerKind: Schema.Literal("slack", "transcript", "google_drive"),
   connectorScopeKey: Schema.String,
   connectionKey: Schema.String,
   connectionGeneration: PositiveInteger,
@@ -36,6 +39,7 @@ export const ConnectorPageEnvelopeRow = Schema.Struct({
   expectedCursor: Schema.NullOr(Schema.String),
   expectedCursorGeneration: PositiveInteger,
   nextCursor: Schema.NullOr(Schema.String),
+  traversalComplete: Schema.Boolean,
   providerHighWater: Schema.NullOr(Schema.String),
   ledgerHighWater: NonNegativeNumber,
   pageDigest: ContentHash,
@@ -43,6 +47,9 @@ export const ConnectorPageEnvelopeRow = Schema.Struct({
     Schema.minItems(1),
     Schema.maxItems(64),
   ),
+  preparedDrivePage: Schema.optional(PreparedDriveReconciliationPage),
+  preparedSlackPage: Schema.optional(PreparedSlackReconciliationPage),
+  preparedTranscriptPage: Schema.optional(PreparedTranscriptReconciliationPage),
   createdAt: NonNegativeInteger,
 });
 

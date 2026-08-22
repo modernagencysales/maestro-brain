@@ -2,10 +2,22 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
 import { sha256Hex } from "../shared/sha256";
+import type {
+  DrivePreparedWrite,
+  PreparedDriveReconciliationPage,
+} from "./driveLedgerSchemas";
+import type {
+  PreparedSlackReconciliationPage,
+  PreparedSlackReconciliationWrite,
+} from "./slackReconciliationAdapter";
+import type {
+  PreparedTranscriptReconciliationPage,
+  PreparedTranscriptReconciliationWrite,
+} from "./transcriptReconciliationAdapter";
 
-export type ProviderKind = "slack" | "transcript";
-export type ReconciliationCorpusKey = "slack" | "transcripts";
-export type ReconciliationOriginKind = "slack" | "transcript";
+export type ProviderKind = "slack" | "transcript" | "google_drive";
+export type ReconciliationCorpusKey = "slack" | "transcripts" | "documents";
+export type ReconciliationOriginKind = "slack" | "transcript" | "document";
 export type ReconciliationRunStatus =
   | "scan"
   | "traversal_closed"
@@ -43,6 +55,7 @@ export type ReconciliationScopeAuthority = {
 export type ConnectorCursorState = ReconciliationScopeAuthority & {
   readonly cursorKey: string;
   readonly providerCursor: string | null;
+  readonly traversalComplete: boolean;
   readonly cursorGeneration: number;
   readonly activeEnvelopeKey: string | null;
   readonly lastProviderHighWater: string | null;
@@ -97,6 +110,9 @@ export type ProviderObservation = {
   readonly originRevisionKey: string;
   readonly ledgerSequence: number;
   readonly observationDigest: string;
+  readonly obligationCause?: "observation" | "removal" | undefined;
+  readonly initialObligationState?:
+    "captured" | "quarantined" | "removal_pending" | undefined;
 };
 
 export type PageChunkDescriptor = {
@@ -113,10 +129,15 @@ export type ProviderPageEnvelope = ReconciliationScopeAuthority & {
   readonly expectedCursor: string | null;
   readonly expectedCursorGeneration: number;
   readonly nextCursor: string | null;
+  readonly traversalComplete: boolean;
   readonly providerHighWater: string | null;
   readonly ledgerHighWater: number;
   readonly pageDigest: string;
   readonly chunks: readonly PageChunkDescriptor[];
+  readonly preparedDrivePage?: PreparedDriveReconciliationPage | undefined;
+  readonly preparedSlackPage?: PreparedSlackReconciliationPage | undefined;
+  readonly preparedTranscriptPage?:
+    PreparedTranscriptReconciliationPage | undefined;
   readonly createdAt: number;
 };
 
@@ -157,6 +178,7 @@ export type PlannedIngestionObligation = ReconciliationScopeAuthority & {
   readonly originKey: string;
   readonly originRevisionKey: string;
   readonly ledgerSequence: number;
+  readonly observationDigest: string;
   readonly state: IngestionObligationState;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -164,6 +186,7 @@ export type PlannedIngestionObligation = ReconciliationScopeAuthority & {
 
 export type RemovalCandidate = {
   readonly membershipKey: string;
+  readonly providerObjectKey: string;
   readonly originKind: ReconciliationOriginKind;
   readonly originKey: string;
   readonly originRevisionKey: string;
@@ -174,6 +197,7 @@ export type ProviderReconciliationInvariantReason =
   | "cursor_conflict"
   | "page_conflict"
   | "chunk_conflict"
+  | "lease_lost"
   | "run_superseded"
   | "scope_tuple_changed"
   | "phase_conflict"
@@ -194,15 +218,39 @@ export class ProviderReconciliationInvariant extends Data.TaggedError(
 const fail = (reason: ProviderReconciliationInvariantReason, detail: string) =>
   Effect.fail(new ProviderReconciliationInvariant({ reason, detail }));
 
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value !== null && typeof value === "object")
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(
+        ([field, nested]) => `${JSON.stringify(field)}:${stableJson(nested)}`,
+      )
+      .join(",")}}`;
+  return JSON.stringify(value) ?? "null";
+};
+
 const digest = (value: unknown): string =>
-  `sha256:${sha256Hex(JSON.stringify(value))}`;
+  `sha256:${sha256Hex(stableJson(value))}`;
 
 const key = (prefix: string, value: unknown): string =>
-  `${prefix}_${sha256Hex(JSON.stringify(value))}`;
+  `${prefix}_${sha256Hex(stableJson(value))}`;
 
 export const providerPageChunkDigest = (
   observations: readonly ProviderObservation[],
 ): string => digest({ observations });
+
+export const preparedDriveChunkDigest = (
+  writes: readonly DrivePreparedWrite[],
+): string => digest({ driveWrites: writes });
+
+export const preparedSlackChunkDigest = (
+  writes: readonly PreparedSlackReconciliationWrite[],
+): string => digest({ slackWrites: writes });
+
+export const preparedTranscriptChunkDigest = (
+  writes: readonly PreparedTranscriptReconciliationWrite[],
+): string => digest({ transcriptWrites: writes });
 
 export const reconciliationScopeTupleDigest = (
   authority: ReconciliationScopeAuthority,
@@ -227,6 +275,20 @@ const sameAuthority = (
   left.connectionKey === right.connectionKey &&
   left.connectionGeneration === right.connectionGeneration &&
   left.allowlistGeneration === right.allowlistGeneration;
+
+const authorityKindsMatch = (
+  authority: ReconciliationScopeAuthority,
+): boolean =>
+  (authority.providerKind === "slack" && authority.corpusKey === "slack") ||
+  (authority.providerKind === "transcript" &&
+    authority.corpusKey === "transcripts") ||
+  (authority.providerKind === "google_drive" &&
+    authority.corpusKey === "documents");
+
+const expectedOriginKind = (
+  providerKind: ProviderKind,
+): ReconciliationOriginKind =>
+  providerKind === "google_drive" ? "document" : providerKind;
 
 const assertAuthoritativeRun = (input: {
   readonly run: ReconciliationRunState;
@@ -265,6 +327,11 @@ export const openReconciliationRunPlan = (input: {
   readonly now: number;
 }) =>
   Effect.gen(function* () {
+    if (!authorityKindsMatch(input.authority))
+      return yield* fail(
+        "scope_tuple_changed",
+        "The provider kind and Brain corpus do not form a valid reconciliation authority.",
+      );
     if (input.previousRunGeneration !== input.expectedPreviousRunGeneration)
       return yield* fail(
         "run_superseded",
@@ -322,9 +389,15 @@ export const beginProviderPagePlan = (input: {
   readonly expectedCursor: string | null;
   readonly expectedCursorGeneration: number;
   readonly nextCursor: string | null;
+  readonly traversalComplete: boolean;
   readonly providerHighWater: string | null;
   readonly ledgerHighWater: number;
   readonly chunks: readonly PageChunkDescriptor[];
+  readonly preparedDrivePage?: PreparedDriveReconciliationPage | undefined;
+  readonly preparedSlackPage?: PreparedSlackReconciliationPage | undefined;
+  readonly preparedTranscriptPage?:
+    PreparedTranscriptReconciliationPage | undefined;
+  readonly reserveLedgerRange?: boolean | undefined;
   readonly now: number;
 }) =>
   Effect.gen(function* () {
@@ -349,7 +422,10 @@ export const beginProviderPagePlan = (input: {
         "The provider cursor or active page envelope changed.",
       );
     yield* assertNonNegative(input.ledgerHighWater, "ledgerHighWater");
-    if (input.ledgerHighWater > input.run.ledgerHighWater)
+    if (
+      input.ledgerHighWater > input.run.ledgerHighWater &&
+      input.reserveLedgerRange !== true
+    )
       return yield* fail(
         "page_conflict",
         "A page ledger high-water cannot exceed the run fence.",
@@ -373,9 +449,13 @@ export const beginProviderPagePlan = (input: {
       runGeneration: input.run.runGeneration,
       expectedCursor: input.expectedCursor,
       nextCursor: input.nextCursor,
+      traversalComplete: input.traversalComplete,
       providerHighWater: input.providerHighWater,
       ledgerHighWater: input.ledgerHighWater,
       chunks: input.chunks,
+      preparedDrivePage: input.preparedDrivePage,
+      preparedSlackPage: input.preparedSlackPage,
+      preparedTranscriptPage: input.preparedTranscriptPage,
     });
     const pageEnvelopeKey = key("cenv", pageDigest);
     const envelope = {
@@ -387,10 +467,20 @@ export const beginProviderPagePlan = (input: {
       expectedCursor: input.expectedCursor,
       expectedCursorGeneration: input.expectedCursorGeneration,
       nextCursor: input.nextCursor,
+      traversalComplete: input.traversalComplete,
       providerHighWater: input.providerHighWater,
       ledgerHighWater: input.ledgerHighWater,
       pageDigest,
       chunks: input.chunks,
+      ...(input.preparedDrivePage === undefined
+        ? {}
+        : { preparedDrivePage: input.preparedDrivePage }),
+      ...(input.preparedSlackPage === undefined
+        ? {}
+        : { preparedSlackPage: input.preparedSlackPage }),
+      ...(input.preparedTranscriptPage === undefined
+        ? {}
+        : { preparedTranscriptPage: input.preparedTranscriptPage }),
       createdAt: input.now,
     } satisfies ProviderPageEnvelope;
     return {
@@ -409,6 +499,7 @@ export const commitProviderPageChunkPlan = (input: {
   readonly chunkDigest: string;
   readonly observations: readonly ProviderObservation[];
   readonly existingReceipt: ProviderPageChunkReceipt | null;
+  readonly canonicalChunkDigest?: string | undefined;
   readonly now: number;
 }) =>
   Effect.gen(function* () {
@@ -429,6 +520,8 @@ export const commitProviderPageChunkPlan = (input: {
           observation.connectionKey !== input.envelope.connectionKey ||
           observation.connectionGeneration !==
             input.envelope.connectionGeneration ||
+          observation.originKind !==
+            expectedOriginKind(input.envelope.providerKind) ||
           !Number.isFinite(observation.ledgerSequence) ||
           observation.ledgerSequence > input.envelope.ledgerHighWater ||
           observation.ledgerSequence < 0,
@@ -438,7 +531,10 @@ export const commitProviderPageChunkPlan = (input: {
         "scope_tuple_changed",
         "A chunk observation is outside the page authority or ledger fence.",
       );
-    if (providerPageChunkDigest(input.observations) !== input.chunkDigest)
+    if (
+      (input.canonicalChunkDigest ??
+        providerPageChunkDigest(input.observations)) !== input.chunkDigest
+    )
       return yield* fail(
         "chunk_conflict",
         "The chunk digest does not match its canonical observation body.",
@@ -510,13 +606,17 @@ export const commitProviderPageChunkPlan = (input: {
         }),
         reconciliationRunKey: input.envelope.reconciliationRunKey,
         runGeneration: input.envelope.runGeneration,
-        cause: "observation",
+        cause: observation.obligationCause ?? "observation",
         membershipKey: observation.membershipKey,
         originKind: observation.originKind,
         originKey: observation.originKey,
         originRevisionKey: observation.originRevisionKey,
         ledgerSequence: observation.ledgerSequence,
-        state: "captured",
+        observationDigest: observation.observationDigest,
+        state:
+          observation.obligationCause === "removal"
+            ? "removal_pending"
+            : (observation.initialObligationState ?? "captured"),
         createdAt: input.now,
         updatedAt: input.now,
       }),
@@ -584,6 +684,7 @@ export const finalizeProviderPagePlan = (input: {
     return {
       ...input.cursor,
       providerCursor: input.envelope.nextCursor,
+      traversalComplete: input.envelope.traversalComplete,
       cursorGeneration: input.cursor.cursorGeneration + 1,
       activeEnvelopeKey: null,
       lastProviderHighWater: input.envelope.providerHighWater,
@@ -599,7 +700,7 @@ export const closeReconciliationTraversalPlan = (input: {
   readonly run: ReconciliationRunState;
   readonly currentAuthority: ReconciliationScopeAuthority;
   readonly latestRunGeneration: number;
-  readonly providerCursor: string | null;
+  readonly traversalComplete: boolean;
   readonly activeEnvelopeKey: string | null;
   readonly now: number;
 }) =>
@@ -607,7 +708,7 @@ export const closeReconciliationTraversalPlan = (input: {
     yield* assertAuthoritativeRun(input);
     if (
       input.run.status !== "scan" ||
-      input.providerCursor !== null ||
+      !input.traversalComplete ||
       input.activeEnvelopeKey !== null
     )
       return yield* fail(
@@ -653,6 +754,28 @@ export const planReconciliationRemovals = (input: {
 export const isSuccessfulObligationState = (
   state: IngestionObligationState,
 ): boolean => state === "complete" || state === "policy_excluded";
+
+export const isBlockingObligationState = (
+  state: IngestionObligationState,
+): boolean => !isSuccessfulObligationState(state);
+
+export const ingestionObligationStates = [
+  "captured",
+  "normalization_pending",
+  "quarantined",
+  "target_resolution_pending",
+  "capacity_blocked",
+  "publication_pending",
+  "retry_wait",
+  "removal_pending",
+  "drain_pending",
+  "complete",
+  "policy_excluded",
+  "failed",
+] as const satisfies readonly IngestionObligationState[];
+
+export const blockingIngestionObligationStates =
+  ingestionObligationStates.filter(isBlockingObligationState);
 
 const allowedObligationTransitions: Readonly<
   Record<IngestionObligationState, readonly IngestionObligationState[]>
@@ -736,7 +859,7 @@ export const completeReconciliationRunPlan = (input: {
         "Removal and derived-drain cursors must close with no backlog.",
       );
     const blockingObligationCount = input.obligationStates.filter(
-      (state) => !isSuccessfulObligationState(state),
+      isBlockingObligationState,
     ).length;
     if (blockingObligationCount > 0)
       return yield* fail(

@@ -34,8 +34,8 @@ export const ConnectorReconciliationRunRow = Schema.Struct({
   organizationKey: Schema.String,
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
-  corpusKey: Schema.Literal("slack", "transcripts"),
-  providerKind: Schema.Literal("slack", "transcript"),
+  corpusKey: Schema.Literal("slack", "transcripts", "documents"),
+  providerKind: Schema.Literal("slack", "transcript", "google_drive"),
   connectorScopeKey: Schema.String,
   connectionKey: Schema.String,
   connectionGeneration: PositiveInteger,
@@ -71,4 +71,5 @@ export const ConnectorReconciliationRunRow = Schema.Struct({
 export default Table.make(() => ConnectorReconciliationRunRow)
   .index("by_reconciliation_run_key", ["reconciliationRunKey"])
   .index("by_scope_run_generation", ["connectorScopeKey", "runGeneration"])
-  .index("by_status_updated", ["status", "updatedAt"]);
+  .index("by_status_updated", ["status", "updatedAt"])
+  .index("by_status_lease_expiry", ["status", "leaseExpiresAt"]);

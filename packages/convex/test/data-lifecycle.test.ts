@@ -108,6 +108,7 @@ describe("template data lifecycle plan", () => {
         "retrievalEligibilityFences",
         "retrievalPublicationSets",
         "retrievalEntries",
+        "retrievalTokenCatalog",
         "retrievalTokens",
       ]),
     );
@@ -127,6 +128,11 @@ describe("template data lifecycle plan", () => {
         }),
         expect.objectContaining({
           id: "retrievalEntries",
+          deleteMode: "delete",
+        }),
+        expect.objectContaining({
+          id: "retrievalTokenCatalog",
+          exportMode: "json",
           deleteMode: "delete",
         }),
         expect.objectContaining({

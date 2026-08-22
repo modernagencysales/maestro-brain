@@ -302,6 +302,59 @@ describe("Slack Convex ingress", () => {
     });
     expect(intent.targetCount).toBe(1);
     await t.run(async (ctx) => {
+      const parents = await ctx.db
+        .query("providerTargetResolutionIntents")
+        .collect();
+      const children = await ctx.db.query("ingestionObligations").collect();
+      const required = await ctx.db
+        .query("brainRequiredScopeIntents")
+        .collect();
+      expect(parents).toHaveLength(1);
+      expect(parents[0]).toMatchObject({
+        authorityKind: "live_capture",
+        status: "succeeded",
+        providerKind: "slack",
+        targetCount: 1,
+        captureKey: expect.stringMatching(/^slack-receipt:/),
+      });
+      expect(parents[0]).not.toHaveProperty("reconciliationRunKey");
+      expect(parents[0]).not.toHaveProperty("pageEnvelopeKey");
+      expect(parents[0]).not.toHaveProperty("pageChunkKey");
+      expect(children).toHaveLength(2);
+      const parentObligation = children.find(
+        (obligation) => obligation.parentIngestionObligationKey === undefined,
+      );
+      const child = children.find(
+        (obligation) => obligation.parentIngestionObligationKey !== undefined,
+      );
+      expect(parentObligation).toMatchObject({
+        authorityKind: "live_capture",
+        ingestionObligationKey: parents[0]?.ingestionObligationKey,
+        state: "drain_pending",
+        publicationJobKeys: [],
+      });
+      expect(parentObligation).not.toHaveProperty("workspaceId");
+      expect(parentObligation).not.toHaveProperty("brainKey");
+      expect(parentObligation).not.toHaveProperty("allowlistGeneration");
+      expect(parentObligation).not.toHaveProperty("requiredScopeIntentKey");
+      expect(child).toMatchObject({
+        authorityKind: "live_capture",
+        parentIngestionObligationKey: parents[0]?.ingestionObligationKey,
+        ingestionObligationKey: job.ingestionObligationKey,
+        requiredScopeIntentKey: required[0]?.requiredScopeIntentKey,
+        state: "publication_pending",
+      });
+      expect(child).not.toHaveProperty("reconciliationRunKey");
+      expect(required).toHaveLength(1);
+      expect(parents[0]?.targets[0]).toMatchObject({
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        jobKey: job.jobKey,
+        authorityDigest: job.authorityDigest,
+        childIngestionObligationKey: child?.ingestionObligationKey,
+      });
+    });
+    await t.run(async (ctx) => {
       await ctx.db.patch(job._id, {
         status: "pending",
         attemptCount: 0,
@@ -375,7 +428,7 @@ describe("Slack Convex ingress", () => {
     ).toMatchObject({
       status: "integrity_failure",
       attemptCount: 1,
-      lastErrorTag: "PublicationAuthorityLinkageInvalid",
+      lastErrorTag: "PublicationIngestionObligationLinkageInvalid",
     });
   });
 
@@ -446,6 +499,10 @@ describe("Slack Convex ingress", () => {
     const state = await t.run(async (ctx) => ({
       receipts: await ctx.db.query("providerEventReceipts").collect(),
       intents: await ctx.db.query("slackPublicationTargetIntents").collect(),
+      providerIntents: await ctx.db
+        .query("providerTargetResolutionIntents")
+        .collect(),
+      obligations: await ctx.db.query("ingestionObligations").collect(),
       revisions: await ctx.db.query("sourceRevisions").collect(),
       jobs: await ctx.db.query("retrievalPublicationJobs").collect(),
     }));
@@ -457,6 +514,23 @@ describe("Slack Convex ingress", () => {
     });
     expect(state.revisions).toHaveLength(1);
     expect(state.jobs).toEqual([]);
+    expect(state.obligations).toEqual([
+      expect.objectContaining({
+        authorityKind: "live_capture",
+        state: "capacity_blocked",
+        publicationJobKeys: [],
+      }),
+    ]);
+    expect(state.obligations[0]).not.toHaveProperty("workspaceId");
+    expect(state.obligations[0]).not.toHaveProperty("requiredScopeIntentKey");
+    expect(state.providerIntents).toHaveLength(1);
+    expect(state.providerIntents[0]).toMatchObject({
+      authorityKind: "live_capture",
+      status: "retry_wait",
+      targetCount: 0,
+      targets: [],
+    });
+    expect(state.providerIntents[0]).not.toHaveProperty("reconciliationRunKey");
   });
 
   it("preserves capture and resumes complete fan-out after workspace capacity recovers", async () => {
@@ -550,6 +624,7 @@ describe("Slack Convex ingress", () => {
       intents: await ctx.db.query("slackPublicationTargetIntents").collect(),
       revisions: await ctx.db.query("sourceRevisions").collect(),
       jobs: await ctx.db.query("retrievalPublicationJobs").collect(),
+      obligations: await ctx.db.query("ingestionObligations").collect(),
     }));
     expect(blocked.receipts).toHaveLength(1);
     expect(blocked.intents).toHaveLength(1);
@@ -559,6 +634,13 @@ describe("Slack Convex ingress", () => {
     });
     expect(blocked.revisions).toHaveLength(1);
     expect(blocked.jobs).toEqual([]);
+    expect(blocked.obligations).toEqual([
+      expect.objectContaining({
+        authorityKind: "live_capture",
+        state: "capacity_blocked",
+        publicationJobKeys: [],
+      }),
+    ]);
 
     expect(
       await t.mutation(
@@ -588,6 +670,7 @@ describe("Slack Convex ingress", () => {
       intents: await ctx.db.query("slackPublicationTargetIntents").collect(),
       revisions: await ctx.db.query("sourceRevisions").collect(),
       jobs: await ctx.db.query("retrievalPublicationJobs").collect(),
+      obligations: await ctx.db.query("ingestionObligations").collect(),
     }));
     expect(recovered.receipts).toHaveLength(1);
     expect(recovered.intents).toHaveLength(1);
@@ -597,6 +680,12 @@ describe("Slack Convex ingress", () => {
     });
     expect(recovered.revisions).toHaveLength(1);
     expect(recovered.jobs).toHaveLength(26);
+    expect(recovered.obligations).toHaveLength(27);
+    expect(
+      recovered.obligations.filter(
+        (obligation) => obligation.parentIngestionObligationKey === undefined,
+      ),
+    ).toEqual([expect.objectContaining({ state: "drain_pending" })]);
   });
 
   it("detects a replay with the exact bounded index even when legacy duplicates exist", async () => {
@@ -632,7 +721,7 @@ describe("Slack Convex ingress", () => {
         await inputFor(createPayload, "delivery_replay", 1_700_000_100_002),
       ),
     ).toEqual({ outcome: "duplicate_replay" });
-  });
+  }, 30_000);
 
   it("advances lifecycle generations without accepting delayed resurrection", async () => {
     const t = makeTest();

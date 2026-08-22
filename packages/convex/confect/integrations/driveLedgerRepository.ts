@@ -209,8 +209,9 @@ const acceptedClassification = (
   classification === "tombstone" ||
   classification === "recreated";
 
-export const commitDriveObservation = (
+const commitDriveObservationWithSequence = (
   input: CommitDriveObservationArgs,
+  ledgerSequence: number | null,
 ): Effect.Effect<
   CommitDriveObservationResult,
   ValidationFailed,
@@ -387,7 +388,8 @@ export const commitDriveObservation = (
           membershipEdgeKey: null,
           incarnation: nextIncarnation,
           observedAt: revision.observedAt,
-          recordedAt: revision.observedAt,
+          recordedAt: ledgerSequence ?? revision.observedAt,
+          ...(ledgerSequence === null ? {} : { ledgerSequence }),
         })
         .pipe(Effect.orDie);
       return {
@@ -466,7 +468,8 @@ export const commitDriveObservation = (
           documentObjectKey,
           documentRevisionKey,
           incarnation: nextIncarnation,
-          recordedAt: revision.observedAt,
+          recordedAt: ledgerSequence ?? revision.observedAt,
+          ...(ledgerSequence === null ? {} : { ledgerSequence }),
         })
         .pipe(Effect.orDie);
       for (const passage of passages) {
@@ -484,7 +487,8 @@ export const commitDriveObservation = (
             sourceLocator: revision.sourceLocator,
             normalizationVersion: revision.normalizationVersion,
             incarnation: nextIncarnation,
-            recordedAt: revision.observedAt,
+            recordedAt: ledgerSequence ?? revision.observedAt,
+            ...(ledgerSequence === null ? {} : { ledgerSequence }),
           })
           .pipe(Effect.orDie);
       }
@@ -510,7 +514,8 @@ export const commitDriveObservation = (
         parentFolderIds: revision.parentFolderIds,
         incarnation: nextIncarnation,
         observedAt: revision.observedAt,
-        recordedAt: revision.observedAt,
+        recordedAt: ledgerSequence ?? revision.observedAt,
+        ...(ledgerSequence === null ? {} : { ledgerSequence }),
       })
       .pipe(Effect.orDie);
     yield* writer
@@ -536,7 +541,8 @@ export const commitDriveObservation = (
         membershipEdgeKey,
         incarnation: nextIncarnation,
         observedAt: revision.observedAt,
-        recordedAt: revision.observedAt,
+        recordedAt: ledgerSequence ?? revision.observedAt,
+        ...(ledgerSequence === null ? {} : { ledgerSequence }),
       })
       .pipe(Effect.orDie);
     const pointerValue = {
@@ -579,6 +585,31 @@ export const commitDriveObservation = (
     };
   });
 
+export const commitDriveObservation = (
+  input: CommitDriveObservationArgs,
+): Effect.Effect<
+  CommitDriveObservationResult,
+  ValidationFailed,
+  DriveLedgerDatabaseReader | DriveLedgerDatabaseWriter
+> => commitDriveObservationWithSequence(input, null);
+
+export const commitDriveObservationAtSequence = (
+  input: CommitDriveObservationArgs,
+  ledgerSequence: number,
+): Effect.Effect<
+  CommitDriveObservationResult,
+  ValidationFailed,
+  DriveLedgerDatabaseReader | DriveLedgerDatabaseWriter
+> =>
+  !Number.isSafeInteger(ledgerSequence) || ledgerSequence < 1
+    ? Effect.fail(
+        invalid(
+          "ledgerSequence",
+          "The Drive ledger sequence must be a positive safe integer.",
+        ),
+      )
+    : commitDriveObservationWithSequence(input, ledgerSequence);
+
 const outcomeMatchesReason = (input: RecordDriveSourceOutcomeArgs): boolean =>
   input.outcome === "unsupported"
     ? input.reason === "unsupported_mime_type" ||
@@ -586,8 +617,9 @@ const outcomeMatchesReason = (input: RecordDriveSourceOutcomeArgs): boolean =>
     : input.reason !== "unsupported_mime_type" &&
       input.reason !== "shortcut_not_supported";
 
-export const recordDriveSourceOutcome = (
+const recordDriveSourceOutcomeWithSequence = (
   input: RecordDriveSourceOutcomeArgs,
+  ledgerSequence: number | null,
 ): Effect.Effect<
   RecordDriveSourceOutcomeResult,
   ValidationFailed,
@@ -642,7 +674,8 @@ export const recordDriveSourceOutcome = (
         providerKey: "google_drive",
         ...input,
         outcomeKey,
-        recordedAt: input.observedAt,
+        recordedAt: ledgerSequence ?? input.observedAt,
+        ...(ledgerSequence === null ? {} : { ledgerSequence }),
       })
       .pipe(Effect.orDie);
     return {
@@ -650,6 +683,31 @@ export const recordDriveSourceOutcome = (
       duplicate: false,
       outcome: input.outcome,
       reason: input.reason,
-      recordedAt: input.observedAt,
+      recordedAt: ledgerSequence ?? input.observedAt,
     };
   });
+
+export const recordDriveSourceOutcome = (
+  input: RecordDriveSourceOutcomeArgs,
+): Effect.Effect<
+  RecordDriveSourceOutcomeResult,
+  ValidationFailed,
+  DriveLedgerDatabaseReader | DriveLedgerDatabaseWriter
+> => recordDriveSourceOutcomeWithSequence(input, null);
+
+export const recordDriveSourceOutcomeAtSequence = (
+  input: RecordDriveSourceOutcomeArgs,
+  ledgerSequence: number,
+): Effect.Effect<
+  RecordDriveSourceOutcomeResult,
+  ValidationFailed,
+  DriveLedgerDatabaseReader | DriveLedgerDatabaseWriter
+> =>
+  !Number.isSafeInteger(ledgerSequence) || ledgerSequence < 1
+    ? Effect.fail(
+        invalid(
+          "ledgerSequence",
+          "The Drive ledger sequence must be a positive safe integer.",
+        ),
+      )
+    : recordDriveSourceOutcomeWithSequence(input, ledgerSequence);

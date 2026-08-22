@@ -23,6 +23,10 @@ describe("retrieval publication recovery cron", () => {
     ).toEqual([
       "recover Brain publication jobs",
       "recover Slack publication target resolution",
+      "progress ingestion obligations",
+      "consume ingestion obligation repairs",
+      "complete reconciled provider runs",
+      "recover provider reconciliation workers",
     ]);
   });
 
@@ -34,9 +38,25 @@ describe("retrieval publication recovery cron", () => {
     expect(Object.keys(registered)).toEqual([
       "recover Brain publication jobs",
       "recover Slack publication target resolution",
+      "progress ingestion obligations",
+      "consume ingestion obligation repairs",
+      "complete reconciled provider runs",
+      "recover provider reconciliation workers",
     ]);
     expect(
       registered["recover Slack publication target resolution"]?.args,
     ).toEqual([{ limit: 20 }]);
+    expect(registered["progress ingestion obligations"]?.args).toEqual([
+      { limit: 50 },
+    ]);
+    expect(registered["consume ingestion obligation repairs"]?.args).toEqual([
+      { limit: 50 },
+    ]);
+    expect(registered["complete reconciled provider runs"]?.args).toEqual([
+      { limit: 50 },
+    ]);
+    expect(registered["recover provider reconciliation workers"]?.args).toEqual(
+      [{ limit: 50 }],
+    );
   });
 });

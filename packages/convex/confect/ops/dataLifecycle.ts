@@ -8,6 +8,7 @@ export const currentLifecycleResourceIds = [
   "retrievalEligibilityFences",
   "retrievalPublicationSets",
   "retrievalEntries",
+  "retrievalTokenCatalog",
   "retrievalTokens",
   "workflowRuns",
   "workflowStageRuns",
@@ -222,6 +223,14 @@ const resourcePlans: readonly LifecycleResourcePlan[] = [
     deleteMode: "delete",
     detail:
       "Copied retrieval passages delete before their final source origin is purged.",
+  },
+  {
+    id: "retrievalTokenCatalog",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Derived token-integrity catalogs delete with their workspace postings and publication sets.",
   },
   {
     id: "retrievalTokens",

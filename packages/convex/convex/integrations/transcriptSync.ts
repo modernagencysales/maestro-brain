@@ -6,5 +6,7 @@ export const commitTranscriptSyncPage =
   registeredFunctions.commitTranscriptSyncPage;
 export const failTranscriptSyncPage =
   registeredFunctions.failTranscriptSyncPage;
+export const ingestTranscriptSyncPage =
+  registeredFunctions.ingestTranscriptSyncPage;
 export const listTranscriptConnectionHealth =
   registeredFunctions.listTranscriptConnectionHealth;

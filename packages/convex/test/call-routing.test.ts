@@ -7,6 +7,11 @@ import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import refs from "../confect/_generated/refs";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import {
+  providerTargetResolutionAuthorityDigest,
+  providerTargetResolutionIntentKey,
+} from "../confect/brain/providerTargetResolution";
+import { sha256Hex } from "../confect/shared/sha256";
 import { buildCallSourceUnitRows } from "../confect/sources/sourceUnit";
 import { testConfectLayer } from "./support/confect";
 
@@ -118,6 +123,82 @@ const seed = (withMapping = true, agencyBrainKey?: string) =>
       .pipe(Effect.orDie);
     for (const segment of rows.segments)
       yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
+    const ingestionObligationKey = `iobl_${sha256Hex(
+      JSON.stringify({
+        authorityKind: "live_capture",
+        providerKind: "transcript",
+        connectionKey: rows.unit.connectionKey,
+        connectionGeneration: rows.unit.connectionGeneration,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+      }),
+    )}`;
+    const authority = {
+      authorityKind: "live_capture",
+      targetResolutionIntentKey: providerTargetResolutionIntentKey({
+        ingestionObligationKey,
+      }),
+      ingestionObligationKey,
+      organizationKey,
+      corpusKey: "transcripts",
+      providerKind: "transcript",
+      connectorScopeKey: rows.unit.connectionKey,
+      connectionKey: rows.unit.connectionKey,
+      connectionGeneration: rows.unit.connectionGeneration,
+      membershipKey: call.externalCallId,
+      originKind: "transcript",
+      originKey: rows.unit.unitKey,
+      originRevisionKey: rows.revision.unitRevisionKey,
+      observationDigest: rows.revision.contentHash,
+      resolutionGeneration: 1,
+      captureKey: `transcript-sync:${rows.unit.connectionKey}:null:${rows.revision.unitRevisionKey}`,
+      capturedAt: now,
+    } as const;
+    const targetResolutionIntentId = yield* writer
+      .table("providerTargetResolutionIntents")
+      .insert({
+        schemaVersion: 1,
+        ...authority,
+        authorityDigest: providerTargetResolutionAuthorityDigest(authority),
+        status: "pending",
+        attemptCount: 0,
+        nextAttemptAt: now,
+        lastErrorTag: null,
+        targetCount: 0,
+        targetDigest: null,
+        targets: [],
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("ingestionObligations")
+      .insert({
+        schemaVersion: 1,
+        authorityKind: "live_capture",
+        organizationKey,
+        corpusKey: "transcripts",
+        providerKind: "transcript",
+        connectorScopeKey: rows.unit.connectionKey,
+        connectionKey: rows.unit.connectionKey,
+        connectionGeneration: rows.unit.connectionGeneration,
+        ingestionObligationKey,
+        cause: "observation",
+        membershipKey: call.externalCallId,
+        originKind: "transcript",
+        originKey: rows.unit.unitKey,
+        originRevisionKey: rows.revision.unitRevisionKey,
+        ledgerSequence: now,
+        state: "target_resolution_pending",
+        targetResolutionIntentId,
+        targetResolutionIntentKey: authority.targetResolutionIntentKey,
+        publicationJobKeys: [],
+        errorTag: null,
+        terminalAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
     if (withMapping)
       yield* writer
         .table("callRouteMappings")

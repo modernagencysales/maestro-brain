@@ -23,8 +23,12 @@ import {
 } from "../_generated/services";
 import { Unauthorized, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import { progressLiveCaptureParentEffect } from "./liveCaptureParentProgress";
 import {
   connectionFenceIdentity,
+  connectorAllowlistFenceIdentity,
+  connectorScopeFenceIdentity,
+  documentLifecycleFenceIdentity,
   eligibilityFenceRefsCurrentEffect,
   ensureEligibilityFenceEffect,
   pageLifecycleFenceIdentity,
@@ -69,13 +73,33 @@ import {
   type RetrievalPublicationJobInput,
 } from "./retrievalPublicationJob";
 import { advanceProjectionPopulationForMutationEffect } from "./projectionPopulation";
+import {
+  activatePublicationJobLeaseEffect,
+  claimPublicationJobLeaseEffect,
+  releasePublicationJobLeaseEffect,
+} from "./publicationWorkerControl";
 import type { RetrievalOriginReference } from "./retrievalSchemas";
+import {
+  providerTargetResolutionAuthorityDigest,
+  providerTargetResolutionPopulationDigest,
+  type ProviderTargetResolutionAuthority,
+} from "./providerTargetResolution";
+import {
+  RETRIEVAL_TOKEN_CATALOG_POSTING_LIMIT,
+  RETRIEVAL_TOKEN_CATALOG_SET_LIMIT,
+  retrievalTokenCatalogContribution,
+  retrievalTokenCatalogDigest,
+  retrievalTokenCatalogIsConsistent,
+  retrievalTokenCatalogProjection,
+  type RetrievalTokenPostingIdentity,
+} from "./retrievalTokenCatalog";
 
 const MAX_PUBLICATION_WRITES = 7_000;
 const MAX_PRIOR_PUBLICATION_SETS = 100;
 const MAX_ENTRIES_PER_PUBLICATION_SET = 512;
 const MAX_ACTIVE_PUBLICATION_ROWS = 3_300;
 const PUBLICATION_RETRY_BASE_MS = 1_000;
+const PUBLICATION_WORKER_LEASE_MS = 60_000;
 
 type RunPublicationJobInput = Schema.Schema.Type<typeof RunPublicationJobArgs>;
 type RunPublicationJobOutput = Schema.Schema.Type<
@@ -174,6 +198,181 @@ const removePublicationTokens = (
     const writer = yield* DatabaseWriter;
     for (const row of rows)
       yield* writer.table("retrievalTokens").delete(row._id).pipe(Effect.orDie);
+  });
+
+const catalogMutationCount = (
+  ...groups: readonly (readonly Pick<
+    RetrievalTokenPostingIdentity,
+    "token"
+  >[])[]
+) => new Set(groups.flatMap((group) => group.map(({ token }) => token))).size;
+
+export const synchronizeCurrentTokenCatalogEffect = (input: {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly removedPostings: readonly RetrievalTokenPostingIdentity[];
+  readonly addedPostings: readonly RetrievalTokenPostingIdentity[];
+  readonly now: number;
+}): Effect.Effect<
+  void,
+  RetrievalPublicationConflict | RetrievalPublicationCapacityExceeded,
+  DatabaseReader | DatabaseWriter
+> =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const affectedTokens = [
+      ...new Set(
+        [...input.removedPostings, ...input.addedPostings].map(
+          ({ token }) => token,
+        ),
+      ),
+    ].sort();
+    const removedSetKeys = new Set(
+      input.removedPostings.map(({ publicationSetKey }) => publicationSetKey),
+    );
+    const addedByTokenAndSet = new Map<
+      string,
+      Map<string, RetrievalTokenPostingIdentity[]>
+    >();
+    for (const posting of input.addedPostings) {
+      const bySet =
+        addedByTokenAndSet.get(posting.token) ??
+        new Map<string, RetrievalTokenPostingIdentity[]>();
+      bySet.set(posting.publicationSetKey, [
+        ...(bySet.get(posting.publicationSetKey) ?? []),
+        posting,
+      ]);
+      addedByTokenAndSet.set(posting.token, bySet);
+    }
+
+    for (const token of affectedTokens) {
+      const storedRows = yield* reader
+        .table("retrievalTokenCatalog")
+        .index("by_workspace_brain_token", (query) =>
+          query
+            .eq("workspaceId", input.workspaceId)
+            .eq("brainKey", input.brainKey)
+            .eq("token", token),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      if (storedRows.length > 1)
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: token,
+        });
+      const stored = storedRows[0];
+      if (
+        stored !== undefined &&
+        (stored.organizationKey !== input.organizationKey ||
+          stored.workspaceId !== input.workspaceId ||
+          stored.brainKey !== input.brainKey ||
+          stored.tokenizerVersion !== 1 ||
+          stored.token !== token ||
+          !retrievalTokenCatalogIsConsistent(stored))
+      )
+        return yield* new RetrievalPublicationConflict({
+          publicationSetKey: token,
+        });
+      let projection;
+      if (stored === undefined) {
+        const currentPostings = yield* reader
+          .table("retrievalTokens")
+          .index(
+            "by_workspace_brain_token_publication_state_authority_entry",
+            (query) =>
+              query
+                .eq("workspaceId", input.workspaceId)
+                .eq("brainKey", input.brainKey)
+                .eq("token", token)
+                .eq("publicationState", "current"),
+          )
+          .take(RETRIEVAL_TOKEN_CATALOG_POSTING_LIMIT + 1)
+          .pipe(Effect.orDie);
+        if (currentPostings.length > RETRIEVAL_TOKEN_CATALOG_POSTING_LIMIT)
+          return yield* new RetrievalPublicationCapacityExceeded({
+            entryCount: 0,
+            tokenCount: currentPostings.length,
+          });
+        const addedSetKeys = new Set([
+          ...(addedByTokenAndSet.get(token)?.keys() ?? []),
+        ]);
+        projection = retrievalTokenCatalogProjection(
+          [
+            ...currentPostings.filter(
+              ({ publicationSetKey }) =>
+                !removedSetKeys.has(publicationSetKey) &&
+                !addedSetKeys.has(publicationSetKey),
+            ),
+            ...(addedByTokenAndSet.get(token)?.values() ?? []),
+          ].flat(),
+        );
+      } else {
+        const added = addedByTokenAndSet.get(token) ?? new Map();
+        const replacedSetKeys = new Set([...added.keys()]);
+        const contributions = stored.contributions
+          .filter(
+            ({ publicationSetKey }) =>
+              !removedSetKeys.has(publicationSetKey) &&
+              !replacedSetKeys.has(publicationSetKey),
+          )
+          .concat(
+            [...added].map(([publicationSetKey, postings]) =>
+              retrievalTokenCatalogContribution(publicationSetKey, postings),
+            ),
+          )
+          .sort((left, right) =>
+            left.publicationSetKey.localeCompare(right.publicationSetKey),
+          );
+        projection = {
+          contributions,
+          expectedPostingCount: contributions.reduce(
+            (total, contribution) => total + contribution.postingCount,
+            0,
+          ),
+          expectedPostingDigest: retrievalTokenCatalogDigest(contributions),
+        };
+      }
+      if (
+        projection.contributions.length > RETRIEVAL_TOKEN_CATALOG_SET_LIMIT ||
+        projection.expectedPostingCount > RETRIEVAL_TOKEN_CATALOG_POSTING_LIMIT
+      )
+        return yield* new RetrievalPublicationCapacityExceeded({
+          entryCount: projection.contributions.length,
+          tokenCount: projection.expectedPostingCount,
+        });
+      if (projection.expectedPostingCount === 0) {
+        if (stored !== undefined)
+          yield* writer
+            .table("retrievalTokenCatalog")
+            .delete(stored._id)
+            .pipe(Effect.orDie);
+        continue;
+      }
+      const row = {
+        schemaVersion: 1 as const,
+        organizationKey: input.organizationKey,
+        workspaceId: input.workspaceId,
+        brainKey: input.brainKey,
+        tokenizerVersion: 1 as const,
+        token,
+        expectedPostingCount: projection.expectedPostingCount,
+        expectedPostingDigest: projection.expectedPostingDigest,
+        contributions: projection.contributions,
+        updatedAt: input.now,
+      };
+      if (stored === undefined)
+        yield* writer
+          .table("retrievalTokenCatalog")
+          .insert(row)
+          .pipe(Effect.orDie);
+      else
+        yield* writer
+          .table("retrievalTokenCatalog")
+          .patch(stored._id, row)
+          .pipe(Effect.orDie);
+    }
   });
 
 type PreparedPassage = {
@@ -393,7 +592,28 @@ export const commitPreparedPublicationEffect = (input: {
                 connectionKey: input.connectionKey,
               }),
             ]
-          : [];
+          : input.kind === "document" &&
+              input.connectionKey !== undefined &&
+              input.connectorScopeKey !== undefined
+            ? [
+                documentLifecycleFenceIdentity({
+                  organizationKey: input.organizationKey,
+                  documentObjectKey: input.sourceKey,
+                }),
+                connectorScopeFenceIdentity({
+                  organizationKey: input.organizationKey,
+                  connectorScopeKey: input.connectorScopeKey,
+                }),
+                connectorAllowlistFenceIdentity({
+                  organizationKey: input.organizationKey,
+                  connectorScopeKey: input.connectorScopeKey,
+                }),
+                connectionFenceIdentity({
+                  organizationKey: input.organizationKey,
+                  connectionKey: input.connectionKey,
+                }),
+              ]
+            : [];
     if (!input.revoked && expectedEligibilityIdentities.length > 0) {
       if (
         input.eligibilityFences === undefined ||
@@ -453,6 +673,14 @@ export const commitPreparedPublicationEffect = (input: {
         tokenCount: currentTokens.length,
       });
     if (input.revoked) {
+      if (
+        currentTokens.length + catalogMutationCount(currentTokens) + 3 >
+        MAX_PUBLICATION_WRITES
+      )
+        return yield* new RetrievalPublicationCapacityExceeded({
+          entryCount: 0,
+          tokenCount: currentTokens.length,
+        });
       yield* removePublicationTokens(currentTokens);
       for (const prior of currentSets)
         yield* writer
@@ -466,6 +694,14 @@ export const commitPreparedPublicationEffect = (input: {
           updatedAt: input.now,
         })
         .pipe(Effect.orDie);
+      yield* synchronizeCurrentTokenCatalogEffect({
+        organizationKey: input.organizationKey,
+        workspaceId: input.workspaceId,
+        brainKey: input.brainKey,
+        removedPostings: currentTokens,
+        addedPostings: [],
+        now: input.now,
+      });
       if (subject.created || currentSets.length > 0)
         yield* advanceProjectionPopulationForMutationEffect({
           organizationKey: input.organizationKey,
@@ -485,13 +721,22 @@ export const commitPreparedPublicationEffect = (input: {
       current.routeGeneration === input.routeGeneration &&
       current.lifecycleGeneration === input.lifecycleGeneration
     ) {
-      if (subject.created)
+      if (subject.created) {
+        yield* synchronizeCurrentTokenCatalogEffect({
+          organizationKey: input.organizationKey,
+          workspaceId: input.workspaceId,
+          brainKey: input.brainKey,
+          removedPostings: [],
+          addedPostings: currentTokens,
+          now: input.now,
+        });
         yield* advanceProjectionPopulationForMutationEffect({
           organizationKey: input.organizationKey,
           workspaceId: input.workspaceId,
           brainKey: input.brainKey,
           now: input.now,
         });
+      }
       return {
         outcome: "duplicate" as const,
         publicationSetKey: current.publicationSetKey,
@@ -615,6 +860,9 @@ export const commitPreparedPublicationEffect = (input: {
         workspaceId: String(entry.workspaceId),
         brainKey: entry.brainKey,
         entryKey: entry.entryKey,
+        corpusKey: entry.corpusKey,
+        sourceModifiedAt: entry.sourceModifiedAt,
+        observedAt: entry.observedAt,
         title: entry.title,
         headingPath: entry.headingPath,
         text: entry.text,
@@ -630,7 +878,11 @@ export const commitPreparedPublicationEffect = (input: {
     if (
       entries.length > MAX_ENTRIES_PER_PUBLICATION_SET ||
       entries.length + tokens.length > MAX_ACTIVE_PUBLICATION_ROWS ||
-      entries.length + tokens.length + currentTokens.length + 4 >
+      entries.length +
+        tokens.length +
+        currentTokens.length +
+        catalogMutationCount(currentTokens, tokens) +
+        4 >
         MAX_PUBLICATION_WRITES
     )
       return yield* new RetrievalPublicationCapacityExceeded({
@@ -710,6 +962,14 @@ export const commitPreparedPublicationEffect = (input: {
         updatedAt: input.now,
       })
       .pipe(Effect.orDie);
+    yield* synchronizeCurrentTokenCatalogEffect({
+      organizationKey: input.organizationKey,
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+      removedPostings: currentTokens,
+      addedPostings: tokens,
+      now: input.now,
+    });
     const health = yield* reader
       .table("brainCorpusHealth")
       .index("by_workspace_brain_corpus_scope", (query) =>
@@ -867,6 +1127,14 @@ export const publishPageRevisionEffect = (
       !activeLifecycle(page.lifecycle) ||
       !activeLifecycle(revision.lifecycle)
     ) {
+      if (
+        currentTokens.length + catalogMutationCount(currentTokens) + 3 >
+        MAX_PUBLICATION_WRITES
+      )
+        return yield* new RetrievalPublicationCapacityExceeded({
+          entryCount: 0,
+          tokenCount: currentTokens.length,
+        });
       yield* removePublicationTokens(currentTokens);
       for (const prior of currentSets)
         yield* writer
@@ -880,6 +1148,14 @@ export const publishPageRevisionEffect = (
           updatedAt: args.now,
         })
         .pipe(Effect.orDie);
+      yield* synchronizeCurrentTokenCatalogEffect({
+        organizationKey: args.organizationKey,
+        workspaceId: args.workspaceId,
+        brainKey: args.brainKey,
+        removedPostings: currentTokens,
+        addedPostings: [],
+        now: args.now,
+      });
       if (subject.created || currentSets.length > 0)
         yield* advanceProjectionPopulationForMutationEffect({
           organizationKey: args.organizationKey,
@@ -911,13 +1187,22 @@ export const publishPageRevisionEffect = (
       current.policyGeneration === args.policyGeneration &&
       current.lifecycleGeneration === (page.lifecycle?.generation ?? 1)
     ) {
-      if (subject.created)
+      if (subject.created) {
+        yield* synchronizeCurrentTokenCatalogEffect({
+          organizationKey: args.organizationKey,
+          workspaceId: args.workspaceId,
+          brainKey: args.brainKey,
+          removedPostings: [],
+          addedPostings: currentTokens,
+          now: args.now,
+        });
         yield* advanceProjectionPopulationForMutationEffect({
           organizationKey: args.organizationKey,
           workspaceId: args.workspaceId,
           brainKey: args.brainKey,
           now: args.now,
         });
+      }
       return {
         outcome: "duplicate" as const,
         publicationSetKey: current.publicationSetKey,
@@ -996,6 +1281,8 @@ export const publishPageRevisionEffect = (
         workspaceId: String(entry.workspaceId),
         brainKey: entry.brainKey,
         entryKey: entry.entryKey,
+        corpusKey: entry.corpusKey,
+        observedAt: entry.observedAt,
         title: entry.title,
         headingPath: entry.headingPath,
         text: entry.text,
@@ -1011,7 +1298,11 @@ export const publishPageRevisionEffect = (
     if (
       entries.length > MAX_ENTRIES_PER_PUBLICATION_SET ||
       entries.length + tokens.length > MAX_ACTIVE_PUBLICATION_ROWS ||
-      entries.length + tokens.length + currentTokens.length + 4 >
+      entries.length +
+        tokens.length +
+        currentTokens.length +
+        catalogMutationCount(currentTokens, tokens) +
+        4 >
         MAX_PUBLICATION_WRITES
     )
       return yield* new RetrievalPublicationCapacityExceeded({
@@ -1082,6 +1373,14 @@ export const publishPageRevisionEffect = (
         updatedAt: args.now,
       })
       .pipe(Effect.orDie);
+    yield* synchronizeCurrentTokenCatalogEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      removedPostings: currentTokens,
+      addedPostings: tokens,
+      now: args.now,
+    });
     const health = yield* reader
       .table("brainCorpusHealth")
       .index("by_workspace_brain_corpus_scope", (query) =>
@@ -1255,6 +1554,14 @@ const cleanupPublicationSubjectEffect = (args: {
       brainKey: args.brainKey,
       publicationSetKeys: [current.publicationSetKey],
     });
+    if (
+      tokens.length + catalogMutationCount(tokens) + 3 >
+      MAX_PUBLICATION_WRITES
+    )
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: 0,
+        tokenCount: tokens.length,
+      });
     yield* removePublicationTokens(tokens);
     yield* writer
       .table("retrievalPublicationSets")
@@ -1267,6 +1574,14 @@ const cleanupPublicationSubjectEffect = (args: {
         updatedAt: args.now,
       })
       .pipe(Effect.orDie);
+    yield* synchronizeCurrentTokenCatalogEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      removedPostings: tokens,
+      addedPostings: [],
+      now: args.now,
+    });
     yield* advanceProjectionPopulationForMutationEffect({
       organizationKey: args.organizationKey,
       workspaceId: args.workspaceId,
@@ -1395,7 +1710,11 @@ export const purgePublicationSubjectEffect = (args: {
     const entries = entryGroups.flat();
     const tokens = tokenGroups.flat();
     if (
-      entries.length + tokens.length + sets.length + 1 >
+      entries.length +
+        tokens.length +
+        sets.length +
+        catalogMutationCount(tokens) +
+        1 >
       MAX_PUBLICATION_WRITES
     )
       return yield* new RetrievalPublicationCapacityExceeded({
@@ -1414,6 +1733,14 @@ export const purgePublicationSubjectEffect = (args: {
         .table("retrievalPublicationSets")
         .delete(set._id)
         .pipe(Effect.orDie);
+    yield* synchronizeCurrentTokenCatalogEffect({
+      organizationKey: args.organizationKey,
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      removedPostings: tokens,
+      addedPostings: [],
+      now: args.now,
+    });
     yield* writer
       .table("retrievalPublicationSubjects")
       .patch(subject._id, {
@@ -1757,6 +2084,279 @@ export const publishTranscriptRevisionEffect = (
     });
   });
 
+type DocumentPublicationAuthorityInput = {
+  readonly organizationKey: string;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly sourceKey: string;
+  readonly sourceRevisionKey: string;
+  readonly ingestionObligationKey: string;
+};
+
+const loadDocumentPublicationAuthorityEffect = (
+  input: DocumentPublicationAuthorityInput,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const obligations = yield* reader
+      .table("ingestionObligations")
+      .index("by_ingestion_obligation_key", (query) =>
+        query.eq("ingestionObligationKey", input.ingestionObligationKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (obligations.length > 1)
+      return yield* Effect.dieMessage(
+        "Document publication obligation identity is not unique.",
+      );
+    const obligation = obligations[0];
+    const obligationMatches =
+      obligation !== undefined &&
+      obligation.organizationKey === input.organizationKey &&
+      obligation.workspaceId === input.workspaceId &&
+      obligation.brainKey === input.brainKey &&
+      obligation.cause === "observation" &&
+      obligation.allowlistGeneration !== undefined &&
+      obligation.originKind === "document" &&
+      obligation.originKey === input.sourceKey &&
+      obligation.originRevisionKey === input.sourceRevisionKey;
+    if (!obligationMatches || obligation === undefined)
+      return {
+        obligation: null,
+        revision: null,
+        object: null,
+        membership: null,
+        scope: null,
+        allowlist: null,
+        connection: null,
+        exact: false,
+        eligible: false,
+      } as const;
+    const allowlistGeneration = obligation.allowlistGeneration;
+    if (allowlistGeneration === undefined)
+      return yield* Effect.dieMessage(
+        "Document publication obligation has no allowlist generation.",
+      );
+
+    const [revisions, objects, memberships, scopes, allowlists, connections] =
+      yield* Effect.all([
+        reader
+          .table("documentSourceRevisions")
+          .index("by_organization_revision_key", (query) =>
+            query
+              .eq("organizationKey", input.organizationKey)
+              .eq("documentRevisionKey", input.sourceRevisionKey),
+          )
+          .take(2),
+        reader
+          .table("documentSourceObjects")
+          .index("by_organization_object_key", (query) =>
+            query
+              .eq("organizationKey", input.organizationKey)
+              .eq("documentObjectKey", input.sourceKey),
+          )
+          .take(2),
+        reader
+          .table("documentSourceMembershipEdges")
+          .index("by_organization_membership_edge_key", (query) =>
+            query
+              .eq("organizationKey", input.organizationKey)
+              .eq("membershipEdgeKey", obligation.membershipKey),
+          )
+          .take(2),
+        reader
+          .table("connectorScopes")
+          .index("by_connector_scope_key", (query) =>
+            query.eq("connectorScopeKey", obligation.connectorScopeKey),
+          )
+          .take(2),
+        reader
+          .table("connectorAllowlistGenerations")
+          .index("by_scope_generation", (query) =>
+            query
+              .eq("connectorScopeKey", obligation.connectorScopeKey)
+              .eq("allowlistGeneration", allowlistGeneration),
+          )
+          .take(2),
+        reader
+          .table("providerConnections")
+          .index("by_connection_key", (query) =>
+            query.eq("connectionKey", obligation.connectionKey),
+          )
+          .take(2),
+      ]).pipe(Effect.orDie);
+    if (
+      revisions.length > 1 ||
+      objects.length > 1 ||
+      memberships.length > 1 ||
+      scopes.length > 1 ||
+      allowlists.length > 1 ||
+      connections.length > 1
+    )
+      return yield* Effect.dieMessage(
+        "Document publication authority is not unique.",
+      );
+    const revision = revisions[0] ?? null;
+    const object = objects[0] ?? null;
+    const membership = memberships[0] ?? null;
+    const scope = scopes[0] ?? null;
+    const allowlist = allowlists[0] ?? null;
+    const connection = connections[0] ?? null;
+    const exact =
+      revision !== null &&
+      object !== null &&
+      membership !== null &&
+      scope !== null &&
+      allowlist !== null &&
+      connection !== null &&
+      revision.documentObjectKey === input.sourceKey &&
+      revision.connectorScopeKey === obligation.connectorScopeKey &&
+      revision.connectionKey === obligation.connectionKey &&
+      revision.connectionGeneration === obligation.connectionGeneration &&
+      revision.allowlistGeneration === obligation.allowlistGeneration &&
+      object.documentObjectKey === input.sourceKey &&
+      membership.documentObjectKey === input.sourceKey &&
+      membership.documentRevisionKey === input.sourceRevisionKey &&
+      membership.connectorScopeKey === obligation.connectorScopeKey &&
+      membership.connectionKey === obligation.connectionKey &&
+      membership.connectionGeneration === obligation.connectionGeneration &&
+      membership.allowlistGeneration === obligation.allowlistGeneration &&
+      scope.organizationKey === input.organizationKey &&
+      scope.providerKind === "google_drive" &&
+      scope.connectionKey === obligation.connectionKey &&
+      allowlist.organizationKey === input.organizationKey &&
+      allowlist.connectionKey === obligation.connectionKey &&
+      allowlist.connectionGeneration === obligation.connectionGeneration &&
+      connection.organizationKey === input.organizationKey;
+    const eligible =
+      exact &&
+      revision?.tombstone === false &&
+      object?.lifecycleState === "live" &&
+      membership?.membershipState === "active" &&
+      scope?.state === "active" &&
+      scope.currentConnectionGeneration === obligation.connectionGeneration &&
+      scope.currentAllowlistGeneration === obligation.allowlistGeneration &&
+      allowlist?.state === "current" &&
+      connection?.status === "active" &&
+      connection.connectionGeneration === obligation.connectionGeneration;
+    return {
+      obligation,
+      revision,
+      object,
+      membership,
+      scope,
+      allowlist,
+      connection,
+      exact,
+      eligible,
+    } as const;
+  });
+
+const publishDocumentRevisionEffect = (input: {
+  readonly job: RetrievalPublicationJobsDoc;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    const ingestionObligationKey = input.job.ingestionObligationKey;
+    if (ingestionObligationKey === undefined)
+      return yield* new ValidationFailed({
+        field: "ingestionObligationKey",
+        message: "Document publication requires one ingestion obligation.",
+      });
+    const authority = yield* loadDocumentPublicationAuthorityEffect({
+      organizationKey: input.job.organizationKey,
+      workspaceId: input.job.workspaceId,
+      brainKey: input.job.brainKey,
+      sourceKey: input.job.sourceKey,
+      sourceRevisionKey: input.job.sourceRevisionKey,
+      ingestionObligationKey,
+    });
+    if (
+      !authority.exact ||
+      authority.obligation === null ||
+      authority.revision === null ||
+      authority.object === null
+    )
+      return yield* new RetrievalOriginUnavailable({
+        sourceKey: input.job.sourceKey,
+        revisionKey: input.job.sourceRevisionKey,
+      });
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("documentSourcePassages")
+      .index("by_revision_ordinal", (query) =>
+        query.eq("documentRevisionKey", input.job.sourceRevisionKey),
+      )
+      .take(MAX_ENTRIES_PER_PUBLICATION_SET + 1)
+      .pipe(Effect.orDie);
+    if (rows.length > MAX_ENTRIES_PER_PUBLICATION_SET)
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: rows.length,
+        tokenCount: 0,
+      });
+    const revision = authority.revision;
+    const obligation = authority.obligation;
+    const allowlistGeneration = obligation.allowlistGeneration;
+    if (allowlistGeneration === undefined)
+      return yield* new ValidationFailed({
+        field: "ingestionObligationKey",
+        message: "Document obligation has no allowlist generation.",
+      });
+    const passages = rows.map((passage) => ({
+      origin: {
+        kind: "document" as const,
+        connectionKey: obligation.connectionKey,
+        connectorScopeKey: obligation.connectorScopeKey,
+        objectKey: input.job.sourceKey,
+        revisionKey: input.job.sourceRevisionKey,
+      },
+      passageKey: `rpass_${sha256Hex(
+        JSON.stringify({
+          documentRevisionKey: input.job.sourceRevisionKey,
+          passageKey: passage.passageKey,
+        }),
+      )}`,
+      startOffset: passage.startOffset,
+      endOffset: passage.endOffset,
+      title: revision.title,
+      headingPath:
+        passage.headingPath.length === 0
+          ? null
+          : passage.headingPath.join(" > "),
+      text: passage.text,
+      contentHash: `sha256:${passage.contentHash}`,
+      locator: passage.sourceLocator,
+      sourceModifiedAt: revision.sourceModifiedAt,
+      observedAt: revision.observedAt,
+    }));
+    return yield* commitPreparedPublicationEffect({
+      organizationKey: input.job.organizationKey,
+      workspaceId: input.job.workspaceId,
+      brainKey: input.job.brainKey,
+      corpusKey: "documents",
+      kind: "document",
+      originTable: "documentSourceRevisions",
+      sourceKey: input.job.sourceKey,
+      sourceRevisionKey: input.job.sourceRevisionKey,
+      connectionKey: obligation.connectionKey,
+      connectionGeneration: obligation.connectionGeneration,
+      connectorScopeKey: obligation.connectorScopeKey,
+      authority: "authoritative",
+      authorityPolicyKey: "drive-scope-membership",
+      policyGeneration: allowlistGeneration,
+      lifecycleGeneration: authority.object.incarnation,
+      routeGeneration: authority.scope?.scopeGeneration ?? 1,
+      ...(input.job.authorityEnvelope?.eligibilityFences === undefined
+        ? {}
+        : {
+            eligibilityFences: input.job.authorityEnvelope.eligibilityFences,
+          }),
+      revoked: !authority.eligible,
+      passages,
+      now: input.now,
+    });
+  });
+
 const terminalPublicationJobStatuses = new Set([
   "succeeded",
   "superseded",
@@ -1813,7 +2413,7 @@ const subjectIdentityForJob = (input: {
   readonly brainKey: string;
   readonly corpusKey: string;
   readonly originTable: string;
-  readonly kind: "page" | "slack" | "transcript";
+  readonly kind: "page" | "slack" | "transcript" | "document";
   readonly sourceKey: string;
   readonly connectorScopeKey?: string;
 }) =>
@@ -1887,6 +2487,15 @@ const authorityContext = (input: {
     ...(input.targetResolutionGeneration === undefined
       ? {}
       : { targetResolutionGeneration: input.targetResolutionGeneration }),
+    ...(input.job.providerTargetResolutionIntentId === undefined ||
+    input.job.providerTargetResolutionGeneration === undefined
+      ? {}
+      : {
+          providerTargetResolutionIntentId:
+            input.job.providerTargetResolutionIntentId,
+          providerTargetResolutionGeneration:
+            input.job.providerTargetResolutionGeneration,
+        }),
     ...(input.repairOfJobKey === undefined
       ? {}
       : { repairOfJobKey: input.repairOfJobKey }),
@@ -2170,6 +2779,95 @@ const capturePublicationAuthorityContextEffect = (
       });
     }
 
+    if (job.originKind === "document") {
+      const ingestionObligationKey = job.ingestionObligationKey;
+      const documentAuthority =
+        ingestionObligationKey === undefined
+          ? null
+          : yield* loadDocumentPublicationAuthorityEffect({
+              organizationKey: job.organizationKey,
+              workspaceId: job.workspaceId,
+              brainKey: job.brainKey,
+              sourceKey: job.sourceKey,
+              sourceRevisionKey: job.sourceRevisionKey,
+              ingestionObligationKey,
+            });
+      const obligation = documentAuthority?.obligation;
+      const connectorScopeKey = obligation?.connectorScopeKey ?? "missing";
+      const connectionKey = obligation?.connectionKey ?? "missing";
+      const fenceSnapshots = yield* Effect.all([
+        authorityFenceSnapshotEffect({
+          identity: documentLifecycleFenceIdentity({
+            organizationKey: job.organizationKey,
+            documentObjectKey: job.sourceKey,
+          }),
+          eligible:
+            documentAuthority?.exact === true &&
+            documentAuthority.revision?.tombstone === false &&
+            documentAuthority.object?.lifecycleState === "live" &&
+            documentAuthority.membership?.membershipState === "active",
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: connectorScopeFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectorScopeKey,
+          }),
+          eligible:
+            documentAuthority?.scope?.state === "active" &&
+            documentAuthority.scope.currentConnectionGeneration ===
+              obligation?.connectionGeneration,
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: connectorAllowlistFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectorScopeKey,
+          }),
+          eligible:
+            documentAuthority?.allowlist?.state === "current" &&
+            documentAuthority.allowlist.allowlistGeneration ===
+              obligation?.allowlistGeneration,
+          now,
+        }),
+        authorityFenceSnapshotEffect({
+          identity: connectionFenceIdentity({
+            organizationKey: job.organizationKey,
+            connectionKey,
+          }),
+          eligible:
+            documentAuthority?.connection?.status === "active" &&
+            documentAuthority.connection.connectionGeneration ===
+              obligation?.connectionGeneration,
+          now,
+        }),
+      ]);
+      const publicationSubjectKey = subjectIdentityForJob({
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        corpusKey: "documents",
+        originTable: "documentSourceRevisions",
+        kind: "document",
+        sourceKey: job.sourceKey,
+        connectorScopeKey,
+      });
+      return authorityContext({
+        job,
+        publicationSubjectKey,
+        connectorScopeKey,
+        configuration: {
+          policyGeneration: obligation?.allowlistGeneration ?? 1,
+          routeGeneration: documentAuthority?.scope?.scopeGeneration ?? 1,
+          lifecycleGeneration: documentAuthority?.object?.incarnation ?? 1,
+          connectionGeneration: obligation?.connectionGeneration ?? 1,
+        },
+        eligibilityFences: fenceSnapshots,
+        observationKind: "revision",
+        observationGeneration: documentAuthority?.revision?.incarnation ?? 1,
+        ...linkage,
+      });
+    }
+
     const fenceSnapshots: RetrievalPublicationFenceSnapshot[] = [];
     if (
       job.originKind === "slack_rebuild" &&
@@ -2266,6 +2964,18 @@ const authorityContextFromEnvelope = (
   ...(envelope.targetResolutionGeneration === undefined
     ? {}
     : { targetResolutionGeneration: envelope.targetResolutionGeneration }),
+  ...(envelope.providerTargetResolutionIntentId === undefined
+    ? {}
+    : {
+        providerTargetResolutionIntentId:
+          envelope.providerTargetResolutionIntentId,
+      }),
+  ...(envelope.providerTargetResolutionGeneration === undefined
+    ? {}
+    : {
+        providerTargetResolutionGeneration:
+          envelope.providerTargetResolutionGeneration,
+      }),
   ...(envelope.repairOfJobKey === undefined
     ? {}
     : { repairOfJobKey: envelope.repairOfJobKey }),
@@ -2283,6 +2993,20 @@ const jobIdentityInput = (job: RetrievalPublicationJobsDoc) => ({
   ...(job.operation === undefined ? {} : { operation: job.operation }),
   sourceKey: job.sourceKey,
   sourceRevisionKey: job.sourceRevisionKey,
+  ...(job.ingestionObligationKey === undefined
+    ? {}
+    : { ingestionObligationKey: job.ingestionObligationKey }),
+  ...(job.providerTargetResolutionIntentId === undefined
+    ? {}
+    : {
+        providerTargetResolutionIntentId: job.providerTargetResolutionIntentId,
+      }),
+  ...(job.providerTargetResolutionGeneration === undefined
+    ? {}
+    : {
+        providerTargetResolutionGeneration:
+          job.providerTargetResolutionGeneration,
+      }),
   requestGeneration: job.requestGeneration,
   ...(job.rebuildRunKey === undefined
     ? {}
@@ -2539,6 +3263,12 @@ const supersedePublicationJob = (
       .table("retrievalPublicationJobs")
       .patch(job._id, completed)
       .pipe(Effect.orDie);
+    yield* transitionLiveCaptureChildEffect(
+      job,
+      "policy_excluded",
+      at,
+      lastErrorTag,
+    );
     return publicationJobResult({ ...job, ...completed });
   });
 
@@ -2607,7 +3337,19 @@ const publicationAuthorityLinkageIsValid = (
     envelope.configuration.requestGeneration !== job.requestGeneration ||
     (!rebuild && envelope.observationFence.key !== job.sourceRevisionKey) ||
     (envelope.targetResolutionIntentKey !== undefined &&
-      job.originKind !== "slack")
+      job.originKind !== "slack") ||
+    (envelope.providerTargetResolutionIntentId === undefined) !==
+      (envelope.providerTargetResolutionGeneration === undefined) ||
+    (job.providerTargetResolutionIntentId === undefined) !==
+      (job.providerTargetResolutionGeneration === undefined) ||
+    envelope.providerTargetResolutionIntentId !==
+      job.providerTargetResolutionIntentId ||
+    envelope.providerTargetResolutionGeneration !==
+      job.providerTargetResolutionGeneration ||
+    (envelope.providerTargetResolutionIntentId !== undefined &&
+      (job.ingestionObligationKey === undefined ||
+        rebuild ||
+        !["slack", "transcript", "document"].includes(job.originKind)))
   );
 };
 
@@ -2619,10 +3361,15 @@ const publicationJobAuthorityIdentity = (job: RetrievalPublicationJobsDoc) =>
     originKind: job.originKind,
     sourceKey: job.sourceKey,
     sourceRevisionKey: job.sourceRevisionKey,
+    ingestionObligationKey: job.ingestionObligationKey ?? null,
     requestGeneration: job.requestGeneration,
     page: job.page ?? null,
     rebuild: job.rebuild ?? null,
     targetResolutionIntentKey: job.targetResolutionIntentKey ?? null,
+    providerTargetResolutionIntentId:
+      job.providerTargetResolutionIntentId ?? null,
+    providerTargetResolutionGeneration:
+      job.providerTargetResolutionGeneration ?? null,
   });
 
 const unattributedAuthorityContext = (
@@ -2672,6 +3419,300 @@ const linkedPublicationAuthorityIsValidEffect = (
         linked.supersededByJobKey === job.jobKey
       );
     return false;
+  });
+
+const ingestionObligationLinkageIsValidEffect = (
+  job: RetrievalPublicationJobsDoc,
+) =>
+  Effect.gen(function* () {
+    const ingestionObligationKey = job.ingestionObligationKey;
+    if (ingestionObligationKey === undefined)
+      return job.originKind !== "document";
+    if (
+      (job.effectClass !== "direct_publication" &&
+        job.effectClass !== "attributed_repair") ||
+      job.operation !== "publish"
+    )
+      return false;
+    const reader = yield* DatabaseReader;
+    const obligations = yield* reader
+      .table("ingestionObligations")
+      .index("by_ingestion_obligation_key", (query) =>
+        query.eq("ingestionObligationKey", ingestionObligationKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const obligation = obligations[0];
+    if (
+      obligations.length !== 1 ||
+      obligation === undefined ||
+      obligation.cause !== "observation" ||
+      obligation.organizationKey !== job.organizationKey ||
+      obligation.workspaceId !== job.workspaceId ||
+      obligation.brainKey !== job.brainKey ||
+      obligation.originKind !== job.originKind ||
+      obligation.originKey !== job.sourceKey ||
+      obligation.originRevisionKey !== job.sourceRevisionKey ||
+      (obligation.state !== "publication_pending" &&
+        obligation.state !== "retry_wait") ||
+      obligation.publicationJobKeys.length !== 1 ||
+      obligation.publicationJobKeys[0] !== job.jobKey ||
+      obligation.targetResolutionIntentId === undefined ||
+      job.providerTargetResolutionIntentId !==
+        obligation.targetResolutionIntentId ||
+      job.providerTargetResolutionGeneration === undefined
+    )
+      return false;
+    const intent = yield* reader
+      .table("providerTargetResolutionIntents")
+      .get(obligation.targetResolutionIntentId)
+      .pipe(Effect.orDie);
+    if (intent?.authorityKind === "live_capture") {
+      if (
+        obligation.authorityKind !== "live_capture" ||
+        obligation.parentIngestionObligationKey === undefined ||
+        intent.targetResolutionIntentKey !==
+          obligation.targetResolutionIntentKey ||
+        intent.ingestionObligationKey !==
+          obligation.parentIngestionObligationKey ||
+        intent.resolutionGeneration !==
+          job.providerTargetResolutionGeneration ||
+        intent.status !== "succeeded" ||
+        intent.organizationKey !== job.organizationKey ||
+        intent.originKind !== job.originKind ||
+        intent.originKey !== job.sourceKey ||
+        intent.originRevisionKey !== job.sourceRevisionKey ||
+        intent.captureKey === undefined ||
+        intent.capturedAt === undefined ||
+        intent.requiredScopeIntentKey !== undefined ||
+        intent.pageChunkKey !== undefined ||
+        intent.pageEnvelopeKey !== undefined ||
+        intent.reconciliationRunKey !== undefined ||
+        intent.runGeneration !== undefined ||
+        intent.workspaceId !== undefined ||
+        intent.brainKey !== undefined ||
+        intent.allowlistGeneration !== undefined ||
+        intent.ledgerSequence !== undefined ||
+        job.authorityDigest === undefined
+      )
+        return false;
+      const authority = {
+        authorityKind: "live_capture",
+        targetResolutionIntentKey: intent.targetResolutionIntentKey,
+        ingestionObligationKey: intent.ingestionObligationKey,
+        organizationKey: intent.organizationKey,
+        corpusKey: intent.corpusKey,
+        providerKind: intent.providerKind,
+        connectorScopeKey: intent.connectorScopeKey,
+        connectionKey: intent.connectionKey,
+        connectionGeneration: intent.connectionGeneration,
+        membershipKey: intent.membershipKey,
+        originKind: intent.originKind,
+        originKey: intent.originKey,
+        originRevisionKey: intent.originRevisionKey,
+        observationDigest: intent.observationDigest,
+        resolutionGeneration: intent.resolutionGeneration,
+        captureKey: intent.captureKey,
+        capturedAt: intent.capturedAt,
+      } satisfies ProviderTargetResolutionAuthority;
+      if (
+        intent.authorityDigest !==
+        providerTargetResolutionAuthorityDigest(authority)
+      )
+        return false;
+      const target = {
+        workspaceId: String(job.workspaceId),
+        brainKey: job.brainKey,
+        jobKey: job.jobKey,
+        authorityDigest: job.authorityDigest,
+        childIngestionObligationKey: obligation.ingestionObligationKey,
+      };
+      const storedTarget = intent.targets.find(
+        (candidate) =>
+          candidate.workspaceId === target.workspaceId &&
+          candidate.brainKey === target.brainKey,
+      );
+      return (
+        storedTarget?.jobKey === target.jobKey &&
+        storedTarget.authorityDigest === target.authorityDigest &&
+        storedTarget.childIngestionObligationKey ===
+          target.childIngestionObligationKey &&
+        intent.targetCount === intent.targets.length &&
+        intent.targetDigest ===
+          providerTargetResolutionPopulationDigest(intent.targets)
+      );
+    }
+    if (
+      intent === null ||
+      intent.targetResolutionIntentKey !==
+        obligation.targetResolutionIntentKey ||
+      intent.ingestionObligationKey !== obligation.ingestionObligationKey ||
+      intent.resolutionGeneration !== job.providerTargetResolutionGeneration ||
+      intent.status !== "succeeded" ||
+      intent.organizationKey !== job.organizationKey ||
+      intent.workspaceId !== job.workspaceId ||
+      intent.brainKey !== job.brainKey ||
+      (intent.authorityKind !== undefined &&
+        intent.authorityKind !== "reconciliation_page") ||
+      intent.requiredScopeIntentKey === undefined ||
+      intent.pageChunkKey === undefined ||
+      intent.pageEnvelopeKey === undefined ||
+      intent.reconciliationRunKey === undefined ||
+      intent.runGeneration === undefined ||
+      intent.allowlistGeneration === undefined ||
+      intent.ledgerSequence === undefined ||
+      intent.originKind !== job.originKind ||
+      intent.originKey !== job.sourceKey ||
+      intent.originRevisionKey !== job.sourceRevisionKey
+    )
+      return false;
+    const authority = {
+      authorityKind: "reconciliation_page",
+      targetResolutionIntentKey: intent.targetResolutionIntentKey,
+      ingestionObligationKey: intent.ingestionObligationKey,
+      requiredScopeIntentKey: intent.requiredScopeIntentKey,
+      pageChunkKey: intent.pageChunkKey,
+      pageEnvelopeKey: intent.pageEnvelopeKey,
+      reconciliationRunKey: intent.reconciliationRunKey,
+      runGeneration: intent.runGeneration,
+      organizationKey: intent.organizationKey,
+      workspaceId: String(intent.workspaceId),
+      brainKey: intent.brainKey,
+      corpusKey: intent.corpusKey,
+      providerKind: intent.providerKind,
+      connectorScopeKey: intent.connectorScopeKey,
+      connectionKey: intent.connectionKey,
+      connectionGeneration: intent.connectionGeneration,
+      allowlistGeneration: intent.allowlistGeneration,
+      membershipKey: intent.membershipKey,
+      originKind: intent.originKind,
+      originKey: intent.originKey,
+      originRevisionKey: intent.originRevisionKey,
+      ledgerSequence: intent.ledgerSequence,
+      observationDigest: intent.observationDigest,
+      resolutionGeneration: intent.resolutionGeneration,
+    } satisfies ProviderTargetResolutionAuthority;
+    if (
+      intent.authorityDigest !==
+      providerTargetResolutionAuthorityDigest(authority)
+    )
+      return false;
+    const intentJobs = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_provider_target_resolution_intent_job", (query) =>
+        query.eq("providerTargetResolutionIntentId", intent._id),
+      )
+      .take(101)
+      .pipe(Effect.orDie);
+    if (
+      intentJobs.length > 100 ||
+      job.authorityDigest === undefined ||
+      !intentJobs.every(
+        (candidate) =>
+          candidate.authorityDigest !== undefined &&
+          candidate.providerTargetResolutionIntentId === intent._id &&
+          candidate.providerTargetResolutionGeneration ===
+            intent.resolutionGeneration &&
+          candidate.ingestionObligationKey ===
+            obligation.ingestionObligationKey &&
+          publicationJobAuthorityIdentity(candidate) ===
+            publicationJobAuthorityIdentity(job),
+      )
+    )
+      return false;
+    const lineageValid =
+      job.effectClass === "direct_publication"
+        ? intentJobs.length === 1 && intentJobs[0]?._id === job._id
+        : (() => {
+            const predecessorKey = job.authorityEnvelope?.repairOfJobKey;
+            if (
+              job.effectClass !== "attributed_repair" ||
+              predecessorKey === undefined ||
+              predecessorKey === job.jobKey ||
+              intentJobs.length !== 2 ||
+              !intentJobs.some((candidate) => candidate._id === job._id)
+            )
+              return false;
+            const predecessor = intentJobs.find(
+              (candidate) => candidate.jobKey === predecessorKey,
+            );
+            return (
+              predecessor?.effectClass === "direct_publication" &&
+              predecessor.status === "dead_letter"
+            );
+          })();
+    if (!lineageValid) return false;
+    const target = {
+      workspaceId: String(job.workspaceId),
+      brainKey: job.brainKey,
+      jobKey: job.jobKey,
+      authorityDigest: job.authorityDigest,
+    };
+    return (
+      intent.targetCount === 1 &&
+      intent.targets.length === 1 &&
+      intent.targets[0]?.workspaceId === target.workspaceId &&
+      intent.targets[0]?.brainKey === target.brainKey &&
+      intent.targets[0]?.jobKey === target.jobKey &&
+      intent.targets[0]?.authorityDigest === target.authorityDigest &&
+      intent.targetDigest === providerTargetResolutionPopulationDigest([target])
+    );
+  });
+
+const transitionLiveCaptureChildEffect = (
+  job: RetrievalPublicationJobsDoc,
+  state: "retry_wait" | "complete" | "policy_excluded" | "failed",
+  at: number,
+  errorTag: string | null,
+) =>
+  Effect.gen(function* () {
+    if (
+      job.ingestionObligationKey === undefined ||
+      job.providerTargetResolutionIntentId === undefined
+    )
+      return;
+    const ingestionObligationKey = job.ingestionObligationKey;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const intent = yield* reader
+      .table("providerTargetResolutionIntents")
+      .get(job.providerTargetResolutionIntentId)
+      .pipe(Effect.orDie);
+    if (intent?.authorityKind !== "live_capture") return;
+    const rows = yield* reader
+      .table("ingestionObligations")
+      .index("by_ingestion_obligation_key", (query) =>
+        query.eq("ingestionObligationKey", ingestionObligationKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const child = rows[0];
+    if (
+      rows.length !== 1 ||
+      child === undefined ||
+      child.authorityKind !== "live_capture" ||
+      child.parentIngestionObligationKey !== intent.ingestionObligationKey ||
+      child.targetResolutionIntentId !== intent._id ||
+      child.publicationJobKeys.length !== 1 ||
+      child.publicationJobKeys[0] !== job.jobKey
+    )
+      return yield* Effect.dieMessage(
+        "Live-capture publication child authority conflicts.",
+      );
+    const terminal = state !== "retry_wait";
+    yield* writer
+      .table("ingestionObligations")
+      .patch(child._id, {
+        state,
+        errorTag,
+        terminalAt: terminal ? at : null,
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+    yield* progressLiveCaptureParentEffect({
+      targetResolutionIntentId: intent._id,
+      now: at,
+    });
   });
 
 const targetResolutionPopulationDigest = (
@@ -2874,12 +3915,14 @@ const targetResolutionAuthorityStatusEffect = (
 
 const corpusKeyForJob = (
   originKind: RetrievalPublicationJobsDoc["originKind"],
-): "brain-pages" | "slack" | "transcripts" =>
+): "brain-pages" | "slack" | "transcripts" | "documents" =>
   originKind === "page" || originKind === "page_rebuild"
     ? "brain-pages"
     : originKind === "slack" || originKind === "slack_rebuild"
       ? "slack"
-      : "transcripts";
+      : originKind === "document"
+        ? "documents"
+        : "transcripts";
 
 const rebuildLedgerStateEffect = (input: EnqueuePublicationJobInput) =>
   Effect.gen(function* () {
@@ -3001,7 +4044,12 @@ const rebuildLedgerStateEffect = (input: EnqueuePublicationJobInput) =>
   });
 
 const rebuildScopeFor = (input: EnqueuePublicationJobInput) => {
-  const corpusKey = corpusKeyForJob(input.originKind);
+  const corpusKey =
+    input.originKind === "page_rebuild"
+      ? ("brain-pages" as const)
+      : input.originKind === "slack_rebuild"
+        ? ("slack" as const)
+        : ("transcripts" as const);
   const connectionScoped = input.sourceRevisionKey.startsWith("connection:");
   const connectorScoped =
     input.originKind === "slack_rebuild" &&
@@ -3382,6 +4430,25 @@ export const enqueueRetrievalPublicationJobEffect = (
       normalizedInput,
       now,
     );
+    if (
+      normalizedInput.providerTargetResolutionIntentId !== undefined ||
+      normalizedInput.providerTargetResolutionGeneration !== undefined
+    ) {
+      if (
+        normalizedInput.providerTargetResolutionIntentId === undefined ||
+        normalizedInput.providerTargetResolutionGeneration === undefined
+      )
+        return yield* Effect.die(
+          "Provider target resolution linkage must include both intent and generation.",
+        );
+      authorityContextValue = {
+        ...authorityContextValue,
+        providerTargetResolutionIntentId:
+          normalizedInput.providerTargetResolutionIntentId,
+        providerTargetResolutionGeneration:
+          normalizedInput.providerTargetResolutionGeneration,
+      };
+    }
     const persistedInput = {
       ...normalizedInput,
       workspaceId: String(normalizedInput.workspaceId),
@@ -3420,6 +4487,110 @@ export const enqueueRetrievalPublicationJobEffect = (
         },
       );
     return jobKey;
+  });
+
+export const enqueueAttributedPublicationRepairEffect = (input: {
+  readonly jobKey: string;
+  readonly now: number;
+}): Effect.Effect<
+  string | null,
+  never,
+  DatabaseReader | DatabaseWriter | Scheduler
+> =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const jobs = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", input.jobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const job = jobs[0];
+    if (
+      jobs.length !== 1 ||
+      job === undefined ||
+      job.status !== "dead_letter" ||
+      job.authorityEnvelope === undefined ||
+      (job.providerTargetResolutionIntentId === undefined) !==
+        (job.providerTargetResolutionGeneration === undefined)
+    )
+      return null;
+    const authorityContext = {
+      ...unattributedAuthorityContext(job.authorityEnvelope),
+      repairOfJobKey: job.jobKey,
+    };
+    return yield* enqueueRetrievalPublicationJobEffect(
+      {
+        organizationKey: job.organizationKey,
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        originKind: job.originKind,
+        effectClass: "attributed_repair",
+        ...(job.operation === undefined ? {} : { operation: job.operation }),
+        ...(job.rebuildRunKey === undefined
+          ? {}
+          : { rebuildRunKey: job.rebuildRunKey }),
+        ...(job.rebuildRunGeneration === undefined
+          ? {}
+          : { rebuildRunGeneration: job.rebuildRunGeneration }),
+        ...(job.rebuildLedgerHighWater === undefined
+          ? {}
+          : { rebuildLedgerHighWater: job.rebuildLedgerHighWater }),
+        ...(job.rebuildPauseEpoch === undefined
+          ? {}
+          : { rebuildPauseEpoch: job.rebuildPauseEpoch }),
+        ...(job.rebuildPredecessorDigest === undefined
+          ? {}
+          : { rebuildPredecessorDigest: job.rebuildPredecessorDigest }),
+        ...(job.parentRebuildJobKey === undefined
+          ? {}
+          : { parentRebuildJobKey: job.parentRebuildJobKey }),
+        sourceKey: job.sourceKey,
+        sourceRevisionKey: job.sourceRevisionKey,
+        ...(job.ingestionObligationKey === undefined
+          ? {}
+          : { ingestionObligationKey: job.ingestionObligationKey }),
+        ...(job.providerTargetResolutionIntentId === undefined ||
+        job.providerTargetResolutionGeneration === undefined
+          ? {}
+          : {
+              providerTargetResolutionIntentId:
+                job.providerTargetResolutionIntentId,
+              providerTargetResolutionGeneration:
+                job.providerTargetResolutionGeneration,
+            }),
+        requestGeneration: job.requestGeneration,
+        ...(job.page === undefined ? {} : { page: job.page }),
+        ...(job.rebuild === undefined
+          ? {}
+          : {
+              rebuild: {
+                limit: job.rebuild.limit,
+                ...(job.rebuild.phase === undefined
+                  ? {}
+                  : { phase: job.rebuild.phase }),
+                ...(job.rebuild.phaseHighWater === undefined
+                  ? {}
+                  : { phaseHighWater: job.rebuild.phaseHighWater }),
+                ...(job.rebuild.afterSourceKey === undefined
+                  ? {}
+                  : { afterSourceKey: job.rebuild.afterSourceKey }),
+                ...(job.rebuild.discoveredCount === undefined
+                  ? {}
+                  : { discoveredCount: job.rebuild.discoveredCount }),
+                ...(job.rebuild.publishedCount === undefined
+                  ? {}
+                  : { publishedCount: job.rebuild.publishedCount }),
+              },
+            }),
+        ...(job.targetResolutionIntentKey === undefined
+          ? {}
+          : {
+              targetResolutionIntentKey: job.targetResolutionIntentKey,
+            }),
+        authorityContext,
+      },
+      input.now,
+    );
   });
 
 export type LegacyPublicationJobMigrationResult =
@@ -4131,22 +5302,39 @@ const healthRowsForJob = (job: RetrievalPublicationJobsDoc) =>
     const corpusKey = corpusKeyForJob(job.originKind);
     const rows = yield* reader
       .table("brainCorpusHealth")
-      .index("by_workspace_brain", (index) =>
-        index.eq("workspaceId", job.workspaceId).eq("brainKey", job.brainKey),
-      )
-      .take(100)
-      .pipe(Effect.orDie);
-    return {
-      corpusKey,
-      rows: rows.filter(
-        (row) =>
-          row.corpusKey === corpusKey &&
-          row.connectorScopeKey === job.authorityEnvelope?.connectorScopeKey &&
-          row.connectionGeneration ===
+      .index("by_workspace_brain_corpus_scope_connection", (index) =>
+        index
+          .eq("workspaceId", job.workspaceId)
+          .eq("brainKey", job.brainKey)
+          .eq("corpusKey", corpusKey)
+          .eq("connectorScopeKey", job.authorityEnvelope?.connectorScopeKey)
+          .eq(
+            "connectionGeneration",
             job.authorityEnvelope?.configuration.connectionGeneration,
-      ),
-    };
+          ),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (rows.length > 1)
+      return yield* Effect.dieMessage(
+        "More than one corpus-health row owns the exact configuration tuple.",
+      );
+    return { corpusKey, rows };
   });
+
+export const completedRebuildFailureState = (input: {
+  readonly failedCount: number;
+  readonly degradedReason?: string | undefined;
+}) => ({
+  coverageStatus:
+    input.failedCount === 0 ? ("complete" as const) : ("partial" as const),
+  failedCount: input.failedCount,
+  ...(input.failedCount === 0
+    ? { degradedReason: undefined }
+    : input.degradedReason === undefined
+      ? {}
+      : { degradedReason: input.degradedReason }),
+});
 
 const markRebuildHealthComplete = (
   job: RetrievalPublicationJobsDoc,
@@ -4198,7 +5386,7 @@ const markRebuildHealthComplete = (
         .table("brainCorpusHealth")
         .patch(row._id, {
           reconciliationGeneration: Math.max(1, job.requestGeneration),
-          coverageStatus: "complete",
+          ...completedRebuildFailureState(row),
           lastReconciledAt: at,
           ...(corpusKey === "brain-pages"
             ? {
@@ -4206,8 +5394,6 @@ const markRebuildHealthComplete = (
                 publishedCount: counts.published,
               }
             : {}),
-          failedCount: 0,
-          degradedReason: undefined,
           updatedAt: at,
         })
         .pipe(Effect.orDie);
@@ -4277,6 +5463,69 @@ const markPublicationDeadLetter = (
   at: number,
 ) => markPublicationFailure(job, lastErrorTag, at, "dead letter");
 
+const resolvePublicationHealthFailureEffect = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    if (job.healthFailureActive !== true) return;
+    const writer = yield* DatabaseWriter;
+    const { rows } = yield* healthRowsForJob(job);
+    const row = rows[0];
+    if (row === undefined || row.failedCount < 1)
+      return yield* Effect.dieMessage(
+        "The publication failure marker has no matching corpus-health failure.",
+      );
+    const failedCount = row.failedCount - 1;
+    yield* writer
+      .table("brainCorpusHealth")
+      .patch(row._id, {
+        failedCount,
+        coverageStatus: "partial",
+        ...(failedCount === 0 ? { degradedReason: undefined } : {}),
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const resolveAttributedPublicationRepairEffect = (
+  job: RetrievalPublicationJobsDoc,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const repairOfJobKey = job.authorityEnvelope?.repairOfJobKey;
+    if (job.effectClass !== "attributed_repair" || repairOfJobKey === undefined)
+      return;
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const originals = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", repairOfJobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const original = originals[0];
+    if (
+      originals.length !== 1 ||
+      original === undefined ||
+      original.status !== "dead_letter"
+    )
+      return yield* Effect.dieMessage(
+        "The attributed publication repair lost its exact dead-letter authority.",
+      );
+    yield* writer
+      .table("retrievalPublicationJobs")
+      .patch(original._id, {
+        status: "superseded",
+        supersededByJobKey: job.jobKey,
+        lastErrorTag: "AttributedRepairSucceeded",
+        healthFailureActive: false,
+        completedAt: at,
+        updatedAt: at,
+      })
+      .pipe(Effect.orDie);
+    yield* resolvePublicationHealthFailureEffect(original, at);
+  });
+
 const markPublicationIntegrityFailure = (
   job: RetrievalPublicationJobsDoc,
   lastErrorTag: string,
@@ -4305,10 +5554,11 @@ const failPublicationIntegrity = (
       .table("retrievalPublicationJobs")
       .patch(job._id, failed)
       .pipe(Effect.orDie);
+    yield* transitionLiveCaptureChildEffect(job, "failed", at, lastErrorTag);
     return publicationJobResult({ ...job, ...failed });
   });
 
-export const runPublicationJobEffect = (
+const runPublicationJobWithoutLeaseEffect = (
   args: RunPublicationJobInput,
 ): Effect.Effect<
   RunPublicationJobOutput,
@@ -4352,6 +5602,12 @@ export const runPublicationJobEffect = (
         job,
         args.now,
         "PublicationOperationMigrationRequired",
+      );
+    if (!(yield* ingestionObligationLinkageIsValidEffect(job)))
+      return yield* failPublicationIntegrity(
+        job,
+        args.now,
+        "PublicationIngestionObligationLinkageInvalid",
       );
     if (!publicationAuthorityLinkageIsValid(job, job.authorityEnvelope))
       return yield* failPublicationIntegrity(
@@ -4525,6 +5781,13 @@ export const runPublicationJobEffect = (
           brainKey: job.brainKey,
           sourceRevisionKey: job.sourceRevisionKey,
           caller,
+          now: args.now,
+        });
+        return { kind: "publication" as const, value };
+      }
+      if (job.originKind === "document") {
+        const value = yield* publishDocumentRevisionEffect({
+          job,
           now: args.now,
         });
         return { kind: "publication" as const, value };
@@ -4988,12 +6251,21 @@ export const runPublicationJobEffect = (
         completedAt: args.now,
         lastErrorTag: undefined,
         ...(rebuildResultDigest === undefined ? {} : { rebuildResultDigest }),
+        healthFailureActive: false,
         updatedAt: args.now,
       };
+      yield* resolvePublicationHealthFailureEffect(job, args.now);
       yield* writer
         .table("retrievalPublicationJobs")
         .patch(job._id, completed)
         .pipe(Effect.orDie);
+      yield* transitionLiveCaptureChildEffect(
+        job,
+        status === "succeeded" ? "complete" : "policy_excluded",
+        args.now,
+        null,
+      );
+      yield* resolveAttributedPublicationRepairEffect(job, args.now);
       return publicationJobResult({ ...job, ...completed });
     }
 
@@ -5019,12 +6291,19 @@ export const runPublicationJobEffect = (
           PUBLICATION_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
       lastErrorTag,
       ...(deadLetter ? { completedAt: args.now } : {}),
+      ...(deadLetter ? { healthFailureActive: true } : {}),
       updatedAt: args.now,
     };
     yield* writer
       .table("retrievalPublicationJobs")
       .patch(job._id, failed)
       .pipe(Effect.orDie);
+    yield* transitionLiveCaptureChildEffect(
+      job,
+      deadLetter ? "failed" : "retry_wait",
+      args.now,
+      lastErrorTag,
+    );
     if (deadLetter) {
       yield* recordRebuildChildTerminalEffect(job, "blocked", args.now);
       yield* markRebuildRunTerminalEffect(
@@ -5033,9 +6312,109 @@ export const runPublicationJobEffect = (
         lastErrorTag,
         args.now,
       );
-      yield* markPublicationDeadLetter(job, lastErrorTag, args.now);
+      if (job.healthFailureActive !== true)
+        yield* markPublicationDeadLetter(job, lastErrorTag, args.now);
     }
     return publicationJobResult({ ...job, ...failed });
+  });
+
+export const runPublicationJobEffect = (
+  args: RunPublicationJobInput,
+): Effect.Effect<
+  RunPublicationJobOutput,
+  PublicationEffectError,
+  PublicationMutationServices
+> =>
+  Effect.gen(function* () {
+    if (args.caller.kind !== "system") return yield* new Unauthorized();
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const jobs = yield* reader
+      .table("retrievalPublicationJobs")
+      .index("by_job_key", (query) => query.eq("jobKey", args.jobKey))
+      .take(2)
+      .pipe(Effect.orDie);
+    const job = jobs[0];
+    if (jobs.length !== 1 || job === undefined)
+      return yield* runPublicationJobWithoutLeaseEffect(args);
+    if (terminalPublicationJobStatuses.has(job.status)) {
+      yield* transitionLiveCaptureChildEffect(
+        job,
+        job.status === "succeeded"
+          ? "complete"
+          : job.status === "revoked" || job.status === "superseded"
+            ? "policy_excluded"
+            : "failed",
+        args.now,
+        job.lastErrorTag ?? null,
+      );
+      return publicationJobResult(job);
+    }
+    if (job.nextAttemptAt > args.now) return publicationJobResult(job);
+    const claim = yield* claimPublicationJobLeaseEffect({
+      job,
+      now: args.now,
+      leaseDurationMs: PUBLICATION_WORKER_LEASE_MS,
+    });
+    if (claim.status === "integrity_failure")
+      return yield* failPublicationIntegrity(
+        job,
+        args.now,
+        "PublicationWorkerLeaseIntegrityFailure",
+      );
+    if (claim.status === "paused") {
+      const paused = {
+        status: "retry_wait" as const,
+        attemptCount: job.attemptCount,
+        nextAttemptAt: args.now + PUBLICATION_RETRY_BASE_MS,
+        lastErrorTag: "PublicationWorkersPaused",
+        updatedAt: args.now,
+      };
+      yield* writer
+        .table("retrievalPublicationJobs")
+        .patch(job._id, paused)
+        .pipe(Effect.orDie);
+      yield* transitionLiveCaptureChildEffect(
+        job,
+        "retry_wait",
+        args.now,
+        paused.lastErrorTag,
+      );
+      return publicationJobResult({ ...job, ...paused });
+    }
+    const activated = yield* activatePublicationJobLeaseEffect({
+      job,
+      leaseKey: claim.leaseKey,
+      expectedPauseEpoch: claim.pauseEpoch,
+      now: args.now,
+    });
+    if (!activated) {
+      const deferred = {
+        status: "retry_wait" as const,
+        attemptCount: job.attemptCount,
+        nextAttemptAt: args.now + PUBLICATION_RETRY_BASE_MS,
+        lastErrorTag: "PublicationWorkerLeaseSuperseded",
+        updatedAt: args.now,
+      };
+      yield* writer
+        .table("retrievalPublicationJobs")
+        .patch(job._id, deferred)
+        .pipe(Effect.orDie);
+      yield* transitionLiveCaptureChildEffect(
+        job,
+        "retry_wait",
+        args.now,
+        deferred.lastErrorTag,
+      );
+      return publicationJobResult({ ...job, ...deferred });
+    }
+    const exit = yield* Effect.exit(runPublicationJobWithoutLeaseEffect(args));
+    yield* releasePublicationJobLeaseEffect({
+      leaseKey: claim.leaseKey,
+      now: args.now,
+    });
+    if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
+    return exit.value;
   });
 
 export const sweepPublicationJobsEffect = (
@@ -5073,6 +6452,46 @@ export const sweepPublicationJobsEffect = (
           left.jobKey.localeCompare(right.jobKey),
       )
       .slice(0, args.limit);
+    const liveParentPages = yield* Effect.all(
+      (
+        [
+          "target_resolution_pending",
+          "retry_wait",
+          "capacity_blocked",
+          "drain_pending",
+        ] as const
+      ).map((state) =>
+        reader
+          .table("ingestionObligations")
+          .index("by_state_updated_obligation", (query) =>
+            query.eq("state", state),
+          )
+          .take(args.limit)
+          .pipe(Effect.orDie),
+      ),
+    );
+    const liveParents = liveParentPages
+      .flat()
+      .filter(
+        (obligation) =>
+          obligation.authorityKind === "live_capture" &&
+          obligation.parentIngestionObligationKey === undefined &&
+          obligation.targetResolutionIntentId !== undefined,
+      )
+      .sort(
+        (left, right) =>
+          left.updatedAt - right.updatedAt ||
+          left.ingestionObligationKey.localeCompare(
+            right.ingestionObligationKey,
+          ),
+      )
+      .slice(0, args.limit);
+    for (const parent of liveParents)
+      if (parent.targetResolutionIntentId !== undefined)
+        yield* progressLiveCaptureParentEffect({
+          targetResolutionIntentId: parent.targetResolutionIntentId,
+          now: currentTime,
+        });
     for (const job of jobs)
       yield* scheduler.runAfter(
         Duration.zero,

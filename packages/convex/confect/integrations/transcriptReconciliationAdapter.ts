@@ -1,5 +1,34 @@
+import { CanonicalCallTranscript } from "@maestro-template/integrations/transcripts/canonical";
+import * as Schema from "effect/Schema";
+
 import { sha256Hex } from "../shared/sha256";
 import type { ProviderObservation } from "./providerReconciliation";
+
+const NonNegativeInteger = Schema.Number.pipe(
+  Schema.int(),
+  Schema.greaterThanOrEqualTo(0),
+);
+
+export const PreparedTranscriptReconciliationWrite = Schema.Struct({
+  call: CanonicalCallTranscript,
+  receivedAt: NonNegativeInteger,
+});
+export type PreparedTranscriptReconciliationWrite =
+  typeof PreparedTranscriptReconciliationWrite.Type;
+
+export const PreparedTranscriptReconciliationPage = Schema.Struct({
+  connectorScopeKey: Schema.String,
+  cursorBefore: Schema.NullOr(Schema.String),
+  cursorAfter: Schema.NullOr(Schema.String),
+  terminal: Schema.Boolean,
+  chunks: Schema.Array(
+    Schema.Array(PreparedTranscriptReconciliationWrite).pipe(
+      Schema.maxItems(100),
+    ),
+  ).pipe(Schema.minItems(1), Schema.maxItems(64)),
+});
+export type PreparedTranscriptReconciliationPage =
+  typeof PreparedTranscriptReconciliationPage.Type;
 
 export type TranscriptReconciliationObservationInput = {
   readonly organizationKey: string;
@@ -11,6 +40,7 @@ export type TranscriptReconciliationObservationInput = {
   readonly externalCallId: string;
   readonly ledgerSequence: number;
   readonly observationDigest: string;
+  readonly tombstone?: boolean;
 };
 
 export const transcriptReconciliationObservation = (
@@ -35,4 +65,16 @@ export const transcriptReconciliationObservation = (
   originRevisionKey: input.unitRevisionKey,
   ledgerSequence: input.ledgerSequence,
   observationDigest: input.observationDigest,
+  ...(input.tombstone === true
+    ? {
+        obligationCause: "removal" as const,
+        initialObligationState: "removal_pending" as const,
+      }
+    : {}),
 });
+
+export const prepareTranscriptReconciliationWrite = (input: {
+  readonly call: typeof CanonicalCallTranscript.Type;
+  readonly receivedAt: number;
+}): PreparedTranscriptReconciliationWrite =>
+  Schema.decodeUnknownSync(PreparedTranscriptReconciliationWrite)(input);

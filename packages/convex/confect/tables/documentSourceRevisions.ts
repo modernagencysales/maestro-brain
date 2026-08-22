@@ -19,6 +19,7 @@ export const DocumentSourceRevisionRow = Schema.extend(
     documentRevisionKey: DocumentRevisionKey,
     incarnation: PositiveInteger,
     recordedAt: NonNegativeInteger,
+    ledgerSequence: Schema.optional(PositiveInteger),
   }),
 );
 

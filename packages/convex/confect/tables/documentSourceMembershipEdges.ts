@@ -33,6 +33,7 @@ export const DocumentSourceMembershipEdgeRow = Schema.Struct({
   incarnation: PositiveInteger,
   observedAt: NonNegativeInteger,
   recordedAt: NonNegativeInteger,
+  ledgerSequence: Schema.optional(PositiveInteger),
 });
 
 export default Table.make(() => DocumentSourceMembershipEdgeRow)

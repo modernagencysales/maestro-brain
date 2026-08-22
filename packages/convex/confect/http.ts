@@ -107,6 +107,7 @@ const operationRefs = {
   "brain.sources.get": internal.brain.readApi.headlessSourcesGet,
   "brain.context.get": internal.brain.readApi.headlessContextGet,
   "brain.answers.ask": internal.brain.readApi.headlessAnswersAsk,
+  "brain.rollout.status": internal.brain.readApi.headlessBrainRolloutStatus,
   [feedbackOperationId]: feedbackFunction(),
 } satisfies Record<string, unknown>;
 

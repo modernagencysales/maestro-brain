@@ -13,6 +13,7 @@ playwright-report/
 repos/
 packages/convex/confect/_generated/
 packages/convex/convex/_generated/
+packages/convex/.convex/
 packages/convex/convex/brain/pages.ts
 apps/web/src/routeTree.gen.ts
 .pnpm-store/

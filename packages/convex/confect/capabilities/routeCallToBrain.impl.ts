@@ -14,6 +14,7 @@ import {
   transcriptRouteFenceIdentity,
   transitionEligibilityFenceEffect,
 } from "../brain/retrievalEligibility";
+import { resolveTranscriptLiveCaptureTargetEffect } from "../brain/liveCaptureObligations";
 import { enqueueRetrievalPublicationJobEffect } from "../brain/retrievalPublication.impl";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
 import { matchCall } from "../routing/callMatching";
@@ -24,6 +25,11 @@ import {
   routeCallToBrainArgs,
   routeCallToBrainReturns,
 } from "./routeCallToBrain.spec";
+
+const MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION = 500;
+const MAX_ACTIVE_CALL_ROUTE_MAPPINGS = 2_000;
+const MAX_PROPOSALS_PER_REVISION = 100;
+const MAX_PENDING_ROUTE_JOBS_PER_UNIT = 100;
 
 export const routeCallToBrainEffect = ({
   organizationKey,
@@ -90,14 +96,18 @@ export const routeCallToBrainEffect = ({
       });
     const workspaces = yield* reader
       .table("workspaces")
-      .index("by_organization", (query) =>
-        query.eq("organizationId", organization._id),
+      .index("by_organization_status", (query) =>
+        query.eq("organizationId", organization._id).eq("status", "active"),
       )
-      .collect()
+      .take(MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION + 1)
       .pipe(Effect.orDie);
+    if (workspaces.length > MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION)
+      return yield* new ValidationFailed({
+        field: "organizationKey",
+        message: `Organization exceeds the ${MAX_ACTIVE_WORKSPACES_PER_ORGANIZATION}-workspace routing capacity.`,
+      });
     const allowedBrainKeys = workspaces
       .flatMap((workspace) =>
-        workspace.status === "active" &&
         (workspace.kind === "client" || workspace.kind === "agency") &&
         workspace.brainKey
           ? [workspace.brainKey]
@@ -114,8 +124,13 @@ export const routeCallToBrainEffect = ({
       .index("by_org_status", (query) =>
         query.eq("organizationKey", organizationKey).eq("status", "active"),
       )
-      .collect()
+      .take(MAX_ACTIVE_CALL_ROUTE_MAPPINGS + 1)
       .pipe(Effect.orDie);
+    if (mappings.length > MAX_ACTIVE_CALL_ROUTE_MAPPINGS)
+      return yield* new ValidationFailed({
+        field: "organizationKey",
+        message: `Organization exceeds the ${MAX_ACTIVE_CALL_ROUTE_MAPPINGS}-mapping routing capacity.`,
+      });
     const match = matchCall({
       organizationKey,
       allowedBrainKeys,
@@ -133,8 +148,13 @@ export const routeCallToBrainEffect = ({
           .eq("organizationKey", organizationKey)
           .eq("unitRevisionKey", unitRevisionKey),
       )
-      .take(100)
+      .take(MAX_PROPOSALS_PER_REVISION + 1)
       .pipe(Effect.orDie);
+    if (existingRows.length > MAX_PROPOSALS_PER_REVISION)
+      return yield* new ValidationFailed({
+        field: "unitRevisionKey",
+        message: `Revision exceeds the ${MAX_PROPOSALS_PER_REVISION}-proposal routing capacity.`,
+      });
     const existing = existingRows
       .filter(({ status }) => status === "current" || status === "accepted")
       .sort((left, right) => right.routeGeneration - left.routeGeneration)[0];
@@ -158,18 +178,30 @@ export const routeCallToBrainEffect = ({
           eligible: true,
           now: routedAt,
         });
-        yield* enqueueRetrievalPublicationJobEffect(
-          {
-            organizationKey,
-            workspaceId: target._id,
-            brainKey: existing.brainKey ?? "",
-            originKind: "transcript",
-            sourceKey: existing.unitKey,
-            sourceRevisionKey: unitRevisionKey,
-            requestGeneration: existing.routeGeneration,
-          },
-          routedAt,
-        );
+        const liveJobKey = yield* resolveTranscriptLiveCaptureTargetEffect({
+          organizationKey,
+          workspaceId: target._id,
+          brainKey: existing.brainKey ?? "",
+          connectionKey: unit.connectionKey,
+          connectionGeneration: unit.connectionGeneration,
+          unitKey: existing.unitKey,
+          unitRevisionKey,
+          routeGeneration: existing.routeGeneration,
+          now: routedAt,
+        });
+        if (liveJobKey === null)
+          yield* enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId: target._id,
+              brainKey: existing.brainKey ?? "",
+              originKind: "transcript",
+              sourceKey: existing.unitKey,
+              sourceRevisionKey: unitRevisionKey,
+              requestGeneration: existing.routeGeneration,
+            },
+            routedAt,
+          );
       }
       return {
         outcome: existing.outcome,
@@ -182,6 +214,20 @@ export const routeCallToBrainEffect = ({
         routeGeneration: existing.routeGeneration,
       };
     }
+    const jobs = yield* reader
+      .table("sourceProcessingJobs")
+      .index("by_org_unit_stage", (query) =>
+        query
+          .eq("organizationKey", organizationKey)
+          .eq("unitKey", unit.unitKey),
+      )
+      .take(MAX_PENDING_ROUTE_JOBS_PER_UNIT + 1)
+      .pipe(Effect.orDie);
+    if (jobs.length > MAX_PENDING_ROUTE_JOBS_PER_UNIT)
+      return yield* new ValidationFailed({
+        field: "unitRevisionKey",
+        message: `Unit exceeds the ${MAX_PENDING_ROUTE_JOBS_PER_UNIT}-job routing capacity.`,
+      });
     if (supersedeExisting)
       yield* writer
         .table("callRoutingProposals")
@@ -189,15 +235,17 @@ export const routeCallToBrainEffect = ({
         .pipe(Effect.orDie);
     const prior = yield* reader
       .table("callRoutingProposals")
-      .index("by_org_unit_generation", (query) =>
-        query
-          .eq("organizationKey", organizationKey)
-          .eq("unitKey", unit.unitKey),
+      .index(
+        "by_org_unit_generation",
+        (query) =>
+          query
+            .eq("organizationKey", organizationKey)
+            .eq("unitKey", unit.unitKey),
+        "desc",
       )
-      .collect()
-      .pipe(Effect.orDie);
-    const routeGeneration =
-      Math.max(0, ...prior.map(({ routeGeneration }) => routeGeneration)) + 1;
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    const routeGeneration = (prior?.routeGeneration ?? 0) + 1;
     const proposalKey = `callroute_${sha256Hex(
       JSON.stringify({ organizationKey, unitRevisionKey, routeGeneration }),
     )}`;
@@ -228,15 +276,6 @@ export const routeCallToBrainEffect = ({
         now: routedAt,
       });
 
-    const jobs = yield* reader
-      .table("sourceProcessingJobs")
-      .index("by_org_unit_stage", (query) =>
-        query
-          .eq("organizationKey", organizationKey)
-          .eq("unitKey", unit.unitKey),
-      )
-      .collect()
-      .pipe(Effect.orDie);
     for (const job of jobs.filter(
       (candidate) =>
         candidate.lifecycleGeneration === unit.lifecycle.generation &&
@@ -260,19 +299,32 @@ export const routeCallToBrainEffect = ({
       (workspace) =>
         workspace.brainKey === route.brainKey && workspace.status === "active",
     );
-    if (route.outcome === "routed" && target !== undefined)
-      yield* enqueueRetrievalPublicationJobEffect(
-        {
-          organizationKey,
-          workspaceId: target._id,
-          brainKey: route.brainKey ?? "",
-          originKind: "transcript",
-          sourceKey: unit.unitKey,
-          sourceRevisionKey: unitRevisionKey,
-          requestGeneration: routeGeneration,
-        },
-        routedAt,
-      );
+    if (route.outcome === "routed" && target !== undefined) {
+      const liveJobKey = yield* resolveTranscriptLiveCaptureTargetEffect({
+        organizationKey,
+        workspaceId: target._id,
+        brainKey: route.brainKey ?? "",
+        connectionKey: unit.connectionKey,
+        connectionGeneration: unit.connectionGeneration,
+        unitKey: unit.unitKey,
+        unitRevisionKey,
+        routeGeneration,
+        now: routedAt,
+      });
+      if (liveJobKey === null)
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey,
+            workspaceId: target._id,
+            brainKey: route.brainKey ?? "",
+            originKind: "transcript",
+            sourceKey: unit.unitKey,
+            sourceRevisionKey: unitRevisionKey,
+            requestGeneration: routeGeneration,
+          },
+          routedAt,
+        );
+    }
 
     return {
       ...route,

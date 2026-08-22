@@ -1,6 +1,7 @@
 import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
 
+import type { RetrievalTokensDoc } from "../_generated/docs";
 import { DatabaseReader } from "../_generated/services";
 import { sha256Hex } from "../shared/sha256";
 import { retrievalPublicationSubjectKey } from "./retrievalPublication";
@@ -270,13 +271,16 @@ export const inspectPublicationIntegrity = (
       "entry_count_mismatch",
       "The entry count differs from the publication-set manifest.",
     );
-  if (input.tokens.length !== input.set.expectedTokenCount)
+  const expectedStoredTokenCount =
+    input.set.state === "current" ? input.set.expectedTokenCount : 0;
+  if (input.tokens.length !== expectedStoredTokenCount)
     add(
       "token_count_mismatch",
-      "The token count differs from the publication-set manifest.",
+      input.set.state === "current"
+        ? "The token count differs from the publication-set manifest."
+        : "A retired publication still has active retrieval postings.",
     );
-  const expectedEntryState =
-    input.set.state === "current" ? "published" : "revoked";
+  const expectedEntryState = "published";
   if (
     input.entries.some(
       (entry) =>
@@ -324,11 +328,17 @@ export const inspectPublicationIntegrity = (
       "token_identity_mismatch",
       "A token does not match its publication set, state, or entry.",
     );
-  const actualManifestHash = publicationManifestHash({
-    entryKeys: input.entries.map(({ entryKey }) => entryKey),
-    tokens: input.tokens,
-  });
-  if (input.set.manifestHash !== actualManifestHash)
+  const actualManifestHash =
+    input.set.state === "current"
+      ? publicationManifestHash({
+          entryKeys: input.entries.map(({ entryKey }) => entryKey),
+          tokens: input.tokens,
+        })
+      : input.set.manifestHash;
+  if (
+    input.set.state === "current" &&
+    input.set.manifestHash !== actualManifestHash
+  )
     add(
       "manifest_hash_mismatch",
       "The publication manifest hash does not match its entries and tokens.",
@@ -419,6 +429,60 @@ export const publicationOriginPresentEffect = (set: StoredPublicationSet) =>
         units[0]?.connectionGeneration === set.connectionGeneration
       );
     }
+    if (set.originKind === "document") {
+      const [revisions, objects] = yield* Effect.all([
+        reader
+          .table("documentSourceRevisions")
+          .index("by_organization_revision_key", (query) =>
+            query
+              .eq("organizationKey", set.organizationKey)
+              .eq("documentRevisionKey", set.sourceRevisionKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+        reader
+          .table("documentSourceObjects")
+          .index("by_organization_object_key", (query) =>
+            query
+              .eq("organizationKey", set.organizationKey)
+              .eq("documentObjectKey", set.sourceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ]);
+      const revision = revisions[0];
+      const object = objects[0];
+      return (
+        set.originTable === "documentSourceRevisions" &&
+        revisions.length === 1 &&
+        objects.length === 1 &&
+        revision !== undefined &&
+        object !== undefined &&
+        revision.documentObjectKey === set.sourceKey &&
+        revision.connectorScopeKey === set.connectorScopeKey &&
+        revision.connectionKey === set.connectionKey &&
+        revision.connectionGeneration === set.connectionGeneration &&
+        !revision.tombstone &&
+        object.lifecycleState === "live"
+      );
+    }
+    if (set.originKind === "projection") {
+      const sources = yield* reader
+        .table("brainSources")
+        .index("by_workspace_source_key", (query) =>
+          query
+            .eq("workspaceId", set.workspaceId as GenericId<"workspaces">)
+            .eq("sourceKey", set.sourceKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      return (
+        set.originTable === "brainSources" &&
+        sources.length === 1 &&
+        sources[0]?.status === "published" &&
+        sources[0].sourceKey === set.sourceRevisionKey
+      );
+    }
     return false;
   });
 
@@ -426,6 +490,7 @@ export type PublicationIntegrityLoadResult =
   | {
       readonly kind: "validated";
       readonly report: ReturnType<typeof inspectPublicationIntegrity>;
+      readonly tokens: readonly RetrievalTokensDoc[];
     }
   | {
       readonly kind: "capacity";
@@ -437,6 +502,10 @@ export type PublicationIntegrityLoadResult =
 
 export const validatePublicationSetIntegrityEffect = (
   set: StoredPublicationSet,
+  limits?: {
+    readonly entryLimit?: number;
+    readonly tokenLimit?: number;
+  },
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
@@ -479,7 +548,7 @@ export const validatePublicationSetIntegrityEffect = (
           .eq("brainKey", set.brainKey)
           .eq("publicationSetKey", set.publicationSetKey),
       )
-      .take(MAX_PUBLICATION_ENTRY_ROWS + 1)
+      .take((limits?.entryLimit ?? MAX_PUBLICATION_ENTRY_ROWS) + 1)
       .pipe(Effect.orDie);
     const tokens = yield* reader
       .table("retrievalTokens")
@@ -489,12 +558,12 @@ export const validatePublicationSetIntegrityEffect = (
           .eq("brainKey", set.brainKey)
           .eq("publicationSetKey", set.publicationSetKey),
       )
-      .take(MAX_PUBLICATION_TOKEN_ROWS + 1)
+      .take((limits?.tokenLimit ?? MAX_PUBLICATION_TOKEN_ROWS) + 1)
       .pipe(Effect.orDie);
     if (
       historyRows.length > MAX_PUBLICATION_HISTORY_ROWS ||
-      entries.length > MAX_PUBLICATION_ENTRY_ROWS ||
-      tokens.length > MAX_PUBLICATION_TOKEN_ROWS
+      entries.length > (limits?.entryLimit ?? MAX_PUBLICATION_ENTRY_ROWS) ||
+      tokens.length > (limits?.tokenLimit ?? MAX_PUBLICATION_TOKEN_ROWS)
     )
       return {
         kind: "capacity" as const,
@@ -521,6 +590,7 @@ export const validatePublicationSetIntegrityEffect = (
         entries,
         tokens,
       }),
+      tokens,
     };
   });
 

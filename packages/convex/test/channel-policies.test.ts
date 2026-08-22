@@ -733,6 +733,44 @@ describe("Slack channel policy contract", () => {
         expectedChannelAccessGeneration: 2,
         changes: baseRequest.changes,
       });
+      const activation = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const [required, scopes, allowlists, receipts] = yield* Effect.all([
+            reader
+              .table("brainRequiredScopeIntents")
+              .index("by_workspace_brain_state", (query) =>
+                query
+                  .eq("workspaceId", seeded.seededWorkspaceId)
+                  .eq("brainKey", "brain_alpha")
+                  .eq("state", "required"),
+              )
+              .take(2),
+            reader
+              .table("connectorScopes")
+              .index("by_connector_scope_key", (query) =>
+                query.eq("connectorScopeKey", joinedChannel.channelKey),
+              )
+              .take(2),
+            reader
+              .table("connectorAllowlistGenerations")
+              .index("by_scope_generation", (query) =>
+                query
+                  .eq("connectorScopeKey", joinedChannel.channelKey)
+                  .eq("allowlistGeneration", 1),
+              )
+              .take(2),
+            reader
+              .table("providerEventReceipts")
+              .index("by_received_at", (query) =>
+                query.eq("organizationKey", "agency_acme"),
+              )
+              .take(1),
+          ]).pipe(Effect.orDie);
+          return { required, scopes, allowlists, receipts };
+        }),
+        Schema.Any,
+      );
       const reassigned = yield* authed.mutation(bulkSetRef, {
         organizationKey: "agency_acme",
         expectedConnectionGeneration: 4,
@@ -825,7 +863,7 @@ describe("Slack channel policy contract", () => {
         Schema.Any,
       );
 
-      return { applied, reassigned, denied, rows, seeded };
+      return { applied, activation, reassigned, denied, rows, seeded };
     }).pipe(Effect.provide(channelPolicyTestConfectLayer()));
 
     const result = await Effect.runPromise(program);
@@ -834,6 +872,32 @@ describe("Slack channel policy contract", () => {
       applied: 1,
       auditAction: "channel_policy_bulk_update",
     });
+    expect(result.activation.receipts).toEqual([]);
+    expect(result.activation.required).toEqual([
+      expect.objectContaining({
+        workspaceId: result.seeded.seededWorkspaceId,
+        brainKey: "brain_alpha",
+        connectorScopeKey: joinedChannel.channelKey,
+        connectionGeneration: 4,
+        allowlistGeneration: 1,
+        state: "required",
+      }),
+    ]);
+    expect(result.activation.scopes).toEqual([
+      expect.objectContaining({
+        connectorScopeKey: joinedChannel.channelKey,
+        currentConnectionGeneration: 4,
+        currentAllowlistGeneration: 1,
+        state: "active",
+      }),
+    ]);
+    expect(result.activation.allowlists).toEqual([
+      expect.objectContaining({
+        connectorScopeKey: joinedChannel.channelKey,
+        allowlistGeneration: 1,
+        state: "current",
+      }),
+    ]);
     expect(result.reassigned).toEqual({
       applied: 1,
       auditAction: "channel_policy_bulk_update",

@@ -340,11 +340,57 @@ export const retrievalTokens = (input: string) =>
 export const uniqueQueryTokens = (input: string) =>
   [...new Set(retrievalTokens(input))].slice(0, RETRIEVAL_QUERY_TOKEN_LIMIT);
 
+const utf8Size = (value: string): number =>
+  new TextEncoder().encode(value).length;
+
+export const queryCenteredExcerpt = (input: {
+  readonly text: string;
+  readonly queryTokens: readonly string[];
+  readonly maxBytes?: number | undefined;
+}) => {
+  const maxBytes = Math.max(1, input.maxBytes ?? RETRIEVAL_ENTRY_MAX_BYTES);
+  if (utf8Size(input.text) <= maxBytes)
+    return { excerpt: input.text, truncated: false } as const;
+  const points = Array.from(input.text);
+  const lowered = input.text.toLocaleLowerCase();
+  const matchOffset = input.queryTokens.reduce<number | null>((best, token) => {
+    const offset = lowered.indexOf(token.toLocaleLowerCase());
+    return offset < 0 || (best !== null && best <= offset) ? best : offset;
+  }, null);
+  const center =
+    matchOffset === null
+      ? 0
+      : Array.from(input.text.slice(0, matchOffset)).length;
+  let left = Math.min(center, Math.max(0, points.length - 1));
+  let right = left;
+  let bytes = 0;
+  let takeRight = true;
+  while (left >= 0 || right < points.length) {
+    const index = takeRight ? right : left;
+    takeRight = !takeRight;
+    if (index < 0 || index >= points.length) continue;
+    const point = points[index];
+    if (point === undefined) continue;
+    const pointBytes = utf8Size(point);
+    if (bytes + pointBytes > maxBytes) break;
+    bytes += pointBytes;
+    if (index === left) left -= 1;
+    if (index === right) right += 1;
+  }
+  return {
+    excerpt: points.slice(left + 1, right).join(""),
+    truncated: true,
+  } as const;
+};
+
 export const buildRetrievalTokenRows = (input: {
   readonly organizationKey: string;
   readonly workspaceId: string;
   readonly brainKey: string;
   readonly entryKey: string;
+  readonly corpusKey?: string | undefined;
+  readonly sourceModifiedAt?: number | undefined;
+  readonly observedAt?: number | undefined;
   readonly title: string;
   readonly headingPath: string | null;
   readonly text: string;
@@ -366,6 +412,10 @@ export const buildRetrievalTokenRows = (input: {
       tokenizerVersion: 1 as const,
       token,
       entryKey: input.entryKey,
+      ...(input.corpusKey === undefined ? {} : { corpusKey: input.corpusKey }),
+      ...(input.observedAt === undefined
+        ? {}
+        : { evidenceAt: input.sourceModifiedAt ?? input.observedAt }),
       authorityRank: (input.authority === "authoritative"
         ? 1
         : input.authority === "advisory"

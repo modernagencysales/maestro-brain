@@ -131,6 +131,7 @@ export const SourceRevisionRow = Schema.Struct({
   contentHash: Hash,
   tombstone: Schema.Boolean,
   lifecycle: Lifecycle,
+  ledgerSequence: Schema.optional(PositiveInteger),
   createdAt: NonNegativeInteger,
 });
 

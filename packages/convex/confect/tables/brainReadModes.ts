@@ -4,7 +4,11 @@ import * as Schema from "effect/Schema";
 import { Id } from "../_generated/id";
 import { NonNegativeInteger, PositiveInteger } from "../brain/retrievalSchemas";
 
-export const BrainReadMode = Schema.Literal("compatibility", "disabled");
+export const BrainReadMode = Schema.Literal(
+  "compatibility",
+  "projection",
+  "disabled",
+);
 
 export const BrainReadModeRow = Schema.Struct({
   schemaVersion: Schema.Literal(1),

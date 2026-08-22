@@ -24,31 +24,40 @@ export const IngestionObligationState = Schema.Literal(
 export const IngestionObligationRow = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   organizationKey: Schema.String,
-  workspaceId: Id("workspaces"),
-  brainKey: Schema.String,
-  corpusKey: Schema.Literal("slack", "transcripts"),
-  providerKind: Schema.Literal("slack", "transcript"),
+  workspaceId: Schema.optional(Id("workspaces")),
+  brainKey: Schema.optional(Schema.String),
+  corpusKey: Schema.Literal("slack", "transcripts", "documents"),
+  providerKind: Schema.Literal("slack", "transcript", "google_drive"),
   connectorScopeKey: Schema.String,
   connectionKey: Schema.String,
   connectionGeneration: PositiveInteger,
-  allowlistGeneration: PositiveInteger,
+  allowlistGeneration: Schema.optional(PositiveInteger),
   ingestionObligationKey: Schema.String.pipe(
     Schema.pattern(/^iobl_[a-f0-9]{64}$/),
   ),
-  requiredScopeIntentKey: Schema.String.pipe(
-    Schema.pattern(/^brsi_[a-f0-9]{64}$/),
+  authorityKind: Schema.optional(
+    Schema.Literal("reconciliation_page", "live_capture"),
   ),
-  reconciliationRunKey: Schema.String.pipe(
-    Schema.pattern(/^crun_[a-f0-9]{64}$/),
+  parentIngestionObligationKey: Schema.optional(
+    Schema.String.pipe(Schema.pattern(/^iobl_[a-f0-9]{64}$/)),
   ),
-  runGeneration: PositiveInteger,
+  requiredScopeIntentKey: Schema.optional(
+    Schema.String.pipe(Schema.pattern(/^brsi_[a-f0-9]{64}$/)),
+  ),
+  reconciliationRunKey: Schema.optional(
+    Schema.String.pipe(Schema.pattern(/^crun_[a-f0-9]{64}$/)),
+  ),
+  runGeneration: Schema.optional(PositiveInteger),
   cause: Schema.Literal("observation", "removal"),
   membershipKey: Schema.String,
-  originKind: Schema.Literal("slack", "transcript"),
+  originKind: Schema.Literal("slack", "transcript", "document"),
   originKey: Schema.String,
   originRevisionKey: Schema.String,
   ledgerSequence: NonNegativeNumber,
   state: IngestionObligationState,
+  targetResolutionIntentId: Schema.optional(
+    Id("providerTargetResolutionIntents"),
+  ),
   targetResolutionIntentKey: Schema.NullOr(Schema.String),
   publicationJobKeys: Schema.Array(Schema.String).pipe(Schema.maxItems(100)),
   errorTag: Schema.NullOr(Schema.String),
@@ -59,6 +68,11 @@ export const IngestionObligationRow = Schema.Struct({
 
 export default Table.make(() => IngestionObligationRow)
   .index("by_ingestion_obligation_key", ["ingestionObligationKey"])
+  .index("by_state_updated_obligation", [
+    "state",
+    "updatedAt",
+    "ingestionObligationKey",
+  ])
   .index("by_run_ledger_sequence", ["reconciliationRunKey", "ledgerSequence"])
   .index("by_run_state_ledger_sequence", [
     "reconciliationRunKey",
@@ -73,6 +87,10 @@ export default Table.make(() => IngestionObligationRow)
     "ledgerSequence",
   ])
   .index("by_required_intent_state", ["requiredScopeIntentKey", "state"])
+  .index("by_parent_obligation_state", [
+    "parentIngestionObligationKey",
+    "state",
+  ])
   .index("by_origin_revision", [
     "organizationKey",
     "originKind",

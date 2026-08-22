@@ -41,6 +41,10 @@ const AuthorityEnvelope = Schema.Struct({
     Id("slackPublicationTargetIntents"),
   ),
   targetResolutionGeneration: Schema.optional(PositiveInteger),
+  providerTargetResolutionIntentId: Schema.optional(
+    Id("providerTargetResolutionIntents"),
+  ),
+  providerTargetResolutionGeneration: Schema.optional(PositiveInteger),
   repairOfJobKey: Schema.optional(Schema.String),
   supersedesJobKey: Schema.optional(Schema.String),
   authorityDigest: Schema.String.pipe(Schema.pattern(/^raud_[a-f0-9]{64}$/)),
@@ -76,6 +80,7 @@ export const RetrievalPublicationJobRow = Schema.Struct({
     "page_rebuild",
     "slack",
     "transcript",
+    "document",
     "slack_rebuild",
     "transcript_rebuild",
   ),
@@ -107,12 +112,19 @@ export const RetrievalPublicationJobRow = Schema.Struct({
   ),
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
+  ingestionObligationKey: Schema.optional(
+    Schema.String.pipe(Schema.pattern(/^iobl_[a-f0-9]{64}$/)),
+  ),
   requestGeneration: PositiveInteger,
   page: Schema.optional(PagePublicationPolicy),
   rebuild: Schema.optional(RebuildCursor),
   targetResolutionIntentKey: Schema.optional(
     Id("slackPublicationTargetIntents"),
   ),
+  providerTargetResolutionIntentId: Schema.optional(
+    Id("providerTargetResolutionIntents"),
+  ),
+  providerTargetResolutionGeneration: Schema.optional(PositiveInteger),
   authorityDigest: Schema.optional(
     Schema.String.pipe(Schema.pattern(/^raud_[a-f0-9]{64}$/)),
   ),
@@ -131,6 +143,7 @@ export const RetrievalPublicationJobRow = Schema.Struct({
   maxAttempts: PositiveInteger,
   nextAttemptAt: NonNegativeInteger,
   lastErrorTag: Schema.optional(Schema.String),
+  healthFailureActive: Schema.optional(Schema.Boolean),
   completedAt: Schema.optional(NonNegativeInteger),
   createdAt: NonNegativeInteger,
   updatedAt: NonNegativeInteger,
@@ -138,8 +151,19 @@ export const RetrievalPublicationJobRow = Schema.Struct({
 
 export default Table.make(() => RetrievalPublicationJobRow)
   .index("by_job_key", ["jobKey"])
+  .index("by_ingestion_obligation_job", ["ingestionObligationKey", "jobKey"])
   .index("by_status_due_job", ["status", "nextAttemptAt", "jobKey"])
+  .index("by_organization_workspace_brain_status", [
+    "organizationKey",
+    "workspaceId",
+    "brainKey",
+    "status",
+  ])
   .index("by_target_resolution_intent", ["targetResolutionIntentKey", "jobKey"])
+  .index("by_provider_target_resolution_intent_job", [
+    "providerTargetResolutionIntentId",
+    "jobKey",
+  ])
   .index("by_rebuild_run_status", ["rebuildRunKey", "status", "jobKey"])
   .index("by_rebuild_run_predecessor", [
     "rebuildRunKey",

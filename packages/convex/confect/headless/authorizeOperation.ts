@@ -61,6 +61,11 @@ const reviewedHeadlessPolicies = [
     requiredScope: "brain:ask",
   },
   {
+    operationId: "brain.rollout.status",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
     operationId: "brain.feedback.reportWrongOrStale",
     headless: true,
     requiredScope: "brain:read",

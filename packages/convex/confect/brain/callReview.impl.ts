@@ -15,6 +15,7 @@ import {
 } from "../_generated/services";
 import { NotFound, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import { resolveTranscriptLiveCaptureTargetEffect } from "./liveCaptureObligations";
 import callReviewGroup from "./callReview.spec";
 import { requireBrainAccess } from "./pages.impl";
 import { LifecycleRevoked, PageNotFound, StaleRevision } from "./pageTree";
@@ -350,19 +351,35 @@ const reviewCallRoute = FunctionImpl.make(
       }
       if (routed && targetBrainKey && targetWorkspaceId)
         publicationTargets.set(targetBrainKey, targetWorkspaceId);
-      for (const [publicationBrainKey, workspaceId] of publicationTargets)
-        yield* enqueueRetrievalPublicationJobEffect(
-          {
-            organizationKey,
-            workspaceId,
-            brainKey: publicationBrainKey,
-            originKind: "transcript",
-            sourceKey: route.unitKey,
-            sourceRevisionKey: route.unitRevisionKey,
-            requestGeneration: reviewedRouteGeneration,
-          },
-          reviewedAt,
-        );
+      for (const [publicationBrainKey, workspaceId] of publicationTargets) {
+        const liveJobKey =
+          publicationBrainKey === routedBrainKey
+            ? yield* resolveTranscriptLiveCaptureTargetEffect({
+                organizationKey,
+                workspaceId,
+                brainKey: publicationBrainKey,
+                connectionKey: unit.connectionKey,
+                connectionGeneration: unit.connectionGeneration,
+                unitKey: route.unitKey,
+                unitRevisionKey: route.unitRevisionKey,
+                routeGeneration: reviewedRouteGeneration,
+                now: reviewedAt,
+              })
+            : null;
+        if (publicationBrainKey !== routedBrainKey || liveJobKey === null)
+          yield* enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey: publicationBrainKey,
+              originKind: "transcript",
+              sourceKey: route.unitKey,
+              sourceRevisionKey: route.unitRevisionKey,
+              requestGeneration: reviewedRouteGeneration,
+            },
+            reviewedAt,
+          );
+      }
 
       if (routed && targetWorkspaceId) {
         const scheduler = yield* Scheduler;
