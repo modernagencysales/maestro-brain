@@ -416,7 +416,15 @@ export const revokeApiKeyForBrain = (
     readonly keyId: string;
     readonly nowMs: number;
   },
-) =>
+): Effect.Effect<
+  null,
+  | Forbidden
+  | ApiKeyNotFound
+  | ApiKeyRevoked
+  | ApiKeyConflict
+  | HeadlessAuthError,
+  DatabaseReader | DatabaseWriter
+> =>
   Effect.gen(function* () {
     yield* assertActiveBrainScope(input.serverScope);
     yield* requireAdmin(input.actor).pipe(
@@ -997,7 +1005,16 @@ export const rotateApiKeyForBrain = (
     readonly nowMs: number;
     readonly randomBytes?: () => Uint8Array;
   },
-) =>
+): Effect.Effect<
+  PublicBrainApiKeyCreateResult,
+  | Forbidden
+  | ApiKeyNotFound
+  | ApiKeyRevoked
+  | ApiKeyExpiryInvalid
+  | ApiKeyConflict
+  | HeadlessAuthError,
+  DatabaseReader | DatabaseWriter
+> =>
   Effect.gen(function* () {
     const { organization, workspace } = yield* assertActiveBrainScope(
       input.serverScope,

@@ -15,6 +15,11 @@ export type EligibilityFenceIdentity = {
   readonly controllerKey: string;
 };
 
+type EligibilityFenceState = {
+  readonly ref: RetrievalEligibilityFenceRef;
+  readonly eligible: boolean;
+};
+
 export const pageLifecycleFenceIdentity = (input: {
   readonly organizationKey: string;
   readonly workspaceId: string;
@@ -205,7 +210,11 @@ export const ensureEligibilityFenceEffect = (input: {
   readonly identity: EligibilityFenceIdentity;
   readonly eligible: boolean;
   readonly now: number;
-}) =>
+}): Effect.Effect<
+  EligibilityFenceState,
+  never,
+  DatabaseReader | DatabaseWriter
+> =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
     const { fenceKey, stored } = yield* loadEligibilityFence(input.identity);
@@ -242,7 +251,11 @@ export const transitionEligibilityFenceEffect = (input: {
   readonly identity: EligibilityFenceIdentity;
   readonly eligible: boolean;
   readonly now: number;
-}) =>
+}): Effect.Effect<
+  EligibilityFenceState,
+  never,
+  DatabaseReader | DatabaseWriter
+> =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
     const { stored } = yield* loadEligibilityFence(input.identity);

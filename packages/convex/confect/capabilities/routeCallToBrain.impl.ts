@@ -5,7 +5,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  Scheduler,
+} from "../_generated/services";
 import {
   transcriptRouteFenceIdentity,
   transitionEligibilityFenceEffect,
@@ -16,7 +20,10 @@ import { matchCall } from "../routing/callMatching";
 import { sha256Hex } from "../shared/sha256";
 import { routeOutcomeFromMatch } from "./routeCallToBrain.domain";
 import routeCallToBrainGroup, { StaleCallRoute } from "./routeCallToBrain.spec";
-import { routeCallToBrainArgs } from "./routeCallToBrain.spec";
+import {
+  routeCallToBrainArgs,
+  routeCallToBrainReturns,
+} from "./routeCallToBrain.spec";
 
 export const routeCallToBrainEffect = ({
   organizationKey,
@@ -26,7 +33,11 @@ export const routeCallToBrainEffect = ({
   agencyDomains,
   caller,
   routedAt,
-}: Schema.Schema.Type<typeof routeCallToBrainArgs>) =>
+}: Schema.Schema.Type<typeof routeCallToBrainArgs>): Effect.Effect<
+  Schema.Schema.Type<typeof routeCallToBrainReturns>,
+  Unauthorized | NotFound | ValidationFailed | StaleCallRoute,
+  DatabaseReader | DatabaseWriter | Scheduler
+> =>
   Effect.gen(function* () {
     if (
       caller.kind !== "system" ||
