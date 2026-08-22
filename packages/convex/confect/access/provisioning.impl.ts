@@ -12,6 +12,7 @@ import {
   DatabaseReader,
   DatabaseWriter,
   MutationRunner,
+  Scheduler,
 } from "../_generated/services";
 import {
   CapacityExceeded,
@@ -900,6 +901,7 @@ const createClientBrain = FunctionImpl.make(
         .patch(workspaceId, { brainKey })
         .pipe(Effect.orDie);
 
+      const scheduler = yield* Scheduler;
       const pages = yield* insertStandardClientBriefPages({
         brainKey,
         insertPage: (page) =>
@@ -969,6 +971,10 @@ const createClientBrain = FunctionImpl.make(
                 },
               },
               now,
+            ).pipe(
+              Effect.provideService(DatabaseReader, reader),
+              Effect.provideService(DatabaseWriter, writer),
+              Effect.provideService(Scheduler, scheduler),
             );
           }).pipe(Effect.orDie),
       });

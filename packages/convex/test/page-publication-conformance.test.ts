@@ -593,8 +593,9 @@ describe("public page publication conformance", () => {
           ({ sourceKind }) => sourceKind === "note",
         );
         if (
-          approvedPage?.currentRevisionKey === null ||
-          approvedPage === undefined
+          approvedPage === undefined ||
+          approvedPage.pageKey === undefined ||
+          approvedPage.currentRevisionKey == null
         )
           throw new Error(
             "Approved note did not create a current page revision.",
@@ -665,7 +666,11 @@ describe("public page publication conformance", () => {
           PublicationStateSchema,
         );
         const page = after.pages.find(({ pageKey }) => pageKey === callPageKey);
-        if (page?.currentRevisionKey === null || page === undefined)
+        if (
+          page === undefined ||
+          page.pageKey === undefined ||
+          page.currentRevisionKey == null
+        )
           throw new Error(
             "Call maintenance did not create a current revision.",
           );
@@ -750,7 +755,7 @@ describe("public page publication conformance", () => {
     if (result.organizationKey === undefined)
       throw new Error("Provisioned organization has no stable agency key.");
     for (const page of result.state.pages) {
-      if (page.currentRevisionKey === null)
+      if (page.pageKey === undefined || page.currentRevisionKey == null)
         throw new Error(`Seeded page ${page.pageKey} has no current revision.`);
       expectAtomicPagePublication({
         before: { pages: [], revisions: [], jobs: [] },
