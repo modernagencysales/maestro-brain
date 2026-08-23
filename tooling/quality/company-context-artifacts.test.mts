@@ -55,6 +55,14 @@ type TeamManifest = {
       readonly sourceTextAllowed: boolean;
     };
   };
+  readonly terminalCli: {
+    readonly command: string;
+    readonly installCommand: string;
+    readonly defaultCommandPath: string;
+    readonly setupCommands: Readonly<Record<string, string>>;
+    readonly diagnosticCommand: string;
+    readonly contributionCommands: readonly string[];
+  };
   readonly runtimes: ReadonlyArray<{
     readonly name: string;
     readonly compatibleVersions: readonly string[];
@@ -123,7 +131,7 @@ describe("company-context Ask Apero artifacts", () => {
   it("pins a read-only endpoint and both runtime discovery contracts", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      manifestVersion: "0.5.0",
+      manifestVersion: "0.6.0",
       status: "candidate",
       canonicalSkill: {
         name: "ask-apero",
@@ -164,13 +172,26 @@ describe("company-context Ask Apero artifacts", () => {
       retrySafe: true,
       publishedWithoutReview: false,
     });
+    expect(manifest.terminalCli).toMatchObject({
+      command: "maestro-brain",
+      installCommand: "$BRAIN_CLI install",
+      defaultCommandPath: "~/.local/bin/maestro-brain",
+      setupCommands: {
+        codex: "maestro-brain setup codex",
+        "claude-code": "maestro-brain setup claude-code",
+        "claude-cowork": "maestro-brain setup cowork",
+      },
+      diagnosticCommand: "maestro-brain doctor",
+    });
+    expect(manifest.terminalCli.contributionCommands).toHaveLength(4);
     expect(manifest.runtimes).toEqual([
       expect.objectContaining({
         name: "codex",
-        compatibleVersions: ["0.148.0"],
+        compatibleVersions: ["0.148.0", "0.149.0"],
         compatibilityLevel: "skill-and-mcp-configuration",
         liveParity: "pending",
         skillDiscoveryPath: ".agents/skills/ask-apero",
+        mcpConfigPath: ".codex/config.toml",
       }),
       expect.objectContaining({
         name: "claude-code",

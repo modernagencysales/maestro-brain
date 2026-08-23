@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "0.5.0",
+  "manifestVersion": "0.6.0",
   "status": "candidate",
   "canonicalSkill": {
     "name": "ask-apero",
@@ -46,14 +46,31 @@
       "availableOverMcp": false
     }
   },
+  "terminalCli": {
+    "command": "maestro-brain",
+    "installCommand": "$BRAIN_CLI install",
+    "defaultCommandPath": "~/.local/bin/maestro-brain",
+    "setupCommands": {
+      "codex": "maestro-brain setup codex",
+      "claude-code": "maestro-brain setup claude-code",
+      "claude-cowork": "maestro-brain setup cowork"
+    },
+    "diagnosticCommand": "maestro-brain doctor",
+    "contributionCommands": [
+      "maestro-brain note --file <note.md>",
+      "maestro-brain note list [pending_review|published|rejected]",
+      "maestro-brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
+      "maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD>"
+    ]
+  },
   "runtimes": [
     {
       "name": "codex",
-      "compatibleVersions": ["0.148.0"],
+      "compatibleVersions": ["0.148.0", "0.149.0"],
       "compatibilityLevel": "skill-and-mcp-configuration",
       "liveParity": "pending",
       "skillDiscoveryPath": ".agents/skills/ask-apero",
-      "mcpConfigPath": "~/.codex/config.toml"
+      "mcpConfigPath": ".codex/config.toml"
     },
     {
       "name": "claude-code",

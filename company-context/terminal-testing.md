@@ -55,12 +55,12 @@ servers configured.
 ## Verify the connection
 
 ```bash
-"$BRAIN_CLI" doctor
-"$BRAIN_CLI" health
-"$BRAIN_CLI" ask "What is our ICP?"
-"$BRAIN_CLI" search "gross margin"
-"$BRAIN_CLI" source "citation:<publication-set-key>:<entry-key>"
-"$BRAIN_CLI" mcp tools
+maestro-brain doctor
+maestro-brain health
+maestro-brain ask "What is our ICP?"
+maestro-brain search "gross margin"
+maestro-brain source "citation:<publication-set-key>:<entry-key>"
+maestro-brain mcp tools
 ```
 
 `doctor` checks the API and the remote MCP handshake, including availability of
@@ -75,7 +75,7 @@ freshness metadata.
 The generic operation escape hatch remains available for debugging:
 
 ```bash
-"$BRAIN_CLI" api call brain.context.get --input '{"question":"What is our ICP?"}'
+maestro-brain api call brain.context.get --input '{"question":"What is our ICP?"}'
 ```
 
 Do not add organization, workspace, Brain, or user identifiers to input. The
@@ -90,7 +90,7 @@ shows whether the resulting corpus is current and complete.
 For a wrong or stale answer, submit the identifiers returned with that answer:
 
 ```bash
-"$BRAIN_CLI" feedback --idempotency-key feedback-<unique-id> --input '<feedback-json>'
+maestro-brain feedback --idempotency-key feedback-<unique-id> --input '<feedback-json>'
 ```
 
 Feedback records evidence identities and readiness state, not copied source or
@@ -98,18 +98,18 @@ answer text. The interactive runtime key's `brain:ask` scope also permits a note
 submission to the existing review queue:
 
 ```bash
-"$BRAIN_CLI" note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
-"$BRAIN_CLI" note --file ./updated-positioning.md
-printf '%s\n' 'Reviewed company context...' | "$BRAIN_CLI" note --stdin --title 'Updated positioning'
+maestro-brain note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
+maestro-brain note --file ./updated-positioning.md
+printf '%s\n' 'Reviewed company context...' | maestro-brain note --stdin --title 'Updated positioning'
 ```
 
 Each submission returns a `sourceKey`. Check its editor-review state without
 retrieving the submitted Markdown:
 
 ```bash
-"$BRAIN_CLI" note status <source-key>
-"$BRAIN_CLI" note list
-"$BRAIN_CLI" note list pending_review
+maestro-brain note status <source-key>
+maestro-brain note list
+maestro-brain note list pending_review
 ```
 
 `note list` recovers up to 20 recent submissions for the current Company Brain,
@@ -128,8 +128,8 @@ To migrate an approved Claude Project or another reviewed Markdown snapshot, put
 its `.md` files in one local directory and submit them together:
 
 ```bash
-"$BRAIN_CLI" snapshot inspect ./apero-snapshot --as-of 2026-08-22
-"$BRAIN_CLI" snapshot submit ./apero-snapshot --as-of 2026-08-22
+maestro-brain snapshot inspect ./apero-snapshot --as-of 2026-08-22
+maestro-brain snapshot submit ./apero-snapshot --as-of 2026-08-22
 ```
 
 `inspect` performs all local validation without credentials or network access
@@ -150,14 +150,14 @@ MCP, so an agent cannot silently modify its own evidence.
 
 A tester is ready when all of the following are true:
 
-1. `"$BRAIN_CLI" doctor` exits successfully.
+1. `maestro-brain doctor` exits successfully.
 2. Their runtime lists the `maestro-brain` HTTP MCP server.
 3. Ask Apero returns ContextPack schema version 3 and candidate manifest
    version 2.
 4. Material claims include reopenable publication/entry citations.
 5. The answer states freshness and any coverage gaps or abstains when evidence
    is insufficient.
-6. `"$BRAIN_CLI" health` shows any unavailable provider plainly.
+6. `maestro-brain health` shows any unavailable provider plainly.
 
 If setup or doctor fails, share the command output, runtime name and version,
 and the hosted origin. Never share the bearer value or retrieved source bodies.

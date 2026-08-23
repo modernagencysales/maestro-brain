@@ -102,12 +102,12 @@ pinned Claude Code version's MCP status command before invoking the skill.
 
 ## Configure Claude Cowork
 
-Run `"$BRAIN_CLI" setup cowork` to write the portable remote HTTP MCP descriptor
-to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer authentication
-settings in Cowork's connector UI. Cowork does not need the repository-local
-skill: after the MCP handshake it can discover the server-delivered `ask-apero`
-prompt, which carries the same retrieval, citation, freshness, and abstention
-rules.
+Run `maestro-brain setup cowork` to write the portable remote HTTP MCP
+descriptor to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer
+authentication settings in Cowork's connector UI. Cowork does not need the
+repository-local skill: after the MCP handshake it can discover the
+server-delivered `ask-apero` prompt, which carries the same retrieval, citation,
+freshness, and abstention rules.
 
 Use this field mapping in Cowork:
 
@@ -123,12 +123,12 @@ Cowork version can import it directly.
 
 Because Cowork connector storage is host-managed, setup writes only the portable
 descriptor and does not claim that the connector has been activated. Run
-`"$BRAIN_CLI" doctor` to verify the remote endpoint before testing from Cowork.
+`maestro-brain doctor` to verify the remote endpoint before testing from Cowork.
 
-For terminal-level MCP verification, `"$BRAIN_CLI" mcp tools` and
-`"$BRAIN_CLI" mcp prompts` query the hosted streamable HTTP endpoint directly.
+For terminal-level MCP verification, `maestro-brain mcp tools` and
+`maestro-brain mcp prompts` query the hosted streamable HTTP endpoint directly.
 They require both environment variables and show the same catalog an agent
-runtime discovers. `"$BRAIN_CLI" mcp call <tool-name> --input <json>` is the
+runtime discovers. `maestro-brain mcp call <tool-name> --input <json>` is the
 low-level hosted call path for connector troubleshooting.
 
 MCP initialization, prompt discovery, and tool discovery are intentionally
@@ -138,7 +138,7 @@ still require a valid bearer credential. Therefore, catalog checks can pass in
 
 ## Smoke check
 
-Start with `"$BRAIN_CLI" doctor`, then:
+Start with `maestro-brain doctor`, then:
 
 1. Confirm the installed runtime version exactly matches a manifest entry.
 2. Confirm only the reviewed read tools are available.
@@ -151,9 +151,9 @@ Start with `"$BRAIN_CLI" doctor`, then:
    immutable runtime-parity receipt. Do not record source bodies or secrets.
 
 Terminal contributors can recover recent review activity with
-`"$BRAIN_CLI" note list`, optionally followed by `pending_review`, `published`,
+`maestro-brain note list`, optionally followed by `pending_review`, `published`,
 or `rejected`. They can inspect one returned key with
-`"$BRAIN_CLI" note status <source-key>`.
+`maestro-brain note status <source-key>`.
 
 The durable wrong/stale path is API-only at
 `/api/brain.feedback.reportWrongOrStale` and uses the same bearer-derived Brain

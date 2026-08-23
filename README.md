@@ -1,21 +1,18 @@
-# Maestro Template
+# Maestro Brain
 
-Maestro Template is a private internal framework for building custom AI brain,
-workflow, and context-engineering apps. It extracts the reusable Maestro
-architecture into a generic product factory: workspace tenancy, Confect/Effect
-contracts, workflows, capabilities, agents, Brain sources, headless surfaces,
-provider adapters, CI gates, and a reviewer-safe reference app.
+Maestro Brain is Apero's shared, evidence-backed company context plane between
+systems of record and the Codex, Claude Code, and Claude Cowork environments
+where the team works. It provides cited company-context retrieval, freshness and
+coverage metadata, reviewed terminal contributions, and a hosted HTTP MCP so the
+team does not depend on one Claude Project for shared knowledge.
 
-This is not a public starter kit. It is an internal accelerator for custom AI
-implementation work and technical diligence.
-
-The current product direction is to use this foundation as Apero's shared,
-evidence-backed company context plane between systems of record and agent
-runtimes. See
+The product is built on the private Maestro Template framework. The reusable
+framework remains in this repository for custom Brain and workflow apps, but the
+primary teammate path is the Company Brain terminal workflow below. See
 [Apero Company Brain Architecture](./docs/product/apero-company-brain-architecture.md)
-for the proposed source, retrieval, credential, and tool-calling boundaries.
+for the source, retrieval, and tool-calling boundaries.
 
-## Company Brain terminal quickstart
+## Apero Company Brain terminal quickstart
 
 Teammates using Codex, Claude Code, or Claude Cowork can connect to the shared
 Brain without running the web app. Create a display-once key with `brain:read`
@@ -59,7 +56,7 @@ symlink back to the Brain checkout. Cowork users use the generated
 [terminal testing](./company-context/terminal-testing.md) for adding notes,
 inspecting/importing Markdown snapshots, and the acceptance checklist.
 
-## Quickstart
+## Repository development
 
 ```bash
 pnpm install
