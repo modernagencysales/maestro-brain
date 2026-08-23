@@ -77,22 +77,25 @@ describe("maestro-template CLI", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Company Brain CLI");
     expect(result.stdout).toContain("export CONVEX_SITE_URL=");
-    expect(result.stdout).toContain("pnpm brain setup <runtime>");
-    expect(result.stdout).toContain("pnpm brain doctor");
-    expect(result.stdout).toContain("pnpm brain ask <question>");
-    expect(result.stdout).toContain("pnpm brain search <query>");
+    expect(result.stdout).toContain("maestro-brain setup <runtime>");
+    expect(result.stdout).toContain("maestro-brain doctor");
+    expect(result.stdout).toContain("maestro-brain ask <question>");
+    expect(result.stdout).toContain("maestro-brain search <query>");
     expect(result.stdout).toContain(
-      "pnpm brain source <citation-key|source-revision-key>",
+      "maestro-brain source <citation-key|source-revision-key>",
     );
-    expect(result.stdout).toContain("pnpm brain health");
-    expect(result.stdout).toContain("pnpm brain feedback");
-    expect(result.stdout).toContain("pnpm brain note --input");
-    expect(result.stdout).toContain("pnpm brain note status <source-key>");
+    expect(result.stdout).toContain("maestro-brain health");
+    expect(result.stdout).toContain("maestro-brain feedback");
+    expect(result.stdout).toContain("maestro-brain note --input");
+    expect(result.stdout).toContain("maestro-brain note status <source-key>");
     expect(result.stdout).toContain(
-      "pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
+      "maestro-brain note list [pending_review|published|rejected]",
     );
     expect(result.stdout).toContain(
-      "pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD>",
+      "maestro-brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
+    );
+    expect(result.stdout).toContain(
+      "maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD>",
     );
     expect(result.stdout).toContain("Advanced template-development commands");
   });
@@ -123,6 +126,35 @@ describe("maestro-template CLI", () => {
 
     expect(result).toMatchObject({ exitCode: 0, stderr: "" });
     expect(result.stdout).toContain("pending_review (waiting)");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("prints focused help for note list without making a request", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(["note", "list", "--help"]);
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(result.stdout).toContain("recent note submissions");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["setup cowork", ["setup", "cowork", "--help"]],
+    ["mcp tools", ["mcp", "tools", "--help"]],
+    ["mcp prompts", ["mcp", "prompts", "--help"]],
+    ["mcp call", ["mcp", "call", "--help"]],
+    ["snapshot submit", ["snapshot", "submit", "--help"]],
+  ])("prints side-effect-free nested help for %s", async (_, argv) => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(argv);
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(result.stdout).toContain("Usage:");
+    expect(result.stdout).toContain("maestro-brain");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -260,8 +292,8 @@ describe("maestro-template CLI", () => {
     expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
       next: [
         "An editor must approve this submission in the /brain review queue.",
-        "Save the returned sourceKey and check it with pnpm brain note status <source-key>.",
-        "After approval, verify it with pnpm brain search <query>.",
+        "Save the returned sourceKey and check it with maestro-brain note status <source-key>.",
+        "After approval, verify it with maestro-brain search <query>.",
       ],
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -307,6 +339,59 @@ describe("maestro-template CLI", () => {
         body: JSON.stringify({ input: { sourceKey } }),
       }),
     );
+  });
+
+  it.each([undefined, "pending_review", "published", "rejected"])(
+    "lists recent terminal notes with status filter %s",
+    async (status) => {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            operationId: "brain.notes.list",
+            result: { items: [] },
+          }),
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const argv =
+        status === undefined ? ["note", "list"] : ["note", "list", status];
+
+      const result = await runCliAsync(
+        argv,
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(parseStdout<Record<string, unknown>>(result)).not.toHaveProperty(
+        "next",
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://brain.example.test/api/brain.notes.list",
+        expect.objectContaining({
+          body: JSON.stringify({
+            input: status === undefined ? {} : { status },
+          }),
+        }),
+      );
+    },
+  );
+
+  it("rejects an unsupported note list status locally", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(["note", "list", "waiting"]);
+
+    expect(result).toMatchObject({
+      exitCode: 1,
+      stderr:
+        "note list status must be pending_review, published, or rejected.\n",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("submits a Markdown file without shell-escaped JSON", async () => {
@@ -475,7 +560,7 @@ describe("maestro-template CLI", () => {
       });
       expect(parseStdout<{ next: readonly string[] }>(result).next).toEqual([
         "An editor must approve these submissions in the /brain review queue.",
-        "After approval, verify them with pnpm brain search <query>.",
+        "After approval, verify them with maestro-brain search <query>.",
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });

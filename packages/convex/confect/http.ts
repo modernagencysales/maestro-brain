@@ -95,11 +95,16 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
     kind: "operation",
     operationId: "brain.notes.status",
   },
+  "/api/brain.notes.list": {
+    kind: "operation",
+    operationId: "brain.notes.list",
+  },
 };
 
 const feedbackOperationId = "brain.feedback.reportWrongOrStale";
 const noteSubmitOperationId = "brain.notes.submit";
 const noteStatusOperationId = "brain.notes.status";
+const noteListOperationId = "brain.notes.list";
 
 const feedbackFunction = () => {
   const spec = feedbackSpec.functions.headlessReportWrongOrStale;
@@ -134,6 +139,17 @@ const noteStatusFunction = () => {
   return Ref.getFunctionReference(Ref.make("brain/noteStatus", spec));
 };
 
+const noteListFunction = () => {
+  const spec = noteStatusSpec.functions.list;
+  if (spec === undefined) {
+    throw new ConvexError({
+      code: "HEADLESS_NOTE_LIST_SPEC_MISSING",
+      message: "Missing noteStatus.list spec",
+    });
+  }
+  return Ref.getFunctionReference(Ref.make("brain/noteStatus", spec));
+};
+
 const operationRefs = {
   "brain.pages.list": api.brain.pages.list,
   "brain.pages.get": api.brain.pages.get,
@@ -146,6 +162,7 @@ const operationRefs = {
   [feedbackOperationId]: feedbackFunction(),
   [noteSubmitOperationId]: noteSubmitFunction(),
   [noteStatusOperationId]: noteStatusFunction(),
+  [noteListOperationId]: noteListFunction(),
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
@@ -209,6 +226,11 @@ export const templateHttpRoutes = [
     path: `/api/${noteStatusOperationId}`,
     method: "POST",
     description: "Returns terminal note review status metadata.",
+  },
+  {
+    path: `/api/${noteListOperationId}`,
+    method: "POST",
+    description: "Lists recent terminal note review metadata.",
   },
   ...confectManifest.functions
     .filter(
@@ -298,6 +320,13 @@ const runTemplateApiOperation = async (
     );
     return { ok: true, operationId: noteStatusOperationId, result };
   }
+  if (request.operationId === noteListOperationId) {
+    const result = await ctx.runQuery(
+      (ctx.operationRefs ?? operationRefs)[noteListOperationId],
+      request.input,
+    );
+    return { ok: true, operationId: noteListOperationId, result };
+  }
   return await executeHeadlessOperation(
     {
       refs: ctx.operationRefs ?? operationRefs,
@@ -383,10 +412,12 @@ const askAperoMessage = (
   question: string,
 ): string => `Answer the question below using Apero's approved Brain evidence.
 
-First call the \`template.brain.answers.ask\` MCP tool with this exact question:
+First call the \`template.brain.context.get\` MCP tool with this exact question:
 ${JSON.stringify(question)}
 
-Treat the tool result as the only source of company facts. Include its citations with every supported claim, and state the evidence freshness or readiness when the result provides it. If the tool reports insufficient evidence, abstains, or does not support an answer, say so explicitly. Do not invent or supplement company facts from prior knowledge.`;
+Treat the tool result as the only source of company facts. Continue only when it is ContextPack schema version 3 with candidate-manifest version 2. Include exact reopenable citations with every material claim. State the pack's as-of time, coverage gaps, stale or unknown freshness, conflicts, omissions, truncation, and readiness. Label any reasoning beyond retrieved text as agent inference.
+
+If authorization fails, required coverage is unavailable, the response contract is wrong, the candidate manifest is absent, or an exact citation cannot be reopened, stop and say what evidence is missing. Do not invent or supplement company facts from prior knowledge. Do not call provider or Brain evidence-write tools.`;
 
 const mcpReply = (id: string | number | undefined, result: unknown): Response =>
   jsonResponse({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), result });
@@ -401,6 +432,14 @@ const mcpError = (
     ...(id === undefined ? {} : { id }),
     error: { code, message },
   });
+
+const successfulOperationEnvelope = (
+  response: Response,
+  value: unknown,
+): boolean => {
+  if (!response.ok || value === null || typeof value !== "object") return false;
+  return Reflect.get(value, "ok") === true;
+};
 
 const mcpRouteResponse = async (
   ctx: HeadlessHttpCtx,
@@ -490,7 +529,7 @@ const mcpRouteResponse = async (
   );
   const executed = await executeTemplateApiRoute(ctx, apiRequest, operationId);
   const result = await executed.json();
-  return executed.ok
+  return successfulOperationEnvelope(executed, result)
     ? mcpReply(id, {
         content: [{ type: "text", text: JSON.stringify(result) }],
       })

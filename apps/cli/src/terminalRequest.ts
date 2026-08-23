@@ -53,6 +53,20 @@ const noteStatusRequest: TerminalRequestParser = (argv) => {
     : cliFailure("note status requires one source key.\n");
 };
 
+const noteStatuses = new Set(["pending_review", "published", "rejected"]);
+
+const noteListRequest: TerminalRequestParser = (argv) => {
+  const status = argv[2];
+  if (argv.length > 3 || (status !== undefined && !noteStatuses.has(status)))
+    return cliFailure(
+      "note list status must be pending_review, published, or rejected.\n",
+    );
+  return {
+    operationId: "brain.notes.list",
+    input: status === undefined ? {} : { status },
+  };
+};
+
 const noteSubmitRequest: TerminalRequestParser = (argv) => {
   const parsed = parseNamedArgs(argv.slice(1));
   if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
@@ -66,7 +80,11 @@ const noteSubmitRequest: TerminalRequestParser = (argv) => {
 };
 
 const noteRequest: TerminalRequestParser = (argv) =>
-  argv[1] === "status" ? noteStatusRequest(argv) : noteSubmitRequest(argv);
+  argv[1] === "status"
+    ? noteStatusRequest(argv)
+    : argv[1] === "list"
+      ? noteListRequest(argv)
+      : noteSubmitRequest(argv);
 
 const feedbackRequest: TerminalRequestParser = (argv) => {
   const parsed = parseNamedArgs(argv.slice(1));

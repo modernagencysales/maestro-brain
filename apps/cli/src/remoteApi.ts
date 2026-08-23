@@ -12,6 +12,7 @@ export const remoteCliOperationRefs: Readonly<Record<string, string>> = {
   "brain.feedback.reportWrongOrStale": "brain.feedback.reportWrongOrStale",
   "brain.notes.submit": "brain.notes.submit",
   "brain.notes.status": "brain.notes.status",
+  "brain.notes.list": "brain.notes.list",
 };
 
 export type RemoteBrainRequest = {

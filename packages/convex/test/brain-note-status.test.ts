@@ -47,6 +47,15 @@ describe("headless Brain note status", () => {
           refs.internal.brain.noteStatus.get,
           statusInput,
         );
+        const pendingList = yield* confect.query(
+          refs.internal.brain.noteStatus.list,
+          {
+            brainKey,
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            status: "pending_review",
+          },
+        );
         const editor = confect.withIdentity({
           subject: "note-status-editor",
           email: "note-status-editor@example.com",
@@ -62,7 +71,15 @@ describe("headless Brain note status", () => {
           refs.internal.brain.noteStatus.get,
           statusInput,
         );
-        return { pending, rejected };
+        const recentList = yield* confect.query(
+          refs.internal.brain.noteStatus.list,
+          {
+            brainKey,
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+          },
+        );
+        return { pending, pendingList, rejected, recentList };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -79,5 +96,8 @@ describe("headless Brain note status", () => {
     });
     expect(result.pending).not.toHaveProperty("markdown");
     expect(result.rejected).not.toHaveProperty("markdown");
+    expect(result.pendingList.items).toEqual([result.pending]);
+    expect(result.recentList.items).toEqual([result.rejected]);
+    expect(result.recentList.items[0]).not.toHaveProperty("markdown");
   });
 });

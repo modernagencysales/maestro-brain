@@ -1,5 +1,6 @@
 import { brainApiOrigin, containsTenantSelector } from "./remoteSafety";
 import { formatJsonOutput } from "./result";
+import { failedDoctorCheckDetail } from "./doctorResponse";
 import type { CliResult, CliRuntimeConfig } from "./types";
 
 type DoctorCheck = {
@@ -68,9 +69,6 @@ const recordValue = (value: unknown, key: string): unknown =>
     ? Reflect.get(value, key)
     : undefined;
 
-const failedCheckDetail = (label: string, response: JsonResponse): string =>
-  `${label} check failed${response.failure ? `: ${response.failure}` : "."}`;
-
 const apiCheck = async (
   origin: string,
   apiKey: string,
@@ -88,7 +86,7 @@ const apiCheck = async (
     ok,
     detail: ok
       ? "Brain API accepted the scoped credential."
-      : failedCheckDetail("Brain API", response),
+      : failedDoctorCheckDetail("Brain API", response),
   };
 };
 
@@ -153,7 +151,9 @@ const mcpCheck = async ({
   return {
     id,
     ok,
-    detail: ok ? mcpSuccessDetail(method) : failedCheckDetail(method, response),
+    detail: ok
+      ? mcpSuccessDetail(method)
+      : failedDoctorCheckDetail(method, response),
   };
 };
 
@@ -254,8 +254,14 @@ const doctorResult = (checks: readonly DoctorCheck[]): CliResult => {
       ok,
       checks,
       next: ok
-        ? ["pnpm brain health", 'pnpm brain ask "What is our ICP?"']
-        : ["Fix the failed check shown above.", "Rerun pnpm brain doctor."],
+        ? [
+            "Run health with this same CLI invocation.",
+            'Run ask "What is our ICP?" with this same CLI invocation.',
+          ]
+        : [
+            "Fix the failed check shown above.",
+            "Rerun doctor with this same CLI invocation.",
+          ],
     }),
     stderr: "",
   };
@@ -279,7 +285,7 @@ export const doctorBrainEnvironment = async (
       stdout: formatJsonOutput({
         ok: false,
         checks: initialChecks,
-        next: "Export the missing value(s), use an HTTPS origin with no path, then rerun pnpm brain doctor.",
+        next: "Export the missing value(s), use an HTTPS origin with no path, then rerun doctor with this same CLI invocation.",
       }),
       stderr: "",
     };

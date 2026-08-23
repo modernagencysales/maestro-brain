@@ -15,49 +15,51 @@ const commandHelp: Readonly<Record<string, string>> = {
   ask: [
     "Ask a source-grounded question of the Company Brain.",
     "",
-    "Usage: pnpm brain ask <question>",
+    "Usage: maestro-brain ask <question>",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   search: [
     "Search current Company Brain evidence.",
     "",
-    "Usage: pnpm brain search <query>",
+    "Usage: maestro-brain search <query>",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   source: [
     "Open one source or citation returned by Brain.",
     "",
-    "Usage: pnpm brain source <citation-key|source-revision-key>",
+    "Usage: maestro-brain source <citation-key|source-revision-key>",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   health: [
     "Show ingestion freshness, coverage, and rollout readiness.",
     "",
-    "Usage: pnpm brain health",
+    "Usage: maestro-brain health",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   setup: [
     "Configure a terminal runtime in the current repository.",
     "",
-    "Usage: pnpm brain setup [codex|claude-code|cowork] [--repo <project-directory>]",
+    "Usage: maestro-brain setup [codex|claude-code|cowork] [--repo <project-directory>]",
     "Requires: CONVEX_SITE_URL",
     "Copies the Ask Apero skill and writes project-local MCP config.",
     "Never writes MAESTRO_BRAIN_API_KEY.",
+    "If maestro-brain is not on PATH, use the same absolute CLI invocation used for setup.",
   ].join("\n"),
   doctor: [
     "Verify configuration, API access, and hosted MCP prompts/tools.",
     "",
-    "Usage: pnpm brain doctor",
+    "Usage: maestro-brain doctor",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   note: [
     "Submit one note to the editor review queue.",
     "",
     "Usage:",
-    "  pnpm brain note --file <note.md> [--title <title>]",
-    "  pnpm brain note --stdin [--title <title>]",
-    '  pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
-    "  pnpm brain note status <source-key>",
+    "  maestro-brain note --file <note.md> [--title <title>]",
+    "  maestro-brain note --stdin [--title <title>]",
+    '  maestro-brain note --input \'{"title":"...","markdown":"..."}\'',
+    "  maestro-brain note status <source-key>",
+    "  maestro-brain note list [pending_review|published|rejected]",
     "Piped Markdown may provide its title as the first H1.",
     "The submit response's sourceKey can be checked with note status.",
     "Statuses: pending_review (waiting), published (searchable), rejected (not published).",
@@ -67,23 +69,55 @@ const commandHelp: Readonly<Record<string, string>> = {
     "Inspect or submit a Markdown snapshot in stable path order.",
     "",
     "Usage:",
-    "  pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD> [--source <name>]",
-    "  pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "  maestro-brain snapshot inspect <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "  maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>]",
     "Inspect is local and prints metadata only. Submit requires both environment variables.",
   ].join("\n"),
   mcp: [
     "Inspect or call the hosted streamable HTTP MCP.",
     "",
     "Usage:",
-    "  pnpm brain mcp tools",
-    "  pnpm brain mcp prompts",
-    "  pnpm brain mcp call <tool-name> [--input <json>]",
+    "  maestro-brain mcp tools",
+    "  maestro-brain mcp prompts",
+    "  maestro-brain mcp call <tool-name> [--input <json>]",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   feedback: [
     "Report a wrong or stale answer using returned evidence identifiers.",
     "",
-    "Usage: pnpm brain feedback --idempotency-key <key> --input <json>",
+    "Usage: maestro-brain feedback --idempotency-key <key> --input <json>",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  "note status": [
+    "Check one submitted note's editor-review state.",
+    "",
+    "Usage: maestro-brain note status <source-key>",
+    "Statuses: pending_review (waiting), published (searchable), rejected (not published).",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  "note list": [
+    "List up to 20 recent note submissions for this Company Brain.",
+    "",
+    "Usage: maestro-brain note list [pending_review|published|rejected]",
+    "The optional status filters recent review activity.",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  "mcp tools": [
+    "List tools exposed by the hosted streamable HTTP MCP.",
+    "",
+    "Usage: maestro-brain mcp tools",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  "mcp prompts": [
+    "List prompts exposed by the hosted streamable HTTP MCP.",
+    "",
+    "Usage: maestro-brain mcp prompts",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  "mcp call": [
+    "Call one tool on the hosted streamable HTTP MCP.",
+    "",
+    "Usage: maestro-brain mcp call <tool-name> [--input <json>]",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
 };
@@ -91,18 +125,8 @@ const commandHelp: Readonly<Record<string, string>> = {
 const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
   const helpRequested = ["--help", "-h"].includes(argv.at(-1) ?? "");
   if (!helpRequested) return undefined;
-  if (argv[0] === "note" && argv[1] === "status" && argv.length === 3)
-    return cliSuccess(
-      [
-        "Check one submitted note's editor-review state.",
-        "",
-        "Usage: pnpm brain note status <source-key>",
-        "Statuses: pending_review (waiting), published (searchable), rejected (not published).",
-        "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
-      ].join("\n") + "\n",
-    );
-  if (argv.length !== 2) return undefined;
-  const help = commandHelp[argv[0] ?? ""];
+  const commandPath = argv.slice(0, -1).join(" ");
+  const help = commandHelp[commandPath] ?? commandHelp[argv[0] ?? ""];
   return help === undefined ? undefined : cliSuccess(`${help}\n`);
 };
 
@@ -116,8 +140,8 @@ export const withReviewNextStep = (result: CliResult): CliResult => {
         ...body,
         next: [
           "An editor must approve this submission in the /brain review queue.",
-          "Save the returned sourceKey and check it with pnpm brain note status <source-key>.",
-          "After approval, verify it with pnpm brain search <query>.",
+          "Save the returned sourceKey and check it with maestro-brain note status <source-key>.",
+          "After approval, verify it with maestro-brain search <query>.",
         ],
       }),
     };

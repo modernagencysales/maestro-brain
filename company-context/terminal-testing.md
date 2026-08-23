@@ -106,7 +106,13 @@ retrieving the submitted Markdown:
 
 ```bash
 "$BRAIN_CLI" note status <source-key>
+"$BRAIN_CLI" note list
+"$BRAIN_CLI" note list pending_review
 ```
+
+`note list` recovers up to 20 recent submissions for the current Company Brain,
+with an optional `pending_review`, `published`, or `rejected` filter. Results
+are metadata-only and never include submitted Markdown.
 
 Prefer `--file` or `--stdin` for agent-authored Markdown so multiline content
 does not need shell-escaped JSON. A file's first H1 becomes its title; without

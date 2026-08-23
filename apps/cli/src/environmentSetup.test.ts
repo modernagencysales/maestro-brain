@@ -63,6 +63,10 @@ describe("maestro-brain environment setup", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       ok: true,
       target: repoRoot,
+      next: expect.arrayContaining([
+        expect.stringContaining("trust the project"),
+        expect.stringContaining("codex mcp list"),
+      ]),
     });
     expect(existsSync(join(repoRoot, ".codex/config.toml"))).toBe(true);
     const skillPath = join(repoRoot, ".agents/skills/ask-apero");
@@ -101,7 +105,8 @@ describe("maestro-brain environment setup", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       next: [
         "Export MAESTRO_BRAIN_API_KEY in this terminal.",
-        "Run the doctor command with the same CLI invocation.",
+        "In Cowork add an MCP connector named maestro-brain using the descriptor transport URL, streamable HTTP, bearer authentication, and the MAESTRO_BRAIN_API_KEY value as its token.",
+        "Run doctor with the same CLI invocation and environment used for setup.",
       ],
     });
     expect(existsSync(join(repoRoot, ".cowork/maestro-brain.json"))).toBe(true);
@@ -350,7 +355,10 @@ describe("maestro-brain doctor", () => {
     };
     expect(output.ok).toBe(true);
     expect(JSON.parse(result.stdout)).toMatchObject({
-      next: ["pnpm brain health", 'pnpm brain ask "What is our ICP?"'],
+      next: [
+        "Run health with this same CLI invocation.",
+        'Run ask "What is our ICP?" with this same CLI invocation.',
+      ],
     });
     expect(
       Object.fromEntries(output.checks.map(({ id, ok }) => [id, ok])),

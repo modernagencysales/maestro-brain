@@ -33,9 +33,10 @@ The repository CLI can install the runtime configuration and skill link without
 embedding the bearer value:
 
 ```bash
-pnpm brain setup codex
-pnpm brain setup claude-code
-pnpm brain setup cowork
+export BRAIN_CLI="$PWD/apps/cli/bin/maestro-brain.mjs"
+"$BRAIN_CLI" setup codex
+"$BRAIN_CLI" setup claude-code
+"$BRAIN_CLI" setup cowork
 ```
 
 It preserves unrelated configuration and refuses to replace a conflicting
@@ -99,7 +100,7 @@ pinned Claude Code version's MCP status command before invoking the skill.
 
 ## Configure Claude Cowork
 
-Run `pnpm brain setup cowork` to write the portable remote HTTP MCP descriptor
+Run `"$BRAIN_CLI" setup cowork` to write the portable remote HTTP MCP descriptor
 to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer authentication
 settings in Cowork's connector UI. Cowork does not need the repository-local
 skill: after the MCP handshake it can discover the server-delivered `ask-apero`
@@ -120,12 +121,12 @@ Cowork version can import it directly.
 
 Because Cowork connector storage is host-managed, setup writes only the portable
 descriptor and does not claim that the connector has been activated. Run
-`pnpm brain doctor` to verify the remote endpoint before testing from Cowork.
+`"$BRAIN_CLI" doctor` to verify the remote endpoint before testing from Cowork.
 
-For terminal-level MCP verification, `pnpm brain mcp tools` and
-`pnpm brain mcp prompts` query the hosted streamable HTTP endpoint directly.
+For terminal-level MCP verification, `"$BRAIN_CLI" mcp tools` and
+`"$BRAIN_CLI" mcp prompts` query the hosted streamable HTTP endpoint directly.
 They require both environment variables and show the same catalog an agent
-runtime discovers. `pnpm brain mcp call <tool-name> --input <json>` is the
+runtime discovers. `"$BRAIN_CLI" mcp call <tool-name> --input <json>` is the
 low-level hosted call path for connector troubleshooting.
 
 MCP initialization, prompt discovery, and tool discovery are intentionally
@@ -135,7 +136,7 @@ still require a valid bearer credential. Therefore, catalog checks can pass in
 
 ## Smoke check
 
-Start with `pnpm brain doctor`, then:
+Start with `"$BRAIN_CLI" doctor`, then:
 
 1. Confirm the installed runtime version exactly matches a manifest entry.
 2. Confirm only the reviewed read tools are available.
@@ -146,6 +147,11 @@ Start with `pnpm brain doctor`, then:
    request ID, exact citation tuples, and explicit coverage/freshness.
 5. Record the runtime version and ordered candidate-manifest hash in the
    immutable runtime-parity receipt. Do not record source bodies or secrets.
+
+Terminal contributors can recover recent review activity with
+`"$BRAIN_CLI" note list`, optionally followed by `pending_review`, `published`,
+or `rejected`. They can inspect one returned key with
+`"$BRAIN_CLI" note status <source-key>`.
 
 The durable wrong/stale path is API-only at
 `/api/brain.feedback.reportWrongOrStale` and uses the same bearer-derived Brain

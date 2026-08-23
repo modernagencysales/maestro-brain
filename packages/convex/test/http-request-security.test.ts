@@ -658,6 +658,12 @@ describe("headless HTTP bearer security", () => {
       expectedRef: "brain/noteStatus:get",
       requiredScope: "brain:ask",
     },
+    {
+      operationId: "brain.notes.list",
+      input: { status: "pending_review" },
+      expectedRef: "brain/noteStatus:list",
+      requiredScope: "brain:ask",
+    },
   ] as const)(
     "dispatches $operationId through its internal service-principal query",
     async ({ operationId, input, expectedRef, requiredScope }) => {

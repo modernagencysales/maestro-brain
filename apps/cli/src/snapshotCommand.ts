@@ -199,7 +199,7 @@ const submitResult = (
       },
       next: [
         "An editor must approve these submissions in the /brain review queue.",
-        "After approval, verify them with pnpm brain search <query>.",
+        "After approval, verify them with maestro-brain search <query>.",
       ],
     }),
     stderr: "",
