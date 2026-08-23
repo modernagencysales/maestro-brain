@@ -792,6 +792,12 @@ const factsFor = (
       const canonicalName = generatedName(name);
       const publication =
         value.publication === undefined ? undefined : record(value.publication);
+      if (
+        generator === "add-workflow" &&
+        publication?.isolatedFixture === true
+      ) {
+        continue;
+      }
       const generatedKind =
         generator === "add-capability"
           ? ("capability" as const)

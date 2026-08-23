@@ -88,21 +88,31 @@ const fixtureRepository = (options?: {
           encoding: "utf8",
         }),
       ) as { systems: unknown[] };
-      systems.systems.push({
-        id: "record-management",
-        name: "Record Management",
-        kind: "product-system",
-        lifecycle: "active",
-        implementationStatus: "real",
-        summary: "Owns records.",
-        responsibilities: ["manage records"],
-        aliases: ["records"],
-        tables: [],
-        canonicalEntrypoints: [
-          "packages/convex/confect/records/records.spec.ts",
-        ],
-        decisionRef: "docs/template/system-catalog.md#record-management",
-      });
+      if (
+        !systems.systems.some(
+          (system) =>
+            typeof system === "object" &&
+            system !== null &&
+            "id" in system &&
+            system.id === "record-management",
+        )
+      ) {
+        systems.systems.push({
+          id: "record-management",
+          name: "Record Management",
+          kind: "product-system",
+          lifecycle: "active",
+          implementationStatus: "real",
+          summary: "Owns records.",
+          responsibilities: ["manage records"],
+          aliases: ["records"],
+          tables: [],
+          canonicalEntrypoints: [
+            "packages/convex/confect/records/records.spec.ts",
+          ],
+          decisionRef: "docs/template/system-catalog.md#record-management",
+        });
+      }
       writeFileSync(join(root, systemsPath), `${JSON.stringify(systems)}\n`);
       execFileSync("git", ["add", topologyPath, systemsPath], { cwd: root });
     }
@@ -115,8 +125,8 @@ const fixtureRepository = (options?: {
         schemaVersion: 2,
         versions: { ...CURRENT_TEMPLATE_INSTANCE_VERSIONS },
         release: {
-          version: "0.2.0-alpha.1",
-          tag: "maestro-template-v0.2.0-alpha.1",
+          version: TEMPLATE_INSTANCE_COMPATIBILITY.current.templateVersion,
+          tag: TEMPLATE_INSTANCE_COMPATIBILITY.current.templateTag,
         },
         compatibility: structuredClone(TEMPLATE_INSTANCE_COMPATIBILITY),
         support: {
@@ -130,20 +140,22 @@ const fixtureRepository = (options?: {
     );
     execFileSync("git", ["add", "template-instance.json"], { cwd: root });
   }
-  if (options?.templateInstance !== false)
-    execFileSync(
-      "git",
-      [
-        "-c",
-        "user.name=App Map Test",
-        "-c",
-        "user.email=app-map@example.invalid",
-        "commit",
-        "-m",
-        "fixture",
-      ],
-      { cwd: root },
-    );
+  if (options?.templateInstance === false) {
+    execFileSync("git", ["rm", "template-instance.json"], { cwd: root });
+  }
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=App Map Test",
+      "-c",
+      "user.email=app-map@example.invalid",
+      "commit",
+      "-m",
+      "fixture",
+    ],
+    { cwd: root },
+  );
   return {
     root,
     revision: execFileSync("git", ["rev-parse", "HEAD"], {
@@ -319,9 +331,13 @@ describe("closed App Map composition", () => {
     expect(second.ok, second.ok ? undefined : second.message).toBe(true);
     if (!first.ok || !second.ok) return;
     expect(first.input.batches).toHaveLength(11);
+    const factOptionalSources = new Set([
+      "template-instance",
+      "workflow-registry",
+    ]);
     for (const batch of first.input.batches) {
       const facts = [...batch.nodes, ...batch.edges];
-      if (batch.source.id === "template-instance") {
+      if (factOptionalSources.has(batch.source.id)) {
         expect(facts).toHaveLength(0);
         continue;
       }
@@ -378,6 +394,11 @@ describe("closed App Map composition", () => {
           id: "owns:system:workflow-runtime->workflow:generate-complete-build-pack",
         }),
       ]),
+    );
+    expect(generated?.edges).not.toContainEqual(
+      expect.objectContaining({
+        id: "generated-by:workflow-publication:publicationFixture:v1->package:tooling/generators",
+      }),
     );
     expect(serializeAppMap(first.build.map)).toBe(
       serializeAppMap(second.build.map),
