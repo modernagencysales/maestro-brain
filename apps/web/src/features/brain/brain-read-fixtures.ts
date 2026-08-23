@@ -198,7 +198,7 @@ const rolloutScope: BrainRolloutStatusData["scopes"][number] = {
   },
   eligibility: { status: "eligible", failureCount: 0 },
   reconciliation: {
-    runKey: "reconciliation_launch_7",
+    runKey: "run_7",
     runGeneration: 7,
     status: "complete",
     providerHighWater: "provider_42",
