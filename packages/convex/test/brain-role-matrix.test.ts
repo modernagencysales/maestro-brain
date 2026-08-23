@@ -14,7 +14,6 @@ import {
   denialAuditReason,
   deniedPrivilegedAccessAuditEvent,
   privilegedAccessAuditActions,
-  type AccessAuditEventInsert,
 } from "../confect/access/audit";
 import { resolveEffectiveWorkspaceRole } from "../confect/access/auth";
 import { asGenericId } from "../confect/access/handlerContext";
@@ -26,6 +25,7 @@ import {
 } from "../confect/access/lifecycle";
 import { INVITATION_TTL_MS } from "../confect/access/lifecycleInvitations";
 import { canManageWorkspaceMembers } from "../confect/access/members.impl";
+import { AccessAuditEventRow } from "../confect/access/tenancySchemas";
 import { testConfectLayer } from "./support/confect";
 import {
   Forbidden,
@@ -455,7 +455,7 @@ type LifecycleInvitationCaseValue = {
 };
 
 type AccessAuditRowValue = Omit<
-  AccessAuditEventInsert,
+  Schema.Schema.Type<typeof AccessAuditEventRow>,
   "actorUserId" | "actorEmail" | "metadataJson"
 > & {
   actorUserId: string | undefined;

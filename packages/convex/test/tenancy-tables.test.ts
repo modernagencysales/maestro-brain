@@ -80,6 +80,36 @@ describe("tenancy table contracts", () => {
     );
   });
 
+  it.each([
+    ["proposal.created", "proposal", {}],
+    ["proposal.accepted", "proposal", {}],
+    [
+      "deliverable.submitted",
+      "deliverable",
+      {
+        historyOrder: "1:historical_record_123",
+        idempotencyKey: "historical-submit",
+        inputFingerprint: "redacted-input-fingerprint",
+        resultJson: '{"status":"submitted"}',
+      },
+    ],
+  ])(
+    "accepts the historical access audit tuple %s",
+    (action, subjectKind, legacyFields) => {
+      expect(
+        Schema.decodeUnknownSync(AccessAuditEventRow)({
+          workspaceId: "workspace_123",
+          action,
+          subjectKind,
+          subjectId: "historical_record_123",
+          metadataJson: "{}",
+          createdAt: 1,
+          ...legacyFields,
+        }),
+      ).toMatchObject({ action, ...legacyFields });
+    },
+  );
+
   it("requires accepted, revoked, deleted, or archived lifecycle timestamps where applicable", () => {
     expect(
       Schema.decodeUnknownSync(OrganizationMemberRow)({

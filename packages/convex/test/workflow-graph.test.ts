@@ -5,7 +5,9 @@ import workflowRunEvidenceSnapshots from "../confect/tables/workflowRunEvidenceS
 import workflowRunContextManifests from "../confect/tables/workflowRunContextManifests";
 import workflowRunLinks from "../confect/tables/workflowRunLinks";
 import workflowRuns, { WorkflowRunRow } from "../confect/tables/workflowRuns";
-import workflowStageRuns from "../confect/tables/workflowStageRuns";
+import workflowStageRuns, {
+  WorkflowStageRunRow,
+} from "../confect/tables/workflowStageRuns";
 import {
   DurableWorkflowGraph,
   WorkflowGraphValidationError,
@@ -277,6 +279,25 @@ describe("workflow graph model", () => {
     });
   });
 
+  it("retains historical workflow stage execution fences", () => {
+    expect(
+      Schema.decodeUnknownSync(WorkflowStageRunRow)({
+        workflowRunId: "workflow_run_legacy",
+        nodeId: "start",
+        kind: "source",
+        label: "Legacy workflow start",
+        status: "succeeded",
+        attempt: 1,
+        startedAt: 1,
+        completedAt: 2,
+        errorJson: null,
+        outputJson: "{}",
+        externalEffect: false,
+        lifecycleGeneration: 0,
+      }),
+    ).toMatchObject({ externalEffect: false, lifecycleGeneration: 0 });
+  });
+
   it("decodes a durable graph and run row shape", () => {
     expect(Schema.decodeUnknownSync(DurableWorkflowGraph)(validGraph)).toEqual(
       validGraph,
@@ -294,11 +315,44 @@ describe("workflow graph model", () => {
         completedAt: 2,
         failedAt: null,
         trustReceiptId: "trust_receipt_123",
+        childRetentionUntil: null,
+        cleanupState: "not-requested",
+        componentCleanupState: "not-requested",
+        componentResidualState: "not-assessed",
+        evidenceRetentionUntil: null,
+        lifecycleExecution: "terminal",
+        lifecycleGeneration: 0,
+        lifecycleGenerationAnchor: "workflow_source_grounded_plan@v1:g0",
+        lifecycleRestartAnchor: null,
+        onCompleteContext: {
+          generation: 0,
+          generationAnchor: "workflow_source_grounded_plan@v1:g0",
+          workflowId: "workflow_source_grounded_plan",
+          workflowRunId: "workflow_run_legacy",
+          workflowVersion: 1,
+          workspaceId: "workspace_123",
+        },
+        parentRetentionUntil: null,
+        policySnapshot: { kind: "none", reason: "No policy.", version: 1 },
+        principalSnapshot: {
+          actorId: "user_123",
+          authEpoch: 1,
+          grants: ["workflow:start"],
+          kickoffAt: 1,
+          kind: "user",
+          provenance: "authenticated-workflow-start",
+          role: "owner",
+          version: 2,
+          workspaceId: "workspace_123",
+        },
+        priorGenerationQuiescence: "pending",
       }),
     ).toMatchObject({
       workspaceId: "workspace_123",
       status: "completed",
       trustReceiptId: "trust_receipt_123",
+      lifecycleGenerationAnchor: "workflow_source_grounded_plan@v1:g0",
+      priorGenerationQuiescence: "pending",
     });
   });
 });

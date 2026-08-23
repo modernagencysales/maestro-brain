@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import {
+  ApiKeyRow,
   createApiKey,
   createBrainApiKey,
   createPublicBrainApiKey,
@@ -48,6 +49,42 @@ const baseInput = {
 } as const;
 
 describe("one-Brain API key CRUD", () => {
+  it("retains immutable creator and agency key receipt fields", () => {
+    const legacy = Schema.decodeUnknownSync(ApiKeyRow)({
+      id: "api_key_legacy",
+      workspaceId: "workspace_acme",
+      name: "Legacy key",
+      keyHash: "hash",
+      displayPrefix: "mtk_live_legacy",
+      scopes: ["creator:self"],
+      status: "revoked",
+      createdByUserId: "user_admin",
+      createdAt: 1_000,
+      expiresAt: 2_000,
+      revokedAt: 1_500,
+      lastUsedAt: null,
+      agencyCreatedAtOrder: -1_000,
+      creatorCreatedAtOrder: -1_000,
+      creatorId: "creator_legacy",
+      idempotencyInputDigest: "digest",
+      idempotencyKey: "create-legacy",
+      principalCreatorId: "creator_legacy",
+      principalGrantId: "grant_legacy",
+      principalKind: "creator",
+      principalMembershipId: "membership_legacy",
+      principalRole: "owner",
+      revocationIdempotencyKey: "revoke-legacy",
+    });
+
+    expect(legacy).toMatchObject({
+      principalKind: "creator",
+      principalRole: "owner",
+      scopes: ["creator:self"],
+      idempotencyKey: "create-legacy",
+      revocationIdempotencyKey: "revoke-legacy",
+    });
+  });
+
   it("derives key and principal ids from at least 128 digest bits", async () => {
     const first = await createBrainApiKey(baseInput);
     const second = await createBrainApiKey({
@@ -238,6 +275,19 @@ describe("one-Brain API key CRUD", () => {
     ).resolves.toMatchObject({
       ok: false,
       error: { code: "SERVICE_PRINCIPAL_MISSING" },
+    });
+
+    await expect(
+      verifyApiKey({
+        presentedKey: legacy.displayKey,
+        keys: [{ ...legacy.row, scopes: ["creator:self"] }],
+        principals: [],
+        nowMs: 1_500,
+        requiredScope: "workspace:read",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "API_KEY_FORBIDDEN" },
     });
   });
 

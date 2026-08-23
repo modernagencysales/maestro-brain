@@ -24,6 +24,11 @@ export const LegacyApiKeyScope = Schema.Literal(
 export const ApiKeyScope = Schema.Union(LegacyApiKeyScope, HeadlessApiKeyScope);
 export type ApiKeyScope = Schema.Schema.Type<typeof ApiKeyScope>;
 
+const PersistedApiKeyScope = Schema.Union(
+  ApiKeyScope,
+  Schema.Literal("creator:self"),
+);
+
 export const ApiKeyStatus = Schema.Literal("active", "revoked", "expired");
 export type ApiKeyStatus = Schema.Schema.Type<typeof ApiKeyStatus>;
 
@@ -63,7 +68,9 @@ export const ApiKeyRow = Schema.Struct({
   name: Schema.String,
   keyHash: Schema.String,
   displayPrefix: Schema.String,
-  scopes: Schema.Array(ApiKeyScope),
+  // creator:self is accepted only for an immutable historical pilot row.
+  // Current creation inputs continue to validate against ApiKeyScope.
+  scopes: Schema.Array(PersistedApiKeyScope),
   principalGeneration: Schema.optional(Schema.Number),
   organizationGeneration: Schema.optional(Schema.Number),
   organizationRevocationGeneration: Schema.optional(Schema.Number),
@@ -76,6 +83,20 @@ export const ApiKeyRow = Schema.Struct({
   expiresAt: NullableNumber,
   revokedAt: NullableNumber,
   lastUsedAt: NullableNumber,
+  // Immutable receipt fields written by the staging creator/agency pilot.
+  agencyCreatedAtOrder: Schema.optional(Schema.Number),
+  creatorCreatedAtOrder: Schema.optional(Schema.Number),
+  creatorId: Schema.optional(Schema.String),
+  idempotencyInputDigest: Schema.optional(Schema.String),
+  idempotencyKey: Schema.optional(Schema.String),
+  principalCreatorId: Schema.optional(Schema.String),
+  principalGrantId: Schema.optional(Schema.String),
+  principalKind: Schema.optional(Schema.Literal("agency", "creator")),
+  principalMembershipId: Schema.optional(Schema.String),
+  principalRole: Schema.optional(
+    Schema.Literal("viewer", "editor", "admin", "owner"),
+  ),
+  revocationIdempotencyKey: Schema.optional(Schema.String),
 });
 
 export type ApiKeyRow = Schema.Schema.Type<typeof ApiKeyRow>;
@@ -534,11 +555,16 @@ export const verifyApiKey = async (input: {
     return forbidden();
   }
 
+  const currentScopes = row.scopes.filter(
+    (scope): scope is ApiKeyScope => scope !== "creator:self",
+  );
+  if (currentScopes.length !== row.scopes.length) return forbidden();
+
   if (requiresBrainPrincipal) {
-    if (!row.scopes.includes(input.requiredScope)) return forbidden();
+    if (!currentScopes.includes(input.requiredScope)) return forbidden();
   } else if (
-    !row.scopes.includes(input.requiredScope) &&
-    !row.scopes.includes("admin")
+    !currentScopes.includes(input.requiredScope) &&
+    !currentScopes.includes("admin")
   ) {
     return forbidden();
   }
@@ -557,7 +583,7 @@ export const verifyApiKey = async (input: {
     ...(row.roleCeiling === undefined ? {} : { roleCeiling: row.roleCeiling }),
     keyId: row.id,
     ...(row.principalId === undefined ? {} : { principalId: row.principalId }),
-    scopes: row.scopes,
+    scopes: currentScopes,
   };
 };
 
