@@ -1,76 +1,23 @@
-import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
-import { ConvexError } from "convex/values";
-import { api, internal } from "../convex/_generated/api";
-import {
-  executeHeadlessOperation,
-  type HeadlessExecutorRequest,
-} from "./manifest/executor";
 import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
-import { buildGeneratedMcpTools } from "./manifest/mcp";
-import {
-  authenticateBearerRequest,
-  authenticatedExecutorRequestFor,
-  authorizeOperationBeforeDecode,
-  bearerKeyHashForRequest,
-  readJsonBody,
-  type TemplateApiRequestBody,
-} from "./httpRequest";
-import apiKeysSpec from "./headless/apiKeys.spec";
-import feedbackSpec from "./brain/feedback.spec";
-import noteStatusSpec from "./brain/noteStatus.spec";
-import pilotSpec from "./brain/pilot.spec";
-import {
-  reviewedHeadlessPolicyFor,
-  type HeadlessOperationPolicy,
-} from "./headless/authorizeOperation";
-import type { HeadlessPrincipal } from "./headless/principal";
-import { runHeadlessNoteSubmit } from "./headlessNoteHttp";
-import { validateCallerIdempotencyKey } from "./shared/idempotencyKey";
+import { reviewedHeadlessPolicyFor } from "./headless/authorizeOperation";
+import { mcpRouteResponse } from "./httpMcp";
+import { executeTemplateApiRoute } from "./httpOperations";
+import { htmlResponse, jsonResponse } from "./httpResponses";
+import type { HeadlessHttpCtx, TemplateHttpRoute } from "./httpTypes";
+
+export { securityHeaders } from "./httpResponses";
+export type {
+  HeadlessHttpCtx,
+  RateLimitAdmissionMetadata,
+  TemplateHttpRoute,
+} from "./httpTypes";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
 
 const hasSurface = (entry: ManifestFunction, surface: string): boolean =>
   (entry.surfaces as readonly string[]).includes(surface);
-
-export type TemplateHttpRoute = {
-  readonly path: string;
-  readonly method: "GET" | "POST";
-  readonly description: string;
-};
-
-export type RateLimitAdmissionMetadata = {
-  readonly operationId: string;
-  readonly pathname: string;
-  readonly method: string;
-  readonly hasAuthorization: boolean;
-  readonly contentType: string | null;
-  readonly userAgentFamily: "absent" | "present";
-  readonly networkBucket: "direct" | "untrusted-forwarded";
-};
-
-export type HeadlessHttpCtx = {
-  readonly runQuery: (
-    ref: unknown,
-    input: Record<string, unknown>,
-  ) => Promise<unknown>;
-  readonly runMutation: (
-    ref: unknown,
-    input: Record<string, unknown>,
-  ) => Promise<unknown>;
-  readonly runAction: (
-    ref: unknown,
-    input: Record<string, unknown>,
-  ) => Promise<unknown>;
-  readonly authenticateRef?: unknown;
-  readonly markLastUsedRef?: unknown;
-  readonly operationRefs?: Record<string, unknown>;
-  readonly operationPolicies?: Record<string, HeadlessOperationPolicy>;
-  readonly rateLimit?: (
-    input: RateLimitAdmissionMetadata,
-  ) => boolean | Promise<boolean>;
-};
 
 type TemplateRouteMatch =
   | { readonly kind: "openapi" }
@@ -105,90 +52,6 @@ const feedbackOperationId = "brain.feedback.reportWrongOrStale";
 const noteSubmitOperationId = "brain.notes.submit";
 const noteStatusOperationId = "brain.notes.status";
 const noteListOperationId = "brain.notes.list";
-
-const feedbackFunction = () => {
-  const spec = feedbackSpec.functions.headlessReportWrongOrStale;
-  if (spec === undefined) {
-    throw new ConvexError({
-      code: "HEADLESS_FEEDBACK_SPEC_MISSING",
-      message: "Missing feedback.headlessReportWrongOrStale spec",
-    });
-  }
-  return Ref.getFunctionReference(Ref.make("brain/feedback", spec));
-};
-
-const noteSubmitFunction = () => {
-  const spec = pilotSpec.functions.headlessSubmitNote;
-  if (spec === undefined) {
-    throw new ConvexError({
-      code: "HEADLESS_NOTE_SPEC_MISSING",
-      message: "Missing pilot.headlessSubmitNote spec",
-    });
-  }
-  return Ref.getFunctionReference(Ref.make("brain/pilot", spec));
-};
-
-const noteStatusFunction = () => {
-  const spec = noteStatusSpec.functions.get;
-  if (spec === undefined) {
-    throw new ConvexError({
-      code: "HEADLESS_NOTE_STATUS_SPEC_MISSING",
-      message: "Missing noteStatus.get spec",
-    });
-  }
-  return Ref.getFunctionReference(Ref.make("brain/noteStatus", spec));
-};
-
-const noteListFunction = () => {
-  const spec = noteStatusSpec.functions.list;
-  if (spec === undefined) {
-    throw new ConvexError({
-      code: "HEADLESS_NOTE_LIST_SPEC_MISSING",
-      message: "Missing noteStatus.list spec",
-    });
-  }
-  return Ref.getFunctionReference(Ref.make("brain/noteStatus", spec));
-};
-
-const operationRefs = {
-  "brain.pages.list": api.brain.pages.list,
-  "brain.pages.get": api.brain.pages.get,
-  "brain.pages.history": api.brain.pages.history,
-  "brain.sources.search": internal.brain.readApi.headlessSourcesSearch,
-  "brain.sources.get": internal.brain.readApi.headlessSourcesGet,
-  "brain.context.get": internal.brain.readApi.headlessContextGet,
-  "brain.answers.ask": internal.brain.readApi.headlessAnswersAsk,
-  "brain.rollout.status": internal.brain.readApi.headlessBrainRolloutStatus,
-  [feedbackOperationId]: feedbackFunction(),
-  [noteSubmitOperationId]: noteSubmitFunction(),
-  [noteStatusOperationId]: noteStatusFunction(),
-  [noteListOperationId]: noteListFunction(),
-} satisfies Record<string, unknown>;
-
-const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
-  const spec = apiKeysSpec.functions[name];
-  if (spec === undefined) {
-    throw new ConvexError({
-      code: "HEADLESS_API_KEY_SPEC_MISSING",
-      message: `Missing apiKeys.${name} spec`,
-    });
-  }
-  return Ref.getFunctionReference(Ref.make("headless/apiKeys", spec));
-};
-
-const apiKeyRefs = {
-  authenticate: apiKeyFunction("authenticate"),
-  markLastUsed: apiKeyFunction("markLastUsed"),
-} as const;
-
-export const securityHeaders = {
-  "content-security-policy":
-    "default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
-  "x-frame-options": "DENY",
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "no-referrer",
-} as const;
 
 export const templateHttpRoutes = [
   {
@@ -246,25 +109,6 @@ export const templateHttpRoutes = [
     })),
 ] as const satisfies readonly TemplateHttpRoute[];
 
-const withSecurityHeaders = (
-  headers: HeadersInit = {},
-): Record<string, string> => {
-  const merged: Record<string, string> = { ...securityHeaders };
-  new Headers(headers).forEach((value, key) => {
-    merged[key] = value;
-  });
-  return merged;
-};
-
-const jsonResponse = (value: unknown): Response =>
-  new Response(JSON.stringify(value, null, 2), {
-    headers: {
-      ...securityHeaders,
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-
 const scalarDocsHtml = (): string => `<!doctype html>
 <html lang="en">
   <head>
@@ -279,64 +123,6 @@ const scalarDocsHtml = (): string => `<!doctype html>
   </body>
 </html>
 `;
-
-const htmlResponse = (html: string): Response =>
-  new Response(html, {
-    headers: withSecurityHeaders({
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store",
-    }),
-  });
-
-const invalidIdempotencyResponse = (message: string) => ({
-  ok: false,
-  error: { _tag: "ValidationFailed", message },
-});
-
-const runTemplateApiOperation = async (
-  ctx: HeadlessHttpCtx,
-  request: HeadlessExecutorRequest,
-): Promise<unknown> => {
-  if (request.operationId === feedbackOperationId) {
-    const idempotencyKey = validateCallerIdempotencyKey(request.idempotencyKey);
-    if (!idempotencyKey.ok)
-      return invalidIdempotencyResponse(idempotencyKey.error.message);
-    const result = await ctx.runMutation(
-      (ctx.operationRefs ?? operationRefs)[feedbackOperationId],
-      { ...request.input, idempotencyKey: idempotencyKey.value },
-    );
-    return { ok: true, operationId: feedbackOperationId, result };
-  }
-  if (request.operationId === noteSubmitOperationId)
-    return await runHeadlessNoteSubmit(
-      (ref, input) => ctx.runMutation(ref, input),
-      (ctx.operationRefs ?? operationRefs)[noteSubmitOperationId],
-      request,
-    );
-  if (request.operationId === noteStatusOperationId) {
-    const result = await ctx.runQuery(
-      (ctx.operationRefs ?? operationRefs)[noteStatusOperationId],
-      request.input,
-    );
-    return { ok: true, operationId: noteStatusOperationId, result };
-  }
-  if (request.operationId === noteListOperationId) {
-    const result = await ctx.runQuery(
-      (ctx.operationRefs ?? operationRefs)[noteListOperationId],
-      request.input,
-    );
-    return { ok: true, operationId: noteListOperationId, result };
-  }
-  return await executeHeadlessOperation(
-    {
-      refs: ctx.operationRefs ?? operationRefs,
-      runQuery: (ref, input) => ctx.runQuery(ref, input),
-      runMutation: (ref, input) => ctx.runMutation(ref, input),
-      runAction: (ref, input) => ctx.runAction(ref, input),
-    },
-    request,
-  );
-};
 
 const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
   const apiEntry = confectManifest.functions.find(
@@ -369,7 +155,7 @@ const templateRouteResponse = async (
       response = docsRouteResponse(request);
       break;
     case "mcp":
-      response = await mcpRouteResponse(ctx, request);
+      response = await mcpRouteResponse(ctx, request, executeTemplateApiRoute);
       break;
     case "operation":
       response = await operationRouteResponse(ctx, request, route.operationId);
@@ -380,163 +166,6 @@ const templateRouteResponse = async (
   }
 
   return response;
-};
-
-type McpRequest = {
-  readonly jsonrpc: "2.0";
-  readonly id?: string | number;
-  readonly method:
-    "initialize" | "prompts/list" | "prompts/get" | "tools/list" | "tools/call";
-  readonly params?: {
-    readonly name?: string;
-    readonly arguments?: Record<string, unknown>;
-  };
-};
-
-const askAperoPrompt = {
-  name: "ask-apero",
-  title: "Ask Apero",
-  description:
-    "Answer a question from Apero's approved Brain evidence with citations and explicit abstention when evidence is insufficient.",
-  arguments: [
-    {
-      name: "question",
-      description:
-        "The question to answer using Apero's approved Brain evidence.",
-      required: true,
-    },
-  ],
-} as const;
-
-const askAperoMessage = (
-  question: string,
-): string => `Answer the question below using Apero's approved Brain evidence.
-
-First call the \`template.brain.context.get\` MCP tool with this exact question:
-${JSON.stringify(question)}
-
-Treat the tool result as the only source of company facts. Continue only when it is ContextPack schema version 3 with candidate-manifest version 2. Include exact reopenable citations with every material claim. State the pack's as-of time, coverage gaps, stale or unknown freshness, conflicts, omissions, truncation, and readiness. Label any reasoning beyond retrieved text as agent inference.
-
-If authorization fails, required coverage is unavailable, the response contract is wrong, the candidate manifest is absent, or an exact citation cannot be reopened, stop and say what evidence is missing. Do not invent or supplement company facts from prior knowledge. Do not call provider or Brain evidence-write tools.`;
-
-const mcpReply = (id: string | number | undefined, result: unknown): Response =>
-  jsonResponse({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), result });
-
-const mcpError = (
-  id: string | number | undefined,
-  code: number,
-  message: string,
-): Response =>
-  jsonResponse({
-    jsonrpc: "2.0",
-    ...(id === undefined ? {} : { id }),
-    error: { code, message },
-  });
-
-const successfulOperationEnvelope = (
-  response: Response,
-  value: unknown,
-): boolean => {
-  if (!response.ok || value === null || typeof value !== "object") return false;
-  return Reflect.get(value, "ok") === true;
-};
-
-const mcpRouteResponse = async (
-  ctx: HeadlessHttpCtx,
-  request: Request,
-): Promise<Response> => {
-  if (request.method !== "POST")
-    return mcpError(undefined, -32600, "Only POST is supported for /mcp.");
-  if (
-    request.headers.get("content-type")?.split(";", 1)[0] !== "application/json"
-  )
-    return mcpError(
-      undefined,
-      -32600,
-      "Content-Type must be application/json.",
-    );
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return mcpError(undefined, -32700, "Request body must be valid JSON.");
-  }
-  if (body === null || typeof body !== "object" || Array.isArray(body))
-    return mcpError(undefined, -32600, "MCP request must be a JSON object.");
-
-  const candidate = body as Partial<McpRequest>;
-  const id = candidate.id;
-  if (candidate.jsonrpc !== "2.0" || typeof candidate.method !== "string")
-    return mcpError(id, -32600, "Invalid MCP request.");
-  if (candidate.method === "initialize")
-    return mcpReply(id, {
-      protocolVersion: "2025-06-18",
-      capabilities: { prompts: {}, tools: {} },
-      serverInfo: { name: "maestro-brain", version: "1.0.0" },
-    });
-  if (candidate.method === "prompts/list")
-    return mcpReply(id, { prompts: [askAperoPrompt] });
-  if (candidate.method === "prompts/get") {
-    if (candidate.params?.name !== askAperoPrompt.name)
-      return mcpError(id, -32602, "Unknown or unavailable MCP prompt.");
-
-    const question = candidate.params.arguments?.question;
-    if (typeof question !== "string" || question.trim().length === 0)
-      return mcpError(
-        id,
-        -32602,
-        "MCP prompt question must be a non-empty string.",
-      );
-
-    return mcpReply(id, {
-      description: askAperoPrompt.description,
-      messages: [
-        {
-          role: "user",
-          content: { type: "text", text: askAperoMessage(question) },
-        },
-      ],
-    });
-  }
-  if (candidate.method === "tools/list")
-    return mcpReply(id, { tools: buildGeneratedMcpTools() });
-  if (candidate.method !== "tools/call")
-    return mcpError(id, -32601, "Method not found.");
-
-  const name = candidate.params?.name;
-  const operationId =
-    typeof name === "string" && name.startsWith("template.")
-      ? name.slice("template.".length)
-      : undefined;
-  if (
-    operationId === undefined ||
-    reviewedHeadlessPolicyFor(operationId) === undefined
-  )
-    return mcpError(id, -32602, "Unknown or unavailable MCP tool.");
-
-  const input = candidate.params?.arguments ?? {};
-  const apiRequest = new Request(
-    `${new URL(request.url).origin}/api/${operationId}`,
-    {
-      method: "POST",
-      headers: {
-        authorization: request.headers.get("authorization") ?? "",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input }),
-    },
-  );
-  const executed = await executeTemplateApiRoute(ctx, apiRequest, operationId);
-  const result = await executed.json();
-  return successfulOperationEnvelope(executed, result)
-    ? mcpReply(id, {
-        content: [{ type: "text", text: JSON.stringify(result) }],
-      })
-    : mcpReply(id, {
-        isError: true,
-        content: [{ type: "text", text: JSON.stringify(result) }],
-      });
 };
 
 const filteredOpenApiDocument = (): ReturnType<
@@ -595,185 +224,6 @@ const operationRouteResponse = async (
         });
 
   return response;
-};
-
-const canonicalContentType = (value: string | null): string | null =>
-  value?.split(";", 1)[0]?.trim().toLowerCase() || null;
-
-const rateLimitAdmissionMetadataFor = (
-  request: Request,
-  operationId: string,
-): RateLimitAdmissionMetadata => {
-  const headers = request.headers;
-  return {
-    operationId,
-    pathname: new URL(request.url).pathname,
-    method: request.method,
-    hasAuthorization: headers.has("authorization"),
-    contentType: canonicalContentType(headers.get("content-type")),
-    userAgentFamily: headers.has("user-agent") ? "present" : "absent",
-    networkBucket: headers.has("x-forwarded-for")
-      ? "untrusted-forwarded"
-      : "direct",
-  };
-};
-
-const executeTemplateApiRoute = async (
-  ctx: HeadlessHttpCtx,
-  request: Request,
-  operationId: string,
-): Promise<Response> => {
-  const policy =
-    ctx.operationPolicies?.[operationId] ??
-    reviewedHeadlessPolicyFor(operationId);
-  if (policy === undefined) {
-    return jsonResponse({
-      ok: false,
-      error: { _tag: "Forbidden", message: "Forbidden." },
-    });
-  }
-
-  const limited = await ctx.rateLimit?.(
-    rateLimitAdmissionMetadataFor(request, operationId),
-  );
-  if (limited === true) {
-    return jsonResponse({
-      ok: false,
-      error: { _tag: "RateLimited", message: "Rate limited." },
-    });
-  }
-
-  const keyHash = await bearerKeyHashForRequest(
-    request.headers.get("authorization") ?? undefined,
-  );
-  if (!keyHash.ok) return jsonResponse(keyHash);
-
-  const authenticate = (hash: string) =>
-    ctx.runQuery(ctx.authenticateRef ?? apiKeyRefs.authenticate, {
-      keyHash: hash,
-      requiredScope: policy.requiredScope,
-    });
-  const authenticated = await authenticateBearerRequest({
-    keyHash: keyHash.keyHash,
-    runAuthenticate: authenticate,
-  });
-  if (!authenticated.ok) return jsonResponse(authenticated);
-
-  const preauthorized = authorizeOperationBeforeDecode({
-    operationId,
-    principal: authenticated.principal,
-    policy,
-  });
-  if (!preauthorized.ok) return jsonResponse(preauthorized);
-
-  const parsedBody = await readJsonBody(request);
-  if (!parsedBody.ok) return jsonResponse(parsedBody);
-
-  const executed = await responseForParsedTemplateApiBody(
-    ctx,
-    operationId,
-    authenticated.principal,
-    parsedBody.body,
-    policy,
-  ).catch(() => ({
-    ok: false as const,
-    error: { _tag: "Forbidden" as const, message: "Forbidden." },
-  }));
-  if (!isHeadlessExecutionSuccess(executed)) return jsonResponse(executed);
-
-  const reauthenticated = await authenticateBearerRequest({
-    keyHash: authenticated.keyHash,
-    runAuthenticate: authenticate,
-  });
-  if (!reauthenticated.ok) return jsonResponse(reauthenticated);
-  if (!sameAuthenticatedPrincipal(authenticated, reauthenticated)) {
-    return jsonResponse({
-      ok: false,
-      error: { _tag: "Unauthorized", message: "Unauthorized." },
-    });
-  }
-
-  await scheduleLastUsedBestEffort(ctx, reauthenticated, authenticated.keyHash);
-
-  return jsonResponse(executed);
-};
-
-const responseForParsedTemplateApiBody = async (
-  ctx: HeadlessHttpCtx,
-  operationId: string,
-  principal: HeadlessPrincipal,
-  body: TemplateApiRequestBody,
-  policy: HeadlessOperationPolicy,
-): Promise<unknown> => {
-  const executorRequest = await authenticatedExecutorRequestFor({
-    operationId,
-    principal,
-    body,
-    policy,
-  });
-  return executorRequest.ok
-    ? await runTemplateApiOperation(ctx, executorRequest.request)
-    : executorRequest;
-};
-
-const sameAuthenticatedPrincipal = (
-  initial: {
-    readonly principal: HeadlessPrincipal;
-    readonly keyHash: string;
-    readonly keyId?: string;
-  },
-  after: {
-    readonly principal: HeadlessPrincipal;
-    readonly keyHash: string;
-    readonly keyId?: string;
-  },
-): boolean =>
-  initial.keyHash === after.keyHash &&
-  (initial.keyId ?? initial.principal.keyId) ===
-    (after.keyId ?? after.principal.keyId) &&
-  initial.principal.organizationId === after.principal.organizationId &&
-  initial.principal.workspaceId === after.principal.workspaceId &&
-  initial.principal.brainKey === after.principal.brainKey &&
-  initial.principal.roleCeiling === after.principal.roleCeiling &&
-  initial.principal.keyId === after.principal.keyId &&
-  initial.principal.principalId === after.principal.principalId &&
-  JSON.stringify([...initial.principal.scopes].sort()) ===
-    JSON.stringify([...after.principal.scopes].sort());
-
-const isHeadlessExecutionSuccess = (
-  value: unknown,
-): value is {
-  readonly ok: true;
-  readonly operationId: string;
-  readonly result: unknown;
-} =>
-  typeof value === "object" &&
-  value !== null &&
-  "ok" in value &&
-  (value as { readonly ok?: unknown }).ok === true;
-
-const scheduleLastUsedBestEffort = async (
-  ctx: HeadlessHttpCtx,
-  authenticated: {
-    readonly principal: HeadlessPrincipal;
-    readonly keyId?: string;
-  },
-  keyHash: string,
-): Promise<void> => {
-  const principal = authenticated.principal;
-  const args = {
-    keyId: authenticated.keyId ?? principal.keyId,
-    keyHash,
-    principalId: principal.principalId,
-    organizationId: principal.organizationId,
-    workspaceId: principal.workspaceId,
-    brainKey: principal.brainKey,
-  };
-  try {
-    await ctx.runMutation(ctx.markLastUsedRef ?? apiKeyRefs.markLastUsed, args);
-  } catch {
-    // Best-effort last-used updates must not change the authorization result.
-  }
 };
 
 const unavailableHeadlessOperationResponse = (): Response =>
