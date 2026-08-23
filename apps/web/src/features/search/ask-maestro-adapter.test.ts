@@ -2,32 +2,60 @@ import { describe, expect, it } from 'vitest'
 
 import {
   askMaestroPromptFixtures,
-  projectAssistantMessagesToSearchResults,
+  projectGroundedAnswerToSearchResults,
 } from './ask-maestro-adapter'
 
 describe('assistant to Starter Search adapter', () => {
-  it('projects assistant messages into the Starter results contract', () => {
+  it('projects the answer and exact citations into Starter results', () => {
     expect(
-      projectAssistantMessagesToSearchResults([
-        {
-          id: 'message-1',
-          role: 'assistant',
-          content: 'Three clients need follow-up this week.',
-          createdAt: 1,
+      projectGroundedAnswerToSearchResults({
+        status: 'answered',
+        answerMarkdown: 'The launch is Friday. [1]',
+        contextPack: {
+          schemaVersion: '3',
+          freshness: 'current',
+          citations: [
+            {
+              citationKey: 'citation:page-1:42',
+              sourceRevisionId: 'brain-page:page-1:revision:42',
+              title: 'Launch plan',
+              excerpt: 'The launch is Friday.',
+              freshness: 'current',
+            },
+          ],
         },
-        {
-          id: 'message-2',
-          role: 'user',
-          content: 'What needs attention?',
-          createdAt: 2,
-        },
-      ]),
+      }),
     ).toEqual([
       {
-        id: 'message-1',
-        title: 'Maestro',
-        description: 'Three clients need follow-up this week.',
+        id: 'maestro-grounded-answer',
+        title: 'Maestro · current',
+        description: 'The launch is Friday. [1]',
       },
+      {
+        id: 'brain-page:page-1:revision:42',
+        title: '[1] Launch plan',
+        description:
+          'The launch is Friday. · current · citation:page-1:42',
+      },
+    ])
+  })
+
+  it('projects typed abstention without pretending there is an answer', () => {
+    expect(
+      projectGroundedAnswerToSearchResults({
+        status: 'insufficient-context',
+        answerMarkdown: null,
+        contextPack: {
+          schemaVersion: '3',
+          freshness: 'unknown',
+          citations: [],
+        },
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        id: 'maestro-insufficient-context',
+        title: 'Maestro · more context needed',
+      }),
     ])
   })
 
