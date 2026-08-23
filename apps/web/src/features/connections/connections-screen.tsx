@@ -59,6 +59,27 @@ export type ConnectionRow = {
   readonly lastError: string | null;
 };
 
+const connectionPlaceholders = {
+  loading: {
+    title: "Loading connections",
+    description: "Checking local connection state.",
+  },
+  empty: {
+    title: "No connections yet",
+    description: "No live transcript providers are connected yet.",
+  },
+  typed_failure: {
+    title: "Connection setup unavailable",
+    description: "The connection request failed a typed product contract.",
+    tone: "yellow" as const,
+  },
+  transport_failure: {
+    title: "Connection status interrupted",
+    description: "Provider status could not be reached from this session.",
+    tone: "red" as const,
+  },
+} as const;
+
 export function ConnectionsScreen({
   onRoutingReview,
   onConnect,
@@ -136,43 +157,8 @@ function ConnectionsStateCard({
   readonly onPurge?: (providerKey: string) => void | Promise<void>;
   readonly state: ConnectionsScreenState;
 }) {
-  if (state.status === "loading") {
-    return (
-      <StateCard
-        title="Loading connections"
-        description="Checking local connection state."
-      />
-    );
-  }
-
-  if (state.status === "empty") {
-    return (
-      <StateCard
-        title="No connections yet"
-        description="No live transcript providers are connected yet."
-      />
-    );
-  }
-
-  if (state.status === "typed_failure") {
-    return (
-      <StateCard
-        title="Connection setup unavailable"
-        description="The connection request failed a typed product contract."
-        tone="yellow"
-      />
-    );
-  }
-
-  if (state.status === "transport_failure") {
-    return (
-      <StateCard
-        title="Connection status interrupted"
-        description="Provider status could not be reached from this session."
-        tone="red"
-      />
-    );
-  }
+  if (state.status !== "ready")
+    return <StateCard {...connectionPlaceholders[state.status]} />;
 
   return (
     <Card.Root borderRadius="md">
@@ -231,56 +217,13 @@ function ConnectionsStateCard({
                   </Table.Cell>
                   <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
                   <Table.Cell>
-                    <Flex gap="2" wrap="wrap">
-                      <NangoConnectButton
-                        enabled={canManage && !connection.cleanupPending}
-                        providerName={connection.provider}
-                        status={connectStatus(connection.status)}
-                        onConnect={() => onConnect?.(connection.key)}
-                      />
-                      {connection.status !== "disconnected" &&
-                      connection.status !== "revoked" &&
-                      connection.disconnectAvailable !== false ? (
-                        <Button
-                          disabled={!canManage}
-                          onClick={() => onDisconnect?.(connection.key)}
-                          type="button"
-                          variant="outline"
-                        >
-                          Disconnect {connection.provider}
-                        </Button>
-                      ) : null}
-                      {connection.status === "revoked" &&
-                      connection.cleanupPending ? (
-                        <Button
-                          disabled={!canManage}
-                          onClick={() => onDisconnect?.(connection.key)}
-                          type="button"
-                          variant="outline"
-                        >
-                          Retry disconnect {connection.provider}
-                        </Button>
-                      ) : null}
-                      {connection.status === "revoked" &&
-                      !connection.cleanupPending &&
-                      connection.purgeRequested ? (
-                        <Text color="yellow.700" fontSize="sm">
-                          Purge request pending review
-                        </Text>
-                      ) : null}
-                      {connection.status === "revoked" &&
-                      !connection.cleanupPending &&
-                      !connection.purgeRequested ? (
-                        <Button
-                          disabled={!canManage}
-                          onClick={() => onPurge?.(connection.key)}
-                          type="button"
-                          variant="outline"
-                        >
-                          Request purge of {connection.provider} data
-                        </Button>
-                      ) : null}
-                    </Flex>
+                    <ConnectionActions
+                      canManage={canManage}
+                      connection={connection}
+                      onConnect={onConnect}
+                      onDisconnect={onDisconnect}
+                      onPurge={onPurge}
+                    />
                   </Table.Cell>
                 </Table.Row>
               ))}
@@ -289,6 +232,71 @@ function ConnectionsStateCard({
         </Box>
       </Card.Body>
     </Card.Root>
+  );
+}
+
+function ConnectionActions({
+  canManage,
+  connection,
+  onConnect,
+  onDisconnect,
+  onPurge,
+}: {
+  readonly canManage: boolean;
+  readonly connection: ConnectionRow;
+  readonly onConnect?: (providerKey: string) => void | Promise<void>;
+  readonly onDisconnect?: (providerKey: string) => void | Promise<void>;
+  readonly onPurge?: (providerKey: string) => void | Promise<void>;
+}) {
+  const canDisconnect =
+    connection.status !== "disconnected" &&
+    connection.status !== "revoked" &&
+    connection.disconnectAvailable !== false;
+  const revoked = connection.status === "revoked";
+  return (
+    <Flex gap="2" wrap="wrap">
+      <NangoConnectButton
+        enabled={canManage && !connection.cleanupPending}
+        providerName={connection.provider}
+        status={connectStatus(connection.status)}
+        onConnect={() => onConnect?.(connection.key)}
+      />
+      {canDisconnect ? (
+        <Button
+          disabled={!canManage}
+          onClick={() => onDisconnect?.(connection.key)}
+          type="button"
+          variant="outline"
+        >
+          Disconnect {connection.provider}
+        </Button>
+      ) : null}
+      {revoked && connection.cleanupPending ? (
+        <Button
+          disabled={!canManage}
+          onClick={() => onDisconnect?.(connection.key)}
+          type="button"
+          variant="outline"
+        >
+          Retry disconnect {connection.provider}
+        </Button>
+      ) : null}
+      {revoked && !connection.cleanupPending && connection.purgeRequested ? (
+        <Text color="yellow.700" fontSize="sm">
+          Purge request pending review
+        </Text>
+      ) : null}
+      {revoked && !connection.cleanupPending && !connection.purgeRequested ? (
+        <Button
+          disabled={!canManage}
+          onClick={() => onPurge?.(connection.key)}
+          type="button"
+          variant="outline"
+        >
+          Request purge of {connection.provider} data
+        </Button>
+      ) : null}
+    </Flex>
   );
 }
 
