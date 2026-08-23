@@ -12,6 +12,7 @@ import { headlessNoteSubmitEffect } from "./headlessNoteSubmit";
 import { PageNotFound, StaleRevision } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import { requireBrainAccess } from "./pages.impl";
+import { validatePilotText } from "./pilotValidation";
 import pilot from "./pilot.spec";
 import {
   buildAskResponse,
@@ -32,11 +33,6 @@ const sourceKeyFor = (input: {
   markdown: string;
 }) => `src_${sha256Hex(JSON.stringify(input))}`;
 
-const validateText = (field: "title" | "markdown" | "query", value: string) =>
-  value.trim().length === 0
-    ? new ValidationFailed({ field, message: `${field} is required.` })
-    : null;
-
 const submitNote = FunctionImpl.make(
   databaseSchema,
   pilot,
@@ -46,7 +42,8 @@ const submitNote = FunctionImpl.make(
       const title = args.title.trim();
       const markdown = args.markdown.trim();
       const invalid =
-        validateText("title", title) ?? validateText("markdown", markdown);
+        validatePilotText("title", title) ??
+        validatePilotText("markdown", markdown);
       if (invalid !== null) return yield* invalid;
       const brain = yield* requireBrainAccess(args.brainKey, "editor");
       const submittedAt = yield* unsafeAssumeClockProvided(
@@ -385,7 +382,7 @@ const updatePage = FunctionImpl.make(
 const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
   Effect.gen(function* () {
     const query = args.query.trim().toLowerCase();
-    const invalid = validateText("query", query);
+    const invalid = validatePilotText("query", query);
     if (invalid !== null) return yield* invalid;
     const brain = yield* requireBrainAccess(args.brainKey, "viewer");
     const reader = yield* DatabaseReader;
@@ -493,7 +490,7 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
 const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
   Effect.gen(function* () {
     const query = args.query.trim().toLowerCase();
-    const invalid = validateText("query", query);
+    const invalid = validatePilotText("query", query);
     if (invalid !== null) return yield* invalid;
     const brain = yield* requireBrainAccess(args.brainKey, "viewer");
     const reader = yield* DatabaseReader;

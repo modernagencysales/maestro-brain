@@ -14,10 +14,8 @@ import type {
   CitationsDoc,
   PageRevisionsDoc,
 } from "../confect/_generated/docs";
-import type { Role } from "../confect/access/roles";
 import { Forbidden, ValidationFailed } from "../confect/errors";
 import {
-  buildRetrievalPassages,
   retrievalEligibilityFenceKey,
   retrievalPublicationSubjectKey,
   selectTopRetrievalCandidates,
@@ -25,95 +23,16 @@ import {
 import { publicationManifestHash } from "../confect/brain/publicationIntegrity";
 import { retrievalTokenCatalogProjection } from "../confect/brain/retrievalTokenCatalog";
 import { testConfectLayer } from "./support/confect";
+import {
+  insertCapacityEntry,
+  seedBrain,
+  SeededBrainSchema,
+  seedTranscriptCitation,
+  transcriptKeys,
+} from "./support/brainPilotFixtures";
 
 const now = 1_782_924_800_000;
 const brainKey = "br_0123456789ABCDEFGHJKMNPQRS";
-
-type SeededBrain = {
-  readonly organizationId: GenericId<"organizations">;
-  readonly workspaceId: GenericId<"workspaces">;
-};
-
-const SeededBrainSchema = Schema.Struct({
-  organizationId: Id("organizations"),
-  workspaceId: Id("workspaces"),
-});
-
-const seedBrain = (input: {
-  readonly role: Role;
-  readonly subject: string;
-  readonly email: string;
-  readonly brainKey: string;
-}): Effect.Effect<SeededBrain, never, DatabaseWriter> =>
-  Effect.gen(function* () {
-    const writer = yield* DatabaseWriter;
-    const userId = yield* writer
-      .table("users")
-      .insert({
-        subject: input.subject,
-        email: input.email,
-        displayName: input.subject,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    const organizationId = yield* writer
-      .table("organizations")
-      .insert({
-        ownerUserId: userId,
-        name: input.brainKey,
-        slug: input.brainKey.toLowerCase(),
-        status: "active",
-        workosOrganizationId: `org_${input.subject}`,
-        agencyKey: `ag_${input.brainKey.slice(3)}`,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    yield* writer
-      .table("organizationMembers")
-      .insert({
-        organizationId,
-        userId,
-        role: input.role,
-        status: "active",
-        acceptedAt: now,
-        revokedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    const workspaceId = yield* writer
-      .table("workspaces")
-      .insert({
-        organizationId,
-        ownerUserId: userId,
-        brainKey: input.brainKey,
-        name: input.brainKey,
-        slug: `${input.brainKey.toLowerCase()}-workspace`,
-        status: "active",
-        dataClassification: "internal",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    yield* writer
-      .table("workspaceMembers")
-      .insert({
-        workspaceId,
-        userId,
-        role: input.role,
-        status: "active",
-        acceptedAt: now,
-        revokedAt: null,
-        deletedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    return { organizationId, workspaceId };
-  });
 
 const actor = (
   confect: TestConfect.TestConfect<typeof databaseSchema>,
@@ -183,143 +102,6 @@ const publishedState = (workspaceId: GenericId<"workspaces">) =>
         return row;
       }),
     };
-  });
-
-const transcriptKeys = {
-  unitKey: `sunit_${"a".repeat(64)}`,
-  unitRevisionKey: `surev_${"b".repeat(64)}`,
-  segmentKey: `seg_${"c".repeat(64)}`,
-  connectionKey: "conn_fireflies_1",
-} as const;
-
-const seedTranscriptCitation = (input: {
-  readonly workspaceId: GenericId<"workspaces">;
-  readonly pageKey: string;
-  readonly pageRevisionKey: string;
-  readonly manual?: boolean;
-}) =>
-  Effect.gen(function* () {
-    const reader = yield* DatabaseReader;
-    const writer = yield* DatabaseWriter;
-    const organizationKey = `ag_${brainKey.slice(3)}`;
-    const connectionKey = input.manual
-      ? `manual_${organizationKey}`
-      : transcriptKeys.connectionKey;
-    const connectionGeneration = input.manual ? 1 : 2;
-    const citation = yield* reader
-      .table("citations")
-      .index("by_workspace_page", (query) =>
-        query
-          .eq("workspaceId", String(input.workspaceId))
-          .eq("pageKey", input.pageKey),
-      )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-    if (citation === null) throw new Error("expected approved note citation");
-    if (!input.manual)
-      yield* writer
-        .table("providerConnections")
-        .insert({
-          provider: "nango",
-          providerConfigKey: "fireflies",
-          organizationKey,
-          connectionKey,
-          connectionGeneration,
-          status: "active",
-          connectSessionId: "session_transcript_1",
-          nangoConnectionId: "nango_transcript_1",
-          nangoEndUserId: "end_user_transcript_1",
-          nangoOrganizationId: "nango_org_transcript_1",
-          correlationTag: "transcript:session_1",
-          attemptId: "attempt_transcript_1",
-          attemptExpiresAt: now + 10_000,
-          completedAt: now,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .pipe(Effect.orDie);
-    yield* writer
-      .table("sourceUnits")
-      .insert({
-        schemaVersion: 1,
-        organizationKey,
-        connectionKey,
-        connectionGeneration,
-        providerKey: input.manual ? "manual-transcript" : "fireflies",
-        externalCallId: "call_1",
-        unitKey: transcriptKeys.unitKey,
-        currentUnitRevisionKey: transcriptKeys.unitRevisionKey,
-        lifecycle: {
-          state: "active",
-          generation: 1,
-          updatedAt: now,
-          purgeAfter: null,
-        },
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
-    yield* writer
-      .table("sourceUnitRevisions")
-      .insert({
-        schemaVersion: 1,
-        organizationKey,
-        unitKey: transcriptKeys.unitKey,
-        unitRevisionKey: transcriptKeys.unitRevisionKey,
-        externalRevisionId: "revision_1",
-        title: "Acme weekly",
-        startedAt: "2026-08-05T14:00:00.000Z",
-        endedAt: "2026-08-05T14:30:00.000Z",
-        durationMs: 1_800_000,
-        organizer: null,
-        participants: [],
-        sourceUrl: "https://app.fireflies.ai/view/call_1",
-        recordingUrl: null,
-        providerSummary: null,
-        providerMetadataJson: "{}",
-        contentHash: `sha256:${"d".repeat(64)}`,
-        tombstone: false,
-        createdAt: now,
-      })
-      .pipe(Effect.orDie);
-    yield* writer
-      .table("sourceSegments")
-      .insert({
-        schemaVersion: 1,
-        organizationKey,
-        unitKey: transcriptKeys.unitKey,
-        unitRevisionKey: transcriptKeys.unitRevisionKey,
-        segmentKey: transcriptKeys.segmentKey,
-        externalSegmentId: "call_1:0",
-        ordinal: 0,
-        evidenceKind: "verbatim_transcript",
-        speakerExternalId: "speaker_1",
-        speakerLabel: "Alex",
-        startMs: 12_000,
-        endMs: 15_400,
-        text: "We will launch on Friday.",
-        contentHash: `sha256:${"e".repeat(64)}`,
-        createdAt: now,
-      })
-      .pipe(Effect.orDie);
-    yield* writer
-      .table("citations")
-      .patch(citation._id, {
-        sourceId: transcriptKeys.unitKey,
-        sourceKind: "call_transcript",
-        sourceTitle: "Acme weekly",
-        quotedText: "We will launch on Friday.",
-        startOffset: 0,
-        endOffset: 25,
-        pageKey: input.pageKey,
-        revisionKey: input.pageRevisionKey,
-        sourceUnitRevisionKey: transcriptKeys.unitRevisionKey,
-        segmentKey: transcriptKeys.segmentKey,
-        startMs: 12_000,
-        endMs: 15_400,
-      })
-      .pipe(Effect.orDie);
-    return true;
   });
 
 const revokeTranscriptConnection = Effect.gen(function* () {
@@ -1361,58 +1143,16 @@ describe("Brain pilot contract", () => {
               readonly sourceKey: string;
               readonly sourceRevisionKey: string;
               readonly text: string;
-            }) => {
-              const passage = buildRetrievalPassages(
-                input.text,
-                input.sourceRevisionKey,
-              )[0];
-              if (passage === undefined)
-                return Effect.die("Expected a capacity-test passage.");
-              const current = input.publicationSetKey === currentSetKey;
-              return writer.table("retrievalEntries").insert({
-                schemaVersion: 1,
+            }) =>
+              insertCapacityEntry({
                 organizationKey,
                 workspaceId: seeded.workspaceId,
                 brainKey,
-                publicationSetKey: input.publicationSetKey,
-                publicationGeneration: 1,
-                entryKey: input.entryKey,
-                ...(current
-                  ? { publicationSubjectKey: currentSubjectKey }
-                  : {}),
-                kind: current ? "page" : "projection",
-                corpusKey: "capacity-test",
-                origin: current
-                  ? {
-                      kind: "page" as const,
-                      pageKey: input.sourceKey,
-                      revisionKey: input.sourceRevisionKey,
-                    }
-                  : {
-                      kind: "projection" as const,
-                      projectionKey: input.sourceKey,
-                      revisionKey: input.sourceRevisionKey,
-                    },
-                originTable: current ? "pageRevisions" : "brainSources",
-                sourceKey: input.sourceKey,
-                sourceRevisionKey: input.sourceRevisionKey,
-                passageKey: passage.passageKey,
-                startOffset: passage.startOffset,
-                endOffset: passage.endOffset,
-                title: input.text,
-                headingPath: null,
-                text: passage.text,
-                contentHash: passage.contentHash,
-                observedAt: now,
-                indexedAt: now,
-                authority: "derived",
-                authorityPolicyKey: "capacity-test",
-                policyGeneration: 1,
-                lifecycleGeneration: 1,
-                routeGeneration: 1,
-                state: "published",
+                currentSetKey,
+                currentSubjectKey,
+                now,
+                ...input,
               });
-            };
             yield* writer
               .table("brainSources")
               .insert({
