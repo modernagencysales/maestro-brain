@@ -226,7 +226,7 @@ const checkDescriptorDefinitions = {
           '"test:heavyweight-customer-artifacts": "node tooling/ci/run-heavyweight-suites.mjs"',
           '"verify:without-coverage"',
           '"test:app-map"',
-          '"check:agent-pack": "tsx tooling/agent-pack/src/syncSkills.ts && tsx tooling/quality/check-agent-pack.mts"',
+          '"check:agent-pack": "tsx tooling/quality/check-agent-pack.mts"',
           '"check:app-map": "pnpm --dir tooling/app-map check"',
           '"check:confect-manifest": "tsx tooling/confect-manifest/src/check.ts"',
           '"check:coverage-ratchet": "tsx tooling/quality/run-customer-coverage.mts"',
