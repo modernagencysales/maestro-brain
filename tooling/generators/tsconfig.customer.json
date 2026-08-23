@@ -3,8 +3,5 @@
   "compilerOptions": {
     "composite": false
   },
-  "include": [
-    "src/customer.ts",
-    "src/customer-cli.ts"
-  ]
+  "include": ["src/customer.ts", "src/customer-cli.ts"]
 }

@@ -262,8 +262,6 @@ describe("environment manifest", () => {
       expect(docs).toContain("authority");
     }
 
-    expect(
-      existsSync(resolve(repoRoot, ".woodpecker/deploy.yml")),
-    ).toBe(false);
+    expect(existsSync(resolve(repoRoot, ".woodpecker/deploy.yml"))).toBe(false);
   });
 });

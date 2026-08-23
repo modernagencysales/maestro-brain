@@ -25,8 +25,8 @@ const STOP_WORDS = new Set([
   "your",
 ]);
 
-export type GroundingPage = Readonly<{
-  id: string;
+export type GroundingPage<PageId extends string = string> = Readonly<{
+  id: PageId;
   workspaceId: string;
   title: string;
   markdown: string;
@@ -34,20 +34,20 @@ export type GroundingPage = Readonly<{
   status: "active" | "archived";
 }>;
 
-export type GroundingRevision = Readonly<{
+export type GroundingRevision<PageId extends string = string> = Readonly<{
   workspaceId: string;
-  pageId: string;
+  pageId: PageId;
   title: string;
   markdown: string;
   updatedAt: number;
   status: "active" | "archived";
 }>;
 
-export type GroundedCitation = Readonly<{
+export type GroundedCitation<PageId extends string = string> = Readonly<{
   citationKey: string;
   sourceId: string;
   sourceRevisionId: string;
-  pageId: string;
+  pageId: PageId;
   revisionUpdatedAt: number;
   title: string;
   excerpt: string;
@@ -58,10 +58,10 @@ export type GroundedCitation = Readonly<{
 
 type OmissionReason = "archived" | "revision-mismatch" | "not-relevant";
 
-export type GroundedAnswer = Readonly<{
+export type GroundedAnswer<PageId extends string = string> = Readonly<{
   status: "answered" | "insufficient-context";
   answerMarkdown: string | null;
-  citations: readonly GroundedCitation[];
+  citations: readonly GroundedCitation<PageId>[];
   freshness: "current" | "review-due" | "stale" | "unknown";
   asOf: number;
   omissions: readonly Readonly<{ reason: OmissionReason; count: number }>[];
@@ -108,14 +108,14 @@ const excerptFor = (markdown: string, words: readonly string[]) => {
   };
 };
 
-export const buildGroundedAnswer = (input: {
+export const buildGroundedAnswer = <PageId extends string>(input: {
   readonly workspaceId: string;
   readonly question: string;
-  readonly pages: readonly GroundingPage[];
-  readonly revisions: readonly GroundingRevision[];
+  readonly pages: readonly GroundingPage<PageId>[];
+  readonly revisions: readonly GroundingRevision<PageId>[];
   readonly now: number;
   readonly maxCitations?: number | undefined;
-}): GroundedAnswer => {
+}): GroundedAnswer<PageId> => {
   const words = tokenize(input.question);
   const omissions = new Map<OmissionReason, number>();
   const omit = (reason: OmissionReason) =>
@@ -179,7 +179,7 @@ export const buildGroundedAnswer = (input: {
             startOffset,
             endOffset,
             freshness: freshnessAt(revision.updatedAt, input.now),
-          } satisfies GroundedCitation,
+          } satisfies GroundedCitation<PageId>,
         },
       ];
     })

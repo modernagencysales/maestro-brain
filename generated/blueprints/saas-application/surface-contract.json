@@ -1,18 +1,10 @@
 {
   "schemaVersion": 1,
   "web": {
-    "operations": [
-      "records.list",
-      "records.read",
-      "records.create"
-    ]
+    "operations": ["records.list", "records.read", "records.create"]
   },
   "headless": {
-    "operations": [
-      "records.list",
-      "records.read",
-      "records.create"
-    ]
+    "operations": ["records.list", "records.read", "records.create"]
   },
   "providers": {
     "fake": {

@@ -23,7 +23,9 @@ node maestro-template.mjs start --mode fake
 If Corepack is unavailable, use the bootstrap report's exact
 `npx --yes pnpm@10.12.1 install --frozen-lockfile` fallback.
 
-The selected `records-example` pattern includes a workspace-owned record slice. Open the URL printed after `/health` becomes ready, then exercise `/records`: create a record, return to the list, and open its detail.
+The selected `records-example` pattern includes a workspace-owned record slice.
+Open the URL printed after `/health` becomes ready, then exercise `/records`:
+create a record, return to the list, and open its detail.
 
 ## The method
 

@@ -1,8 +1,6 @@
 {
   "schemaVersion": 1,
-  "selectedPatterns": [
-    "records-example"
-  ],
+  "selectedPatterns": ["records-example"],
   "surfaces": [
     {
       "id": "workspace-membership",

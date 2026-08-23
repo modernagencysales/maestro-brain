@@ -99,8 +99,7 @@ every future modal/popover adoption.
 `project.config.json`.
 
 **Required commands:** `pnpm check:generators`, `pnpm check:route-tree`,
-`pnpm check:layer-boundaries`, `pnpm check:ci-completeness`,
-`pnpm verify`.
+`pnpm check:layer-boundaries`, `pnpm check:ci-completeness`, `pnpm verify`.
 
 **Investor inference:** the template can accelerate bespoke B2B AI/GTM builds
 instead of starting each one from a blank repo.
@@ -117,8 +116,7 @@ checklist, and client-specific security review.
 
 **Required commands:** `pnpm template:doctor -- --mode live`, an external
 deployment-authority doctor, `pnpm verify`, hosted smoke against the client
-domain, and
-provider-specific sandbox or production smoke checks.
+domain, and provider-specific sandbox or production smoke checks.
 
 **Hosted auth checklist:**
 
