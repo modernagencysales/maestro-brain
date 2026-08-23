@@ -10,6 +10,7 @@ export default Table.make(() =>
     title: Schema.String,
     markdown: Schema.String,
     status: Schema.Literal("pending_review", "published", "rejected"),
+    idempotencyKey: Schema.optional(Schema.String),
     submittedAt: Schema.Number,
     reviewedAt: Schema.optional(Schema.Number),
     schemaVersion: Schema.Number,
@@ -17,4 +18,5 @@ export default Table.make(() =>
 )
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_source_key", ["workspaceId", "sourceKey"])
+  .index("by_workspace_idempotency", ["workspaceId", "idempotencyKey"])
   .index("by_workspace_status", ["workspaceId", "status"]);

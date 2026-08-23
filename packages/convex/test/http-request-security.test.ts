@@ -590,6 +590,7 @@ describe("headless HTTP bearer security", () => {
       expect(input).toEqual({
         title: "Updated positioning",
         markdown: "Reviewed terminal contribution.",
+        idempotencyKey: expect.stringMatching(/^note\.[a-f0-9]{64}$/),
         organizationId: "org_123",
         workspaceId: "workspace_123",
         brainKey: "brain_acme",
@@ -649,6 +650,18 @@ describe("headless HTTP bearer security", () => {
       operationId: "brain.answers.ask",
       input: { question: "What launched?" },
       expectedRef: "brain/readApi:headlessAnswersAsk",
+      requiredScope: "brain:ask",
+    },
+    {
+      operationId: "brain.notes.status",
+      input: { sourceKey: `src_${"a".repeat(64)}` },
+      expectedRef: "brain/noteStatus:get",
+      requiredScope: "brain:ask",
+    },
+    {
+      operationId: "brain.notes.list",
+      input: { status: "pending_review" },
+      expectedRef: "brain/noteStatus:list",
       requiredScope: "brain:ask",
     },
   ] as const)(

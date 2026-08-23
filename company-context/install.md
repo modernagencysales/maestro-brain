@@ -1,9 +1,9 @@
 # Ask Apero Runtime Installation
 
 Install both runtimes from the same reviewed Git revision and
-[`team-manifest.v1.json`](team-manifest.v1.json). Do not begin dogfood while a
-runtime's live-parity status is `pending` or an owner-dependent manifest field
-is `TBD`.
+[`team-manifest.v1.json`](team-manifest.v1.json). Pending live parity does not
+block exploratory teammate testing; it blocks claiming cross-runtime acceptance
+until a real credential has completed the documented receipt.
 
 ## Required configuration
 
@@ -33,9 +33,12 @@ The repository CLI can install the runtime configuration and skill link without
 embedding the bearer value:
 
 ```bash
-pnpm brain setup codex
-pnpm brain setup claude-code
-pnpm brain setup cowork
+export BRAIN_CLI="$PWD/apps/cli/bin/maestro-brain.mjs"
+"$BRAIN_CLI" install
+export PATH="$HOME/.local/bin:$PATH"
+maestro-brain setup codex
+maestro-brain setup claude-code
+maestro-brain setup cowork
 ```
 
 It preserves unrelated configuration and refuses to replace a conflicting
@@ -99,20 +102,43 @@ pinned Claude Code version's MCP status command before invoking the skill.
 
 ## Configure Claude Cowork
 
-Run `pnpm brain setup cowork` to write the portable remote HTTP MCP descriptor
-to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer authentication
-settings in Cowork's connector UI. Cowork does not need the repository-local
-skill: after the MCP handshake it can discover the server-delivered `ask-apero`
-prompt, which carries the same retrieval, citation, freshness, and abstention
-rules.
+Run `maestro-brain setup cowork` to write the portable remote HTTP MCP
+descriptor to `.cowork/maestro-brain.json`. Enter its name, URL, and bearer
+authentication settings in Cowork's connector UI. Cowork does not need the
+repository-local skill: after the MCP handshake it can discover the
+server-delivered `ask-apero` prompt, which carries the same retrieval, citation,
+freshness, and abstention rules.
+
+Use this field mapping in Cowork:
+
+- Name: `maestro-brain`
+- URL: the descriptor's `transport.url` (the approved site origin plus `/mcp`)
+- Transport: streamable HTTP
+- Authentication: bearer token
+- Token: the value of `MAESTRO_BRAIN_API_KEY`
+
+The descriptor contains no secret and may be committed so the team shares the
+same endpoint. It is a portable reference; setup does not claim that every
+Cowork version can import it directly.
 
 Because Cowork connector storage is host-managed, setup writes only the portable
 descriptor and does not claim that the connector has been activated. Run
-`pnpm brain doctor` to verify the remote endpoint before testing from Cowork.
+`maestro-brain doctor` to verify the remote endpoint before testing from Cowork.
+
+For terminal-level MCP verification, `maestro-brain mcp tools` and
+`maestro-brain mcp prompts` query the hosted streamable HTTP endpoint directly.
+They require both environment variables and show the same catalog an agent
+runtime discovers. `maestro-brain mcp call <tool-name> --input <json>` is the
+low-level hosted call path for connector troubleshooting.
+
+MCP initialization, prompt discovery, and tool discovery are intentionally
+public so a runtime can negotiate the connection. Tool calls and Brain API reads
+still require a valid bearer credential. Therefore, catalog checks can pass in
+`doctor` while the API credential check fails.
 
 ## Smoke check
 
-Start with `pnpm brain doctor`, then:
+Start with `maestro-brain doctor`, then:
 
 1. Confirm the installed runtime version exactly matches a manifest entry.
 2. Confirm only the reviewed read tools are available.
@@ -123,6 +149,11 @@ Start with `pnpm brain doctor`, then:
    request ID, exact citation tuples, and explicit coverage/freshness.
 5. Record the runtime version and ordered candidate-manifest hash in the
    immutable runtime-parity receipt. Do not record source bodies or secrets.
+
+Terminal contributors can recover recent review activity with
+`maestro-brain note list`, optionally followed by `pending_review`, `published`,
+or `rejected`. They can inspect one returned key with
+`maestro-brain note status <source-key>`.
 
 The durable wrong/stale path is API-only at
 `/api/brain.feedback.reportWrongOrStale` and uses the same bearer-derived Brain

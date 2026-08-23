@@ -75,6 +75,16 @@ const reviewedHeadlessPolicies = [
     headless: true,
     requiredScope: "brain:ask",
   },
+  {
+    operationId: "brain.notes.status",
+    headless: true,
+    requiredScope: "brain:ask",
+  },
+  {
+    operationId: "brain.notes.list",
+    headless: true,
+    requiredScope: "brain:ask",
+  },
 ] as const satisfies readonly HeadlessOperationPolicy[];
 
 const tenantInputFields = new Set([

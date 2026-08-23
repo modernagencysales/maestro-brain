@@ -302,6 +302,7 @@ export const evaluateHeadlessSurfaceContract = async (
   const [
     httpSource,
     cliSource,
+    cliRemoteSource,
     workflowSource,
     workflowCompatSource,
     executorSource,
@@ -312,6 +313,7 @@ export const evaluateHeadlessSurfaceContract = async (
   ] = await Promise.all([
     readRepoFile(repoRoot, "packages/convex/confect/http.ts"),
     readRepoFile(repoRoot, "apps/cli/src/index.ts"),
+    readRepoFile(repoRoot, "apps/cli/src/remoteApi.ts"),
     readRepoFile(repoRoot, "tooling/workflow/src/index.ts"),
     readRepoFile(repoRoot, "tooling/workflow/src/workflow-compat.ts"),
     readRepoFile(repoRoot, "packages/convex/confect/manifest/executor.ts"),
@@ -365,7 +367,7 @@ export const evaluateHeadlessSurfaceContract = async (
   );
   const cliMissingRefs = missingGeneratedRefMapping(
     exposedOperationIds(operations, "cli"),
-    cliSource,
+    [cliSource, cliRemoteSource].join("\n"),
     "cli",
   );
   const mcpMissingRefs = missingGeneratedRefMapping(
@@ -376,6 +378,7 @@ export const evaluateHeadlessSurfaceContract = async (
   const runtimeSources = [
     { path: "packages/convex/confect/http.ts", source: httpSource },
     { path: "apps/cli/src/index.ts", source: cliSource },
+    { path: "apps/cli/src/remoteApi.ts", source: cliRemoteSource },
     { path: "tooling/workflow/src/index.ts", source: workflowSource },
     {
       path: "tooling/workflow/src/workflow-compat.ts",
@@ -399,7 +402,7 @@ export const evaluateHeadlessSurfaceContract = async (
   }
   for (const operationId of cliMissingRefs) {
     failures.push(
-      `CLI operation ${operationId} lacks a generated ref mapping in apps/cli/src/index.ts`,
+      `CLI operation ${operationId} lacks a generated ref mapping in the CLI projection`,
     );
   }
   for (const operationId of mcpMissingRefs) {

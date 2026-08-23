@@ -250,6 +250,13 @@ describe("template HTTP docs routes", () => {
         result: {
           tools: readonly {
             name: string;
+            description: string;
+            annotations: {
+              readOnlyHint: boolean;
+              destructiveHint: boolean;
+              idempotentHint: boolean;
+              openWorldHint: boolean;
+            };
             inputSchema: {
               properties: Readonly<Record<string, unknown>>;
               required?: readonly string[];
@@ -263,6 +270,13 @@ describe("template HTTP docs routes", () => {
       "template.brain.pilot.ask",
     );
     for (const tool of tools) {
+      expect(tool.annotations).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+      expect(tool.description).not.toContain("generated Confect");
       expect(Object.keys(tool.inputSchema.properties)).not.toContain(
         "brainKey",
       );
@@ -351,10 +365,12 @@ describe("template HTTP docs routes", () => {
       }
     ).result.messages[0].content.text;
     expect(text).toContain(question);
-    expect(text).toContain("template.brain.answers.ask");
+    expect(text).toContain("template.brain.context.get");
+    expect(text).toContain("ContextPack schema version 3");
+    expect(text).toContain("candidate-manifest version 2");
     expect(text).toContain("citations");
-    expect(text).toContain("freshness or readiness");
-    expect(text).toContain("insufficient evidence");
+    expect(text).toContain("freshness");
+    expect(text).toContain("required coverage is unavailable");
     expect(text).toContain("Do not invent");
   });
 
@@ -431,6 +447,41 @@ describe("template HTTP docs routes", () => {
       jsonrpc: "2.0",
       id: 3,
       error: { code: -32602, message: "Unknown or unavailable MCP tool." },
+    });
+  });
+
+  it("marks typed Brain failures as MCP tool errors", async () => {
+    const body = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 4,
+            method: "tools/call",
+            params: {
+              name: "template.brain.context.get",
+              arguments: { question: "What is our ICP?" },
+            },
+          }),
+        }),
+      ),
+    );
+
+    expect(body).toMatchObject({
+      jsonrpc: "2.0",
+      id: 4,
+      result: {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: expect.stringContaining('"_tag":"Unauthorized"'),
+          },
+        ],
+      },
     });
   });
 });

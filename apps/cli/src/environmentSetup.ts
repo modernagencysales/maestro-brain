@@ -1,67 +1,22 @@
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
 import {
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readlinkSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-
+  claudeServerMatches,
+  codexConfigStatus,
+  parseClaudeConfig,
+} from "./environmentConfig";
 import { formatJsonOutput } from "./result";
-import type { CliResult, CliRuntimeConfig } from "./types";
+import { brainApiOrigin } from "./remoteSafety";
+import { setupOutput, type SetupArtifact } from "./setupOutput";
+import { installSkillDirectory } from "./skillInstaller";
+import type { CliResult } from "./types";
 
-type SetupStatus = "created" | "updated" | "unchanged" | "conflict";
+export { doctorBrainEnvironment } from "./environmentDoctor";
 
-type SetupArtifact = {
-  readonly id: string;
-  readonly path: string;
-  readonly status: SetupStatus;
-};
-
-type DoctorCheck = {
-  readonly id: "api" | "mcp.initialize" | "mcp.prompts.list";
-  readonly ok: boolean;
-  readonly detail: string;
-};
+export { brainApiOrigin } from "./remoteSafety";
 
 const secretEnvName = "MAESTRO_BRAIN_API_KEY";
-
-const pathExists = (path: string): boolean => {
-  try {
-    lstatSync(path);
-    return true;
-  } catch (error) {
-    if (isMissingPathError(error)) return false;
-    throw error;
-  }
-};
-
-const isMissingPathError = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  Reflect.get(error, "code") === "ENOENT";
-
-export const brainApiOrigin = (
-  value: string | undefined,
-): string | undefined => {
-  if (value === undefined || value.trim() !== value) return undefined;
-  try {
-    const url = new URL(value);
-    const localHttp =
-      url.protocol === "http:" && url.hostname.toLowerCase() === "localhost";
-    return (url.protocol === "https:" || localHttp) &&
-      !url.username &&
-      !url.password &&
-      !url.search &&
-      !url.hash &&
-      url.pathname === "/"
-      ? url.origin
-      : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const generatedFiles = (origin: string, runtime: SetupRuntime) => {
   const mcpUrl = `${origin}/mcp`;
@@ -98,205 +53,167 @@ const generatedFiles = (origin: string, runtime: SetupRuntime) => {
       }),
     },
   ] as const;
-  return runtime === "all"
-    ? files
-    : files.filter(({ id }) =>
-        runtime === "codex"
-          ? id === "codex.config"
-          : runtime === "claude-code"
-            ? id === "claude-code.config"
-            : id === "cowork.descriptor",
-      );
+  const filesByRuntime: Record<
+    SetupRuntime,
+    readonly (typeof files)[number][]
+  > = {
+    all: files,
+    codex: [files[0]],
+    "claude-code": [files[1]],
+    cowork: [files[2]],
+  };
+  return filesByRuntime[runtime];
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+type PreparedConfigFile =
+  | { readonly done: true; readonly artifact: SetupArtifact }
+  | {
+      readonly done: false;
+      readonly destination: string;
+      readonly current: string;
+    };
 
-const writeNewFile = (
+const prepareConfigFile = (
   repoRoot: string,
   file: ReturnType<typeof generatedFiles>[number],
-): SetupArtifact => {
+): PreparedConfigFile => {
   const destination = join(repoRoot, file.path);
-  mkdirSync(dirname(destination), { recursive: true });
-  writeFileSync(destination, file.content, { encoding: "utf8", mode: 0o600 });
-  return { id: file.id, path: file.path, status: "created" };
+  const destinationStat = lstatSync(destination, { throwIfNoEntry: false });
+  if (destinationStat === undefined) {
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, file.content, { encoding: "utf8", mode: 0o600 });
+    return {
+      done: true,
+      artifact: { id: file.id, path: file.path, status: "created" },
+    };
+  }
+  if (!destinationStat.isFile())
+    return {
+      done: true,
+      artifact: { id: file.id, path: file.path, status: "conflict" },
+    };
+  return {
+    done: false,
+    destination,
+    current: readFileSync(destination, "utf8"),
+  };
 };
-
-const codexEntry = (content: string): string | undefined => {
-  const header =
-    /^\s*\[\s*mcp_servers\s*\.\s*(?:"maestro_brain"|'maestro_brain'|maestro_brain)\s*\]\s*(?:#.*)?$/m;
-  const match = header.exec(content);
-  if (match === null) return undefined;
-  const remainder = content.slice(match.index + match[0].length);
-  const nextHeader = /^\s*\[/m.exec(remainder);
-  return content.slice(
-    match.index,
-    nextHeader === null
-      ? content.length
-      : match.index + match[0].length + nextHeader.index,
-  );
-};
-
-const tomlSettingMatches = (
-  block: string,
-  name: string,
-  expectedValue: string,
-): boolean => {
-  const matches = block
-    .split("\n")
-    .filter((line) => new RegExp(`^\\s*${name}\\s*=`).test(line));
-  return (
-    matches.length === 1 &&
-    matches[0]?.replace(/\s+#.*$/, "").trim() === `${name} = ${expectedValue}`
-  );
-};
-
-const hasCodexEntry = (content: string): boolean =>
-  /^\s*(?:\[\s*)?mcp_servers\s*\.\s*(?:"maestro_brain"|'maestro_brain'|maestro_brain)(?:\s*[\].=])/m.test(
-    content,
-  );
 
 const installCodexConfig = (
   repoRoot: string,
   file: ReturnType<typeof generatedFiles>[number],
   mcpUrl: string,
 ): SetupArtifact => {
-  const destination = join(repoRoot, file.path);
-  if (!pathExists(destination)) return writeNewFile(repoRoot, file);
-  if (!lstatSync(destination).isFile())
-    return { id: file.id, path: file.path, status: "conflict" };
-
-  const current = readFileSync(destination, "utf8");
-  const entry = codexEntry(current);
-  if (entry !== undefined) {
-    const matches =
-      tomlSettingMatches(entry, "url", JSON.stringify(mcpUrl)) &&
-      tomlSettingMatches(
-        entry,
-        "bearer_token_env_var",
-        JSON.stringify(secretEnvName),
-      );
-    return {
-      id: file.id,
-      path: file.path,
-      status: matches ? "unchanged" : "conflict",
-    };
-  }
-  if (hasCodexEntry(current))
-    return { id: file.id, path: file.path, status: "conflict" };
+  const prepared = prepareConfigFile(repoRoot, file);
+  if (prepared.done) return prepared.artifact;
+  const status = codexConfigStatus(prepared.current, mcpUrl, secretEnvName);
+  if (status !== undefined) return { id: file.id, path: file.path, status };
 
   const separator =
-    current.length === 0 ? "" : current.endsWith("\n") ? "\n" : "\n\n";
-  writeFileSync(destination, `${current}${separator}${file.content}`, "utf8");
+    prepared.current.length === 0
+      ? ""
+      : prepared.current.endsWith("\n")
+        ? "\n"
+        : "\n\n";
+  writeFileSync(
+    prepared.destination,
+    `${prepared.current}${separator}${file.content}`,
+    "utf8",
+  );
   return { id: file.id, path: file.path, status: "updated" };
 };
-
-const claudeServerMatches = (value: unknown, mcpUrl: string): boolean =>
-  isRecord(value) &&
-  isRecord(value.headers) &&
-  value.type === "http" &&
-  value.url === mcpUrl &&
-  value.headers.Authorization === `Bearer \${${secretEnvName}}`;
 
 const installClaudeConfig = (
   repoRoot: string,
   file: ReturnType<typeof generatedFiles>[number],
   mcpUrl: string,
 ): SetupArtifact => {
-  const destination = join(repoRoot, file.path);
-  if (!pathExists(destination)) return writeNewFile(repoRoot, file);
-  if (!lstatSync(destination).isFile())
+  const prepared = prepareConfigFile(repoRoot, file);
+  if (prepared.done) return prepared.artifact;
+  const config = parseClaudeConfig(prepared.current);
+  if (config === undefined)
     return { id: file.id, path: file.path, status: "conflict" };
-
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(destination, "utf8"));
-    if (!isRecord(parsed)) throw new Error("invalid root");
-    const currentServers = parsed.mcpServers;
-    if (currentServers !== undefined && !isRecord(currentServers))
-      throw new Error("invalid mcpServers");
-    const servers = currentServers ?? {};
-    if (Object.hasOwn(servers, "maestro-brain")) {
-      return {
-        id: file.id,
-        path: file.path,
-        status: claudeServerMatches(servers["maestro-brain"], mcpUrl)
-          ? "unchanged"
-          : "conflict",
-      };
-    }
-    const expected = JSON.parse(file.content) as {
-      readonly mcpServers: Record<string, unknown>;
-    };
-    writeFileSync(
-      destination,
-      formatJsonOutput({
-        ...parsed,
-        mcpServers: {
-          ...servers,
-          "maestro-brain": expected.mcpServers["maestro-brain"],
-        },
-      }),
-      "utf8",
-    );
-    return { id: file.id, path: file.path, status: "updated" };
-  } catch {
-    return { id: file.id, path: file.path, status: "conflict" };
+  if (Object.hasOwn(config.servers, "maestro-brain")) {
+    const status = claudeServerMatches(
+      config.servers["maestro-brain"],
+      mcpUrl,
+      secretEnvName,
+    )
+      ? "unchanged"
+      : "conflict";
+    return { id: file.id, path: file.path, status };
   }
+  const expected = JSON.parse(file.content) as {
+    readonly mcpServers: Record<string, unknown>;
+  };
+  writeFileSync(
+    prepared.destination,
+    formatJsonOutput({
+      ...config.parsed,
+      mcpServers: {
+        ...config.servers,
+        "maestro-brain": expected.mcpServers["maestro-brain"],
+      },
+    }),
+    "utf8",
+  );
+  return { id: file.id, path: file.path, status: "updated" };
 };
 
 const installGeneratedFile = (
   repoRoot: string,
   file: ReturnType<typeof generatedFiles>[number],
 ): SetupArtifact => {
-  const destination = join(repoRoot, file.path);
-  if (pathExists(destination)) {
-    if (!lstatSync(destination).isFile())
-      return { id: file.id, path: file.path, status: "conflict" };
-    const existing = readFileSync(destination, "utf8");
-    if (existing === file.content)
-      return { id: file.id, path: file.path, status: "unchanged" };
-    return { id: file.id, path: file.path, status: "conflict" };
-  }
-  mkdirSync(dirname(destination), { recursive: true });
-  writeFileSync(destination, file.content, { encoding: "utf8", mode: 0o600 });
-  return { id: file.id, path: file.path, status: "created" };
-};
-
-const installSkillLink = (
-  repoRoot: string,
-  discoveryPath: string,
-): SetupArtifact => {
-  const source = join(repoRoot, "company-context/skills/ask-apero");
-  const destination = join(repoRoot, discoveryPath);
-  if (!pathExists(source)) {
-    return { id: "ask-apero.skill", path: discoveryPath, status: "conflict" };
-  }
-  if (pathExists(destination)) {
-    const matches =
-      lstatSync(destination).isSymbolicLink() &&
-      resolve(dirname(destination), readlinkSync(destination)) === source;
-    return {
-      id: "ask-apero.skill",
-      path: discoveryPath,
-      status: matches ? "unchanged" : "conflict",
-    };
-  }
-  mkdirSync(dirname(destination), { recursive: true });
-  symlinkSync(relative(dirname(destination), source), destination, "dir");
-  return { id: "ask-apero.skill", path: discoveryPath, status: "created" };
+  const prepared = prepareConfigFile(repoRoot, file);
+  if (prepared.done) return prepared.artifact;
+  const status = prepared.current === file.content ? "unchanged" : "conflict";
+  return { id: file.id, path: file.path, status };
 };
 
 export type SetupRuntime = "all" | "codex" | "claude-code" | "cowork";
+
+const skillDiscoveryPaths: Record<SetupRuntime, readonly string[]> = {
+  all: [".agents/skills/ask-apero", ".claude/skills/ask-apero"],
+  codex: [".agents/skills/ask-apero"],
+  "claude-code": [".claude/skills/ask-apero"],
+  cowork: [],
+};
+
+const installSetupFile = (
+  repoRoot: string,
+  origin: string,
+  file: ReturnType<typeof generatedFiles>[number],
+): SetupArtifact => {
+  const mcpUrl = `${origin}/mcp`;
+  const installers = {
+    "codex.config": () => installCodexConfig(repoRoot, file, mcpUrl),
+    "claude-code.config": () => installClaudeConfig(repoRoot, file, mcpUrl),
+    "cowork.descriptor": () => installGeneratedFile(repoRoot, file),
+  };
+  return installers[file.id]();
+};
 
 export const setupBrainEnvironment = ({
   repoRoot,
   siteUrl,
   runtime = "all",
+  skillSourceDirectory = join(repoRoot, "company-context/skills/ask-apero"),
 }: {
   readonly repoRoot: string;
   readonly siteUrl: string | undefined;
   readonly runtime?: SetupRuntime;
+  readonly skillSourceDirectory?: string;
 }): CliResult => {
+  if (lstatSync(repoRoot, { throwIfNoEntry: false })?.isDirectory() !== true) {
+    return {
+      exitCode: 1,
+      stdout: formatJsonOutput({
+        ok: false,
+        error: `Setup target is not an existing directory: ${repoRoot}`,
+      }),
+      stderr: "",
+    };
+  }
   const origin = brainApiOrigin(siteUrl);
   if (origin === undefined) {
     return {
@@ -310,180 +227,17 @@ export const setupBrainEnvironment = ({
     };
   }
   const artifacts = [
-    ...generatedFiles(origin, runtime).map((file) => {
-      const mcpUrl = `${origin}/mcp`;
-      if (file.id === "codex.config")
-        return installCodexConfig(repoRoot, file, mcpUrl);
-      if (file.id === "claude-code.config")
-        return installClaudeConfig(repoRoot, file, mcpUrl);
-      return installGeneratedFile(repoRoot, file);
-    }),
-    ...(runtime === "all" || runtime === "codex"
-      ? [installSkillLink(repoRoot, ".agents/skills/ask-apero")]
-      : []),
-    ...(runtime === "all" || runtime === "claude-code"
-      ? [installSkillLink(repoRoot, ".claude/skills/ask-apero")]
-      : []),
+    ...generatedFiles(origin, runtime).map((file) =>
+      installSetupFile(repoRoot, origin, file),
+    ),
+    ...skillDiscoveryPaths[runtime].map((discoveryPath) =>
+      installSkillDirectory({
+        source: skillSourceDirectory,
+        destination: join(repoRoot, discoveryPath),
+        artifactPath: discoveryPath,
+      }),
+    ),
   ];
   const ok = artifacts.every(({ status }) => status !== "conflict");
-  return {
-    exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({ ok, artifacts }),
-    stderr: "",
-  };
-};
-
-const postJson = async (
-  url: string,
-  apiKey: string,
-  body: unknown,
-  fetcher: typeof fetch,
-): Promise<{ readonly ok: boolean; readonly value?: unknown }> => {
-  try {
-    const response = await fetcher(url, {
-      method: "POST",
-      headers: {
-        accept: "application/json, text/event-stream",
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-    });
-    const value: unknown = await response.json();
-    return { ok: response.ok, value };
-  } catch {
-    return { ok: false };
-  }
-};
-
-const recordValue = (value: unknown, key: string): unknown =>
-  typeof value === "object" && value !== null
-    ? Reflect.get(value, key)
-    : undefined;
-
-const apiCheck = async (
-  origin: string,
-  apiKey: string,
-  fetcher: typeof fetch,
-): Promise<DoctorCheck> => {
-  const response = await postJson(
-    `${origin}/api/brain.rollout.status`,
-    apiKey,
-    { input: {} },
-    fetcher,
-  );
-  const ok = response.ok && recordValue(response.value, "ok") === true;
-  return {
-    id: "api",
-    ok,
-    detail: ok
-      ? "Brain API accepted the scoped credential."
-      : "Brain API check failed.",
-  };
-};
-
-const mcpCheck = async ({
-  id,
-  method,
-  origin,
-  apiKey,
-  fetcher,
-}: {
-  readonly id: "mcp.initialize" | "mcp.prompts.list";
-  readonly method: "initialize" | "prompts/list";
-  readonly origin: string;
-  readonly apiKey: string;
-  readonly fetcher: typeof fetch;
-}): Promise<DoctorCheck> => {
-  const response = await postJson(
-    `${origin}/mcp`,
-    apiKey,
-    {
-      jsonrpc: "2.0",
-      id: id === "mcp.initialize" ? 1 : 2,
-      method,
-      ...(method === "initialize"
-        ? {
-            params: {
-              protocolVersion: "2025-06-18",
-              capabilities: {},
-              clientInfo: { name: "maestro-brain-doctor", version: "1.0.0" },
-            },
-          }
-        : {}),
-    },
-    fetcher,
-  );
-  const result = recordValue(response.value, "result");
-  const prompts = recordValue(result, "prompts");
-  const validResult =
-    method === "initialize"
-      ? typeof recordValue(result, "protocolVersion") === "string" &&
-        typeof recordValue(result, "serverInfo") === "object"
-      : Array.isArray(prompts) &&
-        prompts.some((prompt) => recordValue(prompt, "name") === "ask-apero");
-  const ok =
-    response.ok &&
-    recordValue(response.value, "jsonrpc") === "2.0" &&
-    validResult;
-  return {
-    id,
-    ok,
-    detail: ok
-      ? method === "initialize"
-        ? "MCP initialize succeeded."
-        : "MCP prompt catalog is available."
-      : `${method} check failed.`,
-  };
-};
-
-export const doctorBrainEnvironment = async (
-  config: CliRuntimeConfig,
-  fetcher: typeof fetch = fetch,
-): Promise<CliResult> => {
-  const origin = brainApiOrigin(config.brainSiteUrl);
-  const apiKey = config.brainApiKey;
-  if (
-    origin === undefined ||
-    apiKey === undefined ||
-    apiKey.length === 0 ||
-    apiKey.trim() !== apiKey
-  ) {
-    return {
-      exitCode: 1,
-      stdout: formatJsonOutput({
-        ok: false,
-        checks: [],
-        detail:
-          "CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY are required and invalid.",
-      }),
-      stderr: "",
-    };
-  }
-
-  const checks = [
-    await apiCheck(origin, apiKey, fetcher),
-    await mcpCheck({
-      id: "mcp.initialize",
-      method: "initialize",
-      origin,
-      apiKey,
-      fetcher,
-    }),
-    await mcpCheck({
-      id: "mcp.prompts.list",
-      method: "prompts/list",
-      origin,
-      apiKey,
-      fetcher,
-    }),
-  ];
-  const ok = checks.every((check) => check.ok);
-  return {
-    exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({ ok, checks }),
-    stderr: "",
-  };
+  return setupOutput(ok, repoRoot, artifacts);
 };

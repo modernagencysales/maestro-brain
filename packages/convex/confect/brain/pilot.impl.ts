@@ -8,9 +8,11 @@ import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import { headlessNoteSubmitEffect } from "./headlessNoteSubmit";
 import { PageNotFound, StaleRevision } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
-import { requireBrainAccess, requireHeadlessBrainAccess } from "./pages.impl";
+import { requireBrainAccess } from "./pages.impl";
+import { validatePilotText } from "./pilotValidation";
 import pilot from "./pilot.spec";
 import {
   buildAskResponse,
@@ -31,11 +33,6 @@ const sourceKeyFor = (input: {
   markdown: string;
 }) => `src_${sha256Hex(JSON.stringify(input))}`;
 
-const validateText = (field: "title" | "markdown" | "query", value: string) =>
-  value.trim().length === 0
-    ? new ValidationFailed({ field, message: `${field} is required.` })
-    : null;
-
 const submitNote = FunctionImpl.make(
   databaseSchema,
   pilot,
@@ -45,7 +42,8 @@ const submitNote = FunctionImpl.make(
       const title = args.title.trim();
       const markdown = args.markdown.trim();
       const invalid =
-        validateText("title", title) ?? validateText("markdown", markdown);
+        validatePilotText("title", title) ??
+        validatePilotText("markdown", markdown);
       if (invalid !== null) return yield* invalid;
       const brain = yield* requireBrainAccess(args.brainKey, "editor");
       const submittedAt = yield* unsafeAssumeClockProvided(
@@ -79,39 +77,7 @@ const headlessSubmitNote = FunctionImpl.make(
   databaseSchema,
   pilot,
   "headlessSubmitNote",
-  (args) =>
-    Effect.gen(function* () {
-      const title = args.title.trim();
-      const markdown = args.markdown.trim();
-      const invalid =
-        validateText("title", title) ?? validateText("markdown", markdown);
-      if (invalid !== null) return yield* invalid;
-      const brain = yield* requireHeadlessBrainAccess(args);
-      const submittedAt = yield* unsafeAssumeClockProvided(
-        Clock.currentTimeMillis,
-      );
-      const sourceKey = sourceKeyFor({
-        brainKey: brain.brainKey,
-        submittedAt,
-        title,
-        markdown,
-      });
-      const writer = yield* DatabaseWriter;
-      yield* writer
-        .table("brainSources")
-        .insert({
-          workspaceId: brain.workspaceId,
-          organizationId: brain.organizationId,
-          sourceKey,
-          title,
-          markdown,
-          status: "pending_review",
-          submittedAt,
-          schemaVersion: 1,
-        })
-        .pipe(Effect.orDie);
-      return { sourceKey, status: "pending_review" as const };
-    }),
+  headlessNoteSubmitEffect,
 );
 
 const reviewNote = FunctionImpl.make(
@@ -416,7 +382,7 @@ const updatePage = FunctionImpl.make(
 const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
   Effect.gen(function* () {
     const query = args.query.trim().toLowerCase();
-    const invalid = validateText("query", query);
+    const invalid = validatePilotText("query", query);
     if (invalid !== null) return yield* invalid;
     const brain = yield* requireBrainAccess(args.brainKey, "viewer");
     const reader = yield* DatabaseReader;
@@ -524,7 +490,7 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
 const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
   Effect.gen(function* () {
     const query = args.query.trim().toLowerCase();
-    const invalid = validateText("query", query);
+    const invalid = validatePilotText("query", query);
     if (invalid !== null) return yield* invalid;
     const brain = yield* requireBrainAccess(args.brainKey, "viewer");
     const reader = yield* DatabaseReader;

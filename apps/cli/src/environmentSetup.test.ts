@@ -4,12 +4,11 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -29,6 +28,12 @@ const makeRepo = (): string => {
   return root;
 };
 
+const makeEmptyRepo = (): string => {
+  const root = mkdtempSync(join(tmpdir(), "maestro-brain-target-"));
+  roots.push(root);
+  return root;
+};
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true });
   vi.unstubAllGlobals();
@@ -38,11 +43,53 @@ describe("maestro-brain environment setup", () => {
   it("routes setup and doctor as strict no-argument terminal commands", async () => {
     await expect(runCliAsync(["setup", "extra"])).resolves.toMatchObject({
       exitCode: 1,
-      stderr: "setup accepts codex, claude-code, or cowork.\n",
+      stderr:
+        "setup accepts an optional runtime followed by --repo <project-directory>.\n",
     });
     await expect(runCliAsync(["doctor", "extra"])).resolves.toMatchObject({
       exitCode: 1,
       stderr: "doctor takes no arguments.\n",
+    });
+  });
+
+  it("configures an explicit target repository with a self-contained skill", async () => {
+    const repoRoot = makeEmptyRepo();
+    const result = await runCliAsync(["setup", "codex", "--repo", repoRoot], {
+      brainSiteUrl: "https://brain.example.test",
+      providerEnv: {},
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      target: repoRoot,
+      next: expect.arrayContaining([
+        expect.stringContaining("trust the project"),
+        expect.stringContaining("codex mcp list"),
+      ]),
+    });
+    expect(existsSync(join(repoRoot, ".codex/config.toml"))).toBe(true);
+    const skillPath = join(repoRoot, ".agents/skills/ask-apero");
+    expect(lstatSync(skillPath).isDirectory()).toBe(true);
+    expect(lstatSync(skillPath).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(skillPath, "SKILL.md"), "utf8")).toContain(
+      "name: ask-apero",
+    );
+  });
+
+  it("rejects a missing setup target without creating it", async () => {
+    const parent = makeEmptyRepo();
+    const missing = join(parent, "missing");
+    const result = await runCliAsync(["setup", "codex", `--repo=${missing}`], {
+      brainSiteUrl: "https://brain.example.test",
+      providerEnv: {},
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(existsSync(missing)).toBe(false);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: `Setup target is not an existing directory: ${missing}`,
     });
   });
 
@@ -55,6 +102,13 @@ describe("maestro-brain environment setup", () => {
     });
 
     expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      next: [
+        "Export MAESTRO_BRAIN_API_KEY in this terminal.",
+        "Open .cowork/maestro-brain.json and add its connector values in Cowork: name maestro-brain, streamable HTTP, and the MAESTRO_BRAIN_API_KEY value as the bearer token.",
+        "Run doctor with the same CLI invocation and environment used for setup.",
+      ],
+    });
     expect(existsSync(join(repoRoot, ".cowork/maestro-brain.json"))).toBe(true);
     expect(existsSync(join(repoRoot, ".codex/config.toml"))).toBe(false);
     expect(existsSync(join(repoRoot, ".mcp.json"))).toBe(false);
@@ -104,10 +158,11 @@ describe("maestro-brain environment setup", () => {
       ".agents/skills/ask-apero",
       ".claude/skills/ask-apero",
     ]) {
-      const link = join(repoRoot, path);
-      expect(lstatSync(link).isSymbolicLink()).toBe(true);
-      expect(resolve(join(link, ".."), readlinkSync(link))).toBe(
-        join(repoRoot, "company-context/skills/ask-apero"),
+      const skill = join(repoRoot, path);
+      expect(lstatSync(skill).isDirectory()).toBe(true);
+      expect(lstatSync(skill).isSymbolicLink()).toBe(false);
+      expect(readFileSync(join(skill, "SKILL.md"), "utf8")).toContain(
+        "name: ask-apero",
       );
     }
   });
@@ -234,7 +289,7 @@ describe("maestro-brain environment setup", () => {
 });
 
 describe("maestro-brain doctor", () => {
-  it("validates the API, MCP initialize, and MCP prompts/list", async () => {
+  it("validates the API, MCP initialize, prompts, and scoped tools", async () => {
     const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
       const body = JSON.parse(String(init?.body)) as {
         readonly id?: number;
@@ -252,6 +307,25 @@ describe("maestro-brain doctor", () => {
               protocolVersion: "2025-06-18",
               capabilities: { prompts: {} },
               serverInfo: { name: "maestro-brain", version: "1" },
+            },
+          }),
+        );
+      }
+      if (body.method === "tools/list") {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              tools: [
+                "answers.ask",
+                "context.get",
+                "sources.search",
+                "sources.get",
+              ].map((name) => ({
+                name: `template.brain.${name}`,
+                inputSchema: { type: "object", properties: {} },
+              })),
             },
           }),
         );
@@ -275,15 +349,26 @@ describe("maestro-brain doctor", () => {
     );
 
     expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(true);
     expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: true,
-      checks: [
-        { id: "api", ok: true },
-        { id: "mcp.initialize", ok: true },
-        { id: "mcp.prompts.list", ok: true },
+      next: [
+        "Run health with this same CLI invocation.",
+        'Run ask "What is our ICP?" with this same CLI invocation.',
       ],
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(
+      Object.fromEntries(output.checks.map(({ id, ok }) => [id, ok])),
+    ).toMatchObject({
+      api: true,
+      "mcp.initialize": true,
+      "mcp.prompts.list": true,
+      "mcp.tools.list": true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const [, init] of fetchMock.mock.calls) {
       expect(init?.headers).toEqual(
         expect.objectContaining({ authorization: "Bearer brain_api_secret" }),
@@ -305,6 +390,13 @@ describe("maestro-brain doctor", () => {
 
     expect(result.exitCode).toBe(1);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      checks: [
+        { id: "config.siteUrl", ok: false, status: "invalid" },
+        { id: "config.apiKey", ok: false, status: "invalid" },
+      ],
+    });
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
   });
 
@@ -326,7 +418,9 @@ describe("maestro-brain doctor", () => {
                   protocolVersion: "2025-06-18",
                   serverInfo: { name: "maestro-brain" },
                 }
-              : { prompts: [] },
+              : request.method === "prompts/list"
+                ? { prompts: [] }
+                : { tools: [] },
         }),
       );
     });
@@ -340,10 +434,66 @@ describe("maestro-brain doctor", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: false,
-      checks: [{ ok: true }, { ok: true }, { ok: false }],
-    });
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(false);
+    expect(output.checks.find(({ id }) => id === "mcp.prompts.list")?.ok).toBe(
+      false,
+    );
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("rejects hosted tool schemas that expose tenant selectors", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      if (String(url).includes("/api/"))
+        return new Response(JSON.stringify({ ok: true }));
+      const request = JSON.parse(String(init?.body)) as {
+        readonly id: number;
+        readonly method: string;
+      };
+      const result =
+        request.method === "initialize"
+          ? {
+              protocolVersion: "2025-06-18",
+              serverInfo: { name: "maestro-brain" },
+            }
+          : request.method === "prompts/list"
+            ? { prompts: [{ name: "ask-apero" }] }
+            : {
+                tools: [
+                  {
+                    name: "template.brain.answers.ask",
+                    inputSchema: {
+                      type: "object",
+                      properties: { brainKey: { type: "string" } },
+                    },
+                  },
+                ],
+              };
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: request.id, result }),
+      );
+    });
+
+    const result = await doctorBrainEnvironment(
+      {
+        brainSiteUrl: "https://brain.example.test",
+        brainApiKey: "brain_api_secret",
+        providerEnv: {},
+      },
+      fetchMock,
+    );
+
+    expect(result.exitCode).toBe(1);
+    const output = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
+    };
+    expect(output.ok).toBe(false);
+    expect(output.checks.find(({ id }) => id === "mcp.tools.list")?.ok).toBe(
+      false,
+    );
   });
 });

@@ -47,6 +47,21 @@ const mcpInputSchemaFor = (schemaName: string): unknown => {
   return callerInputSchema(schema);
 };
 
+const toolDescriptions: Readonly<Record<string, string>> = {
+  "brain.answers.ask":
+    "Synthesize a grounded answer from approved Company Brain evidence.",
+  "brain.context.get":
+    "Retrieve a bounded ContextPack with evidence, coverage, freshness, and exact citation identities.",
+  "brain.pages.get": "Open one approved Company Brain page by its stable key.",
+  "brain.pages.history":
+    "List approved revision history for one Company Brain page.",
+  "brain.pages.list": "List approved Company Brain pages available in scope.",
+  "brain.sources.get":
+    "Open one approved source using its exact publication-set and entry keys.",
+  "brain.sources.search":
+    "Search approved Company Brain sources to refine a retrieval miss.",
+};
+
 export const buildGeneratedMcpTools = () =>
   confectManifest.functions
     .filter((entry) => (entry.surfaces as readonly string[]).includes("mcp"))
@@ -55,7 +70,15 @@ export const buildGeneratedMcpTools = () =>
     )
     .map((entry) => ({
       name: `template.${entry.operationId}`,
-      description: `Invoke ${entry.operationId} through the generated Confect contract manifest.`,
+      description:
+        toolDescriptions[entry.operationId] ??
+        `Read approved Company Brain data with ${entry.operationId}.`,
       inputSchema: mcpInputSchemaFor(entry.argsSchemaName),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       typedErrors: entry.typedErrors,
     }));
