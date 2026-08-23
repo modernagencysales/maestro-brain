@@ -9,6 +9,7 @@ import {
   Text,
 } from "@saas-ui/react";
 import { ClientsTable } from "./clients-table";
+import { StateCard } from "../common/state-card";
 import { CreateClientDialog } from "./create-client-dialog";
 import type { ClientOnboardingState, CreateClientInput } from "./clients-state";
 
@@ -113,30 +114,6 @@ function ClientsStateCard({ state }: { readonly state: ClientsScreenState }) {
       </Card.Header>
       <Card.Body pt="0">
         <ClientsTable clients={state.clients} />
-      </Card.Body>
-    </Card.Root>
-  );
-}
-
-function StateCard({
-  description,
-  title,
-  tone = "blue",
-}: {
-  readonly description: string;
-  readonly title: string;
-  readonly tone?: "blue" | "red" | "yellow";
-}) {
-  return (
-    <Card.Root borderRadius="md">
-      <Card.Body>
-        <Stack gap="3">
-          <Badge alignSelf="flex-start" colorPalette={tone}>
-            {title}
-          </Badge>
-          <Heading size="md">{title}</Heading>
-          <Text color="gray.600">{description}</Text>
-        </Stack>
       </Card.Body>
     </Card.Root>
   );

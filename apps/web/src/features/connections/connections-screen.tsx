@@ -24,6 +24,7 @@ import {
   type TranscriptImportRequest,
   type TranscriptImportState,
 } from "./transcript-import";
+import { StateCard } from "../common/state-card";
 
 export type ConnectionsScreenState =
   | { readonly status: "loading" }
@@ -342,27 +343,3 @@ const connectStatus = (status: ConnectionRow["status"]): SlackConnectStatus =>
       : status === "disconnected" || status === "revoked"
         ? "not_connected"
         : status;
-
-function StateCard({
-  description,
-  title,
-  tone = "blue",
-}: {
-  readonly description: string;
-  readonly title: string;
-  readonly tone?: "blue" | "red" | "yellow";
-}) {
-  return (
-    <Card.Root borderRadius="md">
-      <Card.Body>
-        <Stack gap="3">
-          <Badge alignSelf="flex-start" colorPalette={tone}>
-            {title}
-          </Badge>
-          <Heading size="md">{title}</Heading>
-          <Text color="gray.600">{description}</Text>
-        </Stack>
-      </Card.Body>
-    </Card.Root>
-  );
-}
