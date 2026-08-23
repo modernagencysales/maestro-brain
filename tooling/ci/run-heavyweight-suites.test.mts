@@ -50,12 +50,22 @@ describe("heavyweight customer-artifact suite orchestration", () => {
       [
         "--dir apps/cli test:customer-cli-runtime",
         "--dir apps/cli test:create-root-integration",
+        "--dir packages/convex test:workflow-conformance",
         "--dir tooling/agent-pack test:privacy-no-network",
         "test:release-filesystem",
       ].sort(),
     );
     expect(
       indexOf(events, "end", "--dir apps/cli test:customer-cli-runtime"),
+    ).toBeLessThan(
+      indexOf(
+        events,
+        "start",
+        "--dir packages/convex test:workflow-conformance",
+      ),
+    );
+    expect(
+      indexOf(events, "end", "--dir packages/convex test:workflow-conformance"),
     ).toBeLessThan(indexOf(events, "start", "test:release-filesystem"));
     expect(
       indexOf(events, "end", "--dir apps/cli test:create-root-integration"),
@@ -77,7 +87,7 @@ describe("heavyweight customer-artifact suite orchestration", () => {
         indexOf(events, "end", "--dir apps/cli test:create-root-integration"),
       ),
     );
-    expect(labels(events, "end")).toHaveLength(4);
+    expect(labels(events, "end")).toHaveLength(5);
   });
 
   it("forwards TERM and INT to both active process groups", async () => {

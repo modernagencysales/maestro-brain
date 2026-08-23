@@ -229,9 +229,8 @@ const checkDescriptorDefinitions = {
           '"check:agent-pack": "tsx tooling/agent-pack/src/syncSkills.ts && tsx tooling/quality/check-agent-pack.mts"',
           '"check:app-map": "pnpm --dir tooling/app-map check"',
           '"check:confect-manifest": "tsx tooling/confect-manifest/src/check.ts"',
-          "--exclude apps/cli/src/factory/customerCliRuntime.test.ts",
-          "--exclude apps/cli/src/factory/createRootIntegration.test.ts",
-          "--exclude tooling/release/src/customerTarget/finalFilesystem.test.ts",
+          '"check:coverage-ratchet": "tsx tooling/quality/run-customer-coverage.mts"',
+          '"coverage:update-baseline": "tsx tooling/quality/run-customer-coverage.mts --update"',
           "turbo run test --filter='./packages/*' --filter=@maestro-template/web && pnpm test:tooling",
           "pnpm test && pnpm --dir tooling/agent-pack test && pnpm test:chassis-ci && pnpm --dir tooling/workflow test && pnpm test:release-filesystem && pnpm test:acceptance-tooling",
           "pnpm test:bootstrap && pnpm --dir tooling/generators exec vitest run src/customer-runtime.test.ts --maxWorkers=1 --no-file-parallelism",
@@ -242,9 +241,26 @@ const checkDescriptorDefinitions = {
           "the root verify chain must run heavyweight proofs once and canonical system/schema ownership before layer checks",
       },
       {
+        file: "tooling/quality/customer-coverage-contract.mts",
+        includes: [
+          "generated-customer-owned runtime and standalone verification v1",
+          '"packages/convex"',
+          '"apps/web"',
+          '"tooling/workflow/src/index.test.ts"',
+          '"tooling/release/src/deploy"',
+          '"tooling/generators/src/customer-runtime.test.ts"',
+          '"tooling/ci/verify-chassis.test.mts"',
+          '"tooling/acceptance/run-acceptance.test.mts"',
+        ],
+        absent: ['"tooling/release",', '"tooling/generators",'],
+        message:
+          "generated-customer coverage must measure shipped runtime and standalone verification without selecting absent factory publication trees",
+      },
+      {
         file: "tooling/ci/run-heavyweight-suites.mjs",
         includes: [
           '["--dir", "apps/cli", "test:customer-cli-runtime"]',
+          '["--dir", "packages/convex", "test:workflow-conformance"]',
           '["test:release-filesystem"]',
           '["--dir", "apps/cli", "test:create-root-integration"]',
           '["--dir", "tooling/agent-pack", "test:privacy-no-network"]',

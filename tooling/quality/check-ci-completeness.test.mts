@@ -37,14 +37,15 @@ describe("check:ci-completeness", () => {
     expect(requirements).toContain(
       "turbo run typecheck --concurrency=1 --filter=!@workspace/ui --filter=!@maestro-template/web && pnpm typecheck:saas-ui",
     );
-    expect(requirements).toContain(
-      "pnpm --dir packages/convex test:workflow-conformance",
+    const heavyweight = descriptor.requirements.find(
+      ({ file }) => file === "tooling/ci/run-heavyweight-suites.mjs",
     );
-    expect(requirements).toContain(
-      "pnpm --dir apps/cli test:create-root-integration",
-    );
-    expect(requirements).toContain(
-      "pnpm --dir tooling/agent-pack test:privacy-no-network",
+    expect(heavyweight?.includes).toEqual(
+      expect.arrayContaining([
+        '["--dir", "packages/convex", "test:workflow-conformance"]',
+        '["--dir", "apps/cli", "test:create-root-integration"]',
+        '["--dir", "tooling/agent-pack", "test:privacy-no-network"]',
+      ]),
     );
     expect(requirements).toContain(
       "node tooling/ci/run-heavyweight-suites.mjs",
@@ -139,7 +140,22 @@ describe("check:ci-completeness", () => {
         '"check:agent-pack": "tsx tooling/agent-pack/src/syncSkills.ts && tsx tooling/quality/check-agent-pack.mts"',
         '"check:app-map": "pnpm --dir tooling/app-map check"',
         '"check:confect-manifest": "tsx tooling/confect-manifest/src/check.ts"',
+        '"check:coverage-ratchet": "tsx tooling/quality/run-customer-coverage.mts"',
       ]),
+    );
+
+    const customerCoverage = descriptor.requirements.find(
+      ({ file }) => file === "tooling/quality/customer-coverage-contract.mts",
+    );
+    expect(customerCoverage?.includes).toEqual(
+      expect.arrayContaining([
+        '"packages/convex"',
+        '"apps/web"',
+        '"tooling/release/src/deploy"',
+      ]),
+    );
+    expect(customerCoverage?.absent).toEqual(
+      expect.arrayContaining(['"tooling/release",', '"tooling/generators",']),
     );
 
     const aggregateVerification = descriptor.requirements.find(

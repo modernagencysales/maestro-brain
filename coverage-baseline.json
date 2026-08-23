@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
   "provider": "@vitest/coverage-v8@4.1.11",
-  "scope": "factory-owned and adapted code excluding byte-identical Saas UI receipt files",
-  "lines": 76.1,
-  "functions": 78.02,
-  "branches": 68.72,
-  "statements": 75.25
+  "scope": "generated-customer-owned runtime and standalone verification v1",
+  "lines": 66.45,
+  "functions": 67.37,
+  "branches": 56.58,
+  "statements": 65.69
 }

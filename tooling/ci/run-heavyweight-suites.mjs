@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const lanes = [
   [
     ["--dir", "apps/cli", "test:customer-cli-runtime"],
+    ["--dir", "packages/convex", "test:workflow-conformance"],
     ["test:release-filesystem"],
   ],
   [
