@@ -22,14 +22,19 @@ import {
   LuChevronLeft,
   LuEllipsisVertical,
   LuFileText,
+  LuHistory,
+  LuPencil,
   LuStar,
 } from 'react-icons/lu'
+import { useModals } from '@workspace/ui/modals'
 
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
 
 import { brainInboxFixtures } from './brain-inbox-adapter'
+import { BrainPageOrganizeDialog } from './brain-page-organize-dialog'
+import { BrainPageHistoryDialog } from './brain-page-history-dialog'
 import {
   classifyBrainSaveFailure,
   shouldPersistBrainMarkdown,
@@ -59,6 +64,8 @@ type BrainEditorPage = Readonly<{
   updatedAt: number
   favorite?: boolean
   status?: 'active' | 'archived'
+  parentPageId?: string | null
+  sortKey?: string
 }>
 
 const fixturePage = (pageId: string): BrainEditorPage => {
@@ -205,6 +212,8 @@ function BrainPageToolbar(props: {
   onArchive: () => Promise<void>
   onBack: () => Promise<void>
   onFavorite: () => Promise<void>
+  onHistory: () => void
+  onOrganize: () => void
 }) {
   const favoriteLabel = props.favorite ? 'Remove favorite' : 'Add favorite'
   const starFill = props.favorite ? 'currentColor' : 'none'
@@ -239,6 +248,12 @@ function BrainPageToolbar(props: {
           </IconButton>
         </Menu.Trigger>
         <Menu.Content>
+          <Menu.Item value="organize" onClick={props.onOrganize}>
+            <LuPencil /> Rename or move
+          </Menu.Item>
+          <Menu.Item value="history" onClick={props.onHistory}>
+            <LuHistory /> Page history
+          </Menu.Item>
           <Menu.Item value="archive" onClick={props.onArchive}>
             <LuArchive /> Archive page
           </Menu.Item>
@@ -256,6 +271,7 @@ export function BrainInboxViewPage({
 }) {
   const [workspace] = useCurrentWorkspace()
   const navigate = useNavigate()
+  const modals = useModals()
   const fixtureRuntime = isFixtureAuthRuntime()
   const page = useBrainPage({
     fixtureRuntime,
@@ -317,6 +333,23 @@ export function BrainInboxViewPage({
       toast.error({ title: 'Unable to archive this page' })
     }
   }
+  const onOrganize = () => {
+    if (!page) return
+    modals.open(BrainPageOrganizeDialog, {
+      page,
+      workspaceId: workspace.id,
+      onUpdated: acceptMutation,
+    })
+  }
+  const onHistory = () => {
+    if (!page) return
+    modals.open(BrainPageHistoryDialog, {
+      pageId: page._id,
+      updatedAt: savedUpdatedAt,
+      workspaceId: workspace.id,
+      onUpdated: acceptMutation,
+    })
+  }
 
   const brainToolbar = (
     <BrainPageToolbar
@@ -326,6 +359,8 @@ export function BrainInboxViewPage({
       onArchive={onArchive}
       onBack={onBack}
       onFavorite={onFavorite}
+      onHistory={onHistory}
+      onOrganize={onOrganize}
     />
   )
 
