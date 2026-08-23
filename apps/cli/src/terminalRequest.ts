@@ -15,16 +15,22 @@ const usageFailure = (
     `${message}\nUsage: maestro-brain ${usage}\nRun maestro-brain ${commandPath} --help for details.\n`,
   );
 
+const textRequestNouns = {
+  ask: "question",
+  search: "query",
+} as const satisfies Record<"ask" | "search", string>;
+
 const textRequest = (
   command: "ask" | "search",
   argv: readonly string[],
 ): TerminalRequest => {
   const text = argv.slice(1).join(" ").trim();
+  const noun = textRequestNouns[command];
   if (!text)
     return usageFailure(
       command,
-      `${command} requires a ${command === "ask" ? "question" : "query"}.`,
-      `${command} <${command === "ask" ? "question" : "query"}>`,
+      `${command} requires a ${noun}.`,
+      `${command} <${noun}>`,
     );
   return command === "ask"
     ? { operationId: "brain.answers.ask", input: { question: text } }
