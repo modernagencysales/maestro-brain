@@ -6,10 +6,10 @@ import catalog from "./catalog.spec";
 
 const capabilities = [
   {
-    key: "brain.page.create",
+    key: "brain.page.createMarkdown",
     name: "Create Brain page",
     description: "Stores a cited markdown note in the workspace Brain.",
-    headlessExposure: "web",
+    headlessExposure: "api",
     requiresApproval: false,
   },
   {

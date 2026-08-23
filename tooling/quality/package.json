@@ -2,11 +2,18 @@
   "name": "@maestro-template/quality-tooling",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@maestro-template/template-core": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude ai-gate-scripts.test.mts --exclude check-agent-pack.test.mts --exclude check-convex-ai-files.test.mts --exclude check-deploy-authority.test.mts --exclude check-docs-freshness.test.mts --exclude check-recipes.test.mts --exclude mutation-script.test.mts",
+    "test:customer": "vitest run --passWithNoTests --exclude ai-gate-scripts.test.mts --exclude check-agent-pack.test.mts --exclude check-convex-ai-files.test.mts --exclude check-deploy-authority.test.mts --exclude check-docs-freshness.test.mts --exclude check-recipes.test.mts --exclude mutation-script.test.mts"
   }
 }

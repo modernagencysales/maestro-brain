@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "selectedPatterns": [
+    "records-example"
+  ],
+  "surfaces": [
+    {
+      "id": "workspace-membership",
+      "status": "real"
+    },
+    {
+      "id": "fake-record-crud",
+      "status": "fake"
+    },
+    {
+      "id": "local-convex-record-crud",
+      "status": "seam"
+    },
+    {
+      "id": "live-provider",
+      "status": "unavailable"
+    }
+  ],
+  "automation": {
+    "status": "unavailable",
+    "reason": "No automation is generated unless the workflow semantic ledger supports every exact primitive."
+  },
+  "handoff": "Every non-real surface remains labeled until its adapter and focused evidence replace the seam."
+}

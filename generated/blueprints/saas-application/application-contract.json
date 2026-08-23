@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "blueprint": "saas-application",
+  "selectedPatterns": [
+    "records-example"
+  ],
+  "personalization": {
+    "name": "Maestro Brain",
+    "firstOutcome": "Make company knowledge easy for people and agents to find, trust, and improve"
+  },
+  "operations": [
+    {
+      "id": "records.list",
+      "kind": "query",
+      "workspaceScoped": true
+    },
+    {
+      "id": "records.read",
+      "kind": "query",
+      "workspaceScoped": true
+    },
+    {
+      "id": "records.create",
+      "kind": "mutation",
+      "workspaceScoped": true
+    }
+  ],
+  "workflowRequired": false,
+  "automation": {
+    "status": "unavailable",
+    "reason": "No automation is generated unless the workflow semantic ledger supports every exact primitive."
+  },
+  "entity": {
+    "singular": "record",
+    "renameable": true,
+    "tenantKey": "workspaceId"
+  },
+  "primitive": "table-route-crud",
+  "uiStates": [
+    "loading",
+    "empty",
+    "error",
+    "list",
+    "detail",
+    "create"
+  ]
+}

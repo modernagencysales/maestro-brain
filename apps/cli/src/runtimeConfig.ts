@@ -17,10 +17,4 @@ export const decodeCliRuntimeConfig = (
   providerEnv: Object.fromEntries(
     cliProviderEnvNames.map((name) => [name, env[name]]),
   ),
-  ...(env.CONVEX_SITE_URL === undefined
-    ? {}
-    : { brainSiteUrl: env.CONVEX_SITE_URL }),
-  ...(env.MAESTRO_BRAIN_API_KEY === undefined
-    ? {}
-    : { brainApiKey: env.MAESTRO_BRAIN_API_KEY }),
 });

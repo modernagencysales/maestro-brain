@@ -12,19 +12,6 @@ import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import { ValidationFailed } from "../errors";
 import flags from "./flags.spec";
 
-export const brainOperationLaunchFlagDefaults = [
-  {
-    key: "template.brain.semanticOperations",
-    enabled: false,
-    killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
-  },
-  {
-    key: "template.brain.externalDelivery",
-    enabled: false,
-    killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
-  },
-] as const;
-
 const defaultFeatureFlagPolicies = [
   {
     key: "template.onboarding.workspaceBrief",
@@ -63,24 +50,6 @@ const defaultFeatureFlagPolicies = [
     rolloutPercent: 0,
     audience: "internal",
     killSwitchEnv: "LLM_DISABLED",
-  },
-  {
-    key: "template.brain.semanticOperations",
-    description:
-      "Semantic Brain operations including classification, maintenance, and Ask.",
-    enabled: false,
-    rolloutPercent: 0,
-    audience: "internal",
-    killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
-  },
-  {
-    key: "template.brain.externalDelivery",
-    description:
-      "External Brain delivery surfaces including Slack delivery, API, MCP, and exports.",
-    enabled: false,
-    rolloutPercent: 0,
-    audience: "internal",
-    killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
   },
 ] as const satisfies readonly FeatureFlagPolicySeed[];
 
@@ -212,9 +181,7 @@ type FeatureFlagPolicySeed = {
     | "template.workflow.liveRuns"
     | "template.billing.liveCheckout"
     | "template.notifications.center"
-    | "template.ai.liveGeneration"
-    | "template.brain.semanticOperations"
-    | "template.brain.externalDelivery";
+    | "template.ai.liveGeneration";
   readonly description: string;
   readonly enabled: boolean;
   readonly rolloutPercent: number;

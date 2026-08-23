@@ -1,21 +1,19 @@
 import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
 
-export const FeatureFlagKey = Schema.Literal(
+export const FeatureFlagKey = Schema.Literals([
   "template.onboarding.workspaceBrief",
   "template.workflow.liveRuns",
   "template.billing.liveCheckout",
   "template.notifications.center",
   "template.ai.liveGeneration",
-  "template.brain.semanticOperations",
-  "template.brain.externalDelivery",
-);
+]);
 
-export const FeatureFlagAudience = Schema.Literal(
+export const FeatureFlagAudience = Schema.Literals([
   "everyone",
   "internal",
   "workspace",
-);
+]);
 
 export const FeatureFlagPolicyRow = Schema.Struct({
   workspaceId: Schema.String,
@@ -25,7 +23,7 @@ export const FeatureFlagPolicyRow = Schema.Struct({
   rolloutPercent: Schema.Number,
   audience: FeatureFlagAudience,
   killSwitchEnv: Schema.optional(Schema.String),
-  source: Schema.Literal("default", "workspace"),
+  source: Schema.Literals(["default", "workspace"]),
   updatedAt: Schema.Number,
 });
 

@@ -95,66 +95,6 @@ describe("template data lifecycle plan", () => {
     );
   });
 
-  it("deletes retrieval content before origin purge while retaining allocator tombstones", () => {
-    const plan = buildWorkspaceDataLifecyclePlan({
-      workspaceId: "workspace_123",
-      requestedBy: "user_123",
-      now: 1_700_000_000_000,
-    });
-
-    expect(currentLifecycleResourceIds).toEqual(
-      expect.arrayContaining([
-        "retrievalPublicationSubjects",
-        "retrievalEligibilityFences",
-        "retrievalPublicationSets",
-        "retrievalEntries",
-        "retrievalTokenCatalog",
-        "retrievalTokens",
-      ]),
-    );
-    expect(plan.delete.resources).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "retrievalPublicationSubjects",
-          deleteMode: "retain-audit",
-        }),
-        expect.objectContaining({
-          id: "retrievalEligibilityFences",
-          deleteMode: "retain-audit",
-        }),
-        expect.objectContaining({
-          id: "retrievalPublicationSets",
-          deleteMode: "delete",
-        }),
-        expect.objectContaining({
-          id: "retrievalEntries",
-          deleteMode: "delete",
-        }),
-        expect.objectContaining({
-          id: "retrievalTokenCatalog",
-          exportMode: "json",
-          deleteMode: "delete",
-        }),
-        expect.objectContaining({
-          id: "retrievalTokens",
-          deleteMode: "delete",
-        }),
-      ]),
-    );
-    expect(plan.retention.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          resourceId: "retrievalPublicationSubjects",
-          action: "retain-until-workspace-delete",
-        }),
-        expect.objectContaining({
-          resourceId: "retrievalEligibilityFences",
-          action: "retain-until-workspace-delete",
-        }),
-      ]),
-    );
-  });
-
   it("covers reusable versioning history and freshness resources", () => {
     const plan = buildWorkspaceDataLifecyclePlan({
       workspaceId: "workspace_123",

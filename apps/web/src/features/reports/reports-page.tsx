@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import { Chart, useChart } from "@chakra-ui/charts";
+import { Chart, useChart } from '@chakra-ui/charts'
 import {
   ButtonGroup,
   Card,
@@ -12,9 +12,9 @@ import {
   Page,
   Stat,
   Text,
-} from "@saas-ui/react";
-import { SegmentedControl, Sidebar, useSidebar } from "@saas-ui/react";
-import { LuPanelLeftOpen } from "react-icons/lu";
+} from '@saas-ui/react'
+import { SegmentedControl } from '@saas-ui/react'
+import { LuPanelLeftOpen } from 'react-icons/lu'
 import {
   Bar,
   BarChart,
@@ -24,10 +24,12 @@ import {
   PieChart,
   XAxis,
   YAxis,
-} from "recharts";
+} from 'recharts'
+
+import { Sidebar, useSidebar } from '#components/ui/sidebar'
 
 export function ReportsPage() {
-  const { open } = useSidebar();
+  const { open } = useSidebar()
 
   return (
     <Page.Root height="100%" gap="0">
@@ -46,7 +48,7 @@ export function ReportsPage() {
           <ButtonGroup>
             <SegmentedControl
               size="xs"
-              items={["Last 7 days", "Month to date", "Year to date"]}
+              items={['Last 7 days', 'Month to date', 'Year to date']}
               defaultValue="Year to date"
             />
           </ButtonGroup>
@@ -60,9 +62,9 @@ export function ReportsPage() {
                 Revenue
               </Heading>
               <Text fontSize="lg" color="fg" fontWeight="medium">
-                {Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
+                {Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
                 }).format(12500)}
               </Text>
             </Card.Header>
@@ -81,18 +83,18 @@ export function ReportsPage() {
                 <Stat.Root gap="0">
                   <Stat.Label>Acquisition cost</Stat.Label>
                   <Stat.ValueText fontWeight="medium" fontSize="lg">
-                    {Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
+                    {Intl.NumberFormat('en-US', {
+                      style: 'currency',
+                      currency: 'USD',
                     }).format(233)}
                   </Stat.ValueText>
                 </Stat.Root>
                 <Stat.Root gap="0">
                   <Stat.Label>Lifetime value</Stat.Label>
                   <Stat.ValueText fontWeight="medium" fontSize="lg">
-                    {Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
+                    {Intl.NumberFormat('en-US', {
+                      style: 'currency',
+                      currency: 'USD',
                     }).format(893)}
                   </Stat.ValueText>
                 </Stat.Root>
@@ -150,39 +152,39 @@ export function ReportsPage() {
         </Grid>
       </Page.Body>
     </Page.Root>
-  );
+  )
 }
 
 function RevenueChart() {
   const chart = useChart({
     data: [
-      { date: "Jan", Revenue: 12500 },
-      { date: "Feb", Revenue: 15800 },
-      { date: "Mar", Revenue: 14200 },
-      { date: "Apr", Revenue: 16900 },
-      { date: "May", Revenue: 13600 },
-      { date: "Jun", Revenue: 11200 },
-      { date: "Jul", Revenue: 17500 },
-      { date: "Aug", Revenue: 19200 },
-      { date: "Sep", Revenue: 18100 },
-      { date: "Oct", Revenue: 21500 },
+      { date: 'Jan', Revenue: 12500 },
+      { date: 'Feb', Revenue: 15800 },
+      { date: 'Mar', Revenue: 14200 },
+      { date: 'Apr', Revenue: 16900 },
+      { date: 'May', Revenue: 13600 },
+      { date: 'Jun', Revenue: 11200 },
+      { date: 'Jul', Revenue: 17500 },
+      { date: 'Aug', Revenue: 19200 },
+      { date: 'Sep', Revenue: 18100 },
+      { date: 'Oct', Revenue: 21500 },
     ],
-    series: [{ name: "Revenue", color: "indigo.solid" }],
-  });
+    series: [{ name: 'Revenue', color: 'indigo.solid' }],
+  })
 
   return (
     <Chart.Root chart={chart} height={240}>
       <BarChart data={chart.data} barSize={20}>
-        <CartesianGrid stroke={chart.color("border.subtle")} vertical={false} />
-        <XAxis axisLine={false} tickLine={false} dataKey={chart.key("date")} />
+        <CartesianGrid stroke={chart.color('border.subtle')} vertical={false} />
+        <XAxis axisLine={false} tickLine={false} dataKey={chart.key('date')} />
         <YAxis
           axisLine={false}
           tickLine={false}
           domain={[0, 100]}
           tickFormatter={(value) =>
-            Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
+            Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: 'USD',
             }).format(value)
           }
         />
@@ -197,23 +199,23 @@ function RevenueChart() {
         ))}
       </BarChart>
     </Chart.Root>
-  );
+  )
 }
 
 function ChurnRateByTierChart() {
   const chart = useChart({
     data: [
-      { name: "Starter", value: 70, color: "indigo.solid" },
-      { name: "Pro", value: 40, color: "pink.solid" },
-      { name: "Enterprise", value: 25, color: "neutral.solid" },
+      { name: 'Starter', value: 70, color: 'indigo.solid' },
+      { name: 'Pro', value: 40, color: 'pink.solid' },
+      { name: 'Enterprise', value: 25, color: 'neutral.solid' },
     ],
-  });
+  })
 
   return (
     <Chart.Root chart={chart} boxSize="100px">
       <PieChart>
         <Pie
-          dataKey={chart.key("value")}
+          dataKey={chart.key('value')}
           data={chart.data}
           innerRadius={35}
           outerRadius={50}
@@ -227,5 +229,5 @@ function ChurnRateByTierChart() {
         </Pie>
       </PieChart>
     </Chart.Root>
-  );
+  )
 }

@@ -1,53 +1,59 @@
-import { toast } from "@saas-ui/react";
+import { toast } from '@saas-ui/react'
 
-import { InviteDialog } from "@workspace/ui/invite-dialog";
+import { InviteDialog } from '@workspace/ui/invite-dialog'
 
-import { api, isTRPCClientError } from "#lib/trpc/react";
+import { api, isTRPCClientError } from '#lib/trpc/react'
 
-import { useCurrentWorkspace } from "../hooks/use-current-workspace";
-
-type InviteInput = Parameters<
-  React.ComponentProps<typeof InviteDialog>["onInvite"] &
-    ((...args: never) => never)
->[0];
+import { useCurrentWorkspace } from '../hooks/use-current-workspace'
 
 export function InvitePeopleDialog(props: {
-  open?: boolean;
-  onOpenChange?: (details: { open: boolean }) => void;
+  isOpen: boolean
+  onClose: () => void
 }) {
-  const [workspace] = useCurrentWorkspace();
+  const [workspace] = useCurrentWorkspace()
 
-  const inviteMembers = api.workspaceMembers.invite.useMutation();
+  const inviteMembers = api.workspaceMembers.invite.useMutation()
 
-  const onInvite = (input: InviteInput) =>
-    invitePeople(input, workspace.id, inviteMembers.mutateAsync);
+  return (
+    <InviteDialog
+      {...props}
+      onInvite={async ({ emails, role }) => {
+        const result = await toast.promise(
+          inviteMembers.mutateAsync({
+            workspaceId: workspace.id,
+            emails,
+            role,
+          }),
+          {
+            loading: {
+              title:
+                emails.length === 1
+                  ? `Inviting ${emails[0]}...`
+                  : `Inviting ${emails.length} people...`,
+            },
 
-  return <InviteDialog {...props} onInvite={onInvite} />;
+            success: () => {
+              return {
+                title: 'Invitation(s) have been sent.',
+              }
+            },
+            error: (error: unknown) => {
+              if (isTRPCClientError(error)) {
+                console.error(error.data)
+              }
+
+              return {
+                title:
+                  error instanceof Error ? error.message : 'Invitation failed',
+              }
+            },
+          },
+        )
+
+        if (!result) {
+          throw new Error('Failed to invite people')
+        }
+      }}
+    />
+  )
 }
-
-const invitePeople = async (
-  { emails, role }: InviteInput,
-  workspaceId: string,
-  mutate: ReturnType<
-    typeof api.workspaceMembers.invite.useMutation
-  >["mutateAsync"],
-) => {
-  const result = await toast.promise(mutate({ workspaceId, emails, role }), {
-    loading: { title: inviteLoadingTitle(emails) },
-    success: () => ({ title: "Invitation(s) have been sent." }),
-    error: inviteError,
-  });
-  if (!result) throw new Error("Failed to invite people");
-};
-
-const inviteLoadingTitle = (emails: string[]) =>
-  emails.length === 1
-    ? `Inviting ${emails[0]}...`
-    : `Inviting ${emails.length} people...`;
-
-const inviteError = (error: unknown) => {
-  if (isTRPCClientError(error)) console.error(error.data);
-  return {
-    title: error instanceof Error ? error.message : "Invite failed",
-  };
-};

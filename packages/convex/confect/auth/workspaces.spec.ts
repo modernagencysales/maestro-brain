@@ -1,40 +1,48 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-
+import workspaces from "../_generated/tables/workspaces";
+import { Id } from "../_generated/id";
 import {
-  Forbidden,
-  OrganizationNotFound,
-  ProvisioningConflict,
+  MemberNotInWorkspace,
+  NoRecoverableError,
   Unauthorized,
 } from "../errors";
-import { Role } from "../access/roles";
 
-export const WorkspaceSummary = Schema.Struct({
-  agencyKey: Schema.String,
-  brainKey: Schema.String,
+const frontendWorkspace = Schema.Struct({
+  id: Id("workspaces"),
+  slug: Schema.String,
   name: Schema.String,
-  kind: Schema.Literal("agency", "client"),
-  clientSlug: Schema.optional(Schema.String),
-  effectiveRole: Role,
-  status: Schema.Literal("active", "archived"),
-  freshness: Schema.Struct({
-    updatedAt: Schema.Number,
-    lifecycleGeneration: Schema.Number,
-    revocationGeneration: Schema.Number,
-  }),
+});
+
+const me = FunctionSpec.publicQuery({
+  name: "me",
+  args: () => Schema.Struct({}),
+  returns: () =>
+    Schema.Struct({
+      id: Id("users"),
+      email: Schema.String,
+      name: Schema.String,
+      image: Schema.Null,
+      workspaces: Schema.Array(frontendWorkspace),
+    }),
+  error: () => Unauthorized,
+});
+
+const bySlug = FunctionSpec.publicQuery({
+  name: "bySlug",
+  args: () => Schema.Struct({ slug: Schema.String }),
+  returns: () => Schema.NullOr(frontendWorkspace),
+  error: () => Schema.Union([Unauthorized, MemberNotInWorkspace]),
 });
 
 const list = FunctionSpec.publicQuery({
   name: "list",
   args: () => Schema.Struct({}),
-  returns: () => Schema.Array(WorkspaceSummary),
-  error: () =>
-    Schema.Union(
-      Unauthorized,
-      Forbidden,
-      OrganizationNotFound,
-      ProvisioningConflict,
-    ),
+  returns: () => Schema.Array(workspaces.Doc),
+  error: () => Schema.Union([Unauthorized, NoRecoverableError]),
 });
 
-export default GroupSpec.make().addFunction(list);
+export default GroupSpec.make()
+  .addFunction(me)
+  .addFunction(bySlug)
+  .addFunction(list);

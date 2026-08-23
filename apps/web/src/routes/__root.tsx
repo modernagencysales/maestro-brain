@@ -1,178 +1,137 @@
+import { withEmotionCache } from "@emotion/react";
+import "@fontsource-variable/inter";
+import { QueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
-  createRootRouteWithContext,
   HeadContent,
   Outlet,
-  redirect,
   Scripts,
-  useRouterState,
+  createRootRouteWithContext,
 } from "@tanstack/react-router";
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { ConvexReactClient } from "convex/react";
-import type { QueryClient } from "@tanstack/react-query";
-import { useRef, type ReactNode } from "react";
-import { TemplateToastProvider } from "@maestro-template/ui";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
+import { ConvexProvider, ConvexProviderWithAuth } from "convex/react";
+import { I18nProvider } from "@workspace/i18n";
+import { ModalsProvider } from "@workspace/ui/modals";
 
-import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
-import type { SafeClientRuntime } from "../auth/authkit-server";
-import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
-import { loadSafeClientRuntime } from "../auth/safe-client-runtime";
-import { AppProvider } from "../features/common/providers/app-provider";
+import { seo } from "#utils/seo.ts";
+
+import { Provider } from "../provider.tsx";
+import { loadInitialAuthForConvex } from "#lib/auth/workos-auth-loader";
+import { useAuthFromAuthKit } from "#lib/auth/workos-auth";
+import type { CompatibilityApi } from "#lib/trpc/react";
 import {
-  createBrowserWorkspaceStorage,
-  WorkspaceProvider,
-} from "../providers/workspace";
-import {
-  useTemplateMutation,
-  useTemplateQuery,
-} from "../adapters/confect-state";
-import {
-  createWorkspaceLiveRefs,
-  isWorkspaceListPending,
-  reuseRuntimeWorkspaceOperations,
-  type RuntimeWorkspaceOperationsCache,
-} from "../providers/workspace-operations";
-import { PostHogWebProvider } from "../providers/posthog";
-import { CookieConsentBoundary } from "../providers/cookie-consent";
-import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
-import { buildTemplateRouteHead } from "../adapters/route-head";
-import {
-  AgencySetupFailure,
-  AgencyWorkspaceLoading,
-} from "../features/setup/agency-setup-failure";
-import appCssUrl from "../index.css?url";
-import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
+  fixtureClientAuth,
+  isFixtureAuthRuntime,
+} from "#lib/auth/route-auth";
 
-const AuthKitProviderWithConvexProviderWithAuth =
-  createAuthKitProviderWithConvexProviderWithAuth(workosAuthKitClientBridge);
-const browserWorkspaceStorage = createBrowserWorkspaceStorage();
-
-export type RouterContext = {
-  readonly queryClient: QueryClient;
-  readonly convexClient: ConvexReactClient;
-  readonly convexQueryClient: ConvexQueryClient;
-};
-
-export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () =>
-    buildTemplateRouteHead({
-      stylesheets: [
-        { rel: "stylesheet", href: xyflowCssUrl },
-        { rel: "stylesheet", href: appCssUrl },
-      ],
-    }),
-  loader: async ({ location }): Promise<SafeClientRuntime> => {
-    const runtime = await loadSafeClientRuntime();
-
-    if (
-      runtime.workspaceRuntimeMode !== "fake" &&
-      runtime.authSnapshot.status === "signedOut"
-    ) {
-      throw redirect({
-        href: `/sign-in?returnPathname=${encodeURIComponent(location.pathname)}`,
-      });
-    }
-
-    return runtime;
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+  trpc: CompatibilityApi;
+  convexClient: import("convex/react").ConvexReactClient;
+  convexQueryClient: import("@convex-dev/react-query").ConvexQueryClient;
+}>()({
+  beforeLoad: async ({ context }) => ({
+    auth: isFixtureAuthRuntime()
+      ? fixtureClientAuth()
+      : await loadInitialAuthForConvex(context.convexClient),
+  }),
+  loader: ({ context }) => ({ auth: context.auth }),
+  head: () => ({
+    meta: [
+      {
+        charSet: "utf-8",
+      },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
+      },
+      {
+        rel: "icon",
+        href: "/favicon.ico",
+      },
+      ...seo(),
+    ],
+  }),
+  component: () => {
+    return (
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
+    );
   },
-  component: RootComponent,
 });
 
-function RootComponent() {
-  const { convexClient } = Route.useRouteContext();
-  const { authSnapshot, workspaceRuntimeMode } = Route.useLoaderData();
+const RootDocument = withEmotionCache(BaseRootDocument);
 
-  if (authSnapshot.status === "setupFailure") {
-    return (
-      <RootDocument>
-        <AgencySetupFailure reason={authSnapshot.reason} />
-      </RootDocument>
-    );
-  }
-
+function BaseRootDocument(props: { children: React.ReactNode }) {
   return (
-    <AuthKitProviderWithConvexProviderWithAuth
-      client={convexClient}
-      initialAuthSnapshot={authSnapshot}
-    >
-      <WorkspaceRuntimeBoundary
-        authSnapshot={authSnapshot}
-        workspaceRuntimeMode={workspaceRuntimeMode}
-      />
-    </AuthKitProviderWithConvexProviderWithAuth>
-  );
-}
-
-function WorkspaceRuntimeBoundary({
-  authSnapshot,
-  workspaceRuntimeMode,
-}: Pick<SafeClientRuntime, "authSnapshot" | "workspaceRuntimeMode">) {
-  const location = useRouterState({ select: (state) => state.location });
-  const liveRefs = createWorkspaceLiveRefs(
-    {
-      useQuery: useTemplateQuery,
-      useMutation: useTemplateMutation,
-    },
-    workspaceRuntimeMode !== "fake",
-  );
-  const operationsCache = useRef<RuntimeWorkspaceOperationsCache>(undefined);
-
-  if (
-    workspaceRuntimeMode !== "fake" &&
-    isWorkspaceListPending(liveRefs.listResult)
-  ) {
-    return (
-      <RootDocument>
-        <AgencyWorkspaceLoading />
-      </RootDocument>
-    );
-  }
-
-  operationsCache.current = reuseRuntimeWorkspaceOperations(
-    operationsCache.current,
-    {
-      authSnapshot,
-      mode: workspaceRuntimeMode,
-      liveRefs,
-    },
-  );
-
-  return (
-    <WorkspaceProvider
-      operations={operationsCache.current.operations}
-      storage={browserWorkspaceStorage}
-    >
-      <CookieConsentBoundary>
-        {(analyticsConsent) => (
-          <PostHogWebProvider analyticsConsent={analyticsConsent}>
-            <RootDocument>
-              <AppProvider>
-                <WebRouteUxBoundary
-                  href={location.href}
-                  pathname={location.pathname}
-                >
-                  <TemplateToastProvider>
-                    <Outlet />
-                  </TemplateToastProvider>
-                </WebRouteUxBoundary>
-              </AppProvider>
-            </RootDocument>
-          </PostHogWebProvider>
-        )}
-      </CookieConsentBoundary>
-    </WorkspaceProvider>
-  );
-}
-
-function RootDocument({ children }: { readonly children: ReactNode }) {
-  return (
-    <html lang="en">
+    <html suppressHydrationWarning lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
+        <RuntimeProviders>{props.children}</RuntimeProviders>
+
+        <div id="app-loader">
+          <img src="/img/logo-icon.svg" alt="logo" width="24" height="24" />
+        </div>
+        <style>
+          {`body {
+            padding: 0;
+          }
+
+          #app-loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            transition-property: opacity;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 250ms;
+            opacity: 1;
+            background-color: oklch(1 0 0);
+            pointer-events: none;
+            z-index: 9999;
+          }
+
+          .dark #app-loader {
+            background-color: oklch(0.05 0.030 261.692);
+          }
+
+          .loaded #app-loader {
+            opacity: 0;
+          }`}
+        </style>
+
         <Scripts />
       </body>
     </html>
+  );
+}
+
+function RuntimeProviders(props: { children: React.ReactNode }) {
+  const client = Route.useRouteContext().convexClient;
+  const application = (
+    <Provider>
+      <I18nProvider locale="en" messages={{}}>
+        <ModalsProvider>{props.children}</ModalsProvider>
+      </I18nProvider>
+
+      <ReactQueryDevtools buttonPosition="bottom-right" />
+      <TanStackRouterDevtools position="bottom-right" />
+    </Provider>
+  );
+  if (isFixtureAuthRuntime()) {
+    return <ConvexProvider client={client}>{application}</ConvexProvider>;
+  }
+  return (
+    <AuthKitProvider initialAuth={Route.useLoaderData().auth}>
+      <ConvexProviderWithAuth client={client} useAuth={useAuthFromAuthKit}>
+        {application}
+      </ConvexProviderWithAuth>
+    </AuthKitProvider>
   );
 }

@@ -7,12 +7,15 @@ import {
   describeWorkflowTemplate,
   getHeadlessOperation,
   runTemplateWorkflow,
-} from "@maestro-template/workflow-tooling";
+} from "./headlessRegistry";
 import {
   providerConfigReport,
   type ProviderMode,
 } from "@maestro-template/integrations";
 import { parseNamedArgs } from "./namedArgs";
+import { CREATE_HELP } from "./factory/create";
+import { START_HELP } from "./factory/start";
+import { helpForSharedCommand } from "./help";
 import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
 import type {
   CliCapabilityRequest,
@@ -33,47 +36,40 @@ const providerModes = new Set<ProviderMode>(["fake", "test", "live"]);
 const helpResult = (): CliResult =>
   cliSuccess(
     [
-      "Company Brain CLI",
+      "Maestro has two repository modes:",
+      "  factory checkout: contains releases/; create a separate app here",
+      "  generated app: contains template-instance.json; build the product here",
       "",
-      "Install once from a Maestro Brain checkout, then use maestro-brain from any directory.",
+      "Factory checkout:",
+      `  ${CREATE_HELP.trim()}`,
       "",
-      "Quick start",
-      "  ./apps/cli/bin/maestro-brain.mjs install",
-      '  export CONVEX_SITE_URL="https://your-company-brain.example"',
-      '  export MAESTRO_BRAIN_API_KEY="<display-once-key>"',
-      "  maestro-brain setup [codex|claude-code|cowork] [--repo <project-directory>]",
-      "  maestro-brain doctor",
-      '  maestro-brain ask "What is our ICP?"',
+      "Generated app loop (preflight -> inspect -> preview -> write -> verify -> run):",
+      "  maestro preflight [--mode fake|test|live] [--details|--json]",
+      "  maestro recipes list|show <recipe-id> [--human|--details|--json]",
+      "  maestro add <outcome-or-recipe> [--answer <question>=<value>] [--write] [--human|--details|--json]",
+      "  maestro verify [--scope focused|full] [--changed <paths>] [--human|--details|--json]",
+      "  maestro check [--mode fake|test|live] [--changed <paths>] [--human|--details|--json]",
+      `  ${START_HELP.trim()}`,
+      "  maestro support-bundle [--output <path>] [--write] [--human|--details|--json]",
       "",
-      "Read company context",
-      "  maestro-brain ask <question>",
-      "  maestro-brain search <query>",
-      "  maestro-brain source <citation-key|source-revision-key>",
-      "  maestro-brain health",
+      "Advanced factory and operator commands:",
+      "  maestro scaffold --generator <id> --args <json-object> [--write] [--human|--details|--json]",
+      "  maestro doctor <provider> --environment fake|local|dev|preview|staging [--human|--details|--json]",
+      "  maestro adopt preflight|work-package ... (dry-run only)",
+      "  maestro mcp",
+      "  maestro mcp configure --host <claude-code|codex> [--profile <inspect|dev-power>] [--write --privacy-reviewed|--remove] [--human|--details|--json]",
       "",
-      "Add or correct data (submissions enter review)",
-      "  maestro-brain note --file <note.md> [--title <title>]",
-      "  maestro-brain note --stdin --title <title>",
-      "  maestro-brain note --input <json>",
-      "  maestro-brain note status <source-key>",
-      "  maestro-brain note list [pending_review|published|rejected]",
-      "  maestro-brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
-      '  maestro-brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source "Claude Ask Apero Advisors"]',
-      "  maestro-brain feedback --idempotency-key <key> --input <json>",
-      "",
-      "Inspect or test the hosted HTTP MCP",
-      "  maestro-brain mcp tools",
-      "  maestro-brain mcp prompts",
-      "  maestro-brain mcp call <tool-name> [--input <json>]",
-      "",
-      "Setup and diagnostics",
-      "  maestro-brain install [--bin-dir <directory>]",
-      "  maestro-brain setup [codex|claude-code|cowork]",
-      "  maestro-brain doctor",
-      "  maestro-brain <command> --help",
-      "",
-      "Advanced template-development commands (offline; not the hosted Brain)",
-      "  maestro-brain describe | operations list | api catalog",
+      "Shared headless surfaces:",
+      "maestro-template describe",
+      "maestro-template operations list",
+      "maestro-template operations get <id>",
+      "maestro-template capability run <id> [--workspace <slug>] [--input <json>] [--idempotency-key <key>]",
+      "maestro-template workflow run [--workflow <id>] [--workspace <slug>] [--idempotency-key <key>] [--mode <mode>] [--input <json>]",
+      "maestro-template api catalog",
+      "maestro-template api openapi",
+      "maestro-template mcp tools",
+      "maestro-template mcp call <toolName>",
+      "maestro-template integrations report [fake|test|live]",
     ].join("\n") + "\n",
   );
 
@@ -91,7 +87,7 @@ const operationsResult = ({
     : cliFailure(`Unknown operation: ${target}\n`);
 };
 
-const parseCapabilityRequest = (
+export const parseCapabilityRequest = (
   argv: readonly string[],
 ): CliCapabilityRequest | CliResult => {
   const [, , , ...requestArgs] = argv;
@@ -195,50 +191,95 @@ const workflowResult = ({ argv }: CliCommandContext): CliResult => {
   }
 };
 
+const matchesHelp = ({ command }: CliCommandContext): boolean =>
+  !command || command === "help" || command === "--help";
+
+const matchesSharedHelp = ({
+  command,
+  subcommand,
+}: CliCommandContext): boolean =>
+  command !== undefined &&
+  (subcommand === "--help" || subcommand === "-h") &&
+  helpForSharedCommand(command) !== undefined;
+
+const matchesDescribe = ({ command }: CliCommandContext): boolean =>
+  command === "describe";
+
+const matchesOperations = ({
+  command,
+  subcommand,
+  target,
+}: CliCommandContext): boolean =>
+  command === "operations" &&
+  (subcommand === "list" || (subcommand === "get" && target !== undefined));
+
+const matchesWorkflowRun = ({
+  command,
+  subcommand,
+}: CliCommandContext): boolean =>
+  command === "workflow" && subcommand === "run";
+
+const matchesCapabilityRun = ({
+  command,
+  subcommand,
+  target,
+}: CliCommandContext): boolean =>
+  command === "capability" && subcommand === "run" && target !== undefined;
+
+const matchesApi = ({ command, subcommand }: CliCommandContext): boolean =>
+  command === "api" && (subcommand === "catalog" || subcommand === "openapi");
+
+const matchesMcp = ({
+  command,
+  subcommand,
+  target,
+}: CliCommandContext): boolean =>
+  command === "mcp" &&
+  (subcommand === "tools" || (subcommand === "call" && target !== undefined));
+
+const matchesIntegrationsReport = ({
+  command,
+  subcommand,
+}: CliCommandContext): boolean =>
+  command === "integrations" && subcommand === "report";
+
 export const createCliHandlers = ({
   capability,
 }: CliCommandDependencies): readonly CliCommandHandler[] => [
   {
-    matches: ({ command }) =>
-      !command || command === "help" || command === "--help",
+    matches: matchesHelp,
     run: () => helpResult(),
   },
   {
-    matches: ({ command }) => command === "describe",
+    matches: matchesSharedHelp,
+    run: ({ command }) => cliSuccess(helpForSharedCommand(command ?? "") ?? ""),
+  },
+  {
+    matches: matchesDescribe,
     run: () => cliSuccess(formatJsonOutput(describeWorkflowTemplate())),
   },
   {
-    matches: ({ command, subcommand, target }) =>
-      command === "operations" &&
-      (subcommand === "list" || (subcommand === "get" && target !== undefined)),
+    matches: matchesOperations,
     run: (context) => operationsResult(context),
   },
   {
-    matches: ({ command, subcommand }) =>
-      command === "workflow" && subcommand === "run",
+    matches: matchesWorkflowRun,
     run: (context) => workflowResult(context),
   },
   {
-    matches: ({ command, subcommand, target }) =>
-      command === "capability" && subcommand === "run" && target !== undefined,
+    matches: matchesCapabilityRun,
     run: (context) => capabilityResult(context, capability),
   },
   {
-    matches: ({ command, subcommand }) =>
-      command === "api" &&
-      (subcommand === "catalog" || subcommand === "openapi"),
+    matches: matchesApi,
     run: (context) => apiResult(context),
   },
   {
-    matches: ({ command, subcommand, target }) =>
-      command === "mcp" &&
-      (subcommand === "tools" ||
-        (subcommand === "call" && target !== undefined)),
+    matches: matchesMcp,
     run: (context) => mcpResult(context),
   },
   {
-    matches: ({ command, subcommand }) =>
-      command === "integrations" && subcommand === "report",
+    matches: matchesIntegrationsReport,
     run: (context, config) => integrationsResult(context, config),
   },
 ];

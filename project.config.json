@@ -2,46 +2,54 @@
   "project": {
     "name": "maestro-template"
   },
+  "sharedConvexBackendNote": "A shared Convex backend is not deployable. Environment-specific provider bindings are required and deployment fails closed unless their deployment identities differ.",
+  "requireDistinctConvexDeployments": true,
   "environments": {
     "staging": {
       "name": "staging",
       "domain": "maestro-template-staging.pages.dev",
       "cloudflarePagesProject": "maestro-template-staging",
       "cloudflareBranch": "staging",
-      "convexDeployName": "maestro-brain-staging",
-      "convexUrl": "https://maestro-brain-staging.convex.cloud",
-      "convexDeployKeyEnv": "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-      "callbackOriginEnv": "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
-      "requiredEnvGroups": ["cloudflare", "convex", "fake-providers"],
+      "convexDeployName": "perfect-sparrow-808",
+      "convexDeployNameEnv": "TEMPLATE_STAGING_CONVEX_DEPLOYMENT",
+      "convexUrlEnv": "TEMPLATE_STAGING_CONVEX_URL",
+      "hostedUrlEnv": "TEMPLATE_STAGING_HOSTED_URL",
+      "requiredEnvGroups": [
+        "cloudflare",
+        "convex",
+        "woodpecker",
+        "fake-providers"
+      ],
       "requiredSecrets": [
-        "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID"
+        "TEMPLATE_STAGING_CLOUDFLARE_API_TOKEN",
+        "TEMPLATE_STAGING_CLOUDFLARE_ACCOUNT_ID",
+        "TEMPLATE_STAGING_CONVEX_DEPLOY_KEY"
       ]
     },
     "production": {
       "name": "production",
       "domain": "maestro-template.pages.dev",
-      "cloudflarePagesProject": "maestro-template-production",
+      "cloudflarePagesProject": "maestro-template",
       "cloudflareBranch": "main",
-      "convexDeployName": "maestro-brain-production",
-      "convexUrl": "https://maestro-brain-production.convex.cloud",
-      "convexDeployKeyEnv": "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-      "callbackOriginEnv": "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
+      "convexDeployName": "hearty-peccary-962",
+      "convexDeployNameEnv": "TEMPLATE_PRODUCTION_CONVEX_DEPLOYMENT",
+      "convexUrlEnv": "TEMPLATE_PRODUCTION_CONVEX_URL",
+      "hostedUrlEnv": "TEMPLATE_PRODUCTION_HOSTED_URL",
       "requiredEnvGroups": [
         "cloudflare",
         "convex",
+        "woodpecker",
         "workos",
         "posthog",
         "dodo",
-        "mailersend",
+        "email",
         "llm",
         "storage"
       ],
       "requiredSecrets": [
-        "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-        "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_API_TOKEN",
-        "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_ACCOUNT_ID"
+        "TEMPLATE_PRODUCTION_CLOUDFLARE_API_TOKEN",
+        "TEMPLATE_PRODUCTION_CLOUDFLARE_ACCOUNT_ID",
+        "TEMPLATE_PRODUCTION_CONVEX_DEPLOY_KEY"
       ]
     }
   }

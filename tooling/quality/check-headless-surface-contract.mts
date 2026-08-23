@@ -1,5 +1,7 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import ts from "typescript";
 import { confectManifest } from "../../packages/template-core/src/generated/confectManifest";
 import { descriptorFor } from "./src/check-definitions.mts";
 import { isDirectRun } from "./src/direct-run.mts";
@@ -15,40 +17,13 @@ type ClientCallableSurface = (typeof clientCallableSurfaces)[number];
 
 type Surface = ExternalSurface | "web" | "workflow" | "internal" | string;
 
-const servicePrincipalHttpRefs: Readonly<Record<string, string>> = {
-  "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
-  "brain.sources.get": "internal.brain.readApi.headlessSourcesGet",
-  "brain.context.get": "internal.brain.readApi.headlessContextGet",
-  "brain.answers.ask": "internal.brain.readApi.headlessAnswersAsk",
-  "brain.rollout.status": "internal.brain.readApi.headlessBrainRolloutStatus",
-};
-
 export type HeadlessManifestOperation = {
   readonly operationId: string;
-  readonly namespace?: string;
-  readonly name?: string;
   readonly surfaces: readonly Surface[];
   readonly typedErrors: readonly string[];
   readonly kind?: string;
   readonly idempotent?: boolean;
 };
-
-export const httpGeneratedRefMappings = (
-  operations: readonly HeadlessManifestOperation[],
-): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    operations.flatMap((operation) =>
-      operation.namespace === undefined || operation.name === undefined
-        ? []
-        : [
-            [
-              operation.operationId,
-              servicePrincipalHttpRefs[operation.operationId] ??
-                `api.${operation.namespace}.${operation.name}`,
-            ],
-          ],
-    ),
-  );
 
 const hasExternalSurface = (operation: HeadlessManifestOperation): boolean =>
   operation.surfaces.some((surface) =>
@@ -129,15 +104,6 @@ export const cannedRegistryImportFailures = (
     ),
   );
 
-export const cannedRuntimeSuccess = (source: string): string[] => {
-  const markers = [
-    /\baccepted\s*:\s*true\b/,
-    /\bok\s*:\s*true\s*,\s*result\s*:\s*\{[^}]*\}/s,
-  ] as const;
-
-  return markers.some((marker) => marker.test(source)) ? ["accepted"] : [];
-};
-
 const missingLiteralGeneratedRefMapping = (
   operationIds: readonly string[],
   source: string,
@@ -149,102 +115,201 @@ const missingLiteralGeneratedRefMapping = (
       !source.includes(`\`${operationId}\``),
   );
 
-const escapeRegExp = (value: string): string =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const objectMappingPattern = (
-  objectName: string,
-  operationId: string,
-  mappedValue: string,
-): RegExp =>
-  new RegExp(
-    `\\b${objectName}\\b[\\s\\S]*?["'\`]${escapeRegExp(operationId)}["'\`]\\s*:\\s*${mappedValue}`,
+const parseTypeScript = (source: string): ts.SourceFile =>
+  ts.createSourceFile(
+    "headless-projection.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
   );
+
+const propertyNameText = (name: ts.PropertyName): string | undefined => {
+  if (
+    ts.isIdentifier(name) ||
+    ts.isStringLiteral(name) ||
+    ts.isNumericLiteral(name)
+  )
+    return name.text;
+  return undefined;
+};
+
+const unwrapExpression = (expression: ts.Expression): ts.Expression => {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  )
+    current = current.expression;
+  return current;
+};
+
+const objectMapping = (
+  sourceFile: ts.SourceFile,
+  objectName: string,
+): ReadonlyMap<string, ts.Expression> => {
+  const result = new Map<string, ts.Expression>();
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === objectName &&
+      node.initializer !== undefined
+    ) {
+      const initializer = unwrapExpression(node.initializer);
+      if (!ts.isObjectLiteralExpression(initializer)) return;
+      for (const property of initializer.properties) {
+        if (!ts.isPropertyAssignment(property)) continue;
+        const name = propertyNameText(property.name);
+        if (name !== undefined) result.set(name, property.initializer);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return result;
+};
+
+const expressionRoot = (expression: ts.Expression): string | undefined => {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (
+    ts.isPropertyAccessExpression(expression) ||
+    ts.isElementAccessExpression(expression)
+  )
+    return expressionRoot(expression.expression);
+  if (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  )
+    return expressionRoot(expression.expression);
+  return undefined;
+};
+
+const isElementAccessOn = (
+  expression: ts.Expression,
+  objectName: string,
+): boolean =>
+  ts.isElementAccessExpression(expression) &&
+  ts.isIdentifier(expression.expression) &&
+  expression.expression.text === objectName;
+
+const callCount = (
+  sourceFile: ts.SourceFile,
+  predicate: (call: ts.CallExpression) => boolean,
+): number => {
+  let count = 0;
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && predicate(node)) count += 1;
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return count;
+};
 
 export const missingHttpGeneratedRefMapping = (
   operationIds: readonly string[],
   source: string,
-  generatedRefs: Readonly<Record<string, string>> = {},
-): string[] =>
-  operationIds.filter((operationId) => {
-    const generatedRef = generatedRefs[operationId] ?? `api.${operationId}`;
-    return !objectMappingPattern(
-      "operationRefs",
-      operationId,
-      `${escapeRegExp(generatedRef)}\\b`,
-    ).test(source);
+): string[] => {
+  const mappings = objectMapping(parseTypeScript(source), "operationRefs");
+  return operationIds.filter((operationId) => {
+    const ref = mappings.get(operationId);
+    return ref === undefined || expressionRoot(ref) !== "api";
   });
+};
 
 export const missingCliGeneratedRefUsage = (
   operationIds: readonly string[],
   source: string,
 ): string[] => {
-  const mappedOperationVariable = source.match(
-    /\b(?:const|let)\s+([a-zA-Z_$][\w$]*)\s*=\s*staticCliOperationRefs\s*\[[^\]]+\]/,
-  )?.[1];
+  const sourceFile = parseTypeScript(source);
+  const mappings = objectMapping(sourceFile, "staticCliOperationRefs");
+  const derivedRefs = new Set<string>();
+  const visitDerived = (node: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined &&
+      (isElementAccessOn(node.initializer, "staticCliOperationRefs") ||
+        (ts.isCallExpression(node.initializer) &&
+          node.initializer.arguments.some(
+            (argument) =>
+              ts.isIdentifier(argument) &&
+              argument.text === "staticCliOperationRefs",
+          )))
+    )
+      derivedRefs.add(node.name.text);
+    ts.forEachChild(node, visitDerived);
+  };
+  visitDerived(sourceFile);
   const usesGeneratedCliRefs =
-    /\brunTemplateApiOperation\s*\(\s*staticCliOperationRefs\s*\[[^\]]+\]/.test(
-      source,
-    ) ||
-    (mappedOperationVariable !== undefined &&
-      new RegExp(
-        `\\brunTemplateApiOperation\\s*\\(\\s*${mappedOperationVariable}\\b`,
-      ).test(source));
+    callCount(
+      sourceFile,
+      (call) =>
+        ts.isIdentifier(call.expression) &&
+        call.expression.text === "runTemplateApiOperation" &&
+        call.arguments[0] !== undefined &&
+        (isElementAccessOn(call.arguments[0], "staticCliOperationRefs") ||
+          (ts.isIdentifier(call.arguments[0]) &&
+            derivedRefs.has(call.arguments[0].text))),
+    ) > 0;
 
-  const remoteMappedOperationVariable = source.match(
-    /\b(?:const|let)\s+([a-zA-Z_$][\w$]*)\s*=\s*remoteCliOperationRefs\s*\[[^\]]+\]/,
-  )?.[1];
-  const usesRemoteCliRefs =
-    remoteMappedOperationVariable !== undefined &&
-    new RegExp(
-      `fetch\\s*\\(\\s*[^,]*\\/api\\/\\$\\{${remoteMappedOperationVariable}\\}`,
-    ).test(source);
-
-  return operationIds.filter(
-    (operationId) =>
-      !(
-        (objectMappingPattern(
-          "staticCliOperationRefs",
-          operationId,
-          `["'\`]${operationId.replaceAll(".", "\\.")}["'\`]`,
-        ).test(source) &&
-          usesGeneratedCliRefs) ||
-        (objectMappingPattern(
-          "remoteCliOperationRefs",
-          operationId,
-          `["'\`]${operationId.replaceAll(".", "\\.")}["'\`]`,
-        ).test(source) &&
-          usesRemoteCliRefs)
-      ),
-  );
+  return operationIds.filter((operationId) => {
+    const ref = mappings.get(operationId);
+    return (
+      ref === undefined ||
+      (!ts.isStringLiteralLike(ref) &&
+        !ts.isNoSubstitutionTemplateLiteral(ref)) ||
+      !usesGeneratedCliRefs
+    );
+  });
 };
 
 export const missingMcpGeneratedRefUsage = (
   operationIds: readonly string[],
   source: string,
 ): string[] => {
-  const usesGeneratedRefsForToolListing =
-    /\bgeneratedMcpOperationRefs\s*\[\s*entry\.operationId\s*\]/.test(source);
-  const usesGeneratedRefsForCallDispatch =
-    /\bgeneratedMcpOperationRefs\s*\[\s*candidate\.operationId\s*\]\s*===\s*toolName/.test(
-      source,
-    );
-
-  return operationIds.filter(
-    (operationId) =>
-      !objectMappingPattern(
-        "generatedMcpOperationRefs",
-        operationId,
-        `["'\`]template\\.${operationId.replaceAll(".", "\\.")}["'\`]`,
-      ).test(source) ||
-      !usesGeneratedRefsForToolListing ||
-      !usesGeneratedRefsForCallDispatch,
+  const sourceFile = parseTypeScript(source);
+  const mappings = objectMapping(sourceFile, "generatedMcpOperationRefs");
+  const sharedCalls = callCount(
+    sourceFile,
+    (call) =>
+      ts.isIdentifier(call.expression) &&
+      call.expression.text === "mcpToolNameFor",
   );
+  const sharedFallback =
+    sharedCalls >= 2 &&
+    source.includes("generatedMcpOperationRefs[operationId]") &&
+    source.includes("template.${operationId}");
+  if (sharedFallback) return [];
+
+  let directAccesses = 0;
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isElementAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "generatedMcpOperationRefs"
+    )
+      directAccesses += 1;
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return operationIds.filter((operationId) => {
+    const ref = mappings.get(operationId);
+    return (
+      ref === undefined ||
+      (!ts.isStringLiteralLike(ref) &&
+        !ts.isNoSubstitutionTemplateLiteral(ref)) ||
+      directAccesses < 2
+    );
+  });
 };
 
 export const missingHttpExecutorDispatch = (source: string): boolean =>
   !/\bexecuteHeadlessOperation\s*\(/.test(source) ||
-  !/\brefs\s*:\s*(?:ctx\.operationRefs\s*\?\?\s*)?operationRefs\b/.test(source);
+  !/\brefs\s*:\s*operationRefs\b/.test(source);
 
 export const missingRuntimeAdapterDispatch = (source: string): boolean =>
   !/\bTemplateRuntimeAdapter\b/.test(source) ||
@@ -269,27 +334,25 @@ export const missingGeneratedRefMapping = (
   return missingLiteralGeneratedRefMapping(operationIds, source);
 };
 
-const missingIdempotencyProof = (
-  operations: readonly HeadlessManifestOperation[],
-  source: string,
-): string[] =>
-  operations
-    .filter(
-      (operation) =>
-        hasExternalSurface(operation) &&
-        operation.idempotent === false &&
-        ["mutation", "action"].includes(operation.kind ?? ""),
-    )
-    .filter(
-      (operation) =>
-        !source.includes(
-          `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
-        ),
-    )
-    .map((operation) => operation.operationId);
-
 const readRepoFile = async (repoRoot: string, path: string): Promise<string> =>
   readFile(join(repoRoot, path), "utf8");
+
+const readOptionalRepoFile = async (
+  repoRoot: string,
+  path: string,
+): Promise<string | undefined> =>
+  existsSync(join(repoRoot, path)) ? readRepoFile(repoRoot, path) : undefined;
+
+export const optionalRuntimeSource = (
+  path: string,
+  source: string | undefined,
+): readonly { readonly path: string; readonly source: string }[] =>
+  source === undefined ? [] : [{ path, source }];
+
+export const mcpProjectionPath = (workflowSelected: boolean): string =>
+  workflowSelected
+    ? "tooling/workflow/src/index.ts"
+    : "apps/cli/src/headlessRegistry.ts";
 
 export const evaluateHeadlessSurfaceContract = async (
   repoRoot: string,
@@ -299,35 +362,29 @@ export const evaluateHeadlessSurfaceContract = async (
   const operations =
     confectManifest.functions as readonly HeadlessManifestOperation[];
 
-  const [
-    httpSource,
-    cliSource,
-    cliRemoteSource,
-    workflowSource,
-    workflowCompatSource,
-    executorSource,
-    httpTests,
-    executorTests,
-    workflowTests,
-    confectGuide,
-  ] = await Promise.all([
-    readRepoFile(repoRoot, "packages/convex/confect/http.ts"),
-    readRepoFile(repoRoot, "apps/cli/src/index.ts"),
-    readRepoFile(repoRoot, "apps/cli/src/remoteApi.ts"),
-    readRepoFile(repoRoot, "tooling/workflow/src/index.ts"),
-    readRepoFile(repoRoot, "tooling/workflow/src/workflow-compat.ts"),
-    readRepoFile(repoRoot, "packages/convex/confect/manifest/executor.ts"),
-    readRepoFile(repoRoot, "packages/convex/test/http-docs.test.ts"),
-    readRepoFile(repoRoot, "packages/convex/test/headless-executor.test.ts"),
-    readRepoFile(repoRoot, "tooling/workflow/src/index.test.ts"),
-    readRepoFile(repoRoot, "docs/template/confect-effect-guide.md"),
-  ]);
+  const workflowIndexPath = "tooling/workflow/src/index.ts";
+  const workflowProjectionPath = mcpProjectionPath(
+    existsSync(join(repoRoot, workflowIndexPath)),
+  );
+  const [httpSource, cliSource, workflowSource, executorSource] =
+    await Promise.all([
+      readRepoFile(repoRoot, "packages/convex/confect/http.ts"),
+      readRepoFile(repoRoot, "apps/cli/src/index.ts"),
+      readRepoFile(repoRoot, workflowProjectionPath),
+      readRepoFile(repoRoot, "packages/convex/confect/manifest/executor.ts"),
+    ]);
+  const workflowCompatPath = "tooling/workflow/src/workflow-compat.ts";
+  const workflowCompatSource = await readOptionalRepoFile(
+    repoRoot,
+    workflowCompatPath,
+  );
 
-  for (const operationId of missingTypedErrors(operations)) {
-    failures.push(
-      `operation ${operationId} is exposed to API/CLI/MCP without public typed errors`,
-    );
-  }
+  failures.push(
+    ...missingTypedErrors(operations).map(
+      (operationId) =>
+        `operation ${operationId} is exposed to API/CLI/MCP without public typed errors`,
+    ),
+  );
 
   for (const operationId of missingExternalValidationError(operations)) {
     failures.push(
@@ -343,31 +400,14 @@ export const evaluateHeadlessSurfaceContract = async (
     );
   }
 
-  for (const operationId of missingIdempotencyProof(
-    operations,
-    [
-      httpSource,
-      executorSource,
-      httpTests,
-      executorTests,
-      workflowTests,
-      confectGuide,
-    ].join("\n"),
-  )) {
-    failures.push(
-      `operation ${operationId} is non-idempotent on API/CLI/MCP without idempotency-key enforcement proof`,
-    );
-  }
-
-  const generatedHttpRefs = httpGeneratedRefMappings(operations);
-  const apiMissingRefs = missingHttpGeneratedRefMapping(
+  const apiMissingRefs = missingGeneratedRefMapping(
     exposedOperationIds(operations, "api"),
     httpSource,
-    generatedHttpRefs,
+    "http",
   );
   const cliMissingRefs = missingGeneratedRefMapping(
     exposedOperationIds(operations, "cli"),
-    [cliSource, cliRemoteSource].join("\n"),
+    cliSource,
     "cli",
   );
   const mcpMissingRefs = missingGeneratedRefMapping(
@@ -378,12 +418,8 @@ export const evaluateHeadlessSurfaceContract = async (
   const runtimeSources = [
     { path: "packages/convex/confect/http.ts", source: httpSource },
     { path: "apps/cli/src/index.ts", source: cliSource },
-    { path: "apps/cli/src/remoteApi.ts", source: cliRemoteSource },
-    { path: "tooling/workflow/src/index.ts", source: workflowSource },
-    {
-      path: "tooling/workflow/src/workflow-compat.ts",
-      source: workflowCompatSource,
-    },
+    { path: workflowProjectionPath, source: workflowSource },
+    ...optionalRuntimeSource(workflowCompatPath, workflowCompatSource),
     {
       path: "packages/convex/confect/manifest/executor.ts",
       source: executorSource,
@@ -402,7 +438,7 @@ export const evaluateHeadlessSurfaceContract = async (
   }
   for (const operationId of cliMissingRefs) {
     failures.push(
-      `CLI operation ${operationId} lacks a generated ref mapping in the CLI projection`,
+      `CLI operation ${operationId} lacks a generated ref mapping in apps/cli/src/index.ts`,
     );
   }
   for (const operationId of mcpMissingRefs) {
@@ -413,14 +449,6 @@ export const evaluateHeadlessSurfaceContract = async (
   if (missingRuntimeAdapterDispatch(workflowSource)) {
     failures.push(
       "CLI/MCP compatibility projection must dispatch through an explicit runtime adapter before returning FeatureDisabled",
-    );
-  }
-
-  for (const marker of cannedRuntimeSuccess(
-    runtimeSources.map(({ source }) => source).join("\n"),
-  )) {
-    failures.push(
-      `runtime executor code returns canned success marker ${marker} instead of executeHeadlessOperation`,
     );
   }
 

@@ -1,11 +1,4 @@
-import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import {
-  authorizeHeadlessOperation,
-  reviewedHeadlessPolicyFor,
-  type HeadlessOperationPolicy,
-} from "../headless/authorizeOperation";
-import type { HeadlessPrincipal } from "../headless/principal";
 import {
   type IdempotencyKeyValidationError,
   validateCallerIdempotencyKey,
@@ -28,23 +21,10 @@ export type HeadlessExecutorRequest = {
   readonly idempotencyKey?: string;
 };
 
-export type AuthorizedHeadlessExecutorRequest = HeadlessExecutorRequest & {
-  readonly principal: HeadlessPrincipal;
-  readonly policy: HeadlessOperationPolicy;
-};
-
 export type HeadlessFailureResult = {
   readonly ok: false;
   readonly error: {
-    readonly _tag:
-      | "Unauthorized"
-      | "ValidationFailed"
-      | "Forbidden"
-      | "RateLimited"
-      | "SubsystemDisabled"
-      | "RetrievalCapacityExceeded"
-      | "RolloutStatusCapacityExceeded"
-      | "RolloutStatusIntegrityConflict";
+    readonly _tag: "NotFound" | "ValidationFailed";
     readonly message: string;
   };
 };
@@ -79,7 +59,7 @@ export type HeadlessExecutionAdapter = {
   ) => unknown | Promise<unknown>;
 };
 
-export const headlessFailure = (
+const failure = (
   tag: HeadlessFailureResult["error"]["_tag"],
   message: string,
 ): HeadlessFailureResult => ({
@@ -90,20 +70,15 @@ export const headlessFailure = (
   },
 });
 
-const isLegacyCreateMarkdownOperation = (operationId: string): boolean =>
-  operationId === "brain.pages.createMarkdown";
-
 export const findHeadlessOperation = (
   operationId: string,
   surface: HeadlessSurface,
 ): HeadlessManifestOperation | undefined =>
-  isLegacyCreateMarkdownOperation(operationId)
-    ? undefined
-    : confectManifest.functions.find(
-        (operation) =>
-          operation.operationId === operationId &&
-          operation.surfaces.some((candidate: string) => candidate === surface),
-      );
+  confectManifest.functions.find(
+    (operation) =>
+      operation.operationId === operationId &&
+      operation.surfaces.some((candidate) => candidate === surface),
+  );
 
 export const resolveHeadlessOperation = (
   request: HeadlessExecutorRequest,
@@ -113,9 +88,9 @@ export const resolveHeadlessOperation = (
   const operation = findHeadlessOperation(request.operationId, request.surface);
 
   if (!operation) {
-    return headlessFailure(
-      "ValidationFailed",
-      "Headless operation is not available.",
+    return failure(
+      "NotFound",
+      `No headless operation ${request.operationId} exposed on ${request.surface}.`,
     );
   }
 
@@ -125,7 +100,7 @@ export const resolveHeadlessOperation = (
 const isPlainObject = (
   value: object,
 ): value is { readonly [key: string]: unknown } => {
-  const prototype = Object.getPrototypeOf(value) as object | null;
+  const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 };
 
@@ -163,7 +138,7 @@ const isObjectJsonValue = (value: object, seen: WeakSet<object>): boolean => {
   if (!seen.has(value)) {
     seen.add(value);
     result = Array.isArray(value)
-      ? value.every((item: unknown) => isJsonValue(item, seen))
+      ? value.every((item) => isJsonValue(item, seen))
       : isPlainJsonObject(value, seen);
   }
 
@@ -206,36 +181,6 @@ const headlessOperationKinds = new Set<string>(["query", "mutation", "action"]);
 const isHeadlessOperationKind = (kind: string): kind is HeadlessOperationKind =>
   headlessOperationKinds.has(kind);
 
-const sanitizedDispatchFailure = (
-  error: unknown,
-): HeadlessFailureResult | undefined => {
-  if (
-    !Ref.isConvexError(error) ||
-    typeof error.data !== "object" ||
-    error.data === null ||
-    !("_tag" in error.data)
-  )
-    return undefined;
-  if (error.data._tag === "SubsystemDisabled")
-    return headlessFailure("SubsystemDisabled", "Brain reads are unavailable.");
-  if (error.data._tag === "RetrievalCapacityExceeded")
-    return headlessFailure(
-      "RetrievalCapacityExceeded",
-      "Brain retrieval capacity was exceeded.",
-    );
-  if (error.data._tag === "RolloutStatusCapacityExceeded")
-    return headlessFailure(
-      "RolloutStatusCapacityExceeded",
-      "Brain rollout status exceeded its bounded evaluation capacity.",
-    );
-  if (error.data._tag === "RolloutStatusIntegrityConflict")
-    return headlessFailure(
-      "RolloutStatusIntegrityConflict",
-      "Brain rollout status detected an integrity conflict.",
-    );
-  return undefined;
-};
-
 const idempotencyFailureFor = (
   operation: HeadlessManifestOperation,
   idempotencyKey: IdempotencyKeyValidationError | string | undefined,
@@ -249,13 +194,13 @@ const idempotencyFailureFor = (
       return undefined;
     }
 
-    return headlessFailure(
+    return failure(
       "ValidationFailed",
       `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
     );
   }
 
-  return headlessFailure(
+  return failure(
     "ValidationFailed",
     `Operation ${operation.operationId} received invalid idempotencyKey: ${idempotencyKey.message}`,
   );
@@ -267,7 +212,7 @@ const inputFailureFor = (
 ): HeadlessFailureResult | undefined =>
   isJsonRecord(input)
     ? undefined
-    : headlessFailure(
+    : failure(
         "ValidationFailed",
         `Operation ${operation.operationId} received non-JSON-safe input.`,
       );
@@ -278,9 +223,9 @@ const refFailureFor = (
 ): HeadlessFailureResult | undefined =>
   ref
     ? undefined
-    : headlessFailure(
-        "ValidationFailed",
-        "Headless operation is not available.",
+    : failure(
+        "NotFound",
+        `No generated function ref registered for operation ${operation.operationId}.`,
       );
 
 const inputWithIdempotencyKey = (
@@ -340,28 +285,20 @@ const dispatchHeadlessOperation = async (
         action: adapter.runAction,
       }[operationKind]
     : undefined;
-  let result: DispatchResult;
-  if (runner === undefined) {
-    result = headlessFailure(
-      "ValidationFailed",
-      `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
-    );
-  } else {
-    try {
-      result = {
-        ok: true,
-        result: await runner(
-          execution.ref,
-          execution.input,
-          execution.operation,
-        ),
-      } satisfies DispatchSuccess;
-    } catch (error) {
-      const sanitized = sanitizedDispatchFailure(error);
-      if (sanitized === undefined) throw error;
-      result = sanitized;
-    }
-  }
+  const result =
+    runner === undefined
+      ? failure(
+          "ValidationFailed",
+          `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
+        )
+      : ({
+          ok: true,
+          result: await runner(
+            execution.ref,
+            execution.input,
+            execution.operation,
+          ),
+        } satisfies DispatchSuccess);
 
   return result;
 };
@@ -372,7 +309,7 @@ const jsonResultFor = (
 ): HeadlessExecutorResult =>
   isJsonValue(result)
     ? successResultFor(operation, result)
-    : headlessFailure(
+    : failure(
         "ValidationFailed",
         `Operation ${operation.operationId} returned a non-JSON-safe result.`,
       );
@@ -410,33 +347,4 @@ export const executeHeadlessOperation = async (
     : execution;
 
   return result;
-};
-
-export const executeAuthorizedHeadlessOperation = async (
-  adapter: HeadlessExecutionAdapter,
-  request: AuthorizedHeadlessExecutorRequest,
-): Promise<HeadlessExecutorResult> => {
-  const resolved = resolveHeadlessOperation(request);
-  if (!resolved.ok) return resolved;
-  if (
-    reviewedHeadlessPolicyFor(request.operationId, [request.policy]) ===
-    undefined
-  ) {
-    return headlessFailure("Forbidden", "Headless operation is not available.");
-  }
-  const authorization = authorizeHeadlessOperation({
-    operationId: resolved.operation.operationId,
-    principal: request.principal,
-    operationInput: request.input,
-    policy: request.policy,
-  });
-  if (!authorization.ok) return authorization;
-  return executeHeadlessOperation(adapter, {
-    operationId: request.operationId,
-    surface: request.surface,
-    input: authorization.input,
-    ...(request.idempotencyKey === undefined
-      ? {}
-      : { idempotencyKey: request.idempotencyKey }),
-  });
 };

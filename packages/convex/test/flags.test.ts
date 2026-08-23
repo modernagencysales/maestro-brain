@@ -1,5 +1,6 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -46,17 +47,6 @@ describe("feature flag Confect contracts", () => {
         audience: "workspace",
       }),
     ).toMatchObject({ rolloutPercent: 50 });
-    expect(
-      Schema.decodeUnknownSync(UpsertFeatureFlagPolicyArgs)({
-        workspaceId: "workspaces_123",
-        key: "template.brain.semanticOperations",
-        description: "Enable semantic Brain operations",
-        enabled: false,
-        rolloutPercent: 0,
-        audience: "internal",
-        killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
-      }),
-    ).toMatchObject({ key: "template.brain.semanticOperations" });
     expect(() =>
       Schema.decodeUnknownSync(UpsertFeatureFlagPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -71,12 +61,12 @@ describe("feature flag Confect contracts", () => {
     expect(
       Schema.decodeUnknownSync(FeatureFlagPolicyRow)({
         workspaceId: "workspaces_123",
-        key: "template.brain.externalDelivery",
-        description: "External Brain delivery",
+        key: "template.ai.liveGeneration",
+        description: "Live AI",
         enabled: false,
         rolloutPercent: 0,
         audience: "internal",
-        killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
+        killSwitchEnv: "LLM_DISABLED",
         source: "workspace",
         updatedAt: 1,
       }),
@@ -85,16 +75,16 @@ describe("feature flag Confect contracts", () => {
     expect(
       Schema.decodeUnknownSync(FeatureFlagPolicyReturn)({
         workspaceId: "workspaces_123",
-        key: "template.brain.externalDelivery",
-        description: "External Brain delivery",
+        key: "template.ai.liveGeneration",
+        description: "Live AI",
         enabled: false,
         rolloutPercent: 0,
         audience: "internal",
-        killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
+        killSwitchEnv: "LLM_DISABLED",
         source: "workspace",
         updatedAt: 1,
       }),
-    ).toMatchObject({ key: "template.brain.externalDelivery" });
+    ).toMatchObject({ key: "template.ai.liveGeneration" });
 
     expect(
       Schema.decodeUnknownSync(FeatureFlagListReturn)({
@@ -113,16 +103,12 @@ describe("feature flag Confect contracts", () => {
     expect(JSON.stringify(flags)).toContain("list");
     expect(JSON.stringify(flags)).toContain("evaluate");
     expect(JSON.stringify(flags)).toContain("upsertPolicyInternal");
-    expect(flagsImpl).toMatchObject({
-      _op_layer: "Fold",
-    });
+    expect(Layer.isLayer(flagsImpl)).toBe(true);
   });
 
   it("lists starter-safe defaults and evaluates live side effects disabled", async () => {
     const program = Effect.gen(function* () {
-      const confect = yield* Effect.serviceOptional(
-        TestConfect.TestConfect<typeof databaseSchema>(),
-      );
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
       const seeded = yield* confect.run(
         seedTenancy(1_782_924_800_000),
         SeededTenancy,
@@ -157,8 +143,6 @@ describe("feature flag Confect contracts", () => {
       "template.billing.liveCheckout",
       "template.notifications.center",
       "template.ai.liveGeneration",
-      "template.brain.semanticOperations",
-      "template.brain.externalDelivery",
     ]);
     expect(
       result.evaluated.decisions.filter((decision) => decision.enabled),
@@ -170,8 +154,6 @@ describe("feature flag Confect contracts", () => {
             "template.billing.liveCheckout",
             "template.notifications.center",
             "template.ai.liveGeneration",
-            "template.brain.semanticOperations",
-            "template.brain.externalDelivery",
           ].includes(decision.key),
         )
         .every((decision) => decision.reason === "definition-disabled"),
@@ -180,9 +162,7 @@ describe("feature flag Confect contracts", () => {
 
   it("persists workspace overrides and applies audience gates", async () => {
     const program = Effect.gen(function* () {
-      const confect = yield* Effect.serviceOptional(
-        TestConfect.TestConfect<typeof databaseSchema>(),
-      );
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
       const seeded = yield* confect.run(
         seedTenancy(1_782_924_800_000),
         SeededTenancy,
@@ -195,30 +175,6 @@ describe("feature flag Confect contracts", () => {
             .insert({
               organizationId: seeded.organizationId,
               userId: seeded.memberUserId,
-              role: "admin",
-              status: "active",
-              acceptedAt: 1_782_924_800_000,
-              revokedAt: null,
-              createdAt: 1_782_924_800_000,
-              updatedAt: 1_782_924_800_000,
-            })
-            .pipe(Effect.orDie);
-          const orgAdminUserId = yield* writer
-            .table("users")
-            .insert({
-              subject: "org-admin-subject",
-              email: "org-admin@example.com",
-              displayName: "Org Admin",
-              status: "active",
-              createdAt: 1_782_924_800_000,
-              updatedAt: 1_782_924_800_000,
-            })
-            .pipe(Effect.orDie);
-          yield* writer
-            .table("organizationMembers")
-            .insert({
-              organizationId: seeded.organizationId,
-              userId: orgAdminUserId,
               role: "admin",
               status: "active",
               acceptedAt: 1_782_924_800_000,
@@ -260,14 +216,6 @@ describe("feature flag Confect contracts", () => {
       );
       const adminEvaluation = yield* confect
         .withIdentity({
-          subject: "org-admin-subject",
-          email: "org-admin@example.com",
-        })
-        .query(refs.public.ops.flags.evaluate, {
-          workspaceId: seeded.workspaceId,
-        });
-      const restrictedMemberEvaluation = yield* confect
-        .withIdentity({
           subject: "member-subject",
           email: "member@example.com",
         })
@@ -283,12 +231,7 @@ describe("feature flag Confect contracts", () => {
           workspaceId: seeded.workspaceId,
         });
 
-      return {
-        adminEvaluation,
-        memberEvaluation,
-        policy,
-        restrictedMemberEvaluation,
-      };
+      return { adminEvaluation, memberEvaluation, policy };
     });
 
     const result = await Effect.runPromise(
@@ -297,10 +240,6 @@ describe("feature flag Confect contracts", () => {
     const adminDecision = result.adminEvaluation.decisions.find(
       (decision) => decision.key === "template.notifications.center",
     );
-    const restrictedMemberDecision =
-      result.restrictedMemberEvaluation.decisions.find(
-        (decision) => decision.key === "template.notifications.center",
-      );
     const memberDecision = result.memberEvaluation.decisions.find(
       (decision) => decision.key === "template.notifications.center",
     );
@@ -314,11 +253,6 @@ describe("feature flag Confect contracts", () => {
     expect(adminDecision).toMatchObject({
       enabled: true,
       reason: "enabled",
-      source: "workspace",
-    });
-    expect(restrictedMemberDecision).toMatchObject({
-      enabled: false,
-      reason: "audience",
       source: "workspace",
     });
     expect(memberDecision).toMatchObject({

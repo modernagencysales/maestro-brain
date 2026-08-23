@@ -1,31 +1,39 @@
 import * as Schema from "effect/Schema";
 
-import { privilegedAccessAuditActions } from "./audit";
 import { Role } from "./roles";
 
-export const UserStatus = Schema.Literal("active", "suspended", "deleted");
-export const OrganizationStatus = Schema.Literal(
+export const UserStatus = Schema.Literals(["active", "suspended", "deleted"]);
+export const OrganizationStatus = Schema.Literals([
   "active",
   "suspended",
   "archived",
-);
-export const MembershipStatus = Schema.Literal("pending", "active", "revoked");
-export const InvitationStatus = Schema.Literal(
+]);
+export const MembershipStatus = Schema.Literals([
+  "pending",
+  "active",
+  "revoked",
+]);
+export const InvitationStatus = Schema.Literals([
   "pending",
   "accepted",
   "cancelled",
   "declined",
   "revoked",
   "expired",
-);
-export const AccessAuditAction = Schema.Literal(
-  ...privilegedAccessAuditActions,
-);
-export const AccessAuditSubjectKind = Schema.Literal(
+]);
+export const AccessAuditAction = Schema.Literals([
+  "member.roleChanged",
+  "member.removed",
+  "member.ownershipTransferred",
+  "invitation.created",
+  "invitation.accepted",
+  "invitation.declined",
+  "invitation.cancelled",
+]);
+export const AccessAuditSubjectKind = Schema.Literals([
   "workspaceMember",
   "invitation",
-  "privilegedAction",
-);
+]);
 
 const NullableNumber = Schema.NullOr(Schema.Number);
 const OptionalString = Schema.optional(Schema.String);
@@ -42,15 +50,11 @@ export const UserRow = Schema.Struct({
 
 export const OrganizationRow = Schema.Struct({
   ownerUserId: Schema.String,
-  workosOrganizationId: OptionalString,
-  agencyKey: OptionalString,
   slug: Schema.String,
   name: Schema.String,
   status: OrganizationStatus,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
-  lifecycleGeneration: Schema.optional(Schema.Number),
-  revocationGeneration: Schema.optional(Schema.Number),
   archivedAt: Schema.optional(NullableNumber),
 });
 

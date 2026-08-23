@@ -1,6 +1,6 @@
-import { Button } from "@chakra-ui/react";
-import { EmptyState } from "@saas-ui/react";
-import type { ErrorComponentProps } from "@tanstack/react-router";
+import { Button } from '@chakra-ui/react'
+import { EmptyState } from '@saas-ui/react'
+import type { ErrorComponentProps } from '@tanstack/react-router'
 
 export function ContactError(props: ErrorComponentProps) {
   return (
@@ -11,5 +11,5 @@ export function ContactError(props: ErrorComponentProps) {
     >
       <Button onClick={props.reset}>Try again</Button>
     </EmptyState>
-  );
+  )
 }

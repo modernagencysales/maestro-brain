@@ -30,8 +30,6 @@ export const dispatchCliCommand = (
 
   return (
     handler?.run(context, config) ??
-    cliFailure(
-      `Unknown command: ${argv.join(" ")}\nRun maestro-brain --help to list available commands.\n`,
-    )
+    cliFailure(`Unknown command: ${argv.join(" ")}\n`)
   );
 };

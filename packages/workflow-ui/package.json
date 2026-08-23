@@ -2,16 +2,16 @@
   "name": "@maestro-template/workflow-ui",
   "private": true,
   "type": "module",
-  "main": "src/index.tsx",
+  "main": "dist/src/index.js",
   "types": "src/index.tsx",
   "exports": {
     ".": {
       "types": "./src/index.tsx",
-      "default": "./src/index.tsx"
+      "default": "./dist/src/index.js"
     },
     "./workflowCanvasState": {
       "types": "./src/workflowCanvasState.ts",
-      "default": "./src/workflowCanvasState.ts"
+      "default": "./dist/src/workflowCanvasState.js"
     }
   },
   "scripts": {

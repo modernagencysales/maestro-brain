@@ -1,5 +1,4 @@
-node_modules
-.tokensave
+node_modules/
 dist/
 coverage/
 .stryker-tmp/
@@ -7,16 +6,14 @@ coverage/
 .env
 .env.*
 !.env.example
-!apps/web/.env.production
-company-context/pilot-config.v1.json
 apps/*/dist/
+apps/*/.output/
 packages/*/dist/
 tooling/*/dist/
 test-results/
 playwright-report/
-
-# Local Fabro execution state
-.fabro/state/
+artifacts/saas-ui-golden/*
+!artifacts/saas-ui-golden/.gitkeep
 
 # Wrangler local dev state
 .wrangler/
@@ -24,12 +21,15 @@ playwright-report/
 # In-workspace pnpm store used by CI hosted-agent caching
 .pnpm-store/
 
-# Local isolated agent worktrees
-.worktrees/
-
 # qlty local scan artifacts (no trailing slashes — several are symlinks)
 .qlty/logs
 .qlty/out
 .qlty/plugin_cachedir
 .qlty/results
 .qlty/cache
+
+# Receipt-owned repository-local MCP configuration state
+.maestro/mcp/
+.maestro/verification-receipt.json
+tooling/agent-pack/evals/runs/*/
+tooling/agent-pack/evals/runs/*.json

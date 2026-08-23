@@ -1,10 +1,10 @@
-import * as React from "react";
+import * as React from 'react'
 
-import { Button, ButtonProps } from "@chakra-ui/react";
-import { createLink } from "@tanstack/react-router";
+import { Button, ButtonProps } from '@chakra-ui/react'
+import { Link, createLink } from '@tanstack/react-router'
 
 export interface LinkButtonProps extends ButtonProps {
-  href?: string | object;
+  href?: string | object
 }
 
 export const LinkButton = createLink(
@@ -13,9 +13,11 @@ export const LinkButton = createLink(
     ref: React.ForwardedRef<HTMLAnchorElement>,
   ) {
     return (
-      <Button asChild {...props}>
-        <a ref={ref} />
-      </Button>
-    );
+      <Button
+        as={Link}
+        {...props}
+        ref={ref as React.ForwardedRef<HTMLButtonElement>}
+      />
+    )
   }),
-);
+)

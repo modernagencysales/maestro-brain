@@ -1,15 +1,12 @@
 # How To Add A Source Type
 
-The current template does not ship a `template:add-source-type` generator. Add
-the smallest schema, normalizer, persistence mapping, and tests directly. Do not
-advertise this command until a checked-in generator owns it.
+Use the source type generator:
 
-For call transcripts, use
-[`how-to-add-transcript-connector.md`](./how-to-add-transcript-connector.md).
-Transcript connectors reuse the canonical source-unit pipeline and do not need a
-new source schema.
+```bash
+pnpm template:add-source-type -- --name customerBrief
+```
 
-## Required Files
+## Files Created
 
 - Source intake schema.
 - Normalizer.

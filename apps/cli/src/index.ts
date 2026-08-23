@@ -1,17 +1,13 @@
 #!/usr/bin/env node
-import { runTemplateApiOperation } from "@maestro-template/workflow-tooling";
-import { text as readStreamText } from "node:stream/consumers";
-import { createCliHandlers } from "./commands";
-import {
-  executeRemoteBrainRequest,
-  remoteCliOperationRefs,
-  type RemoteBrainRequest,
-} from "./remoteApi";
+import { runTemplateApiOperation } from "./headlessRegistry";
+import type { Readable, Writable } from "node:stream";
+import { createCliHandlers, parseCapabilityRequest } from "./commands";
+import { isCliDirectRun } from "./direct-run";
+import { createCustomerCliComposition } from "./factory/customerComposition";
+import { dispatchFactoryCliCommand } from "./factory/router";
 import { cliFailure, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
-import { runSpecialCommand, withReviewNextStep } from "./specialCommands";
-import { terminalBrainRequest } from "./terminalRequest";
 import type {
   CliCapabilityRequest,
   CliResult,
@@ -21,25 +17,15 @@ import type {
 export { decodeCliRuntimeConfig };
 export type { CliResult, CliRuntimeConfig };
 
-export const staticCliOperationRefs: Readonly<Record<string, string>> = {};
+export const staticCliOperationRefs: Readonly<Record<string, string>> = {
+  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
+  "ops.email.previewBroadcast": "ops.email.previewBroadcast",
+  "ops.email.dispatchBroadcast": "ops.email.dispatchBroadcast",
+};
 
 export const staticCliCapabilityIds: ReadonlySet<string> = new Set(
   Object.keys(staticCliOperationRefs),
 );
-
-export { remoteCliOperationRefs };
-
-type CliAsyncDependencies = {
-  readonly readStdin: () => Promise<string>;
-};
-
-const defaultAsyncDependencies: CliAsyncDependencies = {
-  readStdin: async () => await readStreamText(process.stdin),
-};
-
-const isCliResult = (
-  value: RemoteBrainRequest | CliResult,
-): value is CliResult => "exitCode" in value;
 
 const runStaticCliCapability = (
   capabilityId: string,
@@ -66,43 +52,159 @@ const cliHandlers = createCliHandlers({
   },
 });
 
+const customerCliComposition = createCustomerCliComposition(() => process.env);
+
+const normalizeCliArgv = (argv: readonly string[]): readonly string[] =>
+  argv[0] === "--" ? argv.slice(1) : argv;
+
 export const runCli = (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
-): CliResult => dispatchCliCommand(cliHandlers, argv, config);
+): CliResult => dispatchCliCommand(cliHandlers, normalizeCliArgv(argv), config);
+
+type RemoteCapabilityFetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+const remoteCapabilityTarget = (
+  argv: readonly string[],
+  environment: NodeJS.ProcessEnv,
+): { readonly baseUrl: string; readonly operationId: string } | undefined => {
+  const baseUrl = environment.MAESTRO_API_BASE_URL?.trim();
+  return baseUrl &&
+    argv[0] === "capability" &&
+    argv[1] === "run" &&
+    argv[2] !== undefined
+    ? { baseUrl, operationId: argv[2] }
+    : undefined;
+};
+
+const isSafeRemoteApiBaseUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" ||
+      (url.protocol === "http:" &&
+        (url.hostname === "localhost" ||
+          url.hostname === "[::1]" ||
+          url.hostname === "::1" ||
+          /^127(?:\.\d{1,3}){3}$/u.test(url.hostname)))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const remoteCapabilityResult = async (
+  response: Response,
+): Promise<CliResult> => {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return cliFailure("Remote capability response was not valid JSON.\n");
+  }
+  if (payload === null || typeof payload !== "object") {
+    return cliFailure("Remote capability response was not a JSON object.\n");
+  }
+  return {
+    exitCode: response.ok && "ok" in payload && payload.ok === true ? 0 : 1,
+    stdout: formatJsonOutput(payload),
+    stderr: "",
+  };
+};
+
+export const runRemoteCapability = async (
+  argv: readonly string[],
+  environment: NodeJS.ProcessEnv,
+  request: RemoteCapabilityFetch = fetch,
+): Promise<CliResult | undefined> => {
+  const target = remoteCapabilityTarget(argv, environment);
+  if (!target) return undefined;
+  if (!isSafeRemoteApiBaseUrl(target.baseUrl))
+    return cliFailure(
+      "MAESTRO_API_BASE_URL must use HTTPS or loopback HTTP.\n",
+    );
+
+  const parsed = parseCapabilityRequest(argv);
+  if ("exitCode" in parsed) return parsed;
+
+  try {
+    const response = await request(
+      new URL(
+        `api/${encodeURIComponent(target.operationId)}`,
+        `${target.baseUrl.replace(/\/+$/u, "")}/`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(environment.MAESTRO_API_KEY
+            ? { authorization: `Bearer ${environment.MAESTRO_API_KEY}` }
+            : {}),
+        },
+        body: JSON.stringify(parsed),
+      },
+    );
+    return remoteCapabilityResult(response);
+  } catch {
+    return cliFailure("Remote capability request failed.\n");
+  }
+};
 
 export const runCliAsync = async (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
-  dependencies: CliAsyncDependencies = defaultAsyncDependencies,
+  cwd: string = process.cwd(),
 ): Promise<CliResult> => {
-  const specialResult = await runSpecialCommand(
-    argv,
-    config,
-    dependencies.readStdin,
+  const normalized = normalizeCliArgv(argv);
+  return (
+    (await dispatchFactoryCliCommand(
+      customerCliComposition.handlers,
+      normalized,
+      cwd,
+    )) ??
+    (await runRemoteCapability(normalized, process.env)) ??
+    dispatchCliCommand(cliHandlers, normalized, config)
   );
-  if (specialResult !== undefined) return specialResult;
-  const terminalRequest = terminalBrainRequest(argv);
-  if (terminalRequest === undefined) return runCli(argv, config);
-  return isCliResult(terminalRequest)
-    ? terminalRequest
-    : terminalRequest.operationId === "brain.notes.submit"
-      ? withReviewNextStep(
-          await executeRemoteBrainRequest(terminalRequest, config),
-        )
-      : await executeRemoteBrainRequest(terminalRequest, config);
 };
 
-if (
-  process.argv[1]?.endsWith("index.ts") ||
-  process.argv[1]?.endsWith("index.js")
-) {
-  void runCliAsync(
+export type CliEntryStreams = {
+  readonly stdin: Readable;
+  readonly stdout: Writable;
+  readonly stderr: Writable;
+  readonly cwd: string;
+};
+
+export async function runCliEntry(
+  argv: readonly string[],
+  streams: CliEntryStreams,
+  config: CliRuntimeConfig = emptyCliRuntimeConfig,
+): Promise<void> {
+  const normalized = normalizeCliArgv(argv);
+  if (normalized.length === 1 && normalized[0] === "mcp") {
+    await customerCliComposition.mcp.serve(streams);
+    return;
+  }
+  const result = await runCliAsync(normalized, config, streams.cwd);
+  streams.stdout.write(result.stdout);
+  streams.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
+}
+
+if (isCliDirectRun(import.meta.url)) {
+  void runCliEntry(
     process.argv.slice(2),
+    {
+      stdin: process.stdin,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      cwd: process.cwd(),
+    },
     decodeCliRuntimeConfig(process.env),
-  ).then((result) => {
-    process.stdout.write(result.stdout);
-    process.stderr.write(result.stderr);
-    process.exitCode = result.exitCode;
+  ).catch(() => {
+    process.stderr.write("MCP_SERVER_ERROR startup\n");
+    process.exitCode = 70;
   });
 }

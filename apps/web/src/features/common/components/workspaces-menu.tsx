@@ -1,10 +1,13 @@
-import { Avatar, type AvatarProps, Menu, Spacer, Text } from "@saas-ui/react";
-import { LuCheck } from "react-icons/lu";
+import { Has } from '@saas-ui-pro/feature-flags'
+import { Avatar, type AvatarProps, Menu, Spacer, Text } from '@saas-ui/react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { LuCheck } from 'react-icons/lu'
 
-import { useWorkspace } from "../../../providers/workspace";
+import { useWorkspaceSlug } from '../hooks/use-workspace-slug'
+import { useWorkspaces } from '../hooks/use-workspaces'
 
 const WorkspaceLogo: React.FC<AvatarProps> = (props) => {
-  const { src, ...rest } = props;
+  const { src, ...rest } = props
   return (
     <Avatar
       display="inline-flex"
@@ -13,51 +16,77 @@ const WorkspaceLogo: React.FC<AvatarProps> = (props) => {
       borderRadius="full"
       {...rest}
     />
-  );
-};
+  )
+}
 
 export const WorkspacesMenu: React.FC = () => {
-  const workspace = useWorkspace();
-  const workspaces = workspace.status === "ready" ? workspace.workspaces : [];
-  const activeWorkspace =
-    workspace.status === "ready" ? workspace.activeWorkspace : undefined;
+  const navigate = useNavigate({
+    from: '/$workspace/',
+  })
+  const workspace = useWorkspaceSlug()
+  const workspaces = useWorkspaces()
+
+  const activeWorkspace = (function () {
+    for (const i in workspaces) {
+      if (workspaces[i]?.slug === workspace) {
+        return workspaces[i]
+      }
+    }
+    return workspaces[0]
+  })()
+
+  const setWorkspace = (workspace: string) => {
+    navigate({
+      to: `/${workspace}`,
+    })
+  }
 
   const activeLogo = (
-    <WorkspaceLogo name={activeWorkspace?.name ?? "Maestro Brain"} />
-  );
+    <WorkspaceLogo name={activeWorkspace?.label} src={activeWorkspace?.logo} />
+  )
 
   return (
     <Menu.Root>
       <Menu.Button
-        aria-label={`Current workspace is ${activeWorkspace?.name ?? "Maestro Brain"}`}
+        aria-label={`Current workspace is ${activeWorkspace?.label}`}
         variant="ghost"
         px="2"
         size="xs"
       >
-        {activeLogo} {activeWorkspace?.name ?? "Maestro Brain"}
+        {activeLogo} {activeWorkspace?.label}
       </Menu.Button>
 
       <Menu.Content minW="200px" portalled>
         <Menu.ItemGroup title="Workspaces">
-          {workspaces.map(({ workspaceId, name }) => {
+          {workspaces.map(({ slug, label, logo, ...props }) => {
             return (
               <Menu.Item
-                key={workspaceId}
-                value={workspaceId}
-                onClick={() => workspace.switchWorkspace(workspaceId)}
+                key={slug}
+                value={slug}
+                onClick={() => setWorkspace(slug)}
+                {...props}
               >
-                <WorkspaceLogo name={name} />
+                <WorkspaceLogo name={label} src={logo} />
 
-                <Text>{name}</Text>
+                <Text>{label}</Text>
                 <Spacer />
-                {workspaceId === activeWorkspace?.workspaceId ? (
-                  <LuCheck />
-                ) : null}
+                {slug === activeWorkspace?.slug ? <LuCheck /> : null}
               </Menu.Item>
-            );
+            )
           })}
         </Menu.ItemGroup>
+        <Menu.Separator />
+        <Has feature="settings">
+          <Menu.Item value="workspace-settings" asChild>
+            <Link to="/$workspace/settings/workspace" params={{ workspace }}>
+              Workspace settings
+            </Link>
+          </Menu.Item>
+        </Has>
+        <Menu.Item value="create-workspace" asChild>
+          <Link to="/getting-started">Create a workspace</Link>
+        </Menu.Item>
       </Menu.Content>
     </Menu.Root>
-  );
-};
+  )
+}

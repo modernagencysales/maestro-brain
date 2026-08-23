@@ -1,5 +1,31 @@
 import { defineConfig } from "vitest/config";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+
+type SaasUiReceipt = Readonly<{
+  files: readonly Readonly<{ destination: string; adapted?: boolean }>[];
+}>;
+
+const saasUiReceiptEntries = [
+  "./docs/template/saas-ui-registry-files.json",
+  "./docs/template/saas-ui-starter-files.json",
+].flatMap(
+  (path) =>
+    (
+      JSON.parse(
+        readFileSync(new URL(path, import.meta.url), "utf8"),
+      ) as SaasUiReceipt
+    ).files,
+);
+const adaptedSaasUiReceiptFiles = new Set(
+  saasUiReceiptEntries.flatMap(({ adapted, destination }) =>
+    adapted === true ? [destination] : [],
+  ),
+);
+const immutableSaasUiReceiptFiles = saasUiReceiptEntries.flatMap(
+  ({ destination }) =>
+    adaptedSaasUiReceiptFiles.has(destination) ? [] : [destination],
+);
 
 // Directories measured by the coverage ratchet. Everything runs under this
 // root config; generated files and vendored trees are excluded below.
@@ -15,7 +41,6 @@ export const coverageRatchetDirs = [
   "tooling/workflow",
   "tooling/release",
   "tooling/generators",
-  "tooling/stack",
   "apps/cli",
   "apps/web",
 ];
@@ -23,6 +48,7 @@ export const coverageRatchetDirs = [
 export default defineConfig({
   resolve: {
     alias: {
+      "@": fileURLToPath(new URL("./apps/web/src", import.meta.url)),
       "#config": fileURLToPath(
         new URL("./apps/web/src/config", import.meta.url),
       ),
@@ -49,27 +75,17 @@ export default defineConfig({
       [/^#theme\//u]: fileURLToPath(
         new URL("./apps/web/src/theme/", import.meta.url),
       ),
-      "@workspace/ui": fileURLToPath(
-        new URL("./apps/web/src/components", import.meta.url),
-      ),
-      "@workspace/api": fileURLToPath(
-        new URL("./apps/web/src/workspace/api", import.meta.url),
-      ),
-      "@workspace/i18n": fileURLToPath(
-        new URL("./apps/web/src/workspace/i18n/index.ts", import.meta.url),
-      ),
-      "@workspace/config": fileURLToPath(
-        new URL("./apps/web/src/workspace/config/index.ts", import.meta.url),
-      ),
-      "@workspace/better-auth": fileURLToPath(
-        new URL("./apps/web/src/workspace/better-auth", import.meta.url),
-      ),
     },
   },
   test: {
     globals: false,
     include: ["**/*.test.{ts,tsx,mts,mjs}"],
-    exclude: ["**/node_modules/**", "**/dist/**", "repos/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "repos/**",
+      "tooling/agent-pack/evals/runs/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "json-summary"],
@@ -81,6 +97,10 @@ export default defineConfig({
         "**/_generated/**",
         "**/__fixtures__/**",
         "apps/web/src/routeTree.gen.ts",
+        // Byte-identical upstream files are governed by source receipts and
+        // visual/route acceptance. Adapted compositions remain in coverage
+        // alongside our adapters and product runtime.
+        ...immutableSaasUiReceiptFiles,
         "repos/**",
         "vendor/**",
       ],

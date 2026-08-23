@@ -1,3 +1,4 @@
+import { Schema as ProseMirrorSchema } from "@tiptap/pm/model";
 import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -11,12 +12,7 @@ describe("editor prosemirror seam", () => {
   });
 
   it("memoizes the BlockNote ProseMirror schema", () => {
-    expect(getBlockNoteSchema()).toMatchObject({
-      marks: expect.any(Object),
-      nodeFromJSON: expect.any(Function),
-      nodes: expect.any(Object),
-      text: expect.any(Function),
-    });
+    expect(getBlockNoteSchema()).toBeInstanceOf(ProseMirrorSchema);
     expect(getBlockNoteSchema()).toBe(getBlockNoteSchema());
   });
 

@@ -181,5 +181,3 @@ export const createErrorReporter = (options: {
     }
   },
 });
-
-export * from "./brainMetrics";

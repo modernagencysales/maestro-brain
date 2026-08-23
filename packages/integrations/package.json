@@ -4,34 +4,14 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "exports": {
-    ".": "./src/index.ts",
-    "./nango/client": "./src/nango/client.ts",
-    "./nango/records": "./src/nango/records.ts",
-    "./nango/connectBrowser": "./src/nango/connectBrowser.ts",
-    "./nango/slack": "./src/nango/slack.ts",
-    "./llmEgressPolicy": "./src/llmEgressPolicy.ts",
-    "./llmStructured": "./src/llmStructured.ts",
-    "./transcripts/canonical": "./src/transcripts/canonical.ts",
-    "./transcripts/providers": "./src/transcripts/providers.ts",
-    "./transcripts/fireflies": "./src/transcripts/fireflies.ts",
-    "./transcripts/gong": "./src/transcripts/gong.ts",
-    "./transcripts/fathom": "./src/transcripts/fathom.ts",
-    "./transcripts/granola": "./src/transcripts/granola.ts",
-    "./transcripts/import": "./src/transcripts/import.ts",
-    "./googleDrive/client": "./src/googleDrive/client.ts",
-    "./googleDrive/canonical": "./src/googleDrive/canonical.ts",
-    "./googleDrive/passages": "./src/googleDrive/passages.ts"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@maestro-template/template-core": "workspace:*",
-    "@nangohq/frontend": "0.71.0",
-    "effect": "3.21.4"
+    "dodopayments": "^2.44.0",
+    "effect": "4.0.0-beta.102"
   },
   "devDependencies": {
     "@types/node": "^22.20.0"
