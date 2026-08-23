@@ -38,8 +38,8 @@ export type OrganizationMembersDoc = Document.Document<typeof schemaDefinition, 
 export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organizations">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
-export type RecordsDoc = Document.Document<typeof schemaDefinition, "records">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
+export type RecordsDoc = Document.Document<typeof schemaDefinition, "records">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
 export type TransformRunsDoc = Document.Document<typeof schemaDefinition, "transformRuns">;
@@ -48,6 +48,15 @@ export type UsersDoc = Document.Document<typeof schemaDefinition, "users">;
 export type VersionFreshnessDoc = Document.Document<typeof schemaDefinition, "versionFreshness">;
 export type VersionedEntriesDoc = Document.Document<typeof schemaDefinition, "versionedEntries">;
 export type WebhookEventsDoc = Document.Document<typeof schemaDefinition, "webhookEvents">;
+export type WorkflowArtifactsDoc = Document.Document<typeof schemaDefinition, "workflowArtifacts">;
+export type WorkflowEffectReservationsDoc = Document.Document<typeof schemaDefinition, "workflowEffectReservations">;
+export type WorkflowEventInstancesDoc = Document.Document<typeof schemaDefinition, "workflowEventInstances">;
+export type WorkflowRunContextManifestsDoc = Document.Document<typeof schemaDefinition, "workflowRunContextManifests">;
+export type WorkflowRunEventsDoc = Document.Document<typeof schemaDefinition, "workflowRunEvents">;
+export type WorkflowRunEvidenceSnapshotsDoc = Document.Document<typeof schemaDefinition, "workflowRunEvidenceSnapshots">;
+export type WorkflowRunLinksDoc = Document.Document<typeof schemaDefinition, "workflowRunLinks">;
+export type WorkflowRunsDoc = Document.Document<typeof schemaDefinition, "workflowRuns">;
+export type WorkflowStageRunsDoc = Document.Document<typeof schemaDefinition, "workflowStageRuns">;
 export type WorkspaceMembersDoc = Document.Document<typeof schemaDefinition, "workspaceMembers">;
 export type WorkspacesDoc = Document.Document<typeof schemaDefinition, "workspaces">;
 
@@ -89,8 +98,8 @@ export interface Docs {
   organizations: OrganizationsDoc;
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
-  records: RecordsDoc;
   providerConnections: ProviderConnectionsDoc;
+  records: RecordsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
   transformRuns: TransformRunsDoc;
@@ -99,6 +108,15 @@ export interface Docs {
   versionFreshness: VersionFreshnessDoc;
   versionedEntries: VersionedEntriesDoc;
   webhookEvents: WebhookEventsDoc;
+  workflowArtifacts: WorkflowArtifactsDoc;
+  workflowEffectReservations: WorkflowEffectReservationsDoc;
+  workflowEventInstances: WorkflowEventInstancesDoc;
+  workflowRunContextManifests: WorkflowRunContextManifestsDoc;
+  workflowRunEvents: WorkflowRunEventsDoc;
+  workflowRunEvidenceSnapshots: WorkflowRunEvidenceSnapshotsDoc;
+  workflowRunLinks: WorkflowRunLinksDoc;
+  workflowRuns: WorkflowRunsDoc;
+  workflowStageRuns: WorkflowStageRunsDoc;
   workspaceMembers: WorkspaceMembersDoc;
   workspaces: WorkspacesDoc;
 }

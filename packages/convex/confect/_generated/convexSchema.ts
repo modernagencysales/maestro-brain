@@ -37,8 +37,8 @@ import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
-import records from "./tables/records";
 import providerConnections from "./tables/providerConnections";
+import records from "./tables/records";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -47,6 +47,15 @@ import users from "./tables/users";
 import versionFreshness from "./tables/versionFreshness";
 import versionedEntries from "./tables/versionedEntries";
 import webhookEvents from "./tables/webhookEvents";
+import workflowArtifacts from "./tables/workflowArtifacts";
+import workflowEffectReservations from "./tables/workflowEffectReservations";
+import workflowEventInstances from "./tables/workflowEventInstances";
+import workflowRunContextManifests from "./tables/workflowRunContextManifests";
+import workflowRunEvents from "./tables/workflowRunEvents";
+import workflowRunEvidenceSnapshots from "./tables/workflowRunEvidenceSnapshots";
+import workflowRunLinks from "./tables/workflowRunLinks";
+import workflowRuns from "./tables/workflowRuns";
+import workflowStageRuns from "./tables/workflowStageRuns";
 import workspaceMembers from "./tables/workspaceMembers";
 import workspaces from "./tables/workspaces";
 
@@ -88,8 +97,8 @@ export default $defineSchema({
   organizations: organizations.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
-  records: records.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
+  records: records.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,
@@ -98,6 +107,15 @@ export default $defineSchema({
   versionFreshness: versionFreshness.tableDefinition,
   versionedEntries: versionedEntries.tableDefinition,
   webhookEvents: webhookEvents.tableDefinition,
+  workflowArtifacts: workflowArtifacts.tableDefinition,
+  workflowEffectReservations: workflowEffectReservations.tableDefinition,
+  workflowEventInstances: workflowEventInstances.tableDefinition,
+  workflowRunContextManifests: workflowRunContextManifests.tableDefinition,
+  workflowRunEvents: workflowRunEvents.tableDefinition,
+  workflowRunEvidenceSnapshots: workflowRunEvidenceSnapshots.tableDefinition,
+  workflowRunLinks: workflowRunLinks.tableDefinition,
+  workflowRuns: workflowRuns.tableDefinition,
+  workflowStageRuns: workflowStageRuns.tableDefinition,
   workspaceMembers: workspaceMembers.tableDefinition,
   workspaces: workspaces.tableDefinition,
 });

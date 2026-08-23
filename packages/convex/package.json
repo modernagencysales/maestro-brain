@@ -38,6 +38,7 @@
     "@convex-dev/agent": "0.7.1",
     "@convex-dev/migrations": "0.3.5",
     "@convex-dev/prosemirror-sync": "0.2.5",
+    "@convex-dev/workflow": "0.4.4",
     "@convex-dev/workpool": "0.4.7",
     "@effect/platform-node": "4.0.0-beta.102",
     "@effect/vitest": "4.0.0-beta.102",
