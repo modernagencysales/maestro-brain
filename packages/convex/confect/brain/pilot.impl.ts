@@ -31,6 +31,11 @@ const sourceKeyFor = (input: {
   markdown: string;
 }) => `src_${sha256Hex(JSON.stringify(input))}`;
 
+const headlessSourceKeyFor = (input: {
+  readonly brainKey: string;
+  readonly idempotencyKey: string;
+}) => `src_${sha256Hex(JSON.stringify(input))}`;
+
 const validateText = (field: "title" | "markdown" | "query", value: string) =>
   value.trim().length === 0
     ? new ValidationFailed({ field, message: `${field} is required.` })
@@ -87,14 +92,39 @@ const headlessSubmitNote = FunctionImpl.make(
         validateText("title", title) ?? validateText("markdown", markdown);
       if (invalid !== null) return yield* invalid;
       const brain = yield* requireHeadlessBrainAccess(args);
+      const reader = yield* DatabaseReader;
+      const existingRows = yield* reader
+        .table("brainSources")
+        .index("by_workspace_idempotency", (query) =>
+          query
+            .eq("workspaceId", brain.workspaceId)
+            .eq("idempotencyKey", args.idempotencyKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      const existing = Option.fromNullable(existingRows[0]).pipe(
+        Option.getOrNull,
+      );
+      if (existingRows.length > 1)
+        return yield* new ValidationFailed({
+          field: "idempotencyKey",
+          message: "Note idempotency state is inconsistent.",
+        });
+      if (existing !== null) {
+        if (existing.title !== title || existing.markdown !== markdown)
+          return yield* new ValidationFailed({
+            field: "idempotencyKey",
+            message:
+              "The idempotency key was already used for a different note.",
+          });
+        return { sourceKey: existing.sourceKey, status: existing.status };
+      }
       const submittedAt = yield* unsafeAssumeClockProvided(
         Clock.currentTimeMillis,
       );
-      const sourceKey = sourceKeyFor({
+      const sourceKey = headlessSourceKeyFor({
         brainKey: brain.brainKey,
-        submittedAt,
-        title,
-        markdown,
+        idempotencyKey: args.idempotencyKey,
       });
       const writer = yield* DatabaseWriter;
       yield* writer
@@ -106,6 +136,7 @@ const headlessSubmitNote = FunctionImpl.make(
           title,
           markdown,
           status: "pending_review",
+          idempotencyKey: args.idempotencyKey,
           submittedAt,
           schemaVersion: 1,
         })

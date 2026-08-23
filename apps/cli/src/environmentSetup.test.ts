@@ -55,6 +55,12 @@ describe("maestro-brain environment setup", () => {
     });
 
     expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      next: [
+        "Export MAESTRO_BRAIN_API_KEY in this terminal.",
+        "Run pnpm brain doctor.",
+      ],
+    });
     expect(existsSync(join(repoRoot, ".cowork/maestro-brain.json"))).toBe(true);
     expect(existsSync(join(repoRoot, ".codex/config.toml"))).toBe(false);
     expect(existsSync(join(repoRoot, ".mcp.json"))).toBe(false);
@@ -299,6 +305,9 @@ describe("maestro-brain doctor", () => {
       readonly checks: readonly { readonly id: string; readonly ok: boolean }[];
     };
     expect(output.ok).toBe(true);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      next: ["pnpm brain health", 'pnpm brain ask "What is our ICP?"'],
+    });
     expect(
       Object.fromEntries(output.checks.map(({ id, ok }) => [id, ok])),
     ).toMatchObject({

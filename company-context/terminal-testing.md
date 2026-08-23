@@ -49,12 +49,15 @@ pnpm brain health
 pnpm brain ask "What is our ICP?"
 pnpm brain search "gross margin"
 pnpm brain source "citation:<publication-set-key>:<entry-key>"
+pnpm brain mcp tools
 ```
 
 `doctor` checks the API and the remote MCP handshake, including availability of
-the server-delivered `ask-apero` prompt. `health` reports ingestion coverage,
-freshness, alerts, and rollout readiness. Answers and source results retain the
-server's citation and freshness metadata.
+the server-delivered `ask-apero` prompt and bearer-scoped hosted tool schemas.
+`mcp tools` prints that live HTTP catalog rather than the repository's offline
+template registry. `health` reports ingestion coverage, freshness, alerts, and
+rollout readiness. Answers and source results retain the server's citation and
+freshness metadata.
 
 The generic operation escape hatch remains available for debugging:
 
@@ -83,7 +86,17 @@ submission to the existing review queue:
 
 ```bash
 pnpm brain note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
+pnpm brain note --file ./updated-positioning.md
+printf '%s\n' 'Reviewed company context...' | pnpm brain note --stdin --title 'Updated positioning'
 ```
+
+Prefer `--file` or `--stdin` for agent-authored Markdown so multiline content
+does not need shell-escaped JSON. A file's first H1 becomes its title; without
+an H1, the filename is used. Piped Markdown needs `--title` unless it starts
+with an H1. These commands submit the same reviewed note and never publish
+directly. Exact retries are idempotent: a timeout followed by the same note
+returns the existing review item, while reusing a retry identity for changed
+content fails instead of silently overwriting or duplicating evidence.
 
 To migrate an approved Claude Project or another reviewed Markdown snapshot, put
 its `.md` files in one local directory and submit them together:
@@ -100,7 +113,8 @@ required snapshot source and date, and stops at the first rejected submission.
 Override the default source label with `--source <name>` when importing
 something other than the Ask Apero Claude Project. Every submitted file still
 enters `pending_review`; the context owner approves or rejects it in the Brain
-review queue.
+review queue. Retrying the same snapshot is safe; the result reports per-status
+counts when earlier files have already been approved or rejected.
 
 The note does not become retrieval evidence until an editor approves it in the
 existing review workflow. Write operations are intentionally unavailable over

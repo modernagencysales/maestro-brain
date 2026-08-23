@@ -43,7 +43,9 @@ const snapshotOptions = (argv: readonly string[]): SnapshotOptionsResult => {
   return asOf === undefined
     ? {
         ok: false,
-        result: cliFailure("snapshot submit requires --as-of <YYYY-MM-DD>.\n"),
+        result: cliFailure(
+          `snapshot ${argv[1]} requires --as-of <YYYY-MM-DD>.\n`,
+        ),
       }
     : {
         ok: true,
@@ -84,6 +86,21 @@ const submittedNote = (
       sourceKey: null,
       status: null,
     };
+  }
+};
+
+const submissionError = (result: CliResult): unknown => {
+  if (result.stderr.trim()) return result.stderr.trim();
+  try {
+    const response = JSON.parse(result.stdout) as {
+      readonly error?: unknown;
+    };
+    return (
+      response.error ??
+      "Snapshot submission stopped at the first rejected file."
+    );
+  } catch {
+    return "Snapshot submission stopped at the first rejected file.";
   }
 };
 
@@ -131,15 +148,23 @@ export const runSnapshotSubmit = async (
           ok: false,
           operationId: "brain.snapshot.submit",
           result: { submitted, failedPath: note.path },
-          error:
-            result.stderr.trim() ||
-            "Snapshot submission stopped at the first rejected file.",
+          error: submissionError(result),
         }),
         stderr: "",
       };
     submitted.push(submittedNote(note, result));
   }
 
+  const statusCounts = Object.fromEntries(
+    [...new Set(submitted.map(({ status }) => status ?? "unknown"))].map(
+      (status) => [
+        status,
+        submitted.filter((note) => (note.status ?? "unknown") === status)
+          .length,
+      ],
+    ),
+  );
+  const statuses = Object.keys(statusCounts);
   return {
     exitCode: 0,
     stdout: formatJsonOutput({
@@ -148,9 +173,14 @@ export const runSnapshotSubmit = async (
       result: {
         directory: snapshot.directory,
         submittedCount: submitted.length,
-        status: "pending_review",
+        status: statuses.length === 1 ? statuses[0] : "mixed",
+        statusCounts,
         submitted,
       },
+      next: [
+        "An editor must approve these submissions in the /brain review queue.",
+        "After approval, verify them with pnpm brain search <query>.",
+      ],
     }),
     stderr: "",
   };

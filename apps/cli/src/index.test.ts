@@ -101,6 +101,7 @@ describe("maestro-template CLI", () => {
     ["doctor", "Verify configuration, API access"],
     ["note", "Submit one note"],
     ["snapshot", "Inspect or submit a Markdown snapshot"],
+    ["mcp", "Inspect or call the hosted streamable HTTP MCP"],
   ])("prints focused help for %s", async (command, heading) => {
     const result = await runCliAsync([command, "--help"]);
 
@@ -239,10 +240,117 @@ describe("maestro-template CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      next: [
+        "An editor must approve this submission in the /brain review queue.",
+        "After approval, verify it with pnpm brain search <query>.",
+      ],
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://brain.example.test/api/brain.notes.submit",
       expect.objectContaining({ body: JSON.stringify({ input }) }),
     );
+  });
+
+  it("submits a Markdown file without shell-escaped JSON", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-note-"));
+    const path = join(root, "positioning.md");
+    writeFileSync(path, "# Updated positioning\n\nReviewed company context.");
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.notes.submit",
+          result: { status: "pending_review" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await runCliAsync(
+        ["note", "--file", path],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://brain.example.test/api/brain.notes.submit",
+        expect.objectContaining({
+          body: JSON.stringify({
+            input: {
+              title: "Updated positioning",
+              markdown: "# Updated positioning\n\nReviewed company context.",
+            },
+          }),
+        }),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("submits piped Markdown with an explicit title", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.notes.submit",
+          result: { status: "pending_review" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["note", "--stdin", "--title", "New economics"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+      { readStdin: async () => "Gross-margin guidance.\n" },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.notes.submit",
+      expect.objectContaining({
+        body: JSON.stringify({
+          input: {
+            title: "New economics",
+            markdown: "Gross-margin guidance.",
+          },
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    [
+      ["note", "--stdin"],
+      "note --stdin requires --title unless Markdown starts with an H1.\n",
+    ],
+    [
+      ["note", "--file", "one.md", "--stdin"],
+      "note accepts exactly one of --input, --file, or --stdin.\n",
+    ],
+    [
+      ["note", "--file", "package.json"],
+      "note --file requires a Markdown file.\n",
+    ],
+  ])("rejects invalid agent-friendly note input %#", async (argv, message) => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(argv, undefined, {
+      readStdin: async () => "No heading.",
+    });
+
+    expect(result).toEqual({ exitCode: 1, stdout: "", stderr: message });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("submits a Markdown snapshot directory to review in stable path order", async () => {
@@ -296,9 +404,65 @@ describe("maestro-template CLI", () => {
       );
       expect(
         parseStdout<{
-          result: { submittedCount: number; status: string };
+          result: {
+            submittedCount: number;
+            status: string;
+            statusCounts: Record<string, number>;
+          };
+          next: readonly string[];
         }>(result).result,
-      ).toMatchObject({ submittedCount: 2, status: "pending_review" });
+      ).toMatchObject({
+        submittedCount: 2,
+        status: "pending_review",
+        statusCounts: { pending_review: 2 },
+      });
+      expect(parseStdout<{ next: readonly string[] }>(result).next).toEqual([
+        "An editor must approve these submissions in the /brain review queue.",
+        "After approval, verify them with pnpm brain search <query>.",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports mixed review states when a snapshot retry finds prior decisions", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-snapshot-"));
+    writeFileSync(join(root, "one.md"), "# One\n\nFirst fact.");
+    writeFileSync(join(root, "two.md"), "# Two\n\nSecond fact.");
+    let call = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockImplementation(async () => {
+        call += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            operationId: "brain.notes.submit",
+            result: {
+              sourceKey: `src_${String(call).padStart(64, "a")}`,
+              status: call === 1 ? "published" : "pending_review",
+            },
+          }),
+        );
+      }),
+    );
+
+    try {
+      const result = await runCliAsync(
+        ["snapshot", "submit", root, "--as-of", "2026-08-22"],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+        }),
+      );
+
+      expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+        ok: true,
+        result: {
+          status: "mixed",
+          statusCounts: { published: 1, pending_review: 1 },
+        },
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -365,6 +529,41 @@ describe("maestro-template CLI", () => {
         result: { submitted: [], failedPath: "context.md" },
         error:
           "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.",
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves a typed API failure in snapshot output", async () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-brain-snapshot-"));
+    writeFileSync(join(root, "context.md"), "# Context\n\nReviewed facts.");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { _tag: "Unauthorized", message: "Unauthorized." },
+          }),
+          { status: 401 },
+        ),
+      ),
+    );
+
+    try {
+      const result = await runCliAsync(
+        ["snapshot", "submit", root, "--as-of", "2026-08-22"],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+        }),
+      );
+
+      expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+        ok: false,
+        result: { submitted: [], failedPath: "context.md" },
+        error: { _tag: "Unauthorized", message: "Unauthorized." },
       });
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -812,6 +1011,209 @@ describe("maestro-template CLI", () => {
       trustReceipt: {
         receiptId: "trust_run_template_001",
       },
+    });
+  });
+
+  it("lists tools from the hosted MCP instead of the offline template registry", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            tools: [
+              {
+                name: "template.brain.answers.ask",
+                inputSchema: {
+                  type: "object",
+                  required: ["question"],
+                  properties: { question: { type: "string" } },
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["mcp", "tools"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: true,
+      transport: "streamable-http",
+      toolCount: 1,
+      tools: [expect.objectContaining({ name: "template.brain.answers.ask" })],
+    });
+    expect(result.stdout).not.toContain("brainKey");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/mcp",
+      expect.objectContaining({
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      }),
+    );
+  });
+
+  it("lists server-delivered prompts from the hosted MCP", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: { prompts: [{ name: "ask-apero" }] },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["mcp", "prompts"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: true,
+      promptCount: 1,
+      prompts: [{ name: "ask-apero" }],
+    });
+  });
+
+  it("fails closed if the hosted MCP advertises a tenant selector", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              tools: [
+                {
+                  name: "unsafe",
+                  inputSchema: {
+                    type: "object",
+                    properties: { brainKey: { type: "string" } },
+                  },
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      ["mcp", "tools"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Brain MCP tool schemas expose a forbidden tenant selector.\n",
+    });
+  });
+
+  it("calls a hosted MCP tool with bearer-derived scope", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: { content: [{ type: "text", text: "grounded answer" }] },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      [
+        "mcp",
+        "call",
+        "template.brain.answers.ask",
+        "--input",
+        '{"question":"What is our ICP?"}',
+      ],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/mcp",
+      expect.objectContaining({
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "template.brain.answers.ask",
+            arguments: { question: "What is our ICP?" },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("returns failure when a hosted MCP tool embeds a typed denial", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    ok: false,
+                    error: { _tag: "Unauthorized", message: "Unauthorized." },
+                  }),
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      [
+        "mcp",
+        "call",
+        "template.brain.answers.ask",
+        "--input",
+        '{"question":"What is our ICP?"}',
+      ],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: false,
+      transport: "streamable-http",
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
     });
   });
 

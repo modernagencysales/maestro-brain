@@ -54,6 +54,22 @@ processed count, their receipt records `scanned: 0`, `failed: 1`, nullable
 component-observed processed count was returned, not an inferred scan total.
 Execute-mode component failures follow the same durable failure receipt path.
 
+## Headless note retry identity
+
+- **Expand:** add optional `idempotencyKey` to the populated `brainSources`
+  table and index it by workspace. Existing note rows remain valid and need no
+  backfill.
+- **Write rule:** headless note submissions derive a stable content identity
+  when an older caller omits one. A retry with the same workspace, key, title,
+  and Markdown returns the existing review item; changed content under the same
+  key fails validation.
+- **Verify:** require one durable row across repeated headless mutations, reject
+  changed-payload reuse, and prove HTTP callers receive a server-derived retry
+  identity.
+- **Rollback:** deploy the prior writer and ignore the optional field/index.
+  Existing review rows and source keys remain readable; no data deletion or
+  rewrite is required.
+
 ## Call transcript source units
 
 - **Expand:** add `sourceUnits`, `sourceUnitRevisions`, and `sourceSegments`,

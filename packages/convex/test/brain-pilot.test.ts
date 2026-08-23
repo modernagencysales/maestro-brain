@@ -15,7 +15,7 @@ import type {
   PageRevisionsDoc,
 } from "../confect/_generated/docs";
 import type { Role } from "../confect/access/roles";
-import { Forbidden } from "../confect/errors";
+import { Forbidden, ValidationFailed } from "../confect/errors";
 import {
   buildRetrievalPassages,
   retrievalEligibilityFenceKey,
@@ -421,6 +421,72 @@ describe("Brain pilot contract", () => {
         revisionKey: result.pages[0]?.currentRevisionKey,
       }),
     ]);
+  });
+
+  it("deduplicates headless note retries and rejects key reuse for changed content", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedBrain({
+            role: "editor",
+            subject: "headless-note-idempotency",
+            email: "headless-note-idempotency@example.com",
+            brainKey,
+          }),
+          SeededBrainSchema,
+        );
+        const input = {
+          brainKey,
+          organizationId: seeded.organizationId,
+          workspaceId: seeded.workspaceId,
+          title: "Retry-safe positioning",
+          markdown: "The same agent request may be retried.",
+          idempotencyKey: "note.retry-safe-positioning",
+        } as const;
+        const first = yield* confect.mutation(
+          refs.internal.brain.pilot.headlessSubmitNote,
+          input,
+        );
+        const second = yield* confect.mutation(
+          refs.internal.brain.pilot.headlessSubmitNote,
+          input,
+        );
+        const mismatch = yield* confect
+          .mutation(refs.internal.brain.pilot.headlessSubmitNote, {
+            ...input,
+            markdown: "Changed content must not reuse the same key.",
+          })
+          .pipe(Effect.flip);
+        const sourceCount = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const rows = yield* reader
+              .table("brainSources")
+              .index("by_workspace_idempotency", (query) =>
+                query
+                  .eq("workspaceId", seeded.workspaceId)
+                  .eq("idempotencyKey", input.idempotencyKey),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            return rows.length;
+          }),
+          Schema.Number,
+        );
+        return { first, second, mismatch, sourceCount };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.second).toEqual(result.first);
+    expect(result.sourceCount).toBe(1);
+    expect(result.mismatch).toBeInstanceOf(ValidationFailed);
+    expect(result.mismatch).toMatchObject({
+      field: "idempotencyKey",
+      message: "The idempotency key was already used for a different note.",
+    });
   });
 
   it("rejects review and prevents rejected notes from search", async () => {

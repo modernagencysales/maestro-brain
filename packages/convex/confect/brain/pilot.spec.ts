@@ -173,6 +173,7 @@ export const headlessSubmitNote = FunctionSpec.internalMutation({
       Schema.Struct({
         organizationId: Id("organizations"),
         workspaceId: Id("workspaces"),
+        idempotencyKey: Schema.String,
       }),
     ),
   returns: () => SourceSummary,

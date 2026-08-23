@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { runTemplateApiOperation } from "@maestro-template/workflow-tooling";
+import { text as readStreamText } from "node:stream/consumers";
 import { createCliHandlers } from "./commands";
+import { noteInputFromArgs } from "./noteCommand";
 import { parseNamedArgs } from "./namedArgs";
+import { runRemoteMcpCommand } from "./remoteMcp";
+import { brainApiOrigin, containsTenantSelector } from "./remoteSafety";
 import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
@@ -42,51 +46,12 @@ type RemoteBrainRequest = {
   readonly idempotencyKey?: string;
 };
 
-const tenantSelectorNames = new Set([
-  "organizationId",
-  "organizationKey",
-  "agencyKey",
-  "workspaceId",
-  "workspaceKey",
-  "workspaceSlug",
-  "brainId",
-  "brainKey",
-  "userId",
-  "memberId",
-  "keyId",
-  "apiKeyId",
-  "_id",
-  "id",
-]);
-
-const containsTenantSelector = (value: unknown): boolean => {
-  if (value === null || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some(containsTenantSelector);
-
-  return Object.entries(value).some(
-    ([name, nested]) =>
-      tenantSelectorNames.has(name) || containsTenantSelector(nested),
-  );
+type CliAsyncDependencies = {
+  readonly readStdin: () => Promise<string>;
 };
 
-const brainApiOrigin = (value: string | undefined): string | undefined => {
-  if (value === undefined || value.trim() !== value) return undefined;
-
-  try {
-    const url = new URL(value);
-    const localHttp =
-      url.protocol === "http:" && url.hostname.toLowerCase() === "localhost";
-    return (url.protocol === "https:" || localHttp) &&
-      !url.username &&
-      !url.password &&
-      !url.search &&
-      !url.hash &&
-      url.pathname === "/"
-      ? url.origin
-      : undefined;
-  } catch {
-    return undefined;
-  }
+const defaultAsyncDependencies: CliAsyncDependencies = {
+  readStdin: async () => await readStreamText(process.stdin),
 };
 
 const executeRemoteBrainRequest = async (
@@ -306,7 +271,11 @@ const commandHelp: Readonly<Record<string, string>> = {
   note: [
     "Submit one note to the editor review queue.",
     "",
-    'Usage: pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
+    "Usage:",
+    "  pnpm brain note --file <note.md> [--title <title>]",
+    "  pnpm brain note --stdin [--title <title>]",
+    '  pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
+    "Piped Markdown may provide its title as the first H1.",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   snapshot: [
@@ -317,6 +286,15 @@ const commandHelp: Readonly<Record<string, string>> = {
     "  pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>]",
     "Inspect is local and prints metadata only. Submit requires both environment variables.",
   ].join("\n"),
+  mcp: [
+    "Inspect or call the hosted streamable HTTP MCP.",
+    "",
+    "Usage:",
+    "  pnpm brain mcp tools",
+    "  pnpm brain mcp prompts",
+    "  pnpm brain mcp call <tool-name> [--input <json>]",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
 };
 
 const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
@@ -324,6 +302,25 @@ const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
     return undefined;
   const help = commandHelp[argv[0] ?? ""];
   return help === undefined ? undefined : cliSuccess(`${help}\n`);
+};
+
+const withReviewNextStep = (result: CliResult): CliResult => {
+  if (result.exitCode !== 0 || !result.stdout) return result;
+  try {
+    const body = JSON.parse(result.stdout) as Readonly<Record<string, unknown>>;
+    return {
+      ...result,
+      stdout: formatJsonOutput({
+        ...body,
+        next: [
+          "An editor must approve this submission in the /brain review queue.",
+          "After approval, verify it with pnpm brain search <query>.",
+        ],
+      }),
+    };
+  } catch {
+    return result;
+  }
 };
 
 export const runCli = (
@@ -334,6 +331,7 @@ export const runCli = (
 export const runCliAsync = async (
   argv: readonly string[],
   config: CliRuntimeConfig = emptyCliRuntimeConfig,
+  dependencies: CliAsyncDependencies = defaultAsyncDependencies,
 ): Promise<CliResult> => {
   const help = focusedHelp(argv);
   if (help !== undefined) return help;
@@ -347,6 +345,22 @@ export const runCliAsync = async (
         config,
       ),
     );
+  if (
+    argv[0] === "note" &&
+    argv
+      .slice(1)
+      .some((token) => ["--file", "--stdin", "--title"].includes(token))
+  ) {
+    const note = await noteInputFromArgs(argv, dependencies.readStdin);
+    return note.ok
+      ? withReviewNextStep(
+          await executeRemoteBrainRequest(
+            { operationId: "brain.notes.submit", input: note.input },
+            config,
+          ),
+        )
+      : note.result;
+  }
   if (argv[0] === "setup")
     return argv.length <= 2 &&
       (argv[1] === undefined ||
@@ -363,13 +377,19 @@ export const runCliAsync = async (
     return argv.length === 1
       ? await doctorBrainEnvironment(config)
       : cliFailure("doctor takes no arguments.\n");
+  const mcpResult = await runRemoteMcpCommand(argv, config);
+  if (mcpResult !== undefined) return mcpResult;
   if (argv[0] === "api" && argv[1] === "call")
     return await remoteBrainApiResult(argv, config);
   const terminalRequest = terminalBrainRequest(argv);
   if (terminalRequest === undefined) return runCli(argv, config);
   return isCliResult(terminalRequest)
     ? terminalRequest
-    : await executeRemoteBrainRequest(terminalRequest, config);
+    : argv[0] === "note"
+      ? withReviewNextStep(
+          await executeRemoteBrainRequest(terminalRequest, config),
+        )
+      : await executeRemoteBrainRequest(terminalRequest, config);
 };
 
 if (

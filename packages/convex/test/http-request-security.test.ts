@@ -590,6 +590,7 @@ describe("headless HTTP bearer security", () => {
       expect(input).toEqual({
         title: "Updated positioning",
         markdown: "Reviewed terminal contribution.",
+        idempotencyKey: expect.stringMatching(/^note\.[a-f0-9]{64}$/),
         organizationId: "org_123",
         workspaceId: "workspace_123",
         brainKey: "brain_acme",

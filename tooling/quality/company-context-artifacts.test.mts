@@ -159,6 +159,11 @@ describe("company-context Ask Apero artifacts", () => {
       "template.brain.sources.search",
       "template.brain.sources.get",
     ]);
+    expect(manifest.contextContract.terminalContribution).toMatchObject({
+      operationId: "brain.notes.submit",
+      retrySafe: true,
+      publishedWithoutReview: false,
+    });
     expect(manifest.runtimes).toEqual([
       expect.objectContaining({
         name: "codex",

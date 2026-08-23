@@ -1,9 +1,9 @@
 # Ask Apero Runtime Installation
 
 Install both runtimes from the same reviewed Git revision and
-[`team-manifest.v1.json`](team-manifest.v1.json). Do not begin dogfood while a
-runtime's live-parity status is `pending` or an owner-dependent manifest field
-is `TBD`.
+[`team-manifest.v1.json`](team-manifest.v1.json). Pending live parity does not
+block exploratory teammate testing; it blocks claiming cross-runtime acceptance
+until a real credential has completed the documented receipt.
 
 ## Required configuration
 
@@ -109,6 +109,12 @@ rules.
 Because Cowork connector storage is host-managed, setup writes only the portable
 descriptor and does not claim that the connector has been activated. Run
 `pnpm brain doctor` to verify the remote endpoint before testing from Cowork.
+
+For terminal-level MCP verification, `pnpm brain mcp tools` and
+`pnpm brain mcp prompts` query the hosted streamable HTTP endpoint directly.
+They require both environment variables and show the same catalog an agent
+runtime discovers. `pnpm brain mcp call <tool-name> --input <json>` is the
+low-level hosted call path for connector troubleshooting.
 
 ## Smoke check
 

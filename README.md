@@ -29,6 +29,7 @@ pnpm install --frozen-lockfile
 pnpm brain setup codex # or claude-code / cowork
 pnpm brain doctor
 pnpm brain ask "What is our ICP?"
+pnpm brain mcp tools
 ```
 
 Setup writes project-local runtime configuration. Cowork users import the

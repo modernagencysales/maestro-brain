@@ -9,7 +9,10 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 
 import { formatJsonOutput } from "./result";
+import { brainApiOrigin, containsTenantSelector } from "./remoteSafety";
 import type { CliResult, CliRuntimeConfig } from "./types";
+
+export { brainApiOrigin } from "./remoteSafety";
 
 type SetupStatus = "created" | "updated" | "unchanged" | "conflict";
 
@@ -48,27 +51,6 @@ const isMissingPathError = (error: unknown): boolean =>
   typeof error === "object" &&
   error !== null &&
   Reflect.get(error, "code") === "ENOENT";
-
-export const brainApiOrigin = (
-  value: string | undefined,
-): string | undefined => {
-  if (value === undefined || value.trim() !== value) return undefined;
-  try {
-    const url = new URL(value);
-    const localHttp =
-      url.protocol === "http:" && url.hostname.toLowerCase() === "localhost";
-    return (url.protocol === "https:" || localHttp) &&
-      !url.username &&
-      !url.password &&
-      !url.search &&
-      !url.hash &&
-      url.pathname === "/"
-      ? url.origin
-      : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const generatedFiles = (origin: string, runtime: SetupRuntime) => {
   const mcpUrl = `${origin}/mcp`;
@@ -335,7 +317,19 @@ export const setupBrainEnvironment = ({
   const ok = artifacts.every(({ status }) => status !== "conflict");
   return {
     exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({ ok, artifacts }),
+    stdout: formatJsonOutput({
+      ok,
+      artifacts,
+      next: ok
+        ? [
+            "Export MAESTRO_BRAIN_API_KEY in this terminal.",
+            "Run pnpm brain doctor.",
+          ]
+        : [
+            "Resolve each conflict without overwriting teammate-owned config.",
+            "Rerun the same setup command.",
+          ],
+    }),
     stderr: "",
   };
 };
@@ -345,7 +339,11 @@ const postJson = async (
   apiKey: string,
   body: unknown,
   fetcher: typeof fetch,
-): Promise<{ readonly ok: boolean; readonly value?: unknown }> => {
+): Promise<{
+  readonly ok: boolean;
+  readonly value?: unknown;
+  readonly failure?: string;
+}> => {
   try {
     const response = await fetcher(url, {
       method: "POST",
@@ -358,10 +356,24 @@ const postJson = async (
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const value: unknown = await response.json();
-    return { ok: response.ok, value };
+    const responseText = await response.text();
+    try {
+      const value: unknown = JSON.parse(responseText);
+      return {
+        ok: response.ok,
+        value,
+        ...(response.ok
+          ? {}
+          : { failure: `HTTP ${response.status} response.` }),
+      };
+    } catch {
+      return {
+        ok: false,
+        failure: `HTTP ${response.status} returned a non-JSON response.`,
+      };
+    }
   } catch {
-    return { ok: false };
+    return { ok: false, failure: "Network error or timeout." };
   }
 };
 
@@ -387,7 +399,7 @@ const apiCheck = async (
     ok,
     detail: ok
       ? "Brain API accepted the scoped credential."
-      : "Brain API check failed.",
+      : `Brain API check failed${response.failure ? `: ${response.failure}` : "."}`,
   };
 };
 
@@ -442,32 +454,8 @@ const mcpCheck = async ({
       ? method === "initialize"
         ? "MCP initialize succeeded."
         : "MCP prompt catalog is available."
-      : `${method} check failed.`,
+      : `${method} check failed${response.failure ? `: ${response.failure}` : "."}`,
   };
-};
-
-const tenantSelectorNames = new Set([
-  "organizationId",
-  "organizationKey",
-  "agencyKey",
-  "workspaceId",
-  "workspaceKey",
-  "workspaceSlug",
-  "brainId",
-  "brainKey",
-  "userId",
-  "memberId",
-  "keyId",
-  "apiKeyId",
-]);
-
-const containsTenantSelector = (value: unknown): boolean => {
-  if (value === null || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some(containsTenantSelector);
-  return Object.entries(value).some(
-    ([key, nested]) =>
-      tenantSelectorNames.has(key) || containsTenantSelector(nested),
-  );
 };
 
 const requiredBrainTools = new Set([
@@ -505,9 +493,11 @@ const mcpToolsCheck = async (
     ok,
     detail: ok
       ? `MCP exposes ${toolRecords.length} scoped tools with no tenant selectors.`
-      : unsafe
-        ? "MCP tool schemas expose a forbidden tenant selector."
-        : `MCP tool catalog is missing: ${missing.join(", ") || "valid tools/list response"}.`,
+      : response.failure
+        ? `MCP tools/list check failed: ${response.failure}`
+        : unsafe
+          ? "MCP tool schemas expose a forbidden tenant selector."
+          : `MCP tool catalog is missing: ${missing.join(", ") || "valid tools/list response"}.`,
   };
 };
 
@@ -588,7 +578,13 @@ export const doctorBrainEnvironment = async (
   const ok = checks.every((check) => check.ok);
   return {
     exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({ ok, checks }),
+    stdout: formatJsonOutput({
+      ok,
+      checks,
+      next: ok
+        ? ["pnpm brain health", 'pnpm brain ask "What is our ICP?"']
+        : ["Fix the failed check shown above.", "Rerun pnpm brain doctor."],
+    }),
     stderr: "",
   };
 };

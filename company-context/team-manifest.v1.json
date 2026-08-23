@@ -41,6 +41,7 @@
       "operationId": "brain.notes.submit",
       "path": "/api/brain.notes.submit",
       "requiredScope": "brain:ask",
+      "retrySafe": true,
       "publishedWithoutReview": false,
       "availableOverMcp": false
     }
