@@ -342,7 +342,7 @@
       "source": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "destination": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "sourceSha256": "bc5baf32043a6d9e67b10b79e01f7efcae44120ea12b3fd54fee9bb6e60fb56f",
-      "sha256": "2369ccd92cd347c4624e655ab1799d15767ab0400a5d7c7b67d3d9df7fe9bde7",
+      "sha256": "0859176af76758a9d1859e4e96f45ab012e7f6e0a0ab4caf16f5a7d071aaed60",
       "adapted": true
     },
     {

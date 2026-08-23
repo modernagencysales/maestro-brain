@@ -18,6 +18,7 @@ import { useOpenState } from '#hooks/use-open-state.ts'
 import { productShell } from '#config/product-shell'
 
 import { inboxDataHooks } from './brain-inbox-adapter'
+import { inboxToolbarComponents } from './brain-inbox-toolbar'
 import { InboxList } from './inbox-list.tsx'
 
 export function InboxLayout({
@@ -34,6 +35,7 @@ export function InboxLayout({
   const [, startTransition] = React.useTransition()
 
   const useInboxData = inboxDataHooks[productShell.inbox]
+  const InboxToolbar = inboxToolbarComponents[productShell.inbox]
   const { data, isLoading } = useInboxData({ workspaceId: workspace.id })
 
   const isMobile = useBreakpointValue(
@@ -116,6 +118,10 @@ export function InboxLayout({
 
   const toolbar = (
     <ButtonGroup>
+      <InboxToolbar
+        workspaceId={workspace.id}
+        workspaceSlug={params.workspace}
+      />
       {/* <Menu>
         <Tooltip label="Display settings">
           <MenuButton
