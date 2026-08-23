@@ -11,6 +11,7 @@ export const remoteCliOperationRefs: Readonly<Record<string, string>> = {
   "brain.rollout.status": "brain.rollout.status",
   "brain.feedback.reportWrongOrStale": "brain.feedback.reportWrongOrStale",
   "brain.notes.submit": "brain.notes.submit",
+  "brain.notes.status": "brain.notes.status",
 };
 
 export type RemoteBrainRequest = {
@@ -29,15 +30,29 @@ const selectorError = (request: RemoteBrainRequest): string | undefined =>
     ? "Brain scope must be derived from MAESTRO_BRAIN_API_KEY.\n"
     : undefined;
 
-const originError = (origin: string | undefined): string | undefined =>
-  origin === undefined
+const originError = (
+  configured: string | undefined,
+  origin: string | undefined,
+): string | undefined => {
+  if (!configured) return "CONVEX_SITE_URL is required.\n";
+  return origin === undefined
     ? "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.\n"
     : undefined;
+};
 
 const apiKeyError = (apiKey: string | undefined): string | undefined =>
   !apiKey || apiKey.trim() !== apiKey
     ? "MAESTRO_BRAIN_API_KEY is required.\n"
     : undefined;
+
+export const remoteBrainConfigError = (
+  config: CliRuntimeConfig,
+): string | undefined => {
+  const origin = brainApiOrigin(config.brainSiteUrl);
+  return (
+    originError(config.brainSiteUrl, origin) ?? apiKeyError(config.brainApiKey)
+  );
+};
 
 const validatedRemoteTarget = (
   request: RemoteBrainRequest,
@@ -48,8 +63,7 @@ const validatedRemoteTarget = (
   const error = [
     operationError(request),
     selectorError(request),
-    originError(origin),
-    apiKeyError(apiKey),
+    remoteBrainConfigError(config),
   ].find((message): message is string => message !== undefined);
   return error === undefined
     ? { origin: origin as string, apiKey: apiKey as string }

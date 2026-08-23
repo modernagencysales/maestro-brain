@@ -106,6 +106,18 @@ skill: after the MCP handshake it can discover the server-delivered `ask-apero`
 prompt, which carries the same retrieval, citation, freshness, and abstention
 rules.
 
+Use this field mapping in Cowork:
+
+- Name: `maestro-brain`
+- URL: the descriptor's `transport.url` (the approved site origin plus `/mcp`)
+- Transport: streamable HTTP
+- Authentication: bearer token
+- Token: the value of `MAESTRO_BRAIN_API_KEY`
+
+The descriptor contains no secret and may be committed so the team shares the
+same endpoint. It is a portable reference; setup does not claim that every
+Cowork version can import it directly.
+
 Because Cowork connector storage is host-managed, setup writes only the portable
 descriptor and does not claim that the connector has been activated. Run
 `pnpm brain doctor` to verify the remote endpoint before testing from Cowork.
@@ -115,6 +127,11 @@ For terminal-level MCP verification, `pnpm brain mcp tools` and
 They require both environment variables and show the same catalog an agent
 runtime discovers. `pnpm brain mcp call <tool-name> --input <json>` is the
 low-level hosted call path for connector troubleshooting.
+
+MCP initialization, prompt discovery, and tool discovery are intentionally
+public so a runtime can negotiate the connection. Tool calls and Brain API reads
+still require a valid bearer credential. Therefore, catalog checks can pass in
+`doctor` while the API credential check fails.
 
 ## Smoke check
 

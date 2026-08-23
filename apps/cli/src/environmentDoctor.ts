@@ -111,8 +111,8 @@ const mcpResultIsValid = (
 
 const mcpSuccessDetail = (method: "initialize" | "prompts/list"): string =>
   method === "initialize"
-    ? "MCP initialize succeeded."
-    : "MCP prompt catalog is available.";
+    ? "MCP initialize succeeded (catalog reachability does not validate the credential)."
+    : "MCP prompt catalog is available (tool calls still require a valid credential).";
 
 const mcpCheck = async ({
   id,
@@ -241,7 +241,7 @@ const configChecks = (
     status: keyStatus,
     detail:
       keyStatus === "valid"
-        ? "MAESTRO_BRAIN_API_KEY is set."
+        ? "MAESTRO_BRAIN_API_KEY is present and syntactically valid; API acceptance is checked below."
         : `MAESTRO_BRAIN_API_KEY is ${keyStatus}.`,
   },
 ];

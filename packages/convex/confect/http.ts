@@ -19,6 +19,7 @@ import {
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
 import feedbackSpec from "./brain/feedback.spec";
+import noteStatusSpec from "./brain/noteStatus.spec";
 import pilotSpec from "./brain/pilot.spec";
 import {
   reviewedHeadlessPolicyFor,
@@ -90,10 +91,15 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
     kind: "operation",
     operationId: "brain.notes.submit",
   },
+  "/api/brain.notes.status": {
+    kind: "operation",
+    operationId: "brain.notes.status",
+  },
 };
 
 const feedbackOperationId = "brain.feedback.reportWrongOrStale";
 const noteSubmitOperationId = "brain.notes.submit";
+const noteStatusOperationId = "brain.notes.status";
 
 const feedbackFunction = () => {
   const spec = feedbackSpec.functions.headlessReportWrongOrStale;
@@ -117,6 +123,17 @@ const noteSubmitFunction = () => {
   return Ref.getFunctionReference(Ref.make("brain/pilot", spec));
 };
 
+const noteStatusFunction = () => {
+  const spec = noteStatusSpec.functions.get;
+  if (spec === undefined) {
+    throw new ConvexError({
+      code: "HEADLESS_NOTE_STATUS_SPEC_MISSING",
+      message: "Missing noteStatus.get spec",
+    });
+  }
+  return Ref.getFunctionReference(Ref.make("brain/noteStatus", spec));
+};
+
 const operationRefs = {
   "brain.pages.list": api.brain.pages.list,
   "brain.pages.get": api.brain.pages.get,
@@ -128,6 +145,7 @@ const operationRefs = {
   "brain.rollout.status": internal.brain.readApi.headlessBrainRolloutStatus,
   [feedbackOperationId]: feedbackFunction(),
   [noteSubmitOperationId]: noteSubmitFunction(),
+  [noteStatusOperationId]: noteStatusFunction(),
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
@@ -186,6 +204,11 @@ export const templateHttpRoutes = [
     path: `/api/${noteSubmitOperationId}`,
     method: "POST",
     description: "Submits a terminal note to the Brain review queue.",
+  },
+  {
+    path: `/api/${noteStatusOperationId}`,
+    method: "POST",
+    description: "Returns terminal note review status metadata.",
   },
   ...confectManifest.functions
     .filter(
@@ -268,6 +291,13 @@ const runTemplateApiOperation = async (
       (ctx.operationRefs ?? operationRefs)[noteSubmitOperationId],
       request,
     );
+  if (request.operationId === noteStatusOperationId) {
+    const result = await ctx.runQuery(
+      (ctx.operationRefs ?? operationRefs)[noteStatusOperationId],
+      request.input,
+    );
+    return { ok: true, operationId: noteStatusOperationId, result };
+  }
   return await executeHeadlessOperation(
     {
       refs: ctx.operationRefs ?? operationRefs,

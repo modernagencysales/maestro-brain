@@ -2,7 +2,6 @@
 import { runTemplateApiOperation } from "@maestro-template/workflow-tooling";
 import { text as readStreamText } from "node:stream/consumers";
 import { createCliHandlers } from "./commands";
-import { parseNamedArgs } from "./namedArgs";
 import {
   executeRemoteBrainRequest,
   remoteCliOperationRefs,
@@ -12,6 +11,7 @@ import { cliFailure, formatJsonOutput } from "./result";
 import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
 import { dispatchCliCommand } from "./router";
 import { runSpecialCommand, withReviewNextStep } from "./specialCommands";
+import { terminalBrainRequest } from "./terminalRequest";
 import type {
   CliCapabilityRequest,
   CliResult,
@@ -35,79 +35,6 @@ type CliAsyncDependencies = {
 
 const defaultAsyncDependencies: CliAsyncDependencies = {
   readStdin: async () => await readStreamText(process.stdin),
-};
-
-const terminalTextRequest = (
-  command: "ask" | "search",
-  argv: readonly string[],
-): RemoteBrainRequest | CliResult => {
-  const text = argv.slice(1).join(" ").trim();
-  if (!text)
-    return cliFailure(
-      `${command} requires a ${command === "ask" ? "question" : "query"}.\n`,
-    );
-  return command === "ask"
-    ? { operationId: "brain.answers.ask", input: { question: text } }
-    : { operationId: "brain.sources.search", input: { query: text } };
-};
-
-const terminalBrainRequest = (
-  argv: readonly string[],
-): RemoteBrainRequest | CliResult | undefined => {
-  const command = argv[0];
-  if (command === "ask" || command === "search")
-    return terminalTextRequest(command, argv);
-  if (command === "source") {
-    const sourceKey = argv[1];
-    const citationParts = sourceKey?.startsWith("citation:")
-      ? sourceKey.slice("citation:".length).split(":")
-      : [];
-    return argv.length === 2 && sourceKey?.trim()
-      ? citationParts.length === 2
-        ? {
-            operationId: "brain.sources.get",
-            input: {
-              publicationSetKey: citationParts[0] as string,
-              entryKey: citationParts[1] as string,
-            },
-          }
-        : {
-            operationId: "brain.sources.get",
-            input: { sourceRevisionKey: sourceKey },
-          }
-      : cliFailure("source requires one source revision key.\n");
-  }
-  if (command === "health")
-    return argv.length === 1
-      ? { operationId: "brain.rollout.status", input: {} }
-      : cliFailure("health takes no arguments.\n");
-  if (command === "note") {
-    const parsed = parseNamedArgs(argv.slice(1));
-    if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
-    const { input, ...unsupported } = parsed.args;
-    return input === undefined ||
-      typeof input.title !== "string" ||
-      typeof input.markdown !== "string" ||
-      Object.keys(unsupported).length > 0
-      ? cliFailure(
-          'note requires --input with string "title" and "markdown".\n',
-        )
-      : { operationId: "brain.notes.submit", input };
-  }
-  if (command !== "feedback") return undefined;
-
-  const parsed = parseNamedArgs(argv.slice(1));
-  if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
-  const { input, idempotencyKey, ...unsupported } = parsed.args;
-  return input === undefined ||
-    idempotencyKey === undefined ||
-    Object.keys(unsupported).length > 0
-    ? cliFailure("feedback requires --input and --idempotency-key.\n")
-    : {
-        operationId: "brain.feedback.reportWrongOrStale",
-        input,
-        idempotencyKey,
-      };
 };
 
 const isCliResult = (
@@ -159,7 +86,7 @@ export const runCliAsync = async (
   if (terminalRequest === undefined) return runCli(argv, config);
   return isCliResult(terminalRequest)
     ? terminalRequest
-    : argv[0] === "note"
+    : terminalRequest.operationId === "brain.notes.submit"
       ? withReviewNextStep(
           await executeRemoteBrainRequest(terminalRequest, config),
         )

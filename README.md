@@ -48,8 +48,8 @@ Automation can target a project without changing directories:
 
 Setup copies the shared Ask Apero skill into the target project and writes
 project-local runtime configuration, so the project remains usable without a
-symlink back to the Brain checkout. Cowork users import the generated
-`.cowork/maestro-brain.json` descriptor through Cowork's connector UI. See
+symlink back to the Brain checkout. Cowork users use the generated
+`.cowork/maestro-brain.json` descriptor to fill in Cowork's connector UI. See
 [terminal testing](./company-context/terminal-testing.md) for adding notes,
 inspecting/importing Markdown snapshots, and the acceptance checklist.
 

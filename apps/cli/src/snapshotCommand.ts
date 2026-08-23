@@ -206,18 +206,32 @@ const submitResult = (
   };
 };
 
-export const runSnapshotSubmit = async (
-  argv: readonly string[],
+const preparedSnapshotResult = async (
+  snapshot: Extract<
+    ReturnType<typeof snapshotNotesForDirectory>,
+    { readonly ok: true }
+  >,
+  options: Extract<SnapshotOptionsResult, { readonly ok: true }>,
   submitNote: SubmitNote,
+  configError?: string,
 ): Promise<CliResult> => {
-  const options = snapshotOptions(argv);
-  if (!options.ok) return options.result;
-  const snapshot = snapshotNotesForDirectory(options.directory, options);
-  if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
   if (options.action === "inspect") return inspectResult(snapshot, options);
-
+  if (configError !== undefined) return cliFailure(configError);
   const submission = await submitSnapshotNotes(snapshot.notes, submitNote);
   return submission.ok
     ? submitResult(snapshot.directory, submission.submitted)
     : submission.result;
+};
+
+export const runSnapshotSubmit = async (
+  argv: readonly string[],
+  submitNote: SubmitNote,
+  configError?: string,
+): Promise<CliResult> => {
+  const options = snapshotOptions(argv);
+  if (!options.ok) return options.result;
+  const snapshot = snapshotNotesForDirectory(options.directory, options);
+  return snapshot.ok
+    ? await preparedSnapshotResult(snapshot, options, submitNote, configError)
+    : cliFailure(`${snapshot.message}\n`);
 };

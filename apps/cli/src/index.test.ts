@@ -87,6 +87,7 @@ describe("maestro-template CLI", () => {
     expect(result.stdout).toContain("pnpm brain health");
     expect(result.stdout).toContain("pnpm brain feedback");
     expect(result.stdout).toContain("pnpm brain note --input");
+    expect(result.stdout).toContain("pnpm brain note status <source-key>");
     expect(result.stdout).toContain(
       "pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
     );
@@ -97,16 +98,32 @@ describe("maestro-template CLI", () => {
   });
 
   it.each([
+    ["ask", "Ask a source-grounded question"],
+    ["search", "Search current Company Brain evidence"],
+    ["source", "Open one source or citation"],
+    ["health", "Show ingestion freshness"],
     ["setup", "Configure a terminal runtime"],
     ["doctor", "Verify configuration, API access"],
     ["note", "Submit one note"],
     ["snapshot", "Inspect or submit a Markdown snapshot"],
     ["mcp", "Inspect or call the hosted streamable HTTP MCP"],
+    ["feedback", "Report a wrong or stale answer"],
   ])("prints focused help for %s", async (command, heading) => {
     const result = await runCliAsync([command, "--help"]);
 
     expect(result).toMatchObject({ exitCode: 0, stderr: "" });
     expect(result.stdout).toContain(heading);
+  });
+
+  it("prints focused help for note status without making a request", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(["note", "status", "--help"]);
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(result.stdout).toContain("pending_review (waiting)");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -243,12 +260,52 @@ describe("maestro-template CLI", () => {
     expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
       next: [
         "An editor must approve this submission in the /brain review queue.",
+        "Save the returned sourceKey and check it with pnpm brain note status <source-key>.",
         "After approval, verify it with pnpm brain search <query>.",
       ],
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://brain.example.test/api/brain.notes.submit",
       expect.objectContaining({ body: JSON.stringify({ input }) }),
+    );
+  });
+
+  it("checks terminal note review status without adding submission guidance", async () => {
+    const sourceKey = `src_${"a".repeat(64)}`;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.notes.status",
+          result: {
+            sourceKey,
+            title: "Pricing",
+            status: "published",
+            submittedAt: 1_000,
+            reviewedAt: 2_000,
+          },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["note", "status", sourceKey],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).not.toHaveProperty(
+      "next",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.notes.status",
+      expect.objectContaining({
+        body: JSON.stringify({ input: { sourceKey } }),
+      }),
     );
   });
 
@@ -523,13 +580,8 @@ describe("maestro-template CLI", () => {
       ]);
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("");
-      expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
-        ok: false,
-        result: { submitted: [], failedPath: "context.md" },
-        error:
-          "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.",
-      });
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("CONVEX_SITE_URL is required.\n");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

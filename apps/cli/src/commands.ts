@@ -52,6 +52,7 @@ const helpResult = (): CliResult =>
       "  pnpm brain note --file <note.md> [--title <title>]",
       "  pnpm brain note --stdin --title <title>",
       "  pnpm brain note --input <json>",
+      "  pnpm brain note status <source-key>",
       "  pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD>",
       '  pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source "Claude Ask Apero Advisors"]',
       "  pnpm brain feedback --idempotency-key <key> --input <json>",

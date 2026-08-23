@@ -1,6 +1,10 @@
 import { doctorBrainEnvironment } from "./environmentSetup";
 import { noteInputFromArgs } from "./noteCommand";
-import { executeRemoteBrainRequest, remoteBrainApiResult } from "./remoteApi";
+import {
+  executeRemoteBrainRequest,
+  remoteBrainApiResult,
+  remoteBrainConfigError,
+} from "./remoteApi";
 import { runRemoteMcpCommand } from "./remoteMcp";
 import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
 import { runSnapshotSubmit } from "./snapshotCommand";
@@ -8,6 +12,30 @@ import { runSetupCommand } from "./setupCommand";
 import type { CliResult, CliRuntimeConfig } from "./types";
 
 const commandHelp: Readonly<Record<string, string>> = {
+  ask: [
+    "Ask a source-grounded question of the Company Brain.",
+    "",
+    "Usage: pnpm brain ask <question>",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  search: [
+    "Search current Company Brain evidence.",
+    "",
+    "Usage: pnpm brain search <query>",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  source: [
+    "Open one source or citation returned by Brain.",
+    "",
+    "Usage: pnpm brain source <citation-key|source-revision-key>",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  health: [
+    "Show ingestion freshness, coverage, and rollout readiness.",
+    "",
+    "Usage: pnpm brain health",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
   setup: [
     "Configure a terminal runtime in the current repository.",
     "",
@@ -29,7 +57,10 @@ const commandHelp: Readonly<Record<string, string>> = {
     "  pnpm brain note --file <note.md> [--title <title>]",
     "  pnpm brain note --stdin [--title <title>]",
     '  pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
+    "  pnpm brain note status <source-key>",
     "Piped Markdown may provide its title as the first H1.",
+    "The submit response's sourceKey can be checked with note status.",
+    "Statuses: pending_review (waiting), published (searchable), rejected (not published).",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
   snapshot: [
@@ -49,11 +80,28 @@ const commandHelp: Readonly<Record<string, string>> = {
     "  pnpm brain mcp call <tool-name> [--input <json>]",
     "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
   ].join("\n"),
+  feedback: [
+    "Report a wrong or stale answer using returned evidence identifiers.",
+    "",
+    "Usage: pnpm brain feedback --idempotency-key <key> --input <json>",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
 };
 
 const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
-  if (argv.length !== 2 || !["--help", "-h"].includes(argv[1] ?? ""))
-    return undefined;
+  const helpRequested = ["--help", "-h"].includes(argv.at(-1) ?? "");
+  if (!helpRequested) return undefined;
+  if (argv[0] === "note" && argv[1] === "status" && argv.length === 3)
+    return cliSuccess(
+      [
+        "Check one submitted note's editor-review state.",
+        "",
+        "Usage: pnpm brain note status <source-key>",
+        "Statuses: pending_review (waiting), published (searchable), rejected (not published).",
+        "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+      ].join("\n") + "\n",
+    );
+  if (argv.length !== 2) return undefined;
   const help = commandHelp[argv[0] ?? ""];
   return help === undefined ? undefined : cliSuccess(`${help}\n`);
 };
@@ -68,6 +116,7 @@ export const withReviewNextStep = (result: CliResult): CliResult => {
         ...body,
         next: [
           "An editor must approve this submission in the /brain review queue.",
+          "Save the returned sourceKey and check it with pnpm brain note status <source-key>.",
           "After approval, verify it with pnpm brain search <query>.",
         ],
       }),
@@ -88,16 +137,22 @@ const contentCommand = async (
   config: CliRuntimeConfig,
   readStdin: () => Promise<string>,
 ): Promise<CliResult | undefined> => {
-  if (argv[0] === "snapshot")
-    return await runSnapshotSubmit(argv, (note) =>
-      executeRemoteBrainRequest(
-        {
-          operationId: "brain.notes.submit",
-          input: { title: note.title, markdown: note.markdown },
-        },
-        config,
-      ),
+  if (argv[0] === "snapshot") {
+    const configError =
+      argv[1] === "submit" ? remoteBrainConfigError(config) : undefined;
+    return await runSnapshotSubmit(
+      argv,
+      (note) =>
+        executeRemoteBrainRequest(
+          {
+            operationId: "brain.notes.submit",
+            input: { title: note.title, markdown: note.markdown },
+          },
+          config,
+        ),
+      configError,
     );
+  }
   if (!usesMarkdownNoteInput(argv)) return undefined;
   const note = await noteInputFromArgs(argv, readStdin);
   if (!note.ok) return note.result;

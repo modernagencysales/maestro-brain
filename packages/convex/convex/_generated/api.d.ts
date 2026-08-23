@@ -16,6 +16,7 @@ import type * as auth_workspaces from "../auth/workspaces.js";
 import type * as brain_callReview from "../brain/callReview.js";
 import type * as brain_exports from "../brain/exports.js";
 import type * as brain_feedback from "../brain/feedback.js";
+import type * as brain_noteStatus from "../brain/noteStatus.js";
 import type * as brain_pages from "../brain/pages.js";
 import type * as brain_pilot from "../brain/pilot.js";
 import type * as brain_readApi from "../brain/readApi.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "brain/callReview": typeof brain_callReview;
   "brain/exports": typeof brain_exports;
   "brain/feedback": typeof brain_feedback;
+  "brain/noteStatus": typeof brain_noteStatus;
   "brain/pages": typeof brain_pages;
   "brain/pilot": typeof brain_pilot;
   "brain/readApi": typeof brain_readApi;

@@ -652,6 +652,12 @@ describe("headless HTTP bearer security", () => {
       expectedRef: "brain/readApi:headlessAnswersAsk",
       requiredScope: "brain:ask",
     },
+    {
+      operationId: "brain.notes.status",
+      input: { sourceKey: `src_${"a".repeat(64)}` },
+      expectedRef: "brain/noteStatus:get",
+      requiredScope: "brain:ask",
+    },
   ] as const)(
     "dispatches $operationId through its internal service-principal query",
     async ({ operationId, input, expectedRef, requiredScope }) => {

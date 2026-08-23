@@ -41,8 +41,10 @@ repository explicitly.
 Codex setup copies the shared Ask Apero skill and adds the remote HTTP MCP
 server to Codex configuration. Claude Code setup copies the same skill and adds
 the server to `.mcp.json`. Cowork setup writes a portable HTTP MCP descriptor to
-`.cowork/maestro-brain.json`; enter its settings in Cowork's connector UI. Ask
-Apero instructions are then discovered from the server through MCP prompts.
+`.cowork/maestro-brain.json`; use its name and transport URL in Cowork's
+connector UI with bearer authentication and `MAESTRO_BRAIN_API_KEY`. The
+descriptor contains no secret and can be shared in the project. Ask Apero
+instructions are then discovered from the server through MCP prompts.
 
 Setup refuses to overwrite a conflicting skill directory or MCP server entry.
 This makes it safe to run in a repository that already has other skills or MCP
@@ -61,6 +63,8 @@ servers configured.
 
 `doctor` checks the API and the remote MCP handshake, including availability of
 the server-delivered `ask-apero` prompt and bearer-scoped hosted tool schemas.
+MCP catalog discovery is public, so those catalog checks can pass even when the
+credential-specific API check fails; actual Brain reads remain bearer-gated.
 `mcp tools` prints that live HTTP catalog rather than the repository's offline
 template registry. `health` reports ingestion coverage, freshness, alerts, and
 rollout readiness. Answers and source results retain the server's citation and
@@ -95,6 +99,13 @@ submission to the existing review queue:
 "$BRAIN_CLI" note --input '{"title":"Updated positioning","markdown":"Reviewed company context..."}'
 "$BRAIN_CLI" note --file ./updated-positioning.md
 printf '%s\n' 'Reviewed company context...' | "$BRAIN_CLI" note --stdin --title 'Updated positioning'
+```
+
+Each submission returns a `sourceKey`. Check its editor-review state without
+retrieving the submitted Markdown:
+
+```bash
+"$BRAIN_CLI" note status <source-key>
 ```
 
 Prefer `--file` or `--stdin` for agent-authored Markdown so multiline content
