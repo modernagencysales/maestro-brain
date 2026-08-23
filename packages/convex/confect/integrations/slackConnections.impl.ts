@@ -559,6 +559,72 @@ const currentConnectionFor = (organizationKey: string) =>
     );
   });
 
+const currentSlackAdminOrganizationKey = Effect.gen(function* () {
+  const identity = yield* (yield* Auth).getUserIdentity.pipe(
+    Effect.mapError(() => new Unauthorized()),
+    Effect.flatMap(extractSlackIdentityProfile),
+  );
+  const user = yield* (yield* DatabaseReader)
+    .table("users")
+    .index("by_subject", (query) =>
+      query.eq("subject", identity.subject.trim()),
+    )
+    .first()
+    .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+  if (user === null)
+    return yield* Effect.fail(
+      new Forbidden({ reason: "Provisioned user required." }),
+    );
+  const memberships = yield* (yield* DatabaseReader)
+    .table("organizationMembers")
+    .index("by_user", (query) => query.eq("userId", user._id))
+    .take(10)
+    .pipe(Effect.orDie);
+  const organizations = new Map<string, SlackOrganizationRecord>();
+  for (const membership of memberships) {
+    const organization = yield* (yield* DatabaseReader)
+      .table("organizations")
+      .get(asGenericId<"organizations">(membership.organizationId))
+      .pipe(Effect.orDie);
+    if (organization !== null)
+      organizations.set(membership.organizationId, organization);
+  }
+  const organization = yield* selectCurrentSlackOrganization({
+    memberships,
+    organizationsById: organizations,
+    ...(typeof identity.workosOrganizationId === "string"
+      ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+      : {}),
+  });
+  if (organization.agencyKey === undefined)
+    return yield* Effect.fail(
+      new Forbidden({ reason: "Active organization required." }),
+    );
+  return organization.agencyKey;
+});
+
+const getSlackConnectionStatus = FunctionImpl.make(
+  databaseSchema,
+  slackConnections,
+  "getSlackConnectionStatus",
+  () =>
+    Effect.gen(function* () {
+      const organizationKey = yield* currentSlackAdminOrganizationKey;
+      const current = yield* currentConnectionFor(organizationKey);
+      return current === null
+        ? {
+            connectionKey: null,
+            status: "not_connected" as const,
+            teamId: null,
+          }
+        : {
+            connectionKey: current.connectionKey,
+            status: current.status,
+            teamId: current.teamId ?? null,
+          };
+    }),
+);
+
 export const runSlackMutation = <Mutation extends Ref.AnyMutation>(
   runMutation: MutationRunner,
   mutation: Mutation,
@@ -959,6 +1025,7 @@ const finalizeSlackConnectAttempt = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, slackConnections).pipe(
   Layer.provide(beginSlackConnect),
   Layer.provide(completeSlackConnect),
+  Layer.provide(getSlackConnectionStatus),
   Layer.provide(prepareSlackConnectAttempt),
   Layer.provide(markSlackConnectAttemptFailed),
   Layer.provide(reconcileSlackConnectSessionExpiry),

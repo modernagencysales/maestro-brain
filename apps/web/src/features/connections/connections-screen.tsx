@@ -38,6 +38,7 @@ export type ConnectionsScreenState =
 export type ConnectionRow = {
   readonly key: string;
   readonly provider: string;
+  readonly category?: "slack" | "transcript";
   readonly authMethod: string;
   readonly status:
     | "disconnected"
@@ -92,7 +93,7 @@ export function ConnectionsScreen({
     <>
       <Page.Header
         title="Connections"
-        description="Connect transcript sources and route completed calls into the right Client Brain."
+        description="Connect Slack and transcript sources so company context stays current."
       />
       <Page.Body px={{ base: "4", md: "6" }} pb="8">
         <Stack gap="6">
@@ -180,7 +181,8 @@ function ConnectionsStateCard({
           <Box>
             <Heading size="md">Workspace connections</Heading>
             <Text color="gray.600" fontSize="sm">
-              Provider posture without marketplace or campaign surfaces.
+              Nango manages provider authorization while Brain owns ingestion
+              and routing.
             </Text>
           </Box>
           <Badge colorPalette="green">Ready</Badge>
@@ -225,20 +227,24 @@ function ConnectionsStateCard({
                     </Stack>
                   </Table.Cell>
                   <Table.Cell>
-                    <Stack gap="1">
-                      <Text fontSize="sm">
-                        {connection.callsDiscovered} discovered ·{" "}
-                        {connection.callsRouted} routed ·{" "}
-                        {connection.callsAwaitingRouting} awaiting routing
-                      </Text>
-                      <Text color="gray.600" fontSize="xs">
-                        {connection.backfillComplete
-                          ? "Backfill complete"
-                          : connection.status === "disconnected"
-                            ? "Backfill not started"
-                            : "Backfill in progress"}
-                      </Text>
-                    </Stack>
+                    {connection.category === "slack" ? (
+                      <Text fontSize="sm">Messages and Ask Apero</Text>
+                    ) : (
+                      <Stack gap="1">
+                        <Text fontSize="sm">
+                          {connection.callsDiscovered} discovered ·{" "}
+                          {connection.callsRouted} routed ·{" "}
+                          {connection.callsAwaitingRouting} awaiting routing
+                        </Text>
+                        <Text color="gray.600" fontSize="xs">
+                          {connection.backfillComplete
+                            ? "Backfill complete"
+                            : connection.status === "disconnected"
+                              ? "Backfill not started"
+                              : "Backfill in progress"}
+                        </Text>
+                      </Stack>
+                    )}
                   </Table.Cell>
                   <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
                   <Table.Cell>

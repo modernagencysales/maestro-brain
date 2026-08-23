@@ -64,7 +64,7 @@ const messageFrom = (payload: unknown) => {
   if (!isRecord(payload) || !isRecord(payload.event))
     throw new ObservationInvalid("ObservationInvalid");
   const event = payload.event;
-  if (event.type !== "message")
+  if (event.type !== "message" && event.type !== "app_mention")
     throw new ObservationInvalid("ObservationInvalid");
   const subtype = event.subtype;
   const deleted = subtype === "message_deleted";

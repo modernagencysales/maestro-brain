@@ -8,6 +8,8 @@ export const claimSlackConnectAttempt =
 export const completeSlackConnect = registeredFunctions.completeSlackConnect;
 export const finalizeSlackConnectAttempt =
   registeredFunctions.finalizeSlackConnectAttempt;
+export const getSlackConnectionStatus =
+  registeredFunctions.getSlackConnectionStatus;
 export const markSlackConnectAttemptFailed =
   registeredFunctions.markSlackConnectAttemptFailed;
 export const prepareSlackConnectAttempt =

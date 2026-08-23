@@ -17,8 +17,12 @@ const withSecurityHeaders = (
   return merged;
 };
 
-export const jsonResponse = (value: unknown): Response =>
+export const jsonResponse = (
+  value: unknown,
+  init: Pick<ResponseInit, "status"> = {},
+): Response =>
   new Response(JSON.stringify(value, null, 2), {
+    ...init,
     headers: {
       ...securityHeaders,
       "content-type": "application/json; charset=utf-8",

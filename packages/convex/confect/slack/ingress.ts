@@ -3,6 +3,7 @@ import {
   captureAdmittedSlackEvent,
   slackProviderObjectIdFor,
 } from "./sourceCapture";
+import type { VerifiedSlackEnvelope } from "../sources/sourceSchemas";
 
 type IngressInput = Parameters<typeof admitSlackSignedEvent>[0] & {
   readonly payload: unknown;
@@ -29,6 +30,17 @@ type IngressDb = {
 
 export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
   const binding = await admitSlackSignedEvent(input);
+  return await ingestVerifiedSlackEvent(db, input, binding);
+};
+
+export const ingestVerifiedSlackEvent = async (
+  db: IngressDb,
+  input: Pick<
+    IngressInput,
+    "payload" | "transportDeliveryId" | "routing" | "receivedAt" | "channelKey"
+  > & { readonly providerEventId: string },
+  binding: VerifiedSlackEnvelope,
+) => {
   if (await db.findReceipt(input.transportDeliveryId))
     return { outcome: "duplicate_delivery" as const };
   if (db.findReplay && (await db.findReplay(input.providerEventId)))

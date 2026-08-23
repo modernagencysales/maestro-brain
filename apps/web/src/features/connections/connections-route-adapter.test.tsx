@@ -40,6 +40,16 @@ const mocks = vi.hoisted(() => ({
     status: "verifying",
     connectionGeneration: 0,
   }),
+  beginSlackConnect: vi.fn().mockResolvedValue({
+    connectSessionId: "session-slack",
+    connectSessionToken: "slack-fixture",
+    expiresAt: Date.now() + 60_000,
+  }),
+  completeSlackConnect: vi.fn().mockResolvedValue({
+    connectionKey: "slack_agency_acme",
+    status: "verifying",
+    connectionGeneration: 0,
+  }),
   disconnectConnection: vi.fn().mockResolvedValue({
     connectionKey: "fireflies_agency_acme",
     status: "revoked",
@@ -99,7 +109,11 @@ vi.mock("../../adapters/confect-state", () => ({
       ? mocks.beginConnect
       : mocks.actionCall === 2
         ? mocks.completeConnect
-        : mocks.disconnectConnection;
+        : mocks.actionCall === 3
+          ? mocks.disconnectConnection
+          : mocks.actionCall === 4
+            ? mocks.beginSlackConnect
+            : mocks.completeSlackConnect;
   },
   useTemplateQuery: (
     _ref: unknown,
@@ -129,6 +143,17 @@ vi.mock("../../adapters/confect-state", () => ({
             lastErrorTag: "RevisionOrderConflict",
           },
         ],
+      };
+    }
+    if (mocks.queryCall === 2) {
+      options.isEmpty({} as never);
+      return {
+        status: "ready",
+        data: {
+          connectionKey: null,
+          status: "not_connected",
+          teamId: null,
+        },
       };
     }
     options.isEmpty({ items: [] });
@@ -206,6 +231,8 @@ describe("ConnectionsRouteAdapter", () => {
     });
     mocks.beginConnect.mockClear();
     mocks.completeConnect.mockClear();
+    mocks.beginSlackConnect.mockClear();
+    mocks.completeSlackConnect.mockClear();
     mocks.disconnectConnection.mockClear();
   });
 
@@ -251,11 +278,16 @@ describe("ConnectionsRouteAdapter", () => {
     );
   });
 
-  it("projects the four-provider catalog and starts provider-specific connect", async () => {
+  it("projects Slack plus the transcript catalog and starts provider-specific connect", async () => {
     renderToStaticMarkup(<ConnectionsRouteAdapter />);
     expect(mocks.screenProps?.state).toMatchObject({
       status: "ready",
       connections: expect.arrayContaining([
+        expect.objectContaining({
+          key: "slack",
+          authMethod: "OAuth via Nango",
+          status: "disconnected",
+        }),
         expect.objectContaining({
           key: "fireflies",
           authMethod: "API key",
@@ -282,6 +314,16 @@ describe("ConnectionsRouteAdapter", () => {
       provider: "gong",
       connectSessionId: "session-gong",
       connectionId: "nango-gong-connection",
+    });
+
+    mocks.openConnect.mockResolvedValueOnce({
+      connectionId: "nango-slack-connection",
+    });
+    await mocks.screenProps?.onConnect?.("slack");
+    expect(mocks.beginSlackConnect).toHaveBeenCalledWith({});
+    expect(mocks.completeSlackConnect).toHaveBeenCalledWith({
+      connectSessionId: "session-slack",
+      connectionId: "nango-slack-connection",
     });
   });
 

@@ -87,6 +87,24 @@ describe("Slack source capture", () => {
     });
   });
 
+  it("captures app mentions through the same immutable message ledger", () => {
+    expect(
+      normalizeAdmittedSlackEvent(
+        envelope,
+        {
+          ...event,
+          event: { ...event.event, type: "app_mention" },
+        },
+        routing,
+      ),
+    ).toMatchObject({
+      observation: {
+        providerObjectId: "C1:1700000000.123456",
+        text: "Keep this text exactly.",
+      },
+    });
+  });
+
   it("emits a tombstone for a deleted message and preserves its thread", () => {
     const deleted = {
       event_id: "Ev124",

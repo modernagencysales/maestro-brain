@@ -227,9 +227,14 @@ export const answerSlackQuestion = internalActionGeneric({
       .map(operationPolicyFromRecord)
       .sort((left, right) => right.generation - left.generation)[0];
     if (current !== undefined) operation = current;
+    const currentDelivery = {
+      ...args.delivery,
+      deliveryGeneration: policy.deliveryGeneration,
+      operationGeneration: operation.generation,
+    };
     const authorization = authorizeAnswerDelivery({
       input: {
-        ...args.delivery,
+        ...currentDelivery,
         requestId: args.receiptKey,
         answerReference: `slack-ask:${args.receiptKey}`,
         answerPayload: { format: "mrkdwn", text: "", citations: [] },
@@ -243,7 +248,7 @@ export const answerSlackQuestion = internalActionGeneric({
       {
         question: row as never,
         questionText: args.questionText,
-        delivery: args.delivery,
+        delivery: currentDelivery,
         authorized: authorization.right,
       },
       {

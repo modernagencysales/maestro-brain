@@ -584,6 +584,18 @@
       "notes": "Server-side Nango API key for Connect sessions; Slack access and refresh tokens stay inside Nango."
     },
     {
+      "name": "NANGO_WEBHOOK_SIGNING_KEY",
+      "group": "nango",
+      "services": ["convex"],
+      "visibility": "server-secret",
+      "requiredFor": ["live"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "fake_local_signing_key",
+      "owner": "Integrations owner",
+      "rotation": "Rotate before live enablement, after webhook configuration changes, and after suspected webhook exposure.",
+      "notes": "Nango Environment Settings > Webhooks signing key used to verify inbound webhook HMACs; this is not the Nango API key."
+    },
+    {
       "name": "NANGO_CONNECT_INTEGRATION_ID",
       "group": "nango",
       "services": ["convex", "web"],

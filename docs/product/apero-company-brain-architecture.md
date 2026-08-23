@@ -55,6 +55,12 @@ isolation, and read-only headless primitives. It does not yet prove that Slack,
 transcripts, documents, and structured projections publish into one general
 Brain-scoped retrieval path.
 
+Slack's live provider boundary is Nango-first: Nango owns OAuth and forwards
+signed, connection-attributed events to `/webhooks/nango`; Maestro resolves the
+current connection/channel, writes the existing Slack evidence ledger, and uses
+Nango again for requester-private answer delivery. See
+[Nango Slack Operations](./apero-company-brain-nango-slack.md).
+
 ## What It Does Not Yet Have
 
 The current product is Slack- and transcript-first. It does not yet provide

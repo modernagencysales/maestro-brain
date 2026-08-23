@@ -10,6 +10,7 @@
     "./nango/records": "./src/nango/records.ts",
     "./nango/connectBrowser": "./src/nango/connectBrowser.ts",
     "./nango/slack": "./src/nango/slack.ts",
+    "./nango/webhook": "./src/nango/webhook.ts",
     "./llmEgressPolicy": "./src/llmEgressPolicy.ts",
     "./llmStructured": "./src/llmStructured.ts",
     "./transcripts/canonical": "./src/transcripts/canonical.ts",

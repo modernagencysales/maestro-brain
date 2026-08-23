@@ -18,6 +18,7 @@ import {
 } from "./call-routing-queue";
 import {
   ConnectionsScreen,
+  type ConnectionRow,
   type ConnectionsScreenState,
 } from "./connections-screen";
 import type {
@@ -31,6 +32,8 @@ import { Page } from "@saas-ui/react";
 const callReviewRefs = templateConfectRefs.public.brain.callReview;
 const transcriptConnectionRefs =
   templateConfectRefs.public.integrations.transcriptConnections;
+const slackConnectionRefs =
+  templateConfectRefs.public.integrations.slackConnections;
 const transcriptSyncRefs =
   templateConfectRefs.public.integrations.transcriptSync;
 const importTranscriptRef =
@@ -38,6 +41,9 @@ const importTranscriptRef =
 type RoutingQueueData = Ref.Returns<typeof callReviewRefs.listCallRoutingQueue>;
 type ConnectionHealthData = Ref.Returns<
   typeof transcriptSyncRefs.listTranscriptConnectionHealth
+>;
+type SlackConnectionData = Ref.Returns<
+  typeof slackConnectionRefs.getSlackConnectionStatus
 >;
 type TranscriptProvider = "fireflies" | "gong" | "fathom" | "granola";
 
@@ -66,6 +72,11 @@ export function ConnectionsRouteAdapter() {
     workspaceView.canReview ? {} : "skip",
     { isEmpty: () => false },
   ) as TemplateDataState<ConnectionHealthData, unknown>;
+  const slack = useTemplateQuery(
+    slackConnectionRefs.getSlackConnectionStatus,
+    workspaceView.canReview ? {} : "skip",
+    { isEmpty: () => false },
+  ) as TemplateDataState<SlackConnectionData, unknown>;
   const queue = useTemplateQuery(
     callReviewRefs.listCallRoutingQueue,
     workspaceView.brainKey === null || !workspaceView.canReview
@@ -90,6 +101,12 @@ export function ConnectionsRouteAdapter() {
   const disconnectTranscriptConnection = useTemplateAction(
     transcriptConnectionRefs.disconnectTranscriptConnection,
   );
+  const beginSlackConnect = useTemplateAction(
+    slackConnectionRefs.beginSlackConnect,
+  );
+  const completeSlackConnect = useTemplateAction(
+    slackConnectionRefs.completeSlackConnect,
+  );
   const routingQueue = workspaceView.ready
     ? toRoutingQueueState(
         queue,
@@ -104,13 +121,15 @@ export function ConnectionsRouteAdapter() {
       <ConnectionsScreen
         role={workspaceView.role}
         routingQueue={routingQueue}
-        state={toConnectionsState(health, workspaceView.canReview)}
+        state={toConnectionsState(health, slack, workspaceView.canReview)}
         onConnect={(provider) =>
-          connectTranscriptProvider(provider, {
-            beginTranscriptConnect,
-            cancelTranscriptConnect,
-            completeTranscriptConnect,
-          })
+          provider === "slack"
+            ? connectSlack({ beginSlackConnect, completeSlackConnect })
+            : connectTranscriptProvider(provider, {
+                beginTranscriptConnect,
+                cancelTranscriptConnect,
+                completeTranscriptConnect,
+              })
         }
         onDisconnect={(provider) =>
           runTranscriptProviderOperation(
@@ -291,6 +310,26 @@ const connectTranscriptProvider = async (
   });
 };
 
+const connectSlack = async (actions: {
+  readonly beginSlackConnect: ReturnType<
+    typeof useTemplateAction<typeof slackConnectionRefs.beginSlackConnect>
+  >;
+  readonly completeSlackConnect: ReturnType<
+    typeof useTemplateAction<typeof slackConnectionRefs.completeSlackConnect>
+  >;
+}) => {
+  await startNangoConnect({
+    begin: async () => unwrapActionResult(await actions.beginSlackConnect({})),
+    open: ({ token }) =>
+      openNangoConnectWithSdk({ connectSessionToken: token }),
+    complete: async ({ connectionId, connectSessionId }) =>
+      unwrapActionResult(
+        await actions.completeSlackConnect({ connectionId, connectSessionId }),
+      ),
+    cancel: async () => undefined,
+  });
+};
+
 const importTranscriptFile = async ({
   brainKey,
   importTranscript,
@@ -330,13 +369,22 @@ const runTranscriptProviderOperation = async (
 
 const toConnectionsState = (
   health: TemplateDataState<ConnectionHealthData, unknown>,
+  slack: TemplateDataState<SlackConnectionData, unknown>,
   canReview: boolean,
 ): ConnectionsScreenState => {
+  if (slack.status !== "ready" && slack.status !== "empty")
+    return connectionStateByStatus[slack.status];
   const state =
     health.status === "ready" || health.status === "empty"
-      ? catalogState(health.data)
+      ? catalogState(health.data, slack.data)
       : connectionStateByStatus[health.status];
-  return canReview ? state : catalogState([]);
+  return canReview
+    ? state
+    : catalogState([], {
+        connectionKey: null,
+        status: "not_connected",
+        teamId: null,
+      });
 };
 
 const connectionStateByStatus = {
@@ -359,32 +407,61 @@ const unwrapActionResult = <A, E>(result: A | Either.Either<A, E>): A => {
 
 const catalogState = (
   health: ConnectionHealthData,
+  slack: SlackConnectionData,
 ): ConnectionsScreenState => ({
   status: "ready",
-  connections: transcriptCatalog.map((provider) => {
-    const connected = health.find((item) => item.provider === provider.key);
-    return {
-      key: provider.key,
-      provider: provider.name,
-      authMethod: provider.authMethod,
-      status: connected?.state ?? "disconnected",
-      lastSync:
-        connected?.lastSuccessAt == null
-          ? null
-          : new Date(connected.lastSuccessAt).toLocaleString(),
-      callsDiscovered: connected?.callsDiscovered ?? 0,
-      callsRouted: connected?.callsRouted ?? 0,
-      callsAwaitingRouting: connected?.callsAwaitingRouting ?? 0,
-      backfillComplete: connected?.backfillComplete ?? false,
-      cleanupPending: connected?.cleanupPending ?? false,
-      disconnectAvailable: connected?.disconnectAvailable ?? false,
-      purgeRequested: connected?.purgeRequested ?? false,
-      lastError: connected?.cleanupPending
-        ? "Provider cleanup pending"
-        : lastErrorLabel(connected?.lastErrorTag ?? null),
-    };
-  }),
+  connections: [
+    {
+      key: "slack",
+      provider: "Slack",
+      category: "slack" as const,
+      authMethod: "OAuth via Nango",
+      status: slackStatusForScreen(slack.status),
+      lastSync: null,
+      callsDiscovered: 0,
+      callsRouted: 0,
+      callsAwaitingRouting: 0,
+      backfillComplete: false,
+      disconnectAvailable: false,
+      lastError: null,
+    },
+    ...transcriptCatalog.map((provider) => {
+      const connected = health.find((item) => item.provider === provider.key);
+      return {
+        key: provider.key,
+        provider: provider.name,
+        category: "transcript" as const,
+        authMethod: provider.authMethod,
+        status: (connected?.state ?? "disconnected") as ConnectionRow["status"],
+        lastSync:
+          connected?.lastSuccessAt == null
+            ? null
+            : new Date(connected.lastSuccessAt).toLocaleString(),
+        callsDiscovered: connected?.callsDiscovered ?? 0,
+        callsRouted: connected?.callsRouted ?? 0,
+        callsAwaitingRouting: connected?.callsAwaitingRouting ?? 0,
+        backfillComplete: connected?.backfillComplete ?? false,
+        cleanupPending: connected?.cleanupPending ?? false,
+        disconnectAvailable: connected?.disconnectAvailable ?? false,
+        purgeRequested: connected?.purgeRequested ?? false,
+        lastError: connected?.cleanupPending
+          ? "Provider cleanup pending"
+          : lastErrorLabel(connected?.lastErrorTag ?? null),
+      };
+    }),
+  ],
 });
+
+const slackStatusForScreen = (
+  status: SlackConnectionData["status"],
+): ConnectionRow["status"] =>
+  status === "not_connected"
+    ? "disconnected"
+    : status === "active"
+      ? "ready"
+      : status === "verifying"
+        ? "syncing"
+        : status;
 
 const lastErrorLabel = (
   error:
