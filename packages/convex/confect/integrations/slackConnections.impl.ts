@@ -14,7 +14,6 @@ import {
   MutationRunner,
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
-import { extractIdentityBinding } from "../access/provisioning";
 import { roleAtLeast, type Role } from "../access/roles";
 import { Forbidden, Unauthorized } from "../errors";
 import slackConnections, {
@@ -33,7 +32,23 @@ import {
   beginSlackConnect,
   completeSlackConnect,
 } from "./slackConnections.node";
+import {
+  currentSlackConnectionFor,
+  extractSlackIdentityProfile,
+  getSlackConnectionStatus,
+  selectCurrentSlackOrganization,
+  type ProviderConnectionRow,
+  type SlackOrganizationRecord,
+} from "./slackConnections.status";
 // NangoProvider is isolated in the use-node action module.
+
+export {
+  extractSlackIdentityProfile,
+  selectCurrentSlackOrganization,
+  type ProviderConnectionRow,
+  type SlackOrganizationMembership,
+  type SlackOrganizationRecord,
+} from "./slackConnections.status";
 
 export type SlackConnectionStatus =
   | "not_connected"
@@ -75,34 +90,6 @@ type SlackConnectionError =
   | ConnectSessionInvalid
   | ProviderUnavailable
   | TenantMismatch;
-
-export type ProviderConnectionRow = {
-  readonly _id: GenericId<"providerConnections">;
-  readonly _creationTime?: number;
-  readonly provider: "nango";
-  readonly providerConfigKey: "slack";
-  readonly organizationKey: string;
-  readonly connectionKey: string;
-  readonly connectionGeneration: number;
-  readonly status:
-    | "authorizing"
-    | "verifying"
-    | "active"
-    | "error"
-    | "reauthorizing"
-    | "revoked";
-  readonly connectSessionId: string;
-  readonly nangoConnectionId?: string | null | undefined;
-  readonly nangoEndUserId: string;
-  readonly nangoOrganizationId: string;
-  readonly correlationTag: string;
-  readonly attemptId: string;
-  readonly attemptExpiresAt: number;
-  readonly completedAt?: number | null | undefined;
-  readonly teamId?: string | null | undefined;
-  readonly apiAppId?: string | null | undefined;
-  readonly botUserId?: string | null | undefined;
-};
 
 type RawIndexBuilder = {
   readonly eq: (field: string, value: unknown) => RawIndexBuilder;
@@ -154,13 +141,6 @@ export const isSecretShaped = (value: string): boolean =>
 const connectionKeyFor = (organizationKey: string) =>
   `slack_${organizationKey}`;
 
-export const extractSlackIdentityProfile = (
-  claims: Parameters<typeof extractIdentityBinding>[0],
-) =>
-  extractIdentityBinding(claims).pipe(
-    Effect.mapError(() => new Unauthorized()),
-  );
-
 const sessionIdPattern = /^maestro-session-[A-Za-z0-9_-]{22,}$/;
 
 const opaqueNangoOrganizationIdFor = (nonce: string) =>
@@ -171,54 +151,6 @@ const attemptIdFor = (connectSessionId: string) =>
 const connectSessionIdFor = (nonce: string) => `maestro-session-${nonce}`;
 const correlationTagFor = (connectSessionId: string) =>
   `slack-connect:${connectSessionId}`;
-
-export type SlackOrganizationMembership = {
-  readonly organizationId: string;
-  readonly role: Role;
-  readonly status: string;
-};
-
-export type SlackOrganizationRecord = {
-  readonly _id: unknown;
-  readonly agencyKey?: string | undefined;
-  readonly status: string;
-  readonly workosOrganizationId?: string | undefined;
-};
-
-export const selectCurrentSlackOrganization = (input: {
-  readonly memberships: readonly SlackOrganizationMembership[];
-  readonly organizationsById: ReadonlyMap<string, SlackOrganizationRecord>;
-  readonly currentWorkosOrganizationId?: string | undefined;
-}): Either.Either<SlackOrganizationRecord, Forbidden> => {
-  const candidates = input.memberships
-    .filter(
-      (membership) =>
-        membership.status === "active" && roleAtLeast(membership.role, "admin"),
-    )
-    .map((membership) => input.organizationsById.get(membership.organizationId))
-    .filter(
-      (organization): organization is SlackOrganizationRecord =>
-        organization !== undefined &&
-        organization.status === "active" &&
-        organization.agencyKey !== undefined,
-    );
-  const current =
-    input.currentWorkosOrganizationId === undefined
-      ? undefined
-      : candidates.find(
-          (organization) =>
-            organization.workosOrganizationId ===
-            input.currentWorkosOrganizationId,
-        );
-  if (current === undefined) {
-    return Either.left(
-      new Forbidden({
-        reason: "Slack connections require organization admin.",
-      }),
-    );
-  }
-  return Either.right(current);
-};
 
 export const makeSlackConnectAttemptIds = (input: {
   readonly organizationKey: string;
@@ -542,89 +474,6 @@ export const generatedRefs = {
   },
 };
 
-const currentConnectionFor = (organizationKey: string) =>
-  Effect.gen(function* () {
-    const rows = yield* providerReader(yield* DatabaseReader)
-      .table("providerConnections")
-      .index("by_organization", (q) => q.eq("organizationKey", organizationKey))
-      .take(20)
-      .pipe(Effect.orDie);
-    return (
-      (rows as readonly ProviderConnectionRow[]).find(
-        (row) =>
-          row.provider === "nango" &&
-          row.providerConfigKey === "slack" &&
-          row.status !== "revoked",
-      ) ?? null
-    );
-  });
-
-const currentSlackAdminOrganizationKey = Effect.gen(function* () {
-  const identity = yield* (yield* Auth).getUserIdentity.pipe(
-    Effect.mapError(() => new Unauthorized()),
-    Effect.flatMap(extractSlackIdentityProfile),
-  );
-  const user = yield* (yield* DatabaseReader)
-    .table("users")
-    .index("by_subject", (query) =>
-      query.eq("subject", identity.subject.trim()),
-    )
-    .first()
-    .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-  if (user === null)
-    return yield* Effect.fail(
-      new Forbidden({ reason: "Provisioned user required." }),
-    );
-  const memberships = yield* (yield* DatabaseReader)
-    .table("organizationMembers")
-    .index("by_user", (query) => query.eq("userId", user._id))
-    .take(10)
-    .pipe(Effect.orDie);
-  const organizations = new Map<string, SlackOrganizationRecord>();
-  for (const membership of memberships) {
-    const organization = yield* (yield* DatabaseReader)
-      .table("organizations")
-      .get(asGenericId<"organizations">(membership.organizationId))
-      .pipe(Effect.orDie);
-    if (organization !== null)
-      organizations.set(membership.organizationId, organization);
-  }
-  const organization = yield* selectCurrentSlackOrganization({
-    memberships,
-    organizationsById: organizations,
-    ...(typeof identity.workosOrganizationId === "string"
-      ? { currentWorkosOrganizationId: identity.workosOrganizationId }
-      : {}),
-  });
-  if (organization.agencyKey === undefined)
-    return yield* Effect.fail(
-      new Forbidden({ reason: "Active organization required." }),
-    );
-  return organization.agencyKey;
-});
-
-const getSlackConnectionStatus = FunctionImpl.make(
-  databaseSchema,
-  slackConnections,
-  "getSlackConnectionStatus",
-  () =>
-    Effect.gen(function* () {
-      const organizationKey = yield* currentSlackAdminOrganizationKey;
-      const current = yield* currentConnectionFor(organizationKey);
-      return current === null
-        ? {
-            connectionKey: null,
-            status: "not_connected" as const,
-            teamId: null,
-          }
-        : {
-            connectionKey: current.connectionKey,
-            status: current.status,
-            teamId: current.teamId ?? null,
-          };
-    }),
-);
-
 export const runSlackMutation = <Mutation extends Ref.AnyMutation>(
   runMutation: MutationRunner,
   mutation: Mutation,
@@ -693,7 +542,7 @@ const prepareSlackConnectAttempt = FunctionImpl.make(
           new Forbidden({ reason: "Active organization required." }),
         );
       }
-      const current = yield* currentConnectionFor(organizationKey);
+      const current = yield* currentSlackConnectionFor(organizationKey);
       const ids = makeSlackConnectAttemptIds({
         organizationKey,
         nonce: input.nonce,

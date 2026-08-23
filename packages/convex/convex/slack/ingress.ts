@@ -1,11 +1,16 @@
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type { DatabaseWriter, MutationCtx } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 import { admitSlackSignedEvent } from "../../confect/slack/admission";
 import type { VerifiedSlackEnvelope } from "../../confect/sources/sourceSchemas";
+import {
+  assertProviderTargetResolutionAuthority,
+  assertSlackCaptureRevision,
+  ensureSlackPublicationTargetIntent,
+} from "./ingressPublicationChecks";
 import {
   retrievalPublicationAuthorityDigest,
   retrievalPublicationJobKey,
@@ -1114,20 +1119,6 @@ type VerifiedIngressInput = IngressInput &
     };
   }>;
 
-const assertSlackCaptureRevision: (
-  receipt: NonNullable<Awaited<ReturnType<typeof receiptFor>>>,
-  revision: Doc<"sourceRevisions"> | null,
-) => asserts revision is Doc<"sourceRevisions"> = (receipt, revision) => {
-  if (revision === null)
-    throw new Error("SlackCaptureRevisionAuthorityMissing");
-  if (revision.sourceKey !== receipt.sourceKey)
-    throw new Error("SlackCaptureRevisionAuthorityMissing");
-  if (revision.connectionKey !== receipt.connectionKey)
-    throw new Error("SlackCaptureRevisionAuthorityMissing");
-  if (revision.connectionGeneration !== receipt.connectionGeneration)
-    throw new Error("SlackCaptureRevisionAuthorityMissing");
-};
-
 const loadSlackCaptureAuthority = async (
   ctx: MutationCtx,
   input: VerifiedIngressInput,
@@ -1159,17 +1150,6 @@ const loadSlackCaptureAuthority = async (
       capturedAt: receipt.receivedAt,
     }),
   };
-};
-
-const assertProviderTargetResolutionAuthority = (
-  existing: Doc<"providerTargetResolutionIntents"> | undefined,
-  authorityDigest: string,
-) => {
-  if (existing === undefined) return;
-  if (existing.authorityKind !== "live_capture")
-    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
-  if (existing.authorityDigest !== authorityDigest)
-    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
 };
 
 const ensureProviderTargetResolutionIntent = async (
@@ -1210,53 +1190,6 @@ const ensureProviderTargetResolutionIntent = async (
       updatedAt: now,
     }))
   );
-};
-
-const ensureSlackPublicationTargetIntent = async (input: {
-  readonly ctx: MutationCtx;
-  readonly receipt: Awaited<ReturnType<typeof receiptFor>> & {};
-  readonly sourceRevisionKey: string;
-  readonly providerTargetResolutionIntentId: Id<"providerTargetResolutionIntents">;
-  readonly now: number;
-}) => {
-  const existing = await input.ctx.db
-    .query("slackPublicationTargetIntents")
-    .withIndex("by_receipt_id", (query) =>
-      query.eq("receiptId", input.receipt._id),
-    )
-    .unique();
-  if (existing === null) {
-    await input.ctx.db.insert("slackPublicationTargetIntents", {
-      schemaVersion: 1,
-      receiptId: input.receipt._id,
-      organizationKey: input.receipt.organizationKey,
-      channelKey: input.receipt.channelKey,
-      sourceRevisionKey: input.sourceRevisionKey,
-      providerTargetResolutionIntentId: input.providerTargetResolutionIntentId,
-      status: "pending",
-      attemptCount: 0,
-      nextAttemptAt: input.now,
-      lastErrorTag: null,
-      resolutionGeneration: 1,
-      targetCount: 0,
-      completedAt: null,
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
-    return;
-  }
-  if (existing.providerTargetResolutionIntentId === undefined) {
-    await input.ctx.db.patch(existing._id, {
-      providerTargetResolutionIntentId: input.providerTargetResolutionIntentId,
-      updatedAt: input.now,
-    });
-    return;
-  }
-  if (
-    existing.providerTargetResolutionIntentId !==
-    input.providerTargetResolutionIntentId
-  )
-    throw new Error("SlackProviderTargetResolutionLinkageConflict");
 };
 
 const scheduleCapturedSlackPublication = async (
