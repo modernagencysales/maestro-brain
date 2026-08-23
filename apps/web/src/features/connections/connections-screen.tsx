@@ -227,24 +227,7 @@ function ConnectionsStateCard({
                     </Stack>
                   </Table.Cell>
                   <Table.Cell>
-                    {connection.category === "slack" ? (
-                      <Text fontSize="sm">Messages and Ask Apero</Text>
-                    ) : (
-                      <Stack gap="1">
-                        <Text fontSize="sm">
-                          {connection.callsDiscovered} discovered ·{" "}
-                          {connection.callsRouted} routed ·{" "}
-                          {connection.callsAwaitingRouting} awaiting routing
-                        </Text>
-                        <Text color="gray.600" fontSize="xs">
-                          {connection.backfillComplete
-                            ? "Backfill complete"
-                            : connection.status === "disconnected"
-                              ? "Backfill not started"
-                              : "Backfill in progress"}
-                        </Text>
-                      </Stack>
-                    )}
+                    <ConnectionActivity connection={connection} />
                   </Table.Cell>
                   <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
                   <Table.Cell>
@@ -306,6 +289,31 @@ function ConnectionsStateCard({
         </Box>
       </Card.Body>
     </Card.Root>
+  );
+}
+
+function ConnectionActivity({
+  connection,
+}: {
+  readonly connection: ConnectionRow;
+}) {
+  if (connection.category === "slack")
+    return <Text fontSize="sm">Messages and Ask Apero</Text>;
+  const backfillStatus = connection.backfillComplete
+    ? "Backfill complete"
+    : connection.status === "disconnected"
+      ? "Backfill not started"
+      : "Backfill in progress";
+  return (
+    <Stack gap="1">
+      <Text fontSize="sm">
+        {connection.callsDiscovered} discovered · {connection.callsRouted}{" "}
+        routed · {connection.callsAwaitingRouting} awaiting routing
+      </Text>
+      <Text color="gray.600" fontSize="xs">
+        {backfillStatus}
+      </Text>
+    </Stack>
   );
 }
 
