@@ -5,6 +5,7 @@ export type Components = {
   "migrations": import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   "posthog": import("@posthog/convex/_generated/component.js").ComponentApi<"posthog">;
   "prosemirrorSync": import("@convex-dev/prosemirror-sync/_generated/component.js").ComponentApi<"prosemirrorSync">;
+  "workflow": import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   "workpool": import("@convex-dev/workpool/_generated/component.js").ComponentApi<"workpool">;
 };
 
