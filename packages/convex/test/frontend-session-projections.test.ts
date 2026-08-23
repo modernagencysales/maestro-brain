@@ -58,6 +58,51 @@ describe("authenticated frontend projections", () => {
     expect(result.outsiderWorkspace).toBeInstanceOf(MemberNotInWorkspace);
   });
 
+  it("creates and updates an authorized workspace for onboarding", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const availableBefore = yield* actor.query(
+        refs.public.auth.workspaces.slugAvailable,
+        { slug: "northstar-client" },
+      );
+      const created = yield* actor.mutation(
+        refs.public.auth.workspaces.create,
+        { name: "Northstar Client", slug: "northstar-client" },
+      );
+      const availableAfter = yield* actor.query(
+        refs.public.auth.workspaces.slugAvailable,
+        { slug: "northstar-client" },
+      );
+      const updated = yield* actor.mutation(
+        refs.public.auth.workspaces.update,
+        {
+          workspaceId: created.id,
+          name: "Northstar Labs",
+          slug: "northstar-labs",
+        },
+      );
+      const listed = yield* actor.query(refs.public.auth.workspaces.list, {});
+      return { availableBefore, availableAfter, created, updated, listed };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.availableBefore).toEqual({ available: true });
+    expect(result.availableAfter).toEqual({ available: false });
+    expect(result.created).toMatchObject({ slug: "northstar-client" });
+    expect(result.updated).toMatchObject({
+      name: "Northstar Labs",
+      slug: "northstar-labs",
+    });
+    expect(result.listed.map(({ _id }) => _id)).toContain(result.created.id);
+  });
+
   it("joins active workspace members to user profiles after authorization", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

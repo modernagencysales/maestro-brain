@@ -3,9 +3,12 @@ import * as Schema from "effect/Schema";
 import workspaces from "../_generated/tables/workspaces";
 import { Id } from "../_generated/id";
 import {
+  Forbidden,
   MemberNotInWorkspace,
   NoRecoverableError,
   Unauthorized,
+  ValidationFailed,
+  WorkspaceNotFound,
 } from "../errors";
 
 const frontendWorkspace = Schema.Struct({
@@ -42,7 +45,50 @@ const list = FunctionSpec.publicQuery({
   error: () => Schema.Union([Unauthorized, NoRecoverableError]),
 });
 
+const WorkspaceName = Schema.String;
+const WorkspaceSlug = Schema.String;
+const WorkspaceMutationError = Schema.Union([
+  Unauthorized,
+  Forbidden,
+  MemberNotInWorkspace,
+  WorkspaceNotFound,
+  ValidationFailed,
+]);
+
+const slugAvailable = FunctionSpec.publicQuery({
+  name: "slugAvailable",
+  args: () => Schema.Struct({ slug: WorkspaceSlug }),
+  returns: () => Schema.Struct({ available: Schema.Boolean }),
+  error: () => Schema.Union([Unauthorized, ValidationFailed]),
+});
+
+const create = FunctionSpec.publicMutation({
+  name: "create",
+  args: () =>
+    Schema.Struct({
+      name: WorkspaceName,
+      slug: WorkspaceSlug,
+    }),
+  returns: () => frontendWorkspace,
+  error: () => WorkspaceMutationError,
+});
+
+const update = FunctionSpec.publicMutation({
+  name: "update",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      name: WorkspaceName,
+      slug: WorkspaceSlug,
+    }),
+  returns: () => frontendWorkspace,
+  error: () => WorkspaceMutationError,
+});
+
 export default GroupSpec.make()
   .addFunction(me)
   .addFunction(bySlug)
-  .addFunction(list);
+  .addFunction(list)
+  .addFunction(slugAvailable)
+  .addFunction(create)
+  .addFunction(update);
