@@ -86,6 +86,13 @@ describe("customer chassis Woodpecker admission", () => {
     );
   });
 
+  it("checks customer recipes through the customer generator surface", () => {
+    const source = read("tooling/quality/check-recipes.mts");
+
+    expect(source).toContain('from "../generators/src/customer.ts"');
+    expect(source).not.toContain('from "../generators/src/index.ts"');
+  });
+
   it("declares the sole deterministic PR context", () => {
     const project = read(".factory/project.yaml");
     expect(project).toContain("required: []");

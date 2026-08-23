@@ -8,7 +8,7 @@ import { WORKFLOW_SEMANTICS } from "@maestro-template/template-core/workflow-sem
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { REVIEWED_GENERATOR_DESCRIPTORS } from "../generators/src/index.ts";
+import { REVIEWED_GENERATOR_DESCRIPTORS } from "../generators/src/customer.ts";
 import { isDirectRun } from "./src/direct-run.mts";
 
 const EXPECTED_RECIPE_IDS = [
@@ -82,6 +82,7 @@ function checkOwners(
       findings.push(`${recipe.id}: unknown canonical owner ${id}`);
 }
 
+// eslint-disable-next-line complexity -- Recipe validation intentionally checks the complete descriptor contract in one pass.
 function checkGenerators(recipe: OutcomeRecipe, findings: string[]): void {
   const previewIds = new Set<string>();
   for (const preview of recipe.generatorPreviews) {
