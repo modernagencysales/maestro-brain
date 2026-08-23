@@ -37,8 +37,8 @@ import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
-import records from "./tables/records";
 import providerConnections from "./tables/providerConnections";
+import records from "./tables/records";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -47,6 +47,15 @@ import users from "./tables/users";
 import versionFreshness from "./tables/versionFreshness";
 import versionedEntries from "./tables/versionedEntries";
 import webhookEvents from "./tables/webhookEvents";
+import workflowArtifacts from "./tables/workflowArtifacts";
+import workflowEffectReservations from "./tables/workflowEffectReservations";
+import workflowEventInstances from "./tables/workflowEventInstances";
+import workflowRunContextManifests from "./tables/workflowRunContextManifests";
+import workflowRunEvents from "./tables/workflowRunEvents";
+import workflowRunEvidenceSnapshots from "./tables/workflowRunEvidenceSnapshots";
+import workflowRunLinks from "./tables/workflowRunLinks";
+import workflowRuns from "./tables/workflowRuns";
+import workflowStageRuns from "./tables/workflowStageRuns";
 import workspaceMembers from "./tables/workspaceMembers";
 import workspaces from "./tables/workspaces";
 
@@ -88,8 +97,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof organizations |
   typeof policies |
   typeof promptRegistry |
-  typeof records |
   typeof providerConnections |
+  typeof records |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -98,6 +107,15 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof versionFreshness |
   typeof versionedEntries |
   typeof webhookEvents |
+  typeof workflowArtifacts |
+  typeof workflowEffectReservations |
+  typeof workflowEventInstances |
+  typeof workflowRunContextManifests |
+  typeof workflowRunEvents |
+  typeof workflowRunEvidenceSnapshots |
+  typeof workflowRunLinks |
+  typeof workflowRuns |
+  typeof workflowStageRuns |
   typeof workspaceMembers |
   typeof workspaces
 > = $DatabaseSchema.make({
@@ -138,8 +156,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   organizations,
   policies,
   promptRegistry,
-  records,
   providerConnections,
+  records,
   transformBlocks,
   transformDefinitions,
   transformRuns,
@@ -148,6 +166,15 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   versionFreshness,
   versionedEntries,
   webhookEvents,
+  workflowArtifacts,
+  workflowEffectReservations,
+  workflowEventInstances,
+  workflowRunContextManifests,
+  workflowRunEvents,
+  workflowRunEvidenceSnapshots,
+  workflowRunLinks,
+  workflowRuns,
+  workflowStageRuns,
   workspaceMembers,
   workspaces,
 });

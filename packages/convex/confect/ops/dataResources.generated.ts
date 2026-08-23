@@ -37,6 +37,15 @@ export const currentLifecycleResourceIds = [
   "versionedEntries",
   "versionFreshness",
   "webhookEvents",
+  "workflowArtifacts",
+  "workflowEffectReservations",
+  "workflowEventInstances",
+  "workflowRunContextManifests",
+  "workflowRunEvents",
+  "workflowRunEvidenceSnapshots",
+  "workflowRunLinks",
+  "workflowRuns",
+  "workflowStageRuns",
   "workspaceMembers",
   "workspaces"
 ] as const;
@@ -289,6 +298,69 @@ export const workspaceLifecycleResourcePlans = [
     detail: "webhookEvents is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    id: "workflowArtifacts",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "delete",
+    detail: "Large workflow inputs and outputs remain workspace-bound, hash-verified, and retained only while run references or the reviewed audit window require them."
+  },
+  {
+    id: "workflowEffectReservations",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "External-effect reservations retain redacted idempotency and reconciliation evidence without storing provider payloads."
+  },
+  {
+    id: "workflowEventInstances",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Workflow event instances preserve workspace-scoped delivery, principal, ownership, and cleanup state through the audit window."
+  },
+  {
+    id: "workflowRunContextManifests",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Immutable run-context manifests bind source, policy, prompt, and model receipts to one workspace-owned workflow run."
+  },
+  {
+    id: "workflowRunEvents",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Ordered workflow events are append-only execution evidence exported only through a redacting workspace boundary."
+  },
+  {
+    id: "workflowRunEvidenceSnapshots",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Hash-bound evidence snapshots preserve the exact grounded inputs used by a workspace workflow run."
+  },
+  {
+    id: "workflowRunLinks",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Parent-child run links retain idempotency, status, and redacted result evidence for workspace-owned subworkflows."
+  },
+  {
+    id: "workflowRuns",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Workflow runs are the workspace-owned lifecycle anchor for graph, principal, policy, timing, cleanup, and terminal-state evidence."
+  },
+  {
+    id: "workflowStageRuns",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail: "Workflow stage attempts retain bounded status, error, output, and external-effect evidence under their parent run."
+  },
+  {
     id: "workspaceMembers",
     owner: "workspace",
     exportMode: "redacted-json",
@@ -480,6 +552,51 @@ export const workspaceRetentionRules = [
     resourceId: "webhookEvents",
     action: "hash-or-redact-on-export",
     detail: "webhookEvents is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
+  },
+  {
+    resourceId: "workflowArtifacts",
+    action: "retain-audit-window",
+    detail: "Large workflow inputs and outputs remain workspace-bound, hash-verified, and retained only while run references or the reviewed audit window require them."
+  },
+  {
+    resourceId: "workflowEffectReservations",
+    action: "retain-audit-window",
+    detail: "External-effect reservations retain redacted idempotency and reconciliation evidence without storing provider payloads."
+  },
+  {
+    resourceId: "workflowEventInstances",
+    action: "retain-audit-window",
+    detail: "Workflow event instances preserve workspace-scoped delivery, principal, ownership, and cleanup state through the audit window."
+  },
+  {
+    resourceId: "workflowRunContextManifests",
+    action: "retain-audit-window",
+    detail: "Immutable run-context manifests bind source, policy, prompt, and model receipts to one workspace-owned workflow run."
+  },
+  {
+    resourceId: "workflowRunEvents",
+    action: "retain-audit-window",
+    detail: "Ordered workflow events are append-only execution evidence exported only through a redacting workspace boundary."
+  },
+  {
+    resourceId: "workflowRunEvidenceSnapshots",
+    action: "retain-audit-window",
+    detail: "Hash-bound evidence snapshots preserve the exact grounded inputs used by a workspace workflow run."
+  },
+  {
+    resourceId: "workflowRunLinks",
+    action: "retain-audit-window",
+    detail: "Parent-child run links retain idempotency, status, and redacted result evidence for workspace-owned subworkflows."
+  },
+  {
+    resourceId: "workflowRuns",
+    action: "retain-audit-window",
+    detail: "Workflow runs are the workspace-owned lifecycle anchor for graph, principal, policy, timing, cleanup, and terminal-state evidence."
+  },
+  {
+    resourceId: "workflowStageRuns",
+    action: "retain-audit-window",
+    detail: "Workflow stage attempts retain bounded status, error, output, and external-effect evidence under their parent run."
   },
   {
     resourceId: "workspaceMembers",

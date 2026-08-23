@@ -7,13 +7,8 @@
       "system": "policy-and-prompts",
       "path": "packages/convex/confect/capabilities/catalog.spec.ts",
       "responsibility": "list the canonical capability catalog",
-      "surfaces": [
-        "internal",
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["internal", "web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -22,16 +17,8 @@
       "system": "knowledge-brain",
       "path": "packages/convex/confect/capabilities/sourceGroundedBrief.spec.ts",
       "responsibility": "create source-grounded implementation briefs",
-      "surfaces": [
-        "web",
-        "api",
-        "cli",
-        "mcp"
-      ],
-      "uses": [
-        "access-and-tenancy",
-        "policy-and-prompts"
-      ],
+      "surfaces": ["web", "api", "cli", "mcp"],
+      "uses": ["access-and-tenancy", "policy-and-prompts"],
       "lifecycle": "active"
     },
     {
@@ -40,13 +27,8 @@
       "system": "knowledge-brain",
       "path": "packages/convex/confect/agents/assistant.spec.ts",
       "responsibility": "provide the source-grounded assistant seat",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy",
-        "policy-and-prompts"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy", "policy-and-prompts"],
       "lifecycle": "active"
     },
     {
@@ -55,13 +37,8 @@
       "system": "workflow-runtime",
       "path": "packages/convex/confect/jobs/workpool.spec.ts",
       "responsibility": "schedule bounded durable background work",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -70,9 +47,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace.tsx",
       "responsibility": "resolve the active workspace application shell",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -82,12 +57,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/index.tsx",
       "responsibility": "present the purchased Starter dashboard",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -96,12 +67,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/contacts/index.tsx",
       "responsibility": "present the purchased Starter contacts collection",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -110,12 +77,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/contacts/$type.tsx",
       "responsibility": "present a filtered purchased Starter contacts collection",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -124,12 +87,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/contacts/view/$id.tsx",
       "responsibility": "present a purchased Starter contact detail",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -138,12 +97,8 @@
       "system": "notifications",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/inbox.tsx",
       "responsibility": "present the purchased Starter inbox split view",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -152,12 +107,8 @@
       "system": "notifications",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/inbox/$id.tsx",
       "responsibility": "present a purchased Starter inbox message",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -166,12 +117,8 @@
       "system": "workflow-runtime",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/kanban.tsx",
       "responsibility": "present the editable Saas UI Pro Kanban block",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -180,12 +127,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/search.tsx",
       "responsibility": "present purchased Starter global search results",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -194,9 +137,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings.tsx",
       "responsibility": "present the purchased Starter settings shell",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -206,9 +147,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/index.tsx",
       "responsibility": "resolve the default purchased Starter settings view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -218,9 +157,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/account/index.tsx",
       "responsibility": "resolve the default purchased Starter account view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -230,9 +167,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/account/profile.tsx",
       "responsibility": "present purchased Starter profile settings",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -242,9 +177,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/account/security.tsx",
       "responsibility": "present purchased Starter security settings",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -254,12 +187,8 @@
       "system": "billing-and-entitlements",
       "path": "apps/web/src/routes/_app/$workspace/settings/billing.tsx",
       "responsibility": "present purchased Starter billing settings",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -268,9 +197,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/members.tsx",
       "responsibility": "present purchased Starter workspace members",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -280,12 +207,8 @@
       "system": "billing-and-entitlements",
       "path": "apps/web/src/routes/_app/$workspace/settings/plans.tsx",
       "responsibility": "present purchased Starter plan settings",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -294,12 +217,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/settings/tags.tsx",
       "responsibility": "present purchased Starter tag settings",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -308,9 +227,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/$workspace/settings/workspace.tsx",
       "responsibility": "present purchased Starter workspace settings",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -320,12 +237,8 @@
       "system": "policy-and-prompts",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/showcase.tsx",
       "responsibility": "present the local editable Saas UI Pro block shelf",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -334,12 +247,8 @@
       "system": "knowledge-brain",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/tag/$tag.tsx",
       "responsibility": "present purchased Starter records for a tag",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -348,9 +257,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/accept-invite.tsx",
       "responsibility": "present the purchased Starter invitation shell",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -360,9 +267,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/accept-invite/$token.tsx",
       "responsibility": "accept a workspace invitation",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -372,9 +277,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/api/auth/$.ts",
       "responsibility": "serve the WorkOS authentication API",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -384,9 +287,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/api/auth/callback.tsx",
       "responsibility": "complete the WorkOS authentication callback",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -396,9 +297,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/api/auth/sign-in.tsx",
       "responsibility": "start WorkOS sign in",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -408,9 +307,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/api/auth/sign-up.tsx",
       "responsibility": "start WorkOS sign up",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -420,12 +317,8 @@
       "system": "policy-and-prompts",
       "path": "apps/web/src/routes/api/trpc/$.ts",
       "responsibility": "serve the purchased Starter application API seam",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -434,9 +327,7 @@
       "system": "billing-and-entitlements",
       "path": "apps/web/src/routes/api/webhooks/stripe.tsx",
       "responsibility": "receive purchased Starter billing webhooks",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -446,9 +337,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_auth/forgot-password.tsx",
       "responsibility": "present the purchased Starter password recovery view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -458,9 +347,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/getting-started.tsx",
       "responsibility": "present the purchased Starter onboarding shell",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -470,9 +357,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_app/getting-started/index.tsx",
       "responsibility": "present the purchased Starter onboarding flow",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -482,9 +367,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_auth/login.tsx",
       "responsibility": "present the purchased Starter login view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -494,9 +377,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_auth/reset-password.tsx",
       "responsibility": "present the purchased Starter password reset view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -506,9 +387,7 @@
       "system": "access-and-tenancy",
       "path": "apps/web/src/routes/_auth/signup.tsx",
       "responsibility": "present the purchased Starter signup view",
-      "surfaces": [
-        "web"
-      ],
+      "surfaces": ["web"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -518,13 +397,8 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/billing.ts",
       "responsibility": "define the billing provider service boundary",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "policy-and-prompts"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["policy-and-prompts"],
       "lifecycle": "active"
     },
     {
@@ -533,10 +407,7 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/dodo.ts",
       "responsibility": "adapt Dodo billing behind the canonical billing service",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -546,10 +417,7 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/dodoCrypto.ts",
       "responsibility": "verify Dodo webhook signatures and freshness",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -559,10 +427,7 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/dodoWebhook.ts",
       "responsibility": "normalize and verify Dodo webhook requests",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -572,14 +437,8 @@
       "system": "provider-integrations",
       "path": "packages/integrations/src/providerAdapter.ts",
       "responsibility": "construct provider adapters behind the canonical registry",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "billing-and-entitlements",
-        "notifications"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["billing-and-entitlements", "notifications"],
       "lifecycle": "active"
     },
     {
@@ -588,14 +447,8 @@
       "system": "policy-and-prompts",
       "path": "packages/integrations/src/providerRegistry.ts",
       "responsibility": "define canonical provider descriptors and configuration validation",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "billing-and-entitlements",
-        "notifications"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["billing-and-entitlements", "notifications"],
       "lifecycle": "active"
     },
     {
@@ -604,10 +457,7 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/admaxxer.ts",
       "responsibility": "adapt verified payment revenue attribution behind the billing boundary",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -617,10 +467,7 @@
       "system": "notifications",
       "path": "packages/integrations/src/email.ts",
       "responsibility": "adapt email delivery behind the canonical provider-neutral service",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -630,10 +477,7 @@
       "system": "notifications",
       "path": "packages/integrations/src/emailSetup.ts",
       "responsibility": "define repeatable Postmark templates and authenticated webhook setup",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -643,10 +487,7 @@
       "system": "policy-and-prompts",
       "path": "packages/integrations/src/flags.ts",
       "responsibility": "adapt feature flag evaluation behind policy",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -656,13 +497,8 @@
       "system": "policy-and-prompts",
       "path": "packages/integrations/src/llm.ts",
       "responsibility": "adapt language model execution behind governed policy",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "billing-and-entitlements"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["billing-and-entitlements"],
       "lifecycle": "active"
     },
     {
@@ -671,10 +507,7 @@
       "system": "policy-and-prompts",
       "path": "packages/integrations/src/llmResponse.ts",
       "responsibility": "normalize governed language model responses",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -684,13 +517,8 @@
       "system": "policy-and-prompts",
       "path": "packages/integrations/src/rateLimit.ts",
       "responsibility": "enforce provider and capability rate limits",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "billing-and-entitlements"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["billing-and-entitlements"],
       "lifecycle": "active"
     },
     {
@@ -699,13 +527,8 @@
       "system": "billing-and-entitlements",
       "path": "packages/integrations/src/spend.ts",
       "responsibility": "enforce provider spend limits and metering",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "policy-and-prompts"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["policy-and-prompts"],
       "lifecycle": "active"
     },
     {
@@ -714,10 +537,7 @@
       "system": "access-and-tenancy",
       "path": "packages/integrations/src/workos.ts",
       "responsibility": "adapt WorkOS identity behind the tenancy boundary",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -727,10 +547,7 @@
       "system": "notifications",
       "path": "packages/notifications/src/index.ts",
       "responsibility": "define notification delivery provider seams",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -740,10 +557,7 @@
       "system": "workflow-runtime",
       "path": "packages/observability/src/index.ts",
       "responsibility": "record workflow and capability operational telemetry",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
+      "surfaces": ["internal", "worker"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -753,13 +567,8 @@
       "system": "knowledge-brain",
       "path": "packages/search/src/index.ts",
       "responsibility": "adapt optional search and retrieval for knowledge",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "policy-and-prompts"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["policy-and-prompts"],
       "lifecycle": "active"
     },
     {
@@ -768,13 +577,8 @@
       "system": "knowledge-brain",
       "path": "packages/storage/src/index.ts",
       "responsibility": "adapt durable source and document asset storage",
-      "surfaces": [
-        "internal",
-        "worker"
-      ],
-      "uses": [
-        "data-lifecycle"
-      ],
+      "surfaces": ["internal", "worker"],
+      "uses": ["data-lifecycle"],
       "lifecycle": "active"
     },
     {
@@ -783,11 +587,7 @@
       "system": "access-and-tenancy",
       "path": "packages/convex/confect/headless/auth.ts",
       "responsibility": "authenticate headless workspace operations",
-      "surfaces": [
-        "api",
-        "cli",
-        "mcp"
-      ],
+      "surfaces": ["api", "cli", "mcp"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -797,10 +597,7 @@
       "system": "access-and-tenancy",
       "path": "packages/convex/confect/headless/apiKeys.spec.ts",
       "responsibility": "declare workspace-bound API key capabilities",
-      "surfaces": [
-        "api",
-        "cli"
-      ],
+      "surfaces": ["api", "cli"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -810,11 +607,7 @@
       "system": "access-and-tenancy",
       "path": "packages/convex/confect/headless/apiKeys.impl.ts",
       "responsibility": "resolve and seed workspace-bound API keys",
-      "surfaces": [
-        "api",
-        "cli",
-        "internal"
-      ],
+      "surfaces": ["api", "cli", "internal"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -824,10 +617,7 @@
       "system": "deployment-authority",
       "path": "packages/convex/confect/deployAuthority/http.ts",
       "responsibility": "authorize exact environment deployment actions from signed approvals and complete workflow census evidence",
-      "surfaces": [
-        "api",
-        "internal"
-      ],
+      "surfaces": ["api", "internal"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -837,11 +627,7 @@
       "system": "access-and-tenancy",
       "path": "packages/convex/confect/headless/errorEnvelope.ts",
       "responsibility": "normalize typed headless error envelopes",
-      "surfaces": [
-        "api",
-        "cli",
-        "mcp"
-      ],
+      "surfaces": ["api", "cli", "mcp"],
       "uses": [],
       "lifecycle": "active"
     },
@@ -851,14 +637,8 @@
       "system": "workflow-runtime",
       "path": "packages/convex/confect/manifest/executor.ts",
       "responsibility": "dispatch manifest operations to canonical contracts",
-      "surfaces": [
-        "api",
-        "cli",
-        "mcp"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["api", "cli", "mcp"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -867,14 +647,8 @@
       "system": "workflow-runtime",
       "path": "packages/convex/confect/manifest/mcp.ts",
       "responsibility": "project canonical operations into MCP tools",
-      "surfaces": [
-        "api",
-        "cli",
-        "mcp"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["api", "cli", "mcp"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -883,14 +657,8 @@
       "system": "workflow-runtime",
       "path": "packages/convex/confect/manifest/openapi.ts",
       "responsibility": "project canonical operations into OpenAPI",
-      "surfaces": [
-        "api",
-        "cli",
-        "mcp"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["api", "cli", "mcp"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -899,12 +667,8 @@
       "system": "record-management",
       "path": "apps/web/src/routes/_app/$workspace/_dashboard/records.tsx",
       "responsibility": "present workspace record create, list, and detail states",
-      "surfaces": [
-        "web"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     },
     {
@@ -913,12 +677,18 @@
       "system": "record-management",
       "path": "apps/web/src/adapters/records/http.ts",
       "responsibility": "serve the generated Records HTTP/API boundary to headless callers",
-      "surfaces": [
-        "api"
-      ],
-      "uses": [
-        "access-and-tenancy"
-      ],
+      "surfaces": ["api"],
+      "uses": ["access-and-tenancy"],
+      "lifecycle": "active"
+    },
+    {
+      "id": "job:workflow-run-graph",
+      "kind": "job",
+      "system": "workflow-runtime",
+      "path": "packages/convex/confect/workflows/runGraph.ts",
+      "responsibility": "execute the canonical durable workflow graph through the Confect-owned runtime boundary",
+      "surfaces": ["internal", "worker"],
+      "uses": ["access-and-tenancy"],
       "lifecycle": "active"
     }
   ]

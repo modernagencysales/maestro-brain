@@ -105,11 +105,7 @@
         "prosemirror",
         "version history"
       ],
-      "tables": [
-        "documentAnnotations",
-        "documentVersions",
-        "documents"
-      ],
+      "tables": ["documentAnnotations", "documentVersions", "documents"],
       "canonicalEntrypoints": [
         "packages/convex/confect/editor",
         "packages/convex/confect/editorSync.spec.ts",
@@ -141,7 +137,17 @@
         "workflow runs",
         "workflows"
       ],
-      "tables": [],
+      "tables": [
+        "workflowArtifacts",
+        "workflowEffectReservations",
+        "workflowEventInstances",
+        "workflowRunContextManifests",
+        "workflowRunEvents",
+        "workflowRunEvidenceSnapshots",
+        "workflowRunLinks",
+        "workflowRuns",
+        "workflowStageRuns"
+      ],
       "canonicalEntrypoints": [
         "packages/convex/confect/workflows",
         "packages/convex/confect/jobs/workpool.spec.ts"
@@ -176,9 +182,7 @@
         "actionJobs",
         "actionTriggers"
       ],
-      "canonicalEntrypoints": [
-        "packages/convex/confect/ops/actions.spec.ts"
-      ],
+      "canonicalEntrypoints": ["packages/convex/confect/ops/actions.spec.ts"],
       "decisionRef": "docs/template/system-catalog.md#action-automation"
     },
     {
@@ -214,9 +218,7 @@
         "usageEvents",
         "webhookEvents"
       ],
-      "canonicalEntrypoints": [
-        "packages/convex/confect/ops/billing.spec.ts"
-      ],
+      "canonicalEntrypoints": ["packages/convex/confect/ops/billing.spec.ts"],
       "decisionRef": "docs/template/system-catalog.md#billing-and-entitlements"
     },
     {
@@ -243,11 +245,7 @@
         "prompts",
         "rollouts"
       ],
-      "tables": [
-        "featureFlagPolicies",
-        "policies",
-        "promptRegistry"
-      ],
+      "tables": ["featureFlagPolicies", "policies", "promptRegistry"],
       "canonicalEntrypoints": [
         "packages/convex/confect/policy",
         "packages/convex/confect/ops/flags.spec.ts"
@@ -315,11 +313,7 @@
         "transform runs",
         "transformations"
       ],
-      "tables": [
-        "transformBlocks",
-        "transformDefinitions",
-        "transformRuns"
-      ],
+      "tables": ["transformBlocks", "transformDefinitions", "transformRuns"],
       "canonicalEntrypoints": [
         "packages/convex/confect/ops/transforms.spec.ts",
         "packages/template-core/src/transforms.ts"
@@ -345,10 +339,7 @@
         "versioned entries",
         "versioning"
       ],
-      "tables": [
-        "versionFreshness",
-        "versionedEntries"
-      ],
+      "tables": ["versionFreshness", "versionedEntries"],
       "canonicalEntrypoints": [
         "packages/convex/confect/ops/versioning.spec.ts",
         "packages/template-core/src/versioning.ts"
@@ -377,9 +368,7 @@
         "privacy",
         "retention"
       ],
-      "tables": [
-        "dsarRequests"
-      ],
+      "tables": ["dsarRequests"],
       "canonicalEntrypoints": [
         "packages/convex/confect/ops/dataLifecycle.ts",
         "packages/convex/confect/ops/dataLifecycle.spec.ts",
@@ -448,9 +437,7 @@
         "provider auth",
         "provider connections"
       ],
-      "tables": [
-        "providerConnections"
-      ],
+      "tables": ["providerConnections"],
       "canonicalEntrypoints": [
         "packages/convex/confect/integrations/connections.spec.ts",
         "packages/integrations/src/providerAdapter.ts"
@@ -469,14 +456,8 @@
         "list workspace records",
         "read workspace record details"
       ],
-      "aliases": [
-        "business records",
-        "crud",
-        "records"
-      ],
-      "tables": [
-        "records"
-      ],
+      "aliases": ["business records", "crud", "records"],
+      "tables": ["records"],
       "canonicalEntrypoints": [
         "packages/convex/confect/records/records.spec.ts",
         "apps/web/src/routes/_app/$workspace/_dashboard/records.tsx"
