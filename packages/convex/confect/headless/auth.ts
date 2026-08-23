@@ -16,7 +16,12 @@ export const ApiKeyScope = Schema.Literals([
 
 export type ApiKeyScope = Schema.Schema.Type<typeof ApiKeyScope>;
 
-export const ApiKeyStatus = Schema.Literals(["active", "revoked"]);
+const PersistedApiKeyScope = Schema.Union([
+  ApiKeyScope,
+  Schema.Literal("creator:self"),
+]);
+
+export const ApiKeyStatus = Schema.Literals(["active", "revoked", "expired"]);
 
 export type ApiKeyStatus = Schema.Schema.Type<typeof ApiKeyStatus>;
 
@@ -28,13 +33,35 @@ export const ApiKeyRow = Schema.Struct({
   name: Schema.String,
   keyHash: Schema.String,
   displayPrefix: Schema.String,
-  scopes: Schema.Array(ApiKeyScope),
+  // creator:self is accepted only for an immutable historical pilot row.
+  // Current creation inputs continue to validate against ApiKeyScope.
+  scopes: Schema.Array(PersistedApiKeyScope),
+  principalGeneration: Schema.optional(Schema.Number),
+  organizationGeneration: Schema.optional(Schema.Number),
+  organizationRevocationGeneration: Schema.optional(Schema.Number),
+  workspaceGeneration: Schema.optional(Schema.Number),
+  workspaceRevocationGeneration: Schema.optional(Schema.Number),
+  roleCeiling: Schema.optional(Schema.Literal("viewer")),
   status: ApiKeyStatus,
   createdByUserId: Schema.String,
   createdAt: Schema.Number,
   expiresAt: NullableNumber,
   revokedAt: NullableNumber,
   lastUsedAt: NullableNumber,
+  // Immutable receipt fields written by the staging creator/agency pilot.
+  agencyCreatedAtOrder: Schema.optional(Schema.Number),
+  creatorCreatedAtOrder: Schema.optional(Schema.Number),
+  creatorId: Schema.optional(Schema.String),
+  idempotencyInputDigest: Schema.optional(Schema.String),
+  idempotencyKey: Schema.optional(Schema.String),
+  principalCreatorId: Schema.optional(Schema.String),
+  principalGrantId: Schema.optional(Schema.String),
+  principalKind: Schema.optional(Schema.Literals(["agency", "creator"])),
+  principalMembershipId: Schema.optional(Schema.String),
+  principalRole: Schema.optional(
+    Schema.Literals(["viewer", "editor", "admin", "owner"]),
+  ),
+  revocationIdempotencyKey: Schema.optional(Schema.String),
 });
 
 export type ApiKeyRow = Schema.Schema.Type<typeof ApiKeyRow>;
@@ -178,16 +205,23 @@ export const verifyApiKeyHash = async (input: {
     };
   }
 
-  if (row.expiresAt !== null && row.expiresAt <= input.nowMs) {
+  if (
+    row.status === "expired" ||
+    (row.expiresAt !== null && row.expiresAt <= input.nowMs)
+  ) {
     return {
       ok: false,
       error: makeAuthError("API_KEY_EXPIRED", "API key has expired."),
     };
   }
 
+  const currentScopes = row.scopes.filter(
+    (scope): scope is ApiKeyScope => scope !== "creator:self",
+  );
   if (
-    !row.scopes.includes(input.requiredScope) &&
-    !row.scopes.includes("admin")
+    currentScopes.length !== row.scopes.length ||
+    (!currentScopes.includes(input.requiredScope) &&
+      !currentScopes.includes("admin"))
   ) {
     return {
       ok: false,
@@ -202,6 +236,6 @@ export const verifyApiKeyHash = async (input: {
     ok: true,
     workspaceId: row.workspaceId,
     keyId: row.id,
-    scopes: row.scopes,
+    scopes: currentScopes,
   };
 };

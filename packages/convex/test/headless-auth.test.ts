@@ -9,6 +9,7 @@ import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import apiKeys from "../confect/tables/apiKeys";
 import {
+  ApiKeyRow,
   createApiKey,
   HeadlessAuthError,
   parseBearerApiKey,
@@ -176,6 +177,34 @@ describe("headless API-key auth", () => {
     ).resolves.toMatchObject({
       ok: false,
       error: { code: "API_KEY_EXPIRED" },
+    });
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        rows: [{ ...created.row, status: "expired", expiresAt: null }],
+        nowMs: 2_000,
+        requiredScope: "workspace:read",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "API_KEY_EXPIRED" },
+    });
+    const historicalCreatorKey = Schema.decodeUnknownSync(ApiKeyRow)({
+      ...created.row,
+      scopes: ["creator:self"],
+      agencyCreatedAtOrder: 1,
+      principalKind: "creator",
+    });
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        rows: [historicalCreatorKey],
+        nowMs: 2_000,
+        requiredScope: "workspace:read",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "API_KEY_FORBIDDEN" },
     });
     await expect(
       verifyApiKey({
