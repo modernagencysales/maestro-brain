@@ -597,6 +597,23 @@
       "detail": "organizations is durable Access And Tenancy state governed by the canonical access-and-tenancy lifecycle."
     },
     {
+      "id": "pageRevisions",
+      "system": "knowledge-brain",
+      "sourcePath": "packages/convex/confect/tables/pageRevisions.ts",
+      "tenantScope": "workspace",
+      "sensitivity": "confidential",
+      "pii": ["customer-content"],
+      "exportMode": "markdown",
+      "deleteMode": "delete",
+      "retention": "retain-until-workspace-delete",
+      "appendOnly": true,
+      "writePosture": "implemented",
+      "workspaceLifecycle": "managed",
+      "writeAuthority": "packages/convex/confect/brain/pages.spec.ts",
+      "migrationRef": "docs/template/schema-decisions/pageRevisions.md",
+      "detail": "Immutable Brain page mutation snapshots used for revision fencing, history, and restore."
+    },
+    {
       "id": "policies",
       "system": "policy-and-prompts",
       "sourcePath": "packages/convex/confect/tables/policies.ts",

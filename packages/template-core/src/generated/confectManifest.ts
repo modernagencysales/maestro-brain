@@ -6,6 +6,24 @@ export const confectManifest = {
   functions: [
     {
       namespace: "brain.pages",
+      name: "archive",
+      operationId: "brain.pages.archive",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.archive.args",
+      returnsSchemaName: "brain.pages.archive.returns",
+    },
+    {
+      namespace: "brain.pages",
       name: "createMarkdown",
       operationId: "brain.pages.createMarkdown",
       kind: "mutation",
@@ -19,6 +37,24 @@ export const confectManifest = {
       idempotent: false,
       argsSchemaName: "brain.pages.createMarkdown.args",
       returnsSchemaName: "brain.pages.createMarkdown.returns",
+    },
+    {
+      namespace: "brain.pages",
+      name: "favorite",
+      operationId: "brain.pages.favorite",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.favorite.args",
+      returnsSchemaName: "brain.pages.favorite.returns",
     },
     {
       namespace: "brain.pages",
@@ -38,6 +74,22 @@ export const confectManifest = {
     },
     {
       namespace: "brain.pages",
+      name: "history",
+      operationId: "brain.pages.history",
+      kind: "query",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.pages.history.args",
+      returnsSchemaName: "brain.pages.history.returns",
+    },
+    {
+      namespace: "brain.pages",
       name: "list",
       operationId: "brain.pages.list",
       kind: "query",
@@ -53,8 +105,8 @@ export const confectManifest = {
     },
     {
       namespace: "brain.pages",
-      name: "updateMarkdown",
-      operationId: "brain.pages.updateMarkdown",
+      name: "move",
+      operationId: "brain.pages.move",
       kind: "mutation",
       surfaces: ["web"],
       typedErrors: [
@@ -63,6 +115,61 @@ export const confectManifest = {
         "WorkspaceNotFound",
         "NotFound",
         "ValidationFailed",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.move.args",
+      returnsSchemaName: "brain.pages.move.returns",
+    },
+    {
+      namespace: "brain.pages",
+      name: "rename",
+      operationId: "brain.pages.rename",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.rename.args",
+      returnsSchemaName: "brain.pages.rename.returns",
+    },
+    {
+      namespace: "brain.pages",
+      name: "restore",
+      operationId: "brain.pages.restore",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.restore.args",
+      returnsSchemaName: "brain.pages.restore.returns",
+    },
+    {
+      namespace: "brain.pages",
+      name: "updateMarkdown",
+      operationId: "brain.pages.updateMarkdown",
+      kind: "mutation",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+        "StaleRevision",
       ],
       idempotent: false,
       argsSchemaName: "brain.pages.updateMarkdown.args",
@@ -219,6 +326,72 @@ const sharedConfectJsonSchemasValue1 = {
       type: "string",
       enum: ["markdown", "link", "note"],
     },
+    parentPageId: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    sortKey: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    favorite: {
+      anyOf: [
+        {
+          type: "boolean",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    status: {
+      anyOf: [
+        {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    createdAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     updatedAt: {
       anyOf: [
         {
@@ -265,18 +438,6 @@ const sharedConfectJsonSchemasValue2 = {
     workspaceId: {
       type: "string",
     },
-  },
-  required: ["workspaceId"],
-  additionalProperties: false,
-} as const;
-
-const sharedConfectJsonSchemasValue3 = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  type: "object",
-  properties: {
-    workspaceId: {
-      type: "string",
-    },
     sourceIds: {
       type: "array",
       items: {
@@ -309,7 +470,7 @@ const sharedConfectJsonSchemasValue3 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue4 = {
+const sharedConfectJsonSchemasValue3 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -342,7 +503,45 @@ const sharedConfectJsonSchemasValue4 = {
   additionalProperties: false,
 } as const;
 
+const sharedConfectJsonSchemasValue4 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties: {
+    workspaceId: {
+      type: "string",
+    },
+  },
+  required: ["workspaceId"],
+  additionalProperties: false,
+} as const;
+
 const sharedConfectJsonSchemas = {
+  "brain.pages.archive.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt"],
+    additionalProperties: false,
+  },
+  "brain.pages.archive.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.createMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -359,6 +558,33 @@ const sharedConfectJsonSchemas = {
       markdown: {
         type: "string",
       },
+      parentPageId: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "string",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      sortKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
     },
     required: ["workspaceId", "slug", "title", "markdown"],
     additionalProperties: false,
@@ -367,6 +593,35 @@ const sharedConfectJsonSchemas = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "string",
   },
+  "brain.pages.favorite.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      favorite: {
+        type: "boolean",
+      },
+    },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt", "favorite"],
+    additionalProperties: false,
+  },
+  "brain.pages.favorite.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.get.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -382,7 +637,192 @@ const sharedConfectJsonSchemas = {
     additionalProperties: false,
   },
   "brain.pages.get.returns": sharedConfectJsonSchemasValue1,
-  "brain.pages.list.args": sharedConfectJsonSchemasValue2,
+  "brain.pages.history.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      limit: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "pageId"],
+    additionalProperties: false,
+  },
+  "brain.pages.history.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        workspaceId: {
+          type: "string",
+        },
+        pageId: {
+          type: "string",
+        },
+        priorUpdatedAt: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        title: {
+          type: "string",
+        },
+        markdown: {
+          type: "string",
+        },
+        sourceKind: {
+          type: "string",
+          enum: ["markdown", "link", "note"],
+        },
+        causation: {
+          type: "string",
+          enum: [
+            "create",
+            "update",
+            "rename",
+            "move",
+            "favorite",
+            "archive",
+            "restore",
+          ],
+        },
+        parentPageId: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        sortKey: {
+          type: "string",
+        },
+        favorite: {
+          type: "boolean",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        actorUserId: {
+          type: "string",
+        },
+        createdAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+      },
+      required: [
+        "workspaceId",
+        "pageId",
+        "priorUpdatedAt",
+        "updatedAt",
+        "title",
+        "markdown",
+        "sourceKind",
+        "causation",
+        "parentPageId",
+        "sortKey",
+        "favorite",
+        "status",
+        "actorUserId",
+        "createdAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
+    },
+  },
+  "brain.pages.list.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      includeArchived: {
+        anyOf: [
+          {
+            type: "boolean",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId"],
+    additionalProperties: false,
+  },
   "brain.pages.list.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "array",
@@ -433,6 +873,72 @@ const sharedConfectJsonSchemas = {
           type: "string",
           enum: ["markdown", "link", "note"],
         },
+        parentPageId: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        sortKey: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        favorite: {
+          anyOf: [
+            {
+              type: "boolean",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        status: {
+          anyOf: [
+            {
+              type: "string",
+              enum: ["active", "archived"],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        createdAt: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         updatedAt: {
           anyOf: [
             {
@@ -472,6 +978,122 @@ const sharedConfectJsonSchemas = {
       additionalProperties: false,
     },
   },
+  "brain.pages.move.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      parentPageId: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      sortKey: {
+        type: "string",
+      },
+    },
+    required: [
+      "workspaceId",
+      "pageId",
+      "expectedUpdatedAt",
+      "parentPageId",
+      "sortKey",
+    ],
+    additionalProperties: false,
+  },
+  "brain.pages.move.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.rename.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      title: {
+        type: "string",
+      },
+    },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt", "title"],
+    additionalProperties: false,
+  },
+  "brain.pages.rename.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.restore.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      revisionUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+    },
+    required: [
+      "workspaceId",
+      "pageId",
+      "expectedUpdatedAt",
+      "revisionUpdatedAt",
+    ],
+    additionalProperties: false,
+  },
+  "brain.pages.restore.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.updateMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -501,13 +1123,13 @@ const sharedConfectJsonSchemas = {
     additionalProperties: false,
   },
   "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue1,
-  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue3,
+  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.run.returns":
-    sharedConfectJsonSchemasValue4,
-  "capabilities.sourceGroundedBrief.runInternal.args":
     sharedConfectJsonSchemasValue3,
+  "capabilities.sourceGroundedBrief.runInternal.args":
+    sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.runInternal.returns":
-    sharedConfectJsonSchemasValue4,
+    sharedConfectJsonSchemasValue3,
   "ops.dataLifecycle.createDsarRequest.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -752,6 +1374,7 @@ const sharedConfectJsonSchemas = {
                 "invitations",
                 "notificationPreferences",
                 "notificationRecords",
+                "pageRevisions",
                 "policies",
                 "providerConnections",
                 "records",
@@ -820,6 +1443,7 @@ const sharedConfectJsonSchemas = {
                 "invitations",
                 "notificationPreferences",
                 "notificationRecords",
+                "pageRevisions",
                 "policies",
                 "providerConnections",
                 "records",
@@ -874,7 +1498,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue2,
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue4,
   "ops.dataLifecycle.listDsarRequests.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1038,6 +1662,7 @@ const sharedConfectJsonSchemas = {
                       "invitations",
                       "notificationPreferences",
                       "notificationRecords",
+                      "pageRevisions",
                       "policies",
                       "providerConnections",
                       "records",
@@ -1106,6 +1731,7 @@ const sharedConfectJsonSchemas = {
                       "invitations",
                       "notificationPreferences",
                       "notificationRecords",
+                      "pageRevisions",
                       "policies",
                       "providerConnections",
                       "records",
@@ -1276,7 +1902,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue2,
+  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue4,
   "ops.email.previewBroadcast.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",

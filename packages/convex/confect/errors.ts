@@ -79,6 +79,15 @@ export class ValidationFailed extends Schema.TaggedErrorClass<ValidationFailed>(
   },
 ) {}
 
+export class StaleRevision extends Schema.TaggedErrorClass<StaleRevision>()(
+  "StaleRevision",
+  {
+    pageId: Schema.String,
+    expectedUpdatedAt: Schema.Number,
+    actualUpdatedAt: Schema.Number,
+  },
+) {}
+
 export class ProvisioningConflict extends Schema.TaggedErrorClass<ProvisioningConflict>()(
   "ProvisioningConflict",
   {

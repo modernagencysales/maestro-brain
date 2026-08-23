@@ -27,6 +27,7 @@ export const currentLifecycleResourceIds = [
   "invitations",
   "notificationPreferences",
   "notificationRecords",
+  "pageRevisions",
   "policies",
   "providerConnections",
   "records",
@@ -226,6 +227,13 @@ export const workspaceLifecycleResourcePlans = [
     exportMode: "redacted-json",
     deleteMode: "retain-audit",
     detail: "notificationRecords is durable Notifications state governed by the canonical notifications lifecycle."
+  },
+  {
+    id: "pageRevisions",
+    owner: "workspace",
+    exportMode: "markdown",
+    deleteMode: "delete",
+    detail: "Immutable Brain page mutation snapshots used for revision fencing, history, and restore."
   },
   {
     id: "policies",
@@ -502,6 +510,11 @@ export const workspaceRetentionRules = [
     resourceId: "notificationRecords",
     action: "hash-or-redact-on-export",
     detail: "notificationRecords is durable Notifications state governed by the canonical notifications lifecycle."
+  },
+  {
+    resourceId: "pageRevisions",
+    action: "retain-until-workspace-delete",
+    detail: "Immutable Brain page mutation snapshots used for revision fencing, history, and restore."
   },
   {
     resourceId: "policies",

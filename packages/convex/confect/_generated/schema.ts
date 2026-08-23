@@ -35,6 +35,7 @@ import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
+import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
@@ -95,6 +96,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof notificationRecords |
   typeof organizationMembers |
   typeof organizations |
+  typeof pageRevisions |
   typeof policies |
   typeof promptRegistry |
   typeof providerConnections |
@@ -154,6 +156,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   notificationRecords,
   organizationMembers,
   organizations,
+  pageRevisions,
   policies,
   promptRegistry,
   providerConnections,

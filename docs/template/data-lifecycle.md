@@ -84,6 +84,7 @@ The planner covers these workspace-owned resources:
 - `accessAuditEvents`
 - `workspaceMembers`
 - `brainPages`
+- `pageRevisions`
 - `workflowRuns`
 - `workflowArtifacts`
 - `workflowStageRuns`
@@ -174,15 +175,16 @@ evidence cannot satisfy an exception.
 
 ## Export Posture
 
-Brain pages and co-editing documents export as markdown with JSON metadata.
-Knowledge concepts, claims, citations, and context packs export as JSON and may
-also be projected into Open Knowledge Format. Document versions and annotations
-export as JSON so reviewer comments, agent suggestions, and version provenance
-remain inspectable. Generic versioned entries and freshness markers export as
-JSON so any workspace-owned entity can be audited without mutating history.
-Transform definitions, runs, and blocks export as JSON so input hashes, output
-hashes, source IDs, policy snapshots, model receipts, and Trust Receipt
-projection remain reviewable. Action jobs and trigger config export as JSON so
+Brain pages and their immutable page revisions export as markdown with JSON
+metadata. Co-editing documents export as markdown with JSON metadata. Knowledge
+concepts, claims, citations, and context packs export as JSON and may also be
+projected into Open Knowledge Format. Document versions and annotations export
+as JSON so reviewer comments, agent suggestions, and version provenance remain
+inspectable. Generic versioned entries and freshness markers export as JSON so
+any workspace-owned entity can be audited without mutating history. Transform
+definitions, runs, and blocks export as JSON so input hashes, output hashes,
+source IDs, policy snapshots, model receipts, and Trust Receipt projection
+remain reviewable. Action jobs and trigger config export as JSON so
 external-write intent, approval posture, scheduler config, and idempotency keys
 remain inspectable. Action approvals and digests export as redacted JSON:
 approval links expose token hashes only, and digest exports never include raw
@@ -200,25 +202,25 @@ export as redacted JSON.
 
 ## Delete Posture
 
-Customer content can be deleted with the workspace. Co-editing documents and
-annotations follow workspace delete, while append-only document versions may be
-retained for a configured audit window when a client enables legal, compliance,
-or approval workflows. Concepts, claims, citations, and context packs follow
-workspace delete by default because they are structured overlays on customer
-Brain content. Generic versioned entries are retained as audit provenance;
-version freshness rows delete with the workspace entity because they are mutable
-operational state. Transform definitions delete with the workspace, while
-transform runs and blocks are retained for the audit window because they explain
-generated outputs. Action jobs, approvals, and digest deliveries are retained
-for the audit window because they explain external side effects and reviewer
-decisions; action triggers delete with workspace automation settings. DSAR
-request rows retain fulfillment review posture. Feature flag policies and
-notification preferences delete with workspace configuration. Notification
-records retain redacted delivery audit state. Audit, workflow, usage, and
-financial ledger records are retained as audit anchors. API keys and invitations
-are redacted or revoked rather than exposing secret material. Entitlements and
-payment webhook events are retained for billing, seat, and support
-reconciliation.
+Customer content, including Brain page revision history, can be deleted with the
+workspace. Co-editing documents and annotations follow workspace delete, while
+append-only document versions may be retained for a configured audit window when
+a client enables legal, compliance, or approval workflows. Concepts, claims,
+citations, and context packs follow workspace delete by default because they are
+structured overlays on customer Brain content. Generic versioned entries are
+retained as audit provenance; version freshness rows delete with the workspace
+entity because they are mutable operational state. Transform definitions delete
+with the workspace, while transform runs and blocks are retained for the audit
+window because they explain generated outputs. Action jobs, approvals, and
+digest deliveries are retained for the audit window because they explain
+external side effects and reviewer decisions; action triggers delete with
+workspace automation settings. DSAR request rows retain fulfillment review
+posture. Feature flag policies and notification preferences delete with
+workspace configuration. Notification records retain redacted delivery audit
+state. Audit, workflow, usage, and financial ledger records are retained as
+audit anchors. API keys and invitations are redacted or revoked rather than
+exposing secret material. Entitlements and payment webhook events are retained
+for billing, seat, and support reconciliation.
 
 ## Retention Rules
 

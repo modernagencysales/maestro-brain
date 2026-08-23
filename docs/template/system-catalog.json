@@ -73,7 +73,8 @@
         "citations",
         "claims",
         "concepts",
-        "contextPacks"
+        "contextPacks",
+        "pageRevisions"
       ],
       "canonicalEntrypoints": [
         "packages/convex/confect/agents/assistant.spec.ts",
