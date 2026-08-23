@@ -253,7 +253,6 @@ describe("check:ci-completeness", () => {
     const verify = [
       "pnpm test",
       "pnpm test:workflow",
-      "pnpm check:app-map",
       "pnpm check:config-drift",
       "pnpm check:convex-ai-files",
       "pnpm check:agent-pack",
@@ -261,9 +260,6 @@ describe("check:ci-completeness", () => {
 
     expect(validateRootVerifyHostTerms({ scripts: { verify } })).toContain(
       "package.json scripts.verify must not rerun pnpm test:workflow after root test",
-    );
-    expect(validateRootVerifyHostTerms({ scripts: { verify } })).toContain(
-      "package.json scripts.verify must not rerun pnpm check:app-map after root test",
     );
   });
 });

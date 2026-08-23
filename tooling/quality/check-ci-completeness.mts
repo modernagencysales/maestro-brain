@@ -17,7 +17,6 @@ const FOCUSED_ONLY_TERMS = [
   "pnpm test:workflow",
   "pnpm test:pr-backlog",
   "pnpm evals",
-  "pnpm check:app-map",
 ] as const;
 
 export function validateRootVerifyHostTerms(input: unknown): readonly string[] {

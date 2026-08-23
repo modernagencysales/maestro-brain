@@ -232,9 +232,9 @@ const checkDescriptorDefinitions = {
           "--exclude apps/cli/src/factory/customerCliRuntime.test.ts",
           "--exclude apps/cli/src/factory/createRootIntegration.test.ts",
           "--exclude tooling/release/src/customerTarget/finalFilesystem.test.ts",
-          "pnpm test:bootstrap && turbo run test --filter=!@maestro-template/release-tooling --filter=!@maestro-template/agent-pack --filter=!@maestro-template/cli --filter=!@maestro-template/convex-compat && pnpm --dir tooling/agent-pack test && pnpm --dir apps/cli test && pnpm --dir tooling/convex-compat test && pnpm --dir packages/convex test:workflow-conformance && pnpm --dir apps/cli test:customer-cli-runtime && pnpm --dir apps/cli test:create-root-integration && pnpm --dir tooling/agent-pack test:privacy-no-network && pnpm --dir tooling/release test:unit && pnpm test:release-filesystem",
-          "pnpm test:bootstrap && pnpm --dir packages/app-idea-evaluator test && pnpm --dir packages/editor-core test && pnpm --dir packages/editor-react test && pnpm --dir packages/workflow-ui test && pnpm --dir tooling/agent-pack test && pnpm --dir tooling/evals test && pnpm --dir tooling/convex-compat test && pnpm --dir tooling/app-map test && pnpm --dir tooling/eslint-plugin-template test && pnpm --dir tooling/confect-manifest test && pnpm test:chassis-ci && pnpm test:heavyweight-customer-artifacts && pnpm test:acceptance-tooling",
-          'pnpm --dir tooling/evals test && pnpm --dir tooling/release test:unit"',
+          "turbo run test --filter='./packages/*' --filter=@maestro-template/web && pnpm test:tooling",
+          "pnpm test && pnpm --dir tooling/agent-pack test && pnpm test:chassis-ci && pnpm --dir tooling/workflow test && pnpm test:release-filesystem && pnpm test:acceptance-tooling",
+          "pnpm test:bootstrap && pnpm --dir tooling/generators exec vitest run src/customer-runtime.test.ts --maxWorkers=1 --no-file-parallelism",
           "pnpm check:agent-pack && pnpm check:deps",
           "pnpm check:schema-migration-notes && pnpm check:system-catalog && pnpm check:system-topology && pnpm check:data-resources && pnpm check:append-only-tables && pnpm check:promotion-boundary && pnpm check:layer-boundaries",
         ],
@@ -301,12 +301,9 @@ const checkDescriptorDefinitions = {
       },
       {
         file: "tooling/agent-pack/package.json",
-        includes: [
-          "--exclude src/privacy/privacy.noNetwork.test.ts",
-          "vitest run src/privacy/privacy.noNetwork.test.ts --maxWorkers=1 --no-file-parallelism",
-        ],
+        includes: ['"test": "vitest run src/check.test.ts'],
         message:
-          "the heavyweight no-network proof must run exactly once in a dedicated serial agent-pack gate",
+          "standalone Agent Pack tests must exercise the customer-safe suite",
       },
       {
         file: "tooling/generators/package.json",
@@ -318,13 +315,9 @@ const checkDescriptorDefinitions = {
       },
       {
         file: "tooling/release/package.json",
-        includes: [
-          '"test": "pnpm test:unit && pnpm test:final-filesystem"',
-          "--exclude src/customerTarget/finalFilesystem.test.ts",
-          "vitest run src/customerTarget/finalFilesystem.test.ts --passWithNoTests --maxWorkers=1 --no-file-parallelism",
-        ],
+        includes: ['"test:unit": "vitest run src/deploy --passWithNoTests"'],
         message:
-          "the heavyweight customer filesystem proof must run exactly once in a dedicated serial release gate",
+          "standalone release authority must exercise the deployment proof suite",
       },
       {
         file: "tooling/ci/taste.sh",

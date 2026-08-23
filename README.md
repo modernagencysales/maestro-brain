@@ -57,6 +57,11 @@ For the copy/paste CRUD walkthrough, use
 documented in
 [Executable Outcome Recipes](./docs/template/executable-recipes.md).
 
+For repository ownership and review, use the
+[Repository Map](./docs/template/repo-map.md),
+[Reviewer Guide](./docs/template/reviewer-guide.md), and
+[Delivery Receipts](./docs/template/delivery-receipts.md).
+
 ## Guidance for agents
 
 Start with [AGENTS.md](./AGENTS.md). Keep the shared Saas UI shell and customize

@@ -8,6 +8,7 @@ coverage/
 .maestro/
 .superpowers/
 packages/convex/.convex/
+.convex/local/
 .claude/settings.json
 apps/*/dist/
 packages/*/dist/

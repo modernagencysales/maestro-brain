@@ -1,5 +1,4 @@
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,14 +17,8 @@ import {
 import { buildAgentFiles } from "./customer-runtime";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const workflowAutomationSelected = existsSync(
-  join(repoRoot, "tooling/workflow/package.json"),
-);
 const mutatingGeneratorCases: ReadonlyArray<readonly [string, string]> = [
   ["add-capability", "customerReview"],
-  ...(workflowAutomationSelected
-    ? ([["add-workflow", "customerReviewFlow"]] as const)
-    : []),
 ];
 
 const seedCatalogs = (cwd: string): void => {

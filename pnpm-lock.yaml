@@ -334,6 +334,15 @@ importers:
         specifier: 8.1.4
         version: 8.1.4(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
 
+  packages/app-idea-evaluator:
+    dependencies:
+      "@maestro-template/template-core":
+        specifier: workspace:*
+        version: link:../template-core
+      effect:
+        specifier: 4.0.0-beta.102
+        version: 4.0.0-beta.102(patch_hash=6559b7e41486b5cf6e708be725f59f26294afc5bbfc497bd975b66b99eed9811)
+
   packages/config:
     dependencies:
       "@saas-ui-pro/billing":
@@ -400,9 +409,6 @@ importers:
       "@maestro-template/integrations":
         specifier: workspace:*
         version: link:../integrations
-      "@maestro-template/notifications":
-        specifier: workspace:*
-        version: link:../notifications
       "@maestro-template/observability":
         specifier: workspace:*
         version: link:../observability
@@ -883,17 +889,31 @@ importers:
         specifier: ^3.0.0
         version: 3.2.6(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
 
+  tooling/evals: {}
+
   tooling/generators:
     dependencies:
       "@maestro-template/template-core":
         specifier: workspace:*
         version: link:../../packages/template-core
-    devDependencies:
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
 
   tooling/quality:
+    dependencies:
+      "@maestro-template/template-core":
+        specifier: workspace:*
+        version: link:../../packages/template-core
+
+  tooling/release:
+    dependencies:
+      "@maestro-template/app-map-tooling":
+        specifier: workspace:*
+        version: link:../app-map
+    devDependencies:
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0
+
+  tooling/workflow:
     dependencies:
       "@maestro-template/template-core":
         specifier: workspace:*

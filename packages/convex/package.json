@@ -43,7 +43,6 @@
     "@effect/platform-node": "4.0.0-beta.102",
     "@effect/vitest": "4.0.0-beta.102",
     "@maestro-template/integrations": "workspace:*",
-    "@maestro-template/notifications": "workspace:*",
     "@maestro-template/observability": "workspace:*",
     "@maestro-template/template-core": "workspace:*",
     "@posthog/convex": "2.0.32",
