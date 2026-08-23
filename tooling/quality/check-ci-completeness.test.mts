@@ -37,21 +37,6 @@ describe("check:ci-completeness", () => {
     expect(requirements).toContain(
       "turbo run typecheck --concurrency=1 --filter=!@workspace/ui --filter=!@maestro-template/web && pnpm typecheck:saas-ui",
     );
-    const heavyweight = descriptor.requirements.find(
-      ({ file }) => file === "tooling/ci/run-heavyweight-suites.mjs",
-    );
-    expect(heavyweight?.includes).toEqual(
-      expect.arrayContaining([
-        '["--dir", "packages/convex", "test:workflow-conformance"]',
-        '["--dir", "apps/cli", "test:create-root-integration"]',
-        '["--dir", "tooling/agent-pack", "test:privacy-no-network"]',
-      ]),
-    );
-    expect(requirements).toContain(
-      "node tooling/ci/run-heavyweight-suites.mjs",
-    );
-    expect(requirements).toContain('process.on(\\"SIGINT\\", onInterrupt)');
-    expect(requirements).toContain('process.on(\\"SIGTERM\\", onTerminate)');
     expect(requirements).toContain(
       "vitest run --passWithNoTests --pool=threads --maxWorkers=1 --no-file-parallelism",
     );
@@ -135,7 +120,6 @@ describe("check:ci-completeness", () => {
     );
     expect(rootPackage?.includes).toEqual(
       expect.arrayContaining([
-        '"test:heavyweight-customer-artifacts": "node tooling/ci/run-heavyweight-suites.mjs"',
         '"verify:without-coverage"',
         '"check:agent-pack": "tsx tooling/quality/check-agent-pack.mts"',
         '"check:app-map": "pnpm --dir tooling/app-map check"',

@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "provider": "@vitest/coverage-v8@4.1.11",
   "scope": "generated-customer-owned runtime and standalone verification v1",
-  "lines": 66.45,
-  "functions": 67.37,
-  "branches": 56.58,
-  "statements": 65.69
+  "lines": 66.62,
+  "functions": 67.54,
+  "branches": 56.69,
+  "statements": 65.89
 }

@@ -143,9 +143,9 @@ describe("customer chassis Woodpecker admission", () => {
     expect(packageJson.scripts.verify).not.toMatch(
       /(?:^|&& )pnpm test(?: &&|$)/u,
     );
-    expect(packageJson.scripts["test:heavyweight-customer-artifacts"]).toBe(
-      "node tooling/ci/run-heavyweight-suites.mjs",
-    );
+    expect(
+      packageJson.scripts["test:heavyweight-customer-artifacts"],
+    ).toBeUndefined();
     const rootTerms = packageJson.scripts.verify.split(" && ");
     const nonCoverageTerms =
       packageJson.scripts["verify:without-coverage"].split(" && ");

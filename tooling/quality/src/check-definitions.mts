@@ -223,7 +223,6 @@ const checkDescriptorDefinitions = {
           '"typecheck": "turbo run typecheck --concurrency=1 --filter=!@workspace/ui --filter=!@maestro-template/web && pnpm typecheck:saas-ui"',
           '"test:release-filesystem"',
           '"test:verify-uncovered"',
-          '"test:heavyweight-customer-artifacts": "node tooling/ci/run-heavyweight-suites.mjs"',
           '"verify:without-coverage"',
           '"test:app-map"',
           '"check:agent-pack": "tsx tooling/quality/check-agent-pack.mts"',
@@ -238,7 +237,7 @@ const checkDescriptorDefinitions = {
           "pnpm check:schema-migration-notes && pnpm check:system-catalog && pnpm check:system-topology && pnpm check:data-resources && pnpm check:append-only-tables && pnpm check:promotion-boundary && pnpm check:layer-boundaries",
         ],
         message:
-          "the root verify chain must run heavyweight proofs once and canonical system/schema ownership before layer checks",
+          "the root verify chain must run standalone proofs once and canonical system/schema ownership before layer checks",
       },
       {
         file: "tooling/quality/customer-coverage-contract.mts",
@@ -255,21 +254,6 @@ const checkDescriptorDefinitions = {
         absent: ['"tooling/release",', '"tooling/generators",'],
         message:
           "generated-customer coverage must measure shipped runtime and standalone verification without selecting absent factory publication trees",
-      },
-      {
-        file: "tooling/ci/run-heavyweight-suites.mjs",
-        includes: [
-          '["--dir", "apps/cli", "test:customer-cli-runtime"]',
-          '["--dir", "packages/convex", "test:workflow-conformance"]',
-          '["test:release-filesystem"]',
-          '["--dir", "apps/cli", "test:create-root-integration"]',
-          '["--dir", "tooling/agent-pack", "test:privacy-no-network"]',
-          "Promise.all(",
-          'process.on("SIGINT", onInterrupt)',
-          'process.on("SIGTERM", onTerminate)',
-        ],
-        message:
-          "heavyweight customer-artifact proofs must use two serial lanes with aggregate results and signal forwarding",
       },
       {
         file: "tooling/ci/verify-coverage.sh",
@@ -298,28 +282,25 @@ const checkDescriptorDefinitions = {
       {
         file: "apps/cli/package.json",
         includes: [
-          "--exclude src/factory/createRootIntegration.test.ts",
-          "--exclude src/factory/customerCliRuntime.test.ts",
-          "vitest run src/factory/customerCliRuntime.test.ts --passWithNoTests --maxWorkers=1 --no-file-parallelism",
-          "vitest run src/factory/createRootIntegration.test.ts --passWithNoTests --maxWorkers=1 --no-file-parallelism",
+          '"test": "vitest run src/launcher.test.ts --passWithNoTests"',
         ],
+        absent: ["test:customer-cli-runtime", "test:create-root-integration"],
         message:
-          "heavyweight customer integration proofs must run exactly once in dedicated serial CLI gates",
+          "standalone CLI tests must exercise the shipped launcher without advertising absent factory integration suites",
       },
       {
         file: "packages/convex/package.json",
-        includes: [
-          "--exclude test/workflow-conformance.test.ts",
-          "vitest run test/workflow-conformance.test.ts --passWithNoTests --maxWorkers=1 --no-file-parallelism",
-        ],
+        includes: ["--exclude test/workflow-conformance.test.ts"],
+        absent: ['"test:workflow-conformance"'],
         message:
-          "workflow conformance must run exactly once outside the Turbo-wide resource wave",
+          "factory workflow characterization must remain outside standalone customer verification",
       },
       {
         file: "tooling/agent-pack/package.json",
         includes: ['"test": "vitest run src/check.test.ts'],
+        absent: ['"test:privacy-no-network"'],
         message:
-          "standalone Agent Pack tests must exercise the customer-safe suite",
+          "standalone Agent Pack tests must exercise only the shipped customer-safe suite",
       },
       {
         file: "tooling/generators/package.json",
