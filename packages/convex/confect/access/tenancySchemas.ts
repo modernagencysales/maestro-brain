@@ -20,11 +20,19 @@ export const InvitationStatus = Schema.Literal(
 );
 export const AccessAuditAction = Schema.Literal(
   ...privilegedAccessAuditActions,
+  // Retain the immutable vocabulary already persisted by the staging pilot.
+  // Current writers remain narrowed to privilegedAccessAuditActions.
+  "proposal.created",
+  "proposal.accepted",
+  "deliverable.submitted",
 );
 export const AccessAuditSubjectKind = Schema.Literal(
   "workspaceMember",
   "invitation",
   "privilegedAction",
+  // Historical staging pilot rows are immutable and remain queryable.
+  "proposal",
+  "deliverable",
 );
 
 const NullableNumber = Schema.NullOr(Schema.Number);
@@ -102,4 +110,9 @@ export const AccessAuditEventRow = Schema.Struct({
   subjectId: Schema.String,
   metadataJson: Schema.String,
   createdAt: Schema.Number,
+  // Optional receipt fields retained for immutable staging pilot audit rows.
+  historyOrder: OptionalString,
+  idempotencyKey: OptionalString,
+  inputFingerprint: OptionalString,
+  resultJson: OptionalString,
 });
