@@ -25,6 +25,10 @@ type SubmittedNote = {
   readonly status: string | null;
 };
 
+type SnapshotSubmissionResult =
+  | { readonly ok: true; readonly submitted: readonly SubmittedNote[] }
+  | { readonly ok: false; readonly result: CliResult };
+
 const snapshotOptions = (argv: readonly string[]): SnapshotOptionsResult => {
   if (argv[1] !== "inspect" && argv[1] !== "submit")
     return { ok: false, result: cliFailure(usage) };
@@ -55,6 +59,33 @@ const snapshotOptions = (argv: readonly string[]): SnapshotOptionsResult => {
         source: options["--source"] ?? defaultSource,
       };
 };
+
+const inspectResult = (
+  snapshot: Extract<
+    ReturnType<typeof snapshotNotesForDirectory>,
+    { readonly ok: true }
+  >,
+  options: Extract<SnapshotOptionsResult, { readonly ok: true }>,
+): CliResult => ({
+  exitCode: 0,
+  stdout: formatJsonOutput({
+    ok: true,
+    operationId: "brain.snapshot.inspect",
+    result: {
+      directory: snapshot.directory,
+      source: options.source,
+      asOf: options.asOf,
+      fileCount: snapshot.notes.length,
+      totalBytes: snapshot.notes.reduce((total, note) => total + note.bytes, 0),
+      files: snapshot.notes.map(({ path, title, bytes }) => ({
+        path,
+        title,
+        bytes,
+      })),
+    },
+  }),
+  stderr: "",
+});
 
 const submittedNote = (
   note: SnapshotNote,
@@ -95,75 +126,64 @@ const submissionError = (result: CliResult): unknown => {
     const response = JSON.parse(result.stdout) as {
       readonly error?: unknown;
     };
-    return (
-      response.error ??
-      "Snapshot submission stopped at the first rejected file."
-    );
+    return response.error ?? defaultSubmissionError;
   } catch {
-    return "Snapshot submission stopped at the first rejected file.";
+    return defaultSubmissionError;
   }
 };
 
-export const runSnapshotSubmit = async (
-  argv: readonly string[],
-  submitNote: SubmitNote,
-): Promise<CliResult> => {
-  const options = snapshotOptions(argv);
-  if (!options.ok) return options.result;
-  const snapshot = snapshotNotesForDirectory(options.directory, options);
-  if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
-  if (options.action === "inspect") {
-    return {
-      exitCode: 0,
-      stdout: formatJsonOutput({
-        ok: true,
-        operationId: "brain.snapshot.inspect",
-        result: {
-          directory: snapshot.directory,
-          source: options.source,
-          asOf: options.asOf,
-          fileCount: snapshot.notes.length,
-          totalBytes: snapshot.notes.reduce(
-            (total, note) => total + note.bytes,
-            0,
-          ),
-          files: snapshot.notes.map(({ path, title, bytes }) => ({
-            path,
-            title,
-            bytes,
-          })),
-        },
-      }),
-      stderr: "",
-    };
-  }
+const defaultSubmissionError =
+  "Snapshot submission stopped at the first rejected file.";
 
+const failedSubmissionResult = (
+  note: SnapshotNote,
+  submitted: readonly SubmittedNote[],
+  result: CliResult,
+): CliResult => ({
+  exitCode: 1,
+  stdout: formatJsonOutput({
+    ok: false,
+    operationId: "brain.snapshot.submit",
+    result: { submitted, failedPath: note.path },
+    error: submissionError(result),
+  }),
+  stderr: "",
+});
+
+const submitSnapshotNotes = async (
+  notes: readonly SnapshotNote[],
+  submitNote: SubmitNote,
+): Promise<SnapshotSubmissionResult> => {
   const submitted: SubmittedNote[] = [];
-  for (const note of snapshot.notes) {
+  for (const note of notes) {
     const result = await submitNote(note);
-    if (result.exitCode !== 0)
+    if (result.exitCode !== 0) {
       return {
-        exitCode: 1,
-        stdout: formatJsonOutput({
-          ok: false,
-          operationId: "brain.snapshot.submit",
-          result: { submitted, failedPath: note.path },
-          error: submissionError(result),
-        }),
-        stderr: "",
+        ok: false,
+        result: failedSubmissionResult(note, submitted, result),
       };
+    }
     submitted.push(submittedNote(note, result));
   }
+  return { ok: true, submitted };
+};
 
-  const statusCounts = Object.fromEntries(
-    [...new Set(submitted.map(({ status }) => status ?? "unknown"))].map(
-      (status) => [
-        status,
-        submitted.filter((note) => (note.status ?? "unknown") === status)
-          .length,
-      ],
-    ),
-  );
+const statusCountsFor = (
+  submitted: readonly SubmittedNote[],
+): Readonly<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const note of submitted) {
+    const status = note.status ?? "unknown";
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+  return counts;
+};
+
+const submitResult = (
+  directory: string,
+  submitted: readonly SubmittedNote[],
+): CliResult => {
+  const statusCounts = statusCountsFor(submitted);
   const statuses = Object.keys(statusCounts);
   return {
     exitCode: 0,
@@ -171,7 +191,7 @@ export const runSnapshotSubmit = async (
       ok: true,
       operationId: "brain.snapshot.submit",
       result: {
-        directory: snapshot.directory,
+        directory,
         submittedCount: submitted.length,
         status: statuses.length === 1 ? statuses[0] : "mixed",
         statusCounts,
@@ -184,4 +204,20 @@ export const runSnapshotSubmit = async (
     }),
     stderr: "",
   };
+};
+
+export const runSnapshotSubmit = async (
+  argv: readonly string[],
+  submitNote: SubmitNote,
+): Promise<CliResult> => {
+  const options = snapshotOptions(argv);
+  if (!options.ok) return options.result;
+  const snapshot = snapshotNotesForDirectory(options.directory, options);
+  if (!snapshot.ok) return cliFailure(`${snapshot.message}\n`);
+  if (options.action === "inspect") return inspectResult(snapshot, options);
+
+  const submission = await submitSnapshotNotes(snapshot.notes, submitNote);
+  return submission.ok
+    ? submitResult(snapshot.directory, submission.submitted)
+    : submission.result;
 };

@@ -9,8 +9,11 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 
 import { formatJsonOutput } from "./result";
-import { brainApiOrigin, containsTenantSelector } from "./remoteSafety";
-import type { CliResult, CliRuntimeConfig } from "./types";
+import { brainApiOrigin } from "./remoteSafety";
+import { setupOutput } from "./setupOutput";
+import type { CliResult } from "./types";
+
+export { doctorBrainEnvironment } from "./environmentDoctor";
 
 export { brainApiOrigin } from "./remoteSafety";
 
@@ -20,19 +23,6 @@ type SetupArtifact = {
   readonly id: string;
   readonly path: string;
   readonly status: SetupStatus;
-};
-
-type DoctorCheck = {
-  readonly id:
-    | "config.siteUrl"
-    | "config.apiKey"
-    | "api"
-    | "mcp.initialize"
-    | "mcp.prompts.list"
-    | "mcp.tools.list";
-  readonly ok: boolean;
-  readonly detail: string;
-  readonly status?: "valid" | "missing" | "invalid";
 };
 
 const secretEnvName = "MAESTRO_BRAIN_API_KEY";
@@ -277,6 +267,19 @@ const installSkillLink = (
 
 export type SetupRuntime = "all" | "codex" | "claude-code" | "cowork";
 
+const installSetupFile = (
+  repoRoot: string,
+  origin: string,
+  file: ReturnType<typeof generatedFiles>[number],
+): SetupArtifact => {
+  const mcpUrl = `${origin}/mcp`;
+  if (file.id === "codex.config")
+    return installCodexConfig(repoRoot, file, mcpUrl);
+  if (file.id === "claude-code.config")
+    return installClaudeConfig(repoRoot, file, mcpUrl);
+  return installGeneratedFile(repoRoot, file);
+};
+
 export const setupBrainEnvironment = ({
   repoRoot,
   siteUrl,
@@ -299,14 +302,9 @@ export const setupBrainEnvironment = ({
     };
   }
   const artifacts = [
-    ...generatedFiles(origin, runtime).map((file) => {
-      const mcpUrl = `${origin}/mcp`;
-      if (file.id === "codex.config")
-        return installCodexConfig(repoRoot, file, mcpUrl);
-      if (file.id === "claude-code.config")
-        return installClaudeConfig(repoRoot, file, mcpUrl);
-      return installGeneratedFile(repoRoot, file);
-    }),
+    ...generatedFiles(origin, runtime).map((file) =>
+      installSetupFile(repoRoot, origin, file),
+    ),
     ...(runtime === "all" || runtime === "codex"
       ? [installSkillLink(repoRoot, ".agents/skills/ask-apero")]
       : []),
@@ -315,276 +313,5 @@ export const setupBrainEnvironment = ({
       : []),
   ];
   const ok = artifacts.every(({ status }) => status !== "conflict");
-  return {
-    exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({
-      ok,
-      artifacts,
-      next: ok
-        ? [
-            "Export MAESTRO_BRAIN_API_KEY in this terminal.",
-            "Run pnpm brain doctor.",
-          ]
-        : [
-            "Resolve each conflict without overwriting teammate-owned config.",
-            "Rerun the same setup command.",
-          ],
-    }),
-    stderr: "",
-  };
-};
-
-const postJson = async (
-  url: string,
-  apiKey: string,
-  body: unknown,
-  fetcher: typeof fetch,
-): Promise<{
-  readonly ok: boolean;
-  readonly value?: unknown;
-  readonly failure?: string;
-}> => {
-  try {
-    const response = await fetcher(url, {
-      method: "POST",
-      headers: {
-        accept: "application/json, text/event-stream",
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-    });
-    const responseText = await response.text();
-    try {
-      const value: unknown = JSON.parse(responseText);
-      return {
-        ok: response.ok,
-        value,
-        ...(response.ok
-          ? {}
-          : { failure: `HTTP ${response.status} response.` }),
-      };
-    } catch {
-      return {
-        ok: false,
-        failure: `HTTP ${response.status} returned a non-JSON response.`,
-      };
-    }
-  } catch {
-    return { ok: false, failure: "Network error or timeout." };
-  }
-};
-
-const recordValue = (value: unknown, key: string): unknown =>
-  typeof value === "object" && value !== null
-    ? Reflect.get(value, key)
-    : undefined;
-
-const apiCheck = async (
-  origin: string,
-  apiKey: string,
-  fetcher: typeof fetch,
-): Promise<DoctorCheck> => {
-  const response = await postJson(
-    `${origin}/api/brain.rollout.status`,
-    apiKey,
-    { input: {} },
-    fetcher,
-  );
-  const ok = response.ok && recordValue(response.value, "ok") === true;
-  return {
-    id: "api",
-    ok,
-    detail: ok
-      ? "Brain API accepted the scoped credential."
-      : `Brain API check failed${response.failure ? `: ${response.failure}` : "."}`,
-  };
-};
-
-const mcpCheck = async ({
-  id,
-  method,
-  origin,
-  apiKey,
-  fetcher,
-}: {
-  readonly id: "mcp.initialize" | "mcp.prompts.list";
-  readonly method: "initialize" | "prompts/list";
-  readonly origin: string;
-  readonly apiKey: string;
-  readonly fetcher: typeof fetch;
-}): Promise<DoctorCheck> => {
-  const response = await postJson(
-    `${origin}/mcp`,
-    apiKey,
-    {
-      jsonrpc: "2.0",
-      id: id === "mcp.initialize" ? 1 : 2,
-      method,
-      ...(method === "initialize"
-        ? {
-            params: {
-              protocolVersion: "2025-06-18",
-              capabilities: {},
-              clientInfo: { name: "maestro-brain-doctor", version: "1.0.0" },
-            },
-          }
-        : {}),
-    },
-    fetcher,
-  );
-  const result = recordValue(response.value, "result");
-  const prompts = recordValue(result, "prompts");
-  const validResult =
-    method === "initialize"
-      ? typeof recordValue(result, "protocolVersion") === "string" &&
-        typeof recordValue(result, "serverInfo") === "object"
-      : Array.isArray(prompts) &&
-        prompts.some((prompt) => recordValue(prompt, "name") === "ask-apero");
-  const ok =
-    response.ok &&
-    recordValue(response.value, "jsonrpc") === "2.0" &&
-    validResult;
-  return {
-    id,
-    ok,
-    detail: ok
-      ? method === "initialize"
-        ? "MCP initialize succeeded."
-        : "MCP prompt catalog is available."
-      : `${method} check failed${response.failure ? `: ${response.failure}` : "."}`,
-  };
-};
-
-const requiredBrainTools = new Set([
-  "template.brain.answers.ask",
-  "template.brain.context.get",
-  "template.brain.sources.search",
-  "template.brain.sources.get",
-]);
-
-const mcpToolsCheck = async (
-  origin: string,
-  apiKey: string,
-  fetcher: typeof fetch,
-): Promise<DoctorCheck> => {
-  const response = await postJson(
-    `${origin}/mcp`,
-    apiKey,
-    { jsonrpc: "2.0", id: 3, method: "tools/list" },
-    fetcher,
-  );
-  const tools = recordValue(recordValue(response.value, "result"), "tools");
-  const toolRecords = Array.isArray(tools) ? tools : [];
-  const names = new Set(
-    toolRecords
-      .map((tool) => recordValue(tool, "name"))
-      .filter((name): name is string => typeof name === "string"),
-  );
-  const missing = [...requiredBrainTools].filter((name) => !names.has(name));
-  const unsafe = toolRecords.some((tool) =>
-    containsTenantSelector(recordValue(tool, "inputSchema")),
-  );
-  const ok = response.ok && missing.length === 0 && !unsafe;
-  return {
-    id: "mcp.tools.list",
-    ok,
-    detail: ok
-      ? `MCP exposes ${toolRecords.length} scoped tools with no tenant selectors.`
-      : response.failure
-        ? `MCP tools/list check failed: ${response.failure}`
-        : unsafe
-          ? "MCP tool schemas expose a forbidden tenant selector."
-          : `MCP tool catalog is missing: ${missing.join(", ") || "valid tools/list response"}.`,
-  };
-};
-
-export const doctorBrainEnvironment = async (
-  config: CliRuntimeConfig,
-  fetcher: typeof fetch = fetch,
-): Promise<CliResult> => {
-  const origin = brainApiOrigin(config.brainSiteUrl);
-  const apiKey = config.brainApiKey;
-  const siteStatus =
-    config.brainSiteUrl === undefined
-      ? "missing"
-      : origin === undefined
-        ? "invalid"
-        : "valid";
-  const keyStatus =
-    apiKey === undefined || apiKey.length === 0
-      ? "missing"
-      : apiKey.trim() !== apiKey
-        ? "invalid"
-        : "valid";
-  const configChecks: DoctorCheck[] = [
-    {
-      id: "config.siteUrl",
-      ok: siteStatus === "valid",
-      status: siteStatus,
-      detail:
-        siteStatus === "valid"
-          ? "CONVEX_SITE_URL is a valid origin."
-          : `CONVEX_SITE_URL is ${siteStatus}.`,
-    },
-    {
-      id: "config.apiKey",
-      ok: keyStatus === "valid",
-      status: keyStatus,
-      detail:
-        keyStatus === "valid"
-          ? "MAESTRO_BRAIN_API_KEY is set."
-          : `MAESTRO_BRAIN_API_KEY is ${keyStatus}.`,
-    },
-  ];
-  if (
-    origin === undefined ||
-    apiKey === undefined ||
-    apiKey.length === 0 ||
-    apiKey.trim() !== apiKey
-  ) {
-    return {
-      exitCode: 1,
-      stdout: formatJsonOutput({
-        ok: false,
-        checks: configChecks,
-        next: "Export the missing value(s), use an HTTPS origin with no path, then rerun pnpm brain doctor.",
-      }),
-      stderr: "",
-    };
-  }
-
-  const checks = [
-    ...configChecks,
-    await apiCheck(origin, apiKey, fetcher),
-    await mcpCheck({
-      id: "mcp.initialize",
-      method: "initialize",
-      origin,
-      apiKey,
-      fetcher,
-    }),
-    await mcpCheck({
-      id: "mcp.prompts.list",
-      method: "prompts/list",
-      origin,
-      apiKey,
-      fetcher,
-    }),
-    await mcpToolsCheck(origin, apiKey, fetcher),
-  ];
-  const ok = checks.every((check) => check.ok);
-  return {
-    exitCode: ok ? 0 : 1,
-    stdout: formatJsonOutput({
-      ok,
-      checks,
-      next: ok
-        ? ["pnpm brain health", 'pnpm brain ask "What is our ICP?"']
-        : ["Fix the failed check shown above.", "Rerun pnpm brain doctor."],
-    }),
-    stderr: "",
-  };
+  return setupOutput(ok, artifacts);
 };

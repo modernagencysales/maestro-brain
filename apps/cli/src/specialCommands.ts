@@ -1,0 +1,165 @@
+import {
+  doctorBrainEnvironment,
+  setupBrainEnvironment,
+  type SetupRuntime,
+} from "./environmentSetup";
+import { noteInputFromArgs } from "./noteCommand";
+import { executeRemoteBrainRequest, remoteBrainApiResult } from "./remoteApi";
+import { runRemoteMcpCommand } from "./remoteMcp";
+import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
+import { runSnapshotSubmit } from "./snapshotCommand";
+import type { CliResult, CliRuntimeConfig } from "./types";
+
+const commandHelp: Readonly<Record<string, string>> = {
+  setup: [
+    "Configure a terminal runtime in the current repository.",
+    "",
+    "Usage: pnpm brain setup <codex|claude-code|cowork>",
+    "Requires: CONVEX_SITE_URL",
+    "Writes project-local config and never writes MAESTRO_BRAIN_API_KEY.",
+  ].join("\n"),
+  doctor: [
+    "Verify configuration, API access, and hosted MCP prompts/tools.",
+    "",
+    "Usage: pnpm brain doctor",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  note: [
+    "Submit one note to the editor review queue.",
+    "",
+    "Usage:",
+    "  pnpm brain note --file <note.md> [--title <title>]",
+    "  pnpm brain note --stdin [--title <title>]",
+    '  pnpm brain note --input \'{"title":"...","markdown":"..."}\'',
+    "Piped Markdown may provide its title as the first H1.",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+  snapshot: [
+    "Inspect or submit a Markdown snapshot in stable path order.",
+    "",
+    "Usage:",
+    "  pnpm brain snapshot inspect <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "  pnpm brain snapshot submit <directory> --as-of <YYYY-MM-DD> [--source <name>]",
+    "Inspect is local and prints metadata only. Submit requires both environment variables.",
+  ].join("\n"),
+  mcp: [
+    "Inspect or call the hosted streamable HTTP MCP.",
+    "",
+    "Usage:",
+    "  pnpm brain mcp tools",
+    "  pnpm brain mcp prompts",
+    "  pnpm brain mcp call <tool-name> [--input <json>]",
+    "Requires: CONVEX_SITE_URL and MAESTRO_BRAIN_API_KEY",
+  ].join("\n"),
+};
+
+const focusedHelp = (argv: readonly string[]): CliResult | undefined => {
+  if (argv.length !== 2 || !["--help", "-h"].includes(argv[1] ?? ""))
+    return undefined;
+  const help = commandHelp[argv[0] ?? ""];
+  return help === undefined ? undefined : cliSuccess(`${help}\n`);
+};
+
+export const withReviewNextStep = (result: CliResult): CliResult => {
+  if (result.exitCode !== 0 || !result.stdout) return result;
+  try {
+    const body = JSON.parse(result.stdout) as Readonly<Record<string, unknown>>;
+    return {
+      ...result,
+      stdout: formatJsonOutput({
+        ...body,
+        next: [
+          "An editor must approve this submission in the /brain review queue.",
+          "After approval, verify it with pnpm brain search <query>.",
+        ],
+      }),
+    };
+  } catch {
+    return result;
+  }
+};
+
+const usesMarkdownNoteInput = (argv: readonly string[]): boolean =>
+  argv[0] === "note" &&
+  argv
+    .slice(1)
+    .some((token) => ["--file", "--stdin", "--title"].includes(token));
+
+const contentCommand = async (
+  argv: readonly string[],
+  config: CliRuntimeConfig,
+  readStdin: () => Promise<string>,
+): Promise<CliResult | undefined> => {
+  if (argv[0] === "snapshot")
+    return await runSnapshotSubmit(argv, (note) =>
+      executeRemoteBrainRequest(
+        {
+          operationId: "brain.notes.submit",
+          input: { title: note.title, markdown: note.markdown },
+        },
+        config,
+      ),
+    );
+  if (!usesMarkdownNoteInput(argv)) return undefined;
+  const note = await noteInputFromArgs(argv, readStdin);
+  if (!note.ok) return note.result;
+  return withReviewNextStep(
+    await executeRemoteBrainRequest(
+      { operationId: "brain.notes.submit", input: note.input },
+      config,
+    ),
+  );
+};
+
+const setupRuntime = (argv: readonly string[]): SetupRuntime | undefined => {
+  if (argv.length > 2) return undefined;
+  const runtime = argv[1];
+  if (runtime === undefined) return "all";
+  return (["codex", "claude-code", "cowork"] as const).includes(
+    runtime as Exclude<SetupRuntime, "all">,
+  )
+    ? (runtime as SetupRuntime)
+    : undefined;
+};
+
+const environmentCommand = async (
+  argv: readonly string[],
+  config: CliRuntimeConfig,
+): Promise<CliResult | undefined> => {
+  if (argv[0] === "setup") {
+    const runtime = setupRuntime(argv);
+    return runtime === undefined
+      ? cliFailure("setup accepts codex, claude-code, or cowork.\n")
+      : setupBrainEnvironment({
+          repoRoot: process.cwd(),
+          siteUrl: config.brainSiteUrl,
+          runtime,
+        });
+  }
+  if (argv[0] !== "doctor") return undefined;
+  return argv.length === 1
+    ? await doctorBrainEnvironment(config)
+    : cliFailure("doctor takes no arguments.\n");
+};
+
+export const runSpecialCommand = async (
+  argv: readonly string[],
+  config: CliRuntimeConfig,
+  readStdin: () => Promise<string>,
+): Promise<CliResult | undefined> => {
+  const handlers = [
+    async () => focusedHelp(argv),
+    async () => await contentCommand(argv, config, readStdin),
+    async () => await environmentCommand(argv, config),
+    async () => await runRemoteMcpCommand(argv, config),
+    async () =>
+      argv[0] === "api" && argv[1] === "call"
+        ? await remoteBrainApiResult(argv, config)
+        : undefined,
+  ];
+  for (const handler of handlers) {
+    const result = await handler();
+    if (result !== undefined) return result;
+  }
+  return undefined;
+};

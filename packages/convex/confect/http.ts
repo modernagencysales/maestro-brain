@@ -25,8 +25,8 @@ import {
   type HeadlessOperationPolicy,
 } from "./headless/authorizeOperation";
 import type { HeadlessPrincipal } from "./headless/principal";
+import { runHeadlessNoteSubmit } from "./headlessNoteHttp";
 import { validateCallerIdempotencyKey } from "./shared/idempotencyKey";
-import { sha256Hex } from "./shared/sha256";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
 
@@ -94,16 +94,6 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
 
 const feedbackOperationId = "brain.feedback.reportWrongOrStale";
 const noteSubmitOperationId = "brain.notes.submit";
-
-const derivedNoteIdempotencyKey = (
-  input: Readonly<Record<string, unknown>>,
-): string =>
-  `note.${sha256Hex(
-    JSON.stringify({
-      title: input.title ?? null,
-      markdown: input.markdown ?? null,
-    }),
-  )}`;
 
 const feedbackFunction = () => {
   const spec = feedbackSpec.functions.headlessReportWrongOrStale;
@@ -253,6 +243,11 @@ const htmlResponse = (html: string): Response =>
     }),
   });
 
+const invalidIdempotencyResponse = (message: string) => ({
+  ok: false,
+  error: { _tag: "ValidationFailed", message },
+});
+
 const runTemplateApiOperation = async (
   ctx: HeadlessHttpCtx,
   request: HeadlessExecutorRequest,
@@ -260,37 +255,19 @@ const runTemplateApiOperation = async (
   if (request.operationId === feedbackOperationId) {
     const idempotencyKey = validateCallerIdempotencyKey(request.idempotencyKey);
     if (!idempotencyKey.ok)
-      return {
-        ok: false,
-        error: {
-          _tag: "ValidationFailed",
-          message: idempotencyKey.error.message,
-        },
-      };
+      return invalidIdempotencyResponse(idempotencyKey.error.message);
     const result = await ctx.runMutation(
       (ctx.operationRefs ?? operationRefs)[feedbackOperationId],
       { ...request.input, idempotencyKey: idempotencyKey.value },
     );
     return { ok: true, operationId: feedbackOperationId, result };
   }
-  if (request.operationId === noteSubmitOperationId) {
-    const idempotencyKey = validateCallerIdempotencyKey(
-      request.idempotencyKey ?? derivedNoteIdempotencyKey(request.input),
-    );
-    if (!idempotencyKey.ok)
-      return {
-        ok: false,
-        error: {
-          _tag: "ValidationFailed",
-          message: idempotencyKey.error.message,
-        },
-      };
-    const result = await ctx.runMutation(
+  if (request.operationId === noteSubmitOperationId)
+    return await runHeadlessNoteSubmit(
+      (ref, input) => ctx.runMutation(ref, input),
       (ctx.operationRefs ?? operationRefs)[noteSubmitOperationId],
-      { ...request.input, idempotencyKey: idempotencyKey.value },
+      request,
     );
-    return { ok: true, operationId: noteSubmitOperationId, result };
-  }
   return await executeHeadlessOperation(
     {
       refs: ctx.operationRefs ?? operationRefs,

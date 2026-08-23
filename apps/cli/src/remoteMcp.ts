@@ -1,140 +1,54 @@
-import { parseNamedArgs } from "./namedArgs";
-import { containsTenantSelector, brainApiOrigin } from "./remoteSafety";
-import { cliFailure, formatJsonOutput } from "./result";
+import { brainApiOrigin } from "./remoteSafety";
+import { cliFailure } from "./result";
+import { parseRemoteMcpCommand, type McpResultKind } from "./remoteMcpCommand";
+import { parseJsonRpcBody, remoteMcpResponseResult } from "./remoteMcpResponse";
 import type { CliResult, CliRuntimeConfig } from "./types";
 
-type McpResultKind = "tools" | "prompts" | "call";
+type McpConfig =
+  | { readonly ok: true; readonly origin: string; readonly apiKey: string }
+  | { readonly ok: false; readonly result: CliResult };
 
-const redactedJson = (value: unknown, apiKey: string): string =>
-  formatJsonOutput(value).split(apiKey).join("[REDACTED]");
-
-const embeddedToolError = (result: unknown): unknown => {
-  if (result === null || typeof result !== "object") return undefined;
-  if (Reflect.get(result, "isError") === true) return result;
-  const content = Reflect.get(result, "content");
-  if (!Array.isArray(content)) return undefined;
-  for (const item of content) {
-    if (item === null || typeof item !== "object") continue;
-    const text = Reflect.get(item, "text");
-    if (typeof text !== "string") continue;
-    try {
-      const payload: unknown = JSON.parse(text);
-      if (
-        payload !== null &&
-        typeof payload === "object" &&
-        Reflect.get(payload, "ok") === false
-      )
-        return Reflect.get(payload, "error") ?? payload;
-    } catch {
-      // Normal text tool output does not need to be JSON.
-    }
-  }
-  return undefined;
+const validateRemoteConfig = (config: CliRuntimeConfig): McpConfig => {
+  const origin = brainApiOrigin(config.brainSiteUrl);
+  if (origin === undefined)
+    return {
+      ok: false,
+      result: cliFailure(
+        "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.\n",
+      ),
+    };
+  const apiKey = config.brainApiKey;
+  return !apiKey || apiKey.trim() !== apiKey
+    ? {
+        ok: false,
+        result: cliFailure("MAESTRO_BRAIN_API_KEY is required.\n"),
+      }
+    : { ok: true, origin, apiKey };
 };
 
 const executeRemoteMcpRequest = async (
   request: Readonly<Record<string, unknown>>,
   config: CliRuntimeConfig,
-  resultKind: McpResultKind,
+  kind: McpResultKind,
 ): Promise<CliResult> => {
-  const origin = brainApiOrigin(config.brainSiteUrl);
-  if (origin === undefined)
-    return cliFailure(
-      "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.\n",
-    );
-  const apiKey = config.brainApiKey;
-  if (!apiKey || apiKey.trim() !== apiKey)
-    return cliFailure("MAESTRO_BRAIN_API_KEY is required.\n");
+  const validated = validateRemoteConfig(config);
+  if (!validated.ok) return validated.result;
   try {
-    const response = await fetch(`${origin}/mcp`, {
+    const response = await fetch(`${validated.origin}/mcp`, {
       method: "POST",
       headers: {
         accept: "application/json, text/event-stream",
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${validated.apiKey}`,
         "content-type": "application/json",
       },
       body: JSON.stringify(request),
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const responseText = await response.text();
-    let body: unknown;
-    try {
-      body = JSON.parse(responseText);
-    } catch {
-      return cliFailure(
-        `Brain MCP returned HTTP ${response.status} with a non-JSON response.\n`,
-      );
-    }
-    if (body === null || typeof body !== "object")
-      return cliFailure("Brain MCP returned an invalid JSON-RPC response.\n");
-    const error = Reflect.get(body, "error");
-    if (!response.ok || error !== undefined)
-      return {
-        exitCode: 1,
-        stdout: redactedJson(
-          {
-            ok: false,
-            transport: "streamable-http",
-            error: error ?? { code: "HTTP_ERROR", status: response.status },
-          },
-          apiKey,
-        ),
-        stderr: "",
-      };
-    const result = Reflect.get(body, "result");
-    if (resultKind === "call") {
-      const toolError = embeddedToolError(result);
-      return {
-        exitCode: toolError === undefined ? 0 : 1,
-        stdout: redactedJson(
-          toolError === undefined
-            ? { ok: true, transport: "streamable-http", result }
-            : {
-                ok: false,
-                transport: "streamable-http",
-                error: toolError,
-                result,
-              },
-          apiKey,
-        ),
-        stderr: "",
-      };
-    }
-    const collection =
-      result !== null && typeof result === "object"
-        ? Reflect.get(result, resultKind)
-        : undefined;
-    if (!Array.isArray(collection))
-      return cliFailure(
-        `Brain MCP returned an invalid ${resultKind} catalog.\n`,
-      );
-    if (
-      resultKind === "tools" &&
-      collection.some((tool) =>
-        containsTenantSelector(
-          tool !== null && typeof tool === "object"
-            ? Reflect.get(tool, "inputSchema")
-            : undefined,
-        ),
-      )
-    )
-      return cliFailure(
-        "Brain MCP tool schemas expose a forbidden tenant selector.\n",
-      );
-    return {
-      exitCode: 0,
-      stdout: redactedJson(
-        {
-          ok: true,
-          transport: "streamable-http",
-          [`${resultKind.slice(0, -1)}Count`]: collection.length,
-          [resultKind]: collection,
-        },
-        apiKey,
-      ),
-      stderr: "",
-    };
+    const parsed = await parseJsonRpcBody(response);
+    return parsed.ok
+      ? remoteMcpResponseResult(parsed.body, response, validated.apiKey, kind)
+      : parsed.result;
   } catch {
     return cliFailure(
       "Could not reach Brain MCP (network error or timeout).\n",
@@ -147,39 +61,8 @@ export const runRemoteMcpCommand = async (
   config: CliRuntimeConfig,
 ): Promise<CliResult | undefined> => {
   if (argv[0] !== "mcp") return undefined;
-  if (argv[1] === "tools" && argv.length === 2)
-    return await executeRemoteMcpRequest(
-      { jsonrpc: "2.0", id: 1, method: "tools/list" },
-      config,
-      "tools",
-    );
-  if (argv[1] === "prompts" && argv.length === 2)
-    return await executeRemoteMcpRequest(
-      { jsonrpc: "2.0", id: 1, method: "prompts/list" },
-      config,
-      "prompts",
-    );
-  if (argv[1] !== "call" || !argv[2])
-    return cliFailure(
-      "mcp usage: mcp tools | mcp prompts | mcp call <tool-name> [--input <json>].\n",
-    );
-  const parsed = parseNamedArgs(argv.slice(3));
-  if (!parsed.ok) return cliFailure(`${parsed.message}\n`);
-  const { input = {}, ...unsupported } = parsed.args;
-  if (Object.keys(unsupported).length > 0)
-    return cliFailure("mcp call accepts only --input <json>.\n");
-  if (containsTenantSelector(input))
-    return cliFailure(
-      "Brain scope must be derived from MAESTRO_BRAIN_API_KEY.\n",
-    );
-  return await executeRemoteMcpRequest(
-    {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: argv[2], arguments: input },
-    },
-    config,
-    "call",
-  );
+  const command = parseRemoteMcpCommand(argv);
+  return command.ok
+    ? await executeRemoteMcpRequest(command.request, config, command.kind)
+    : command.result;
 };
