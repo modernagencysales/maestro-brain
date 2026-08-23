@@ -230,8 +230,8 @@
       "source": "apps/web/src/features/common/components/user-menu.tsx",
       "destination": "apps/web/src/features/common/components/user-menu.tsx",
       "sourceSha256": "5cd16b45f5d95095fb98823c42964ea29b2f9a66771ef7c159f20ce6b189a915",
-      "sha256": "5cd16b45f5d95095fb98823c42964ea29b2f9a66771ef7c159f20ce6b189a915",
-      "adapted": false
+      "sha256": "ef2cef3b72fac783a48b52dd3673280d8e0d4f188e295f16f8d4571e378fca50",
+      "adapted": true
     },
     {
       "source": "apps/web/src/features/common/components/workspaces-menu.tsx",
@@ -706,7 +706,7 @@
       "source": "apps/web/src/features/settings/common/settings-sidebar.tsx",
       "destination": "apps/web/src/features/settings/common/settings-sidebar.tsx",
       "sourceSha256": "bea225dd07d211543d8445a918f192c7bde6cdcacf42fdc9280be96315f90a84",
-      "sha256": "1bbe47ce071c862aeef97978406429f5c3431f3ece20322c37c1fb411f7148cc",
+      "sha256": "9c40348df3c39e0e9e3ef2c1d7b82a3cf523dc2af8e866262e9bdc13388596c5",
       "adapted": true
     },
     {
@@ -727,8 +727,8 @@
       "source": "apps/web/src/features/settings/members/members-page.tsx",
       "destination": "apps/web/src/features/settings/members/members-page.tsx",
       "sourceSha256": "3f2d96b4396736b573efc7cbec68f9ceac8d6ee87fa7f615e23bde818707eac2",
-      "sha256": "3f2d96b4396736b573efc7cbec68f9ceac8d6ee87fa7f615e23bde818707eac2",
-      "adapted": false
+      "sha256": "881e1e50afaf1374a3bafdcd10938b035f5d4368467aee5194f1198438b28890",
+      "adapted": true
     },
     {
       "source": "apps/web/src/features/settings/tags/color-control.tsx",
@@ -804,7 +804,7 @@
       "source": "apps/web/src/lib/trpc/react.tsx",
       "destination": "apps/web/src/lib/trpc/react.tsx",
       "sourceSha256": "b99def2745bcd560975d0b786745e8855d0c04c4e1f771a88151412e9447a453",
-      "sha256": "083ac13bcc0a8d9a1dddbb6b157ee2cafe6b22b8e8a0716c067238a9a637b1b6",
+      "sha256": "050c293f0233b3ca7bcc49f0efaf2511f14fbdc8d4d72445107256833b6a3df3",
       "adapted": true
     },
     {

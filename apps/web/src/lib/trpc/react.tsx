@@ -1,5 +1,5 @@
 import { convexQuery, useConvexQuery } from "@convex-dev/react-query";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useConvex } from "convex/react";
 import {
   useMutation as useTanstackMutation,
   useSuspenseQuery as useTanstackSuspenseQuery,
@@ -33,6 +33,30 @@ export const realRefs = {
   ),
   "workspaceMembers.list": getFunctionReference(
     templateConfectRefs.public.access.members.list,
+  ),
+};
+
+export const realMutationRefs = {
+  "workspaces.create": getFunctionReference(
+    templateConfectRefs.public.auth.workspaces.create,
+  ),
+  "workspaces.update": getFunctionReference(
+    templateConfectRefs.public.auth.workspaces.update,
+  ),
+  "workspaceMembers.invite": getFunctionReference(
+    templateConfectRefs.public.access.invitations.create,
+  ),
+  "workspaceMembers.removeMember": getFunctionReference(
+    templateConfectRefs.public.access.members.remove,
+  ),
+  "workspaceMembers.updateRoles": getFunctionReference(
+    templateConfectRefs.public.access.members.changeRole,
+  ),
+};
+
+export const realImperativeQueryRefs = {
+  "workspaces.slugAvailable": getFunctionReference(
+    templateConfectRefs.public.auth.workspaces.slugAvailable,
   ),
 };
 
@@ -214,9 +238,6 @@ export const neutralPaths = [
   "billing.createBillingPortalSession",
   "billing.createCheckoutSession",
   "billing.setSubscriptionPlan",
-  "workspaceMembers.invite",
-  "workspaceMembers.removeMember",
-  "workspaceMembers.updateRoles",
   "workspaceMembers.notificationSettings",
   "workspaceMembers.updateNotificationSettings",
   "workspaceMembers.invitation",
@@ -224,9 +245,6 @@ export const neutralPaths = [
   "users.subscribeToNewsletter",
   "users.updateProfile",
   "auth.listAccounts",
-  "workspaces.create",
-  "workspaces.slugAvailable",
-  "workspaces.update",
   "tags.create",
   "tags.update",
   "tags.delete",
@@ -236,7 +254,12 @@ const neutral = (path: string): never => {
   throw new Error(`No Convex authority is registered for ${path}`);
 };
 export const assertRealAuthority = (path: string) => {
-  if (!(path in realRefs)) neutral(path);
+  if (
+    !(path in realRefs) &&
+    !(path in realMutationRefs) &&
+    !(path in realImperativeQueryRefs)
+  )
+    neutral(path);
 };
 
 const isNeutral = (path: string) =>
@@ -318,7 +341,11 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
 };
 
 const adaptProcedureData = <TData,>(key: string, value: unknown): TData =>
-  (key === "workspaces.bySlug" ? normalizeWorkspace(value) : value) as TData;
+  (key === "workspaces.bySlug" ||
+  key === "workspaces.create" ||
+  key === "workspaces.update"
+    ? normalizeWorkspace(value)
+    : value) as TData;
 
 const workspaceFixture = (
   slug: string,
@@ -363,23 +390,10 @@ const billingSessionPaths: readonly string[] = [
   "billing.createBillingPortalSession",
   "billing.createCheckoutSession",
 ];
-const workspaceMutationPaths: readonly string[] = [
-  "workspaces.create",
-  "workspaces.update",
-];
 const contactMutationPaths: readonly string[] = [
   "contacts.create",
   "contacts.update",
 ];
-
-const neutralWorkspace = (input?: Record<string, unknown>): Workspace => {
-  const slug = inputString(input, "slug", "workspace");
-  return {
-    ...workspaceFixture(slug, false),
-    id: inputString(input, "id", `fixture-${slug}`),
-    name: inputString(input, "name", "Fixture workspace"),
-  };
-};
 
 const neutralContact = (input?: Record<string, unknown>): ContactDTO => ({
   id: inputString(input, "id", "fixture-contact"),
@@ -397,18 +411,94 @@ const neutralContact = (input?: Record<string, unknown>): ContactDTO => ({
   createdAt: new Date(0),
 });
 
+const runtimeMutationFixture = (
+  path: string,
+  input?: Record<string, unknown>,
+): unknown => {
+  if (!isFixtureAuthRuntime()) return undefined;
+  if (path === "workspaces.slugAvailable") return { available: true };
+  if (path === "workspaces.create" || path === "workspaces.update") {
+    const slug = inputString(input, "slug", "workspace");
+    return {
+      ...workspaceFixture(slug, isIsolatedContractsRuntime()),
+      id: inputString(input, "workspaceId", `fixture-${slug}`),
+      name: inputString(input, "name", "Fixture workspace"),
+    };
+  }
+  if (
+    path === "workspaceMembers.invite" ||
+    path === "workspaceMembers.removeMember" ||
+    path === "workspaceMembers.updateRoles"
+  )
+    return null;
+  return undefined;
+};
+
 export const neutralMutationValue = (
   path: string,
   input?: Record<string, unknown>,
 ): unknown => {
   if (!isNeutral(path)) return neutral(path);
-  if (path === "workspaces.slugAvailable") return { available: true };
   if (billingSessionPaths.includes(path)) {
     return { url: "#" };
   }
-  if (workspaceMutationPaths.includes(path)) return neutralWorkspace(input);
   if (contactMutationPaths.includes(path)) return neutralContact(input);
   return null;
+};
+
+const memberRole = (value: unknown): "admin" | "editor" | "viewer" => {
+  if (value === "admin") return "admin";
+  if (value === "viewer") return "viewer";
+  return "editor";
+};
+
+const executeRealMutation = async (
+  client: ConvexReactClient,
+  key: string,
+  input: Record<string, unknown>,
+): Promise<{ readonly handled: boolean; readonly value: unknown }> => {
+  if (key === "workspaces.slugAvailable") {
+    const value = await client.query(realImperativeQueryRefs[key], {
+      slug: inputString(input, "slug", ""),
+    });
+    return { handled: true, value };
+  }
+  if (key === "workspaceMembers.invite") {
+    const workspaceId = inputString(input, "workspaceId", "");
+    const emails = Array.isArray(input.emails)
+      ? input.emails.filter(
+          (email): email is string => typeof email === "string",
+        )
+      : [];
+    await Promise.all(
+      emails.map((email) =>
+        client.mutation(realMutationRefs[key], {
+          workspaceId,
+          email,
+          role: memberRole(input.role),
+        }),
+      ),
+    );
+    return { handled: true, value: null };
+  }
+  if (key === "workspaceMembers.removeMember") {
+    const value = await client.mutation(realMutationRefs[key], {
+      membershipId: inputString(input, "id", ""),
+    });
+    return { handled: true, value };
+  }
+  if (key === "workspaceMembers.updateRoles") {
+    const roles = Array.isArray(input.roles) ? input.roles : [];
+    const value = await client.mutation(realMutationRefs[key], {
+      membershipId: inputString(input, "userId", ""),
+      newRole: memberRole(roles[0]),
+    });
+    return { handled: true, value };
+  }
+  const ref = realMutationRefs[key as keyof typeof realMutationRefs];
+  if (ref === undefined) return { handled: false, value: undefined };
+  const value = await client.mutation(ref as never, input as never);
+  return { handled: true, value };
 };
 
 function procedure<
@@ -502,17 +592,26 @@ function procedure<
     getData: () =>
       (isNeutral(key) ? neutralData(key) : undefined) as TQueryData | undefined,
     setData: () => undefined,
-    useMutation: (options) =>
-      useTanstackMutation<TMutationData, StarterError, TMutationInput>({
-        mutationFn: async (input) =>
-          neutralMutationValue(
-            key,
-            input as Record<string, unknown>,
-          ) as TMutationData,
+    useMutation: (options) => {
+      const convex = useConvex();
+      return useTanstackMutation<TMutationData, StarterError, TMutationInput>({
+        mutationFn: async (input) => {
+          const rawInput = input as Record<string, unknown>;
+          const fixture = runtimeMutationFixture(key, rawInput);
+          if (fixture !== undefined)
+            return adaptProcedureData<TMutationData>(key, fixture);
+          const real = await executeRealMutation(convex, key, rawInput);
+          return (
+            real.handled
+              ? adaptProcedureData<TMutationData>(key, real.value)
+              : neutralMutationValue(key, rawInput)
+          ) as TMutationData;
+        },
         ...(options?.onSuccess ? { onSuccess: options.onSuccess } : {}),
         ...(options?.onError ? { onError: options.onError } : {}),
         ...(options?.onSettled ? { onSettled: options.onSettled } : {}),
-      }),
+      });
+    },
     invalidate: async () => undefined,
   };
 }

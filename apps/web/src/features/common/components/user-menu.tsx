@@ -10,6 +10,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 
 import { useColorMode } from '#components/color-mode.tsx'
 import { UserAvatar } from '#components/user-avatar'
+import { productShell } from '#config/product-shell'
 
 import { useCurrentUser } from '../hooks/use-current-user'
 import { useWorkspaceSlug } from '../hooks/use-workspace-slug'
@@ -55,16 +56,18 @@ export const UserMenu = () => {
 
       <Menu.Content minW="200px" portalled>
         <Menu.ItemGroup title={currentUser?.name || ''}>
-          <Menu.Item value="profile" asChild>
-            <Link
-              to="/$workspace/settings/account"
-              params={{
-                workspace,
-              }}
-            >
-              Profile
-            </Link>
-          </Menu.Item>
+          {productShell.settings.account ? (
+            <Menu.Item value="profile" asChild>
+              <Link
+                to="/$workspace/settings/account"
+                params={{
+                  workspace,
+                }}
+              >
+                Profile
+              </Link>
+            </Menu.Item>
+          ) : null}
           <Has feature="settings">
             <Menu.Item value="settings" asChild>
               <Link

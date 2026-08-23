@@ -171,6 +171,11 @@ export function MembersSettingsPage() {
           ) : null}
           <MembersList
             allowInvite={!limitReached}
+            roles={[
+              { value: 'admin', label: 'Admin' },
+              { value: 'editor', label: 'Editor' },
+              { value: 'viewer', label: 'Viewer' },
+            ]}
             members={members.map((member) => ({
               id: member.id,
               email: member.email!,

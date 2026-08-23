@@ -1,6 +1,7 @@
 import { GroupSpec, Ref, Refs, Spec } from "@confect/core";
 
 import members from "../confect/access/members.spec";
+import invitations from "../confect/access/invitations.spec";
 import provisioning from "../confect/access/provisioning.spec";
 import assistant from "../confect/agents/assistant.spec";
 import workspaces from "../confect/auth/workspaces.spec";
@@ -12,6 +13,7 @@ const frontendSpec = Spec.make()
   .addAt(
     "access",
     GroupSpec.makeAt("access")
+      .addGroupAt("invitations", invitations)
       .addGroupAt("members", members)
       .addGroupAt("provisioning", provisioning),
   )

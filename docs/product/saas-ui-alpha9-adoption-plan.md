@@ -262,6 +262,14 @@ adapters named in frontmatter.
 product affordance first changes an adapter or maps to another complete catalog
 composition; it does not authorize route-local replacement JSX.
 
+The standalone Brain product exposes only settings backed by current authority.
+Workspace creation, slug admission, workspace updates, member listing,
+invitations, role changes, and removal use the access-and-tenancy Confect
+contracts. Neutral factory-only profile writes, tags, plans, and billing remain
+in the immutable route tree but are hidden from product navigation until their
+real providers are bound. Brain page lifecycle and grounded Ask operations use
+the same generated contracts across web, API, CLI, and MCP projections.
+
 ## Execution Order
 
 1. Freeze alpha.9 shell and route parity; do not change upstream composition.

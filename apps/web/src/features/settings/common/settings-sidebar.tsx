@@ -20,6 +20,7 @@ import {
 import { useHelpCenter } from '@workspace/ui/help-center'
 
 import { LinkButton } from '#components/link-button'
+import { productShell } from '#config/product-shell'
 import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
 import { useUserSettings } from '#lib/user-settings/use-user-settings'
 
@@ -108,20 +109,22 @@ export const SettingsSidebar = () => {
           </LinkButton>
         </Sidebar.Header>
         <Sidebar.Body>
-          <Sidebar.Group>
-            <Sidebar.GroupHeader>
-              <Sidebar.GroupTitle gap="2">Account</Sidebar.GroupTitle>
-            </Sidebar.GroupHeader>
-            <Sidebar.GroupContent>
-              <SettingsLink {...getLinkOptions('/account/profile')}>
-                <LuUser /> Profile
-              </SettingsLink>
-              <SettingsLink {...getLinkOptions('/account/security')}>
-                <LuShieldCheck />
-                Security
-              </SettingsLink>
-            </Sidebar.GroupContent>
-          </Sidebar.Group>
+          {productShell.settings.account ? (
+            <Sidebar.Group>
+              <Sidebar.GroupHeader>
+                <Sidebar.GroupTitle gap="2">Account</Sidebar.GroupTitle>
+              </Sidebar.GroupHeader>
+              <Sidebar.GroupContent>
+                <SettingsLink {...getLinkOptions('/account/profile')}>
+                  <LuUser /> Profile
+                </SettingsLink>
+                <SettingsLink {...getLinkOptions('/account/security')}>
+                  <LuShieldCheck />
+                  Security
+                </SettingsLink>
+              </Sidebar.GroupContent>
+            </Sidebar.Group>
+          ) : null}
 
           <Has feature="settings">
             <Sidebar.Group>
@@ -129,22 +132,32 @@ export const SettingsSidebar = () => {
                 <Sidebar.GroupTitle gap="2">Workspace</Sidebar.GroupTitle>
               </Sidebar.GroupHeader>
               <Sidebar.GroupContent>
-                <SettingsLink {...getLinkOptions('/workspace')}>
-                  <LuBuilding /> Workspace
-                </SettingsLink>
-                <SettingsLink {...getLinkOptions('/members')}>
-                  <LuUsersRound /> Members
-                </SettingsLink>
-                <SettingsLink {...getLinkOptions('/tags')}>
-                  <LuTags /> Tags
-                </SettingsLink>
-                <SettingsLink {...getLinkOptions('/plans')}>
-                  <LuColumns3 /> Plans
-                </SettingsLink>
-                <SettingsLink {...getLinkOptions('/billing')}>
-                  <LuCreditCard />
-                  Billing
-                </SettingsLink>
+                {productShell.settings.workspace ? (
+                  <SettingsLink {...getLinkOptions('/workspace')}>
+                    <LuBuilding /> Workspace
+                  </SettingsLink>
+                ) : null}
+                {productShell.settings.members ? (
+                  <SettingsLink {...getLinkOptions('/members')}>
+                    <LuUsersRound /> Members
+                  </SettingsLink>
+                ) : null}
+                {productShell.settings.tags ? (
+                  <SettingsLink {...getLinkOptions('/tags')}>
+                    <LuTags /> Tags
+                  </SettingsLink>
+                ) : null}
+                {productShell.settings.plans ? (
+                  <SettingsLink {...getLinkOptions('/plans')}>
+                    <LuColumns3 /> Plans
+                  </SettingsLink>
+                ) : null}
+                {productShell.settings.billing ? (
+                  <SettingsLink {...getLinkOptions('/billing')}>
+                    <LuCreditCard />
+                    Billing
+                  </SettingsLink>
+                ) : null}
               </Sidebar.GroupContent>
             </Sidebar.Group>
           </Has>

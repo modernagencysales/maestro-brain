@@ -6,6 +6,8 @@ import {
   createCompatibilityApi,
   neutralMutationValue,
   neutralPaths,
+  realImperativeQueryRefs,
+  realMutationRefs,
   realRefs,
 } from "#lib/trpc/react";
 
@@ -107,6 +109,24 @@ describe("Convex starter query compatibility", () => {
     expect(getFunctionName(realRefs["workspaceMembers.list"])).toBe(
       "access/members:list",
     );
+    expect(getFunctionName(realMutationRefs["workspaces.create"])).toBe(
+      "auth/workspaces:create",
+    );
+    expect(getFunctionName(realMutationRefs["workspaces.update"])).toBe(
+      "auth/workspaces:update",
+    );
+    expect(
+      getFunctionName(realImperativeQueryRefs["workspaces.slugAvailable"]),
+    ).toBe("auth/workspaces:slugAvailable");
+    expect(getFunctionName(realMutationRefs["workspaceMembers.invite"])).toBe(
+      "access/invitations:create",
+    );
+    expect(
+      getFunctionName(realMutationRefs["workspaceMembers.removeMember"]),
+    ).toBe("access/members:remove");
+    expect(
+      getFunctionName(realMutationRefs["workspaceMembers.updateRoles"]),
+    ).toBe("access/members:changeRole");
   });
 
   it("does not silently treat unknown real authorities as empty data", () => {
@@ -128,9 +148,6 @@ describe("Convex starter query compatibility", () => {
         "users.subscribeToNewsletter",
         "users.updateProfile",
         "auth.listAccounts",
-        "workspaces.create",
-        "workspaces.slugAvailable",
-        "workspaces.update",
         "tags.create",
         "tags.update",
         "tags.delete",
@@ -138,16 +155,16 @@ describe("Convex starter query compatibility", () => {
     );
   });
 
-  it("makes neutral member mutations deterministic no-ops", () => {
-    expect(neutralMutationValue("workspaceMembers.invite")).toBeNull();
-    expect(neutralMutationValue("workspaceMembers.removeMember")).toBeNull();
-    expect(neutralMutationValue("workspaceMembers.updateRoles")).toBeNull();
+  it("does not route real access mutations through neutral no-ops", () => {
+    expect(() => neutralMutationValue("workspaceMembers.invite")).toThrow(
+      /No Convex authority/,
+    );
+    expect(() => neutralMutationValue("workspaces.create")).toThrow(
+      /No Convex authority/,
+    );
   });
 
   it("returns screen-safe results for stateful neutral mutations", () => {
-    expect(
-      neutralMutationValue("workspaces.slugAvailable", { slug: "acme" }),
-    ).toEqual({ available: true });
     expect(
       neutralMutationValue("contacts.create", {
         id: "contact_1",
