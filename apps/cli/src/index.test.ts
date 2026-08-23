@@ -76,9 +76,11 @@ describe("maestro-template CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Company Brain CLI");
-    expect(result.stdout).toContain('"$BRAIN_CLI" install');
+    expect(result.stdout).toContain("./apps/cli/bin/maestro-brain.mjs install");
     expect(result.stdout).toContain("export CONVEX_SITE_URL=");
-    expect(result.stdout).toContain("maestro-brain setup <runtime>");
+    expect(result.stdout).toContain(
+      "maestro-brain setup [codex|claude-code|cowork]",
+    );
     expect(result.stdout).toContain("maestro-brain doctor");
     expect(result.stdout).toContain("maestro-brain ask <question>");
     expect(result.stdout).toContain("maestro-brain search <query>");
@@ -391,7 +393,7 @@ describe("maestro-template CLI", () => {
     expect(result).toMatchObject({
       exitCode: 1,
       stderr:
-        "note list status must be pending_review, published, or rejected.\n",
+        "note list status must be pending_review, published, or rejected.\nUsage: maestro-brain note list [pending_review|published|rejected]\nRun maestro-brain note list --help for details.\n",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -746,20 +748,35 @@ describe("maestro-template CLI", () => {
   });
 
   it.each([
-    { argv: ["ask"], message: "ask requires a question.\n" },
-    { argv: ["search"], message: "search requires a query.\n" },
+    {
+      argv: ["ask"],
+      message:
+        "ask requires a question.\nUsage: maestro-brain ask <question>\nRun maestro-brain ask --help for details.\n",
+    },
+    {
+      argv: ["search"],
+      message:
+        "search requires a query.\nUsage: maestro-brain search <query>\nRun maestro-brain search --help for details.\n",
+    },
     {
       argv: ["source", "one", "two"],
-      message: "source requires one source revision key.\n",
+      message:
+        "source requires one citation or source revision key.\nUsage: maestro-brain source <citation-key|source-revision-key>\nRun maestro-brain source --help for details.\n",
     },
-    { argv: ["health", "extra"], message: "health takes no arguments.\n" },
+    {
+      argv: ["health", "extra"],
+      message:
+        "health takes no arguments.\nUsage: maestro-brain health\nRun maestro-brain health --help for details.\n",
+    },
     {
       argv: ["feedback", "--input", "{}"],
-      message: "feedback requires --input and --idempotency-key.\n",
+      message:
+        "feedback requires --input and --idempotency-key.\nUsage: maestro-brain feedback --idempotency-key <key> --input <json>\nRun maestro-brain feedback --help for details.\n",
     },
     {
       argv: ["note", "--input", '{"title":"Missing markdown"}'],
-      message: 'note requires --input with string "title" and "markdown".\n',
+      message:
+        'note requires --input with string "title" and "markdown".\nUsage: maestro-brain note --input <json>\nRun maestro-brain note --help for details.\n',
     },
   ])("validates terminal command $argv", async ({ argv, message }) => {
     const fetchMock = vi.fn<typeof fetch>();
@@ -771,6 +788,15 @@ describe("maestro-template CLI", () => {
       stderr: message,
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gives an unknown command a direct recovery path", async () => {
+    await expect(runCliAsync(["frobnicate"])).resolves.toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr:
+        "Unknown command: frobnicate\nRun maestro-brain --help to list available commands.\n",
+    });
   });
 
   it("calls an allowed Brain operation with bearer authentication", async () => {
@@ -1319,6 +1345,7 @@ describe("maestro-template CLI", () => {
             jsonrpc: "2.0",
             id: 1,
             result: {
+              isError: true,
               content: [
                 {
                   type: "text",
@@ -1349,11 +1376,13 @@ describe("maestro-template CLI", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+    const output = parseStdout<Record<string, unknown>>(result);
+    expect(output).toMatchObject({
       ok: false,
       transport: "streamable-http",
       error: { _tag: "Unauthorized", message: "Unauthorized." },
     });
+    expect(output).not.toHaveProperty("result");
   });
 
   it("prints integration readiness without requiring live secrets", () => {

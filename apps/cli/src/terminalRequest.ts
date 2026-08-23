@@ -6,14 +6,25 @@ import type { RemoteBrainRequest } from "./remoteApi";
 type TerminalRequest = RemoteBrainRequest | CliResult;
 type TerminalRequestParser = (argv: readonly string[]) => TerminalRequest;
 
+const usageFailure = (
+  commandPath: string,
+  message: string,
+  usage: string,
+): CliResult =>
+  cliFailure(
+    `${message}\nUsage: maestro-brain ${usage}\nRun maestro-brain ${commandPath} --help for details.\n`,
+  );
+
 const textRequest = (
   command: "ask" | "search",
   argv: readonly string[],
 ): TerminalRequest => {
   const text = argv.slice(1).join(" ").trim();
   if (!text)
-    return cliFailure(
-      `${command} requires a ${command === "ask" ? "question" : "query"}.\n`,
+    return usageFailure(
+      command,
+      `${command} requires a ${command === "ask" ? "question" : "query"}.`,
+      `${command} <${command === "ask" ? "question" : "query"}>`,
     );
   return command === "ask"
     ? { operationId: "brain.answers.ask", input: { question: text } }
@@ -23,7 +34,11 @@ const textRequest = (
 const sourceRequest: TerminalRequestParser = (argv) => {
   const sourceKey = argv[1];
   if (argv.length !== 2 || !sourceKey?.trim())
-    return cliFailure("source requires one source revision key.\n");
+    return usageFailure(
+      "source",
+      "source requires one citation or source revision key.",
+      "source <citation-key|source-revision-key>",
+    );
   if (!sourceKey.startsWith("citation:"))
     return {
       operationId: "brain.sources.get",
@@ -38,19 +53,27 @@ const sourceRequest: TerminalRequestParser = (argv) => {
           entryKey: citationParts[1] as string,
         },
       }
-    : cliFailure("source requires one source revision key.\n");
+    : usageFailure(
+        "source",
+        "source received an invalid citation key.",
+        "source <citation-key|source-revision-key>",
+      );
 };
 
 const healthRequest: TerminalRequestParser = (argv) =>
   argv.length === 1
     ? { operationId: "brain.rollout.status", input: {} }
-    : cliFailure("health takes no arguments.\n");
+    : usageFailure("health", "health takes no arguments.", "health");
 
 const noteStatusRequest: TerminalRequestParser = (argv) => {
   const sourceKey = argv[2];
   return argv.length === 3 && sourceKey?.trim()
     ? { operationId: "brain.notes.status", input: { sourceKey } }
-    : cliFailure("note status requires one source key.\n");
+    : usageFailure(
+        "note status",
+        "note status requires one source key.",
+        "note status <source-key>",
+      );
 };
 
 const noteStatuses = new Set(["pending_review", "published", "rejected"]);
@@ -58,8 +81,10 @@ const noteStatuses = new Set(["pending_review", "published", "rejected"]);
 const noteListRequest: TerminalRequestParser = (argv) => {
   const status = argv[2];
   if (argv.length > 3 || (status !== undefined && !noteStatuses.has(status)))
-    return cliFailure(
-      "note list status must be pending_review, published, or rejected.\n",
+    return usageFailure(
+      "note list",
+      "note list status must be pending_review, published, or rejected.",
+      "note list [pending_review|published|rejected]",
     );
   return {
     operationId: "brain.notes.list",
@@ -76,7 +101,11 @@ const noteSubmitRequest: TerminalRequestParser = (argv) => {
     typeof input.markdown === "string" &&
     Object.keys(unsupported).length === 0
     ? { operationId: "brain.notes.submit", input }
-    : cliFailure('note requires --input with string "title" and "markdown".\n');
+    : usageFailure(
+        "note",
+        'note requires --input with string "title" and "markdown".',
+        "note --input <json>",
+      );
 };
 
 const noteRequest: TerminalRequestParser = (argv) =>
@@ -98,7 +127,11 @@ const feedbackRequest: TerminalRequestParser = (argv) => {
         input,
         idempotencyKey,
       }
-    : cliFailure("feedback requires --input and --idempotency-key.\n");
+    : usageFailure(
+        "feedback",
+        "feedback requires --input and --idempotency-key.",
+        "feedback --idempotency-key <key> --input <json>",
+      );
 };
 
 const parsers: Readonly<Record<string, TerminalRequestParser | undefined>> = {

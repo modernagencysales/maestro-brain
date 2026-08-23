@@ -105,7 +105,7 @@ describe("maestro-brain environment setup", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       next: [
         "Export MAESTRO_BRAIN_API_KEY in this terminal.",
-        "In Cowork add an MCP connector named maestro-brain using the descriptor transport URL, streamable HTTP, bearer authentication, and the MAESTRO_BRAIN_API_KEY value as its token.",
+        "Open .cowork/maestro-brain.json and add its connector values in Cowork: name maestro-brain, streamable HTTP, and the MAESTRO_BRAIN_API_KEY value as the bearer token.",
         "Run doctor with the same CLI invocation and environment used for setup.",
       ],
     });

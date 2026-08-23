@@ -57,12 +57,20 @@ const contentText = (item: unknown): readonly string[] => {
 };
 const embeddedToolError = (result: unknown): unknown => {
   if (!isRecord(result)) return undefined;
-  if (Reflect.get(result, "isError") === true) return result;
   const content = Reflect.get(result, "content");
-  return (Array.isArray(content) ? content : [])
-    .flatMap(contentText)
+  const texts = (Array.isArray(content) ? content : []).flatMap(contentText);
+  const typedError = texts
     .map(embeddedToolErrorPayload)
     .find((payload: unknown) => payload !== undefined);
+  if (typedError !== undefined) return typedError;
+  return Reflect.get(result, "isError") === true
+    ? {
+        _tag: "McpToolError",
+        message:
+          texts.find((text) => text.trim().length > 0) ??
+          "MCP tool returned an error.",
+      }
+    : undefined;
 };
 
 const transportErrorResult = (
@@ -91,7 +99,7 @@ const callResult = (result: unknown, apiKey: string): CliResult => {
     stdout: redactedJson(
       error === undefined
         ? { ok: true, transport: "streamable-http", result }
-        : { ok: false, transport: "streamable-http", error, result },
+        : { ok: false, transport: "streamable-http", error },
       apiKey,
     ),
     stderr: "",
