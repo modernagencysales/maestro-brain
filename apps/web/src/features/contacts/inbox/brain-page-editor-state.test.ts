@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldPersistBrainMarkdown } from './brain-page-editor-state'
+import {
+  classifyBrainSaveFailure,
+  shouldPersistBrainMarkdown,
+} from './brain-page-editor-state'
 
 describe('Brain page editor persistence decision', () => {
   it('saves only changed live pages', () => {
@@ -25,5 +28,10 @@ describe('Brain page editor persistence decision', () => {
         draftMarkdown: '# current',
       }),
     ).toBe(false)
+  })
+
+  it('distinguishes stale revision conflicts from transport failures', () => {
+    expect(classifyBrainSaveFailure({ _tag: 'StaleRevision' })).toBe('conflict')
+    expect(classifyBrainSaveFailure(new Error('offline'))).toBe('error')
   })
 })
