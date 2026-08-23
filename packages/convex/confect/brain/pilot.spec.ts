@@ -137,7 +137,40 @@ const PilotWriteError = Schema.Union(
   ValidationFailed,
 );
 
-const submitNote = defineContractFunction(
+const pilotTypedErrors = [
+  "Unauthorized",
+  "Forbidden",
+  "BrainNotFound",
+  "LifecycleRevoked",
+  "ValidationFailed",
+] as const;
+
+const pilotContract = <Spec>(
+  spec: Spec,
+  input: {
+    readonly name: string;
+    readonly kind: "query" | "mutation";
+    readonly idempotent: boolean;
+    readonly argsSchema: Schema.Schema.Any;
+    readonly returnsSchema: Schema.Schema.Any;
+    readonly typedErrors?: readonly string[];
+  },
+) =>
+  defineContractFunction(spec, {
+    namespace: "brain.pilot",
+    name: input.name,
+    operationId: `brain.pilot.${input.name}`,
+    kind: input.kind,
+    surfaces: ["web"],
+    typedErrors: input.typedErrors ?? pilotTypedErrors,
+    idempotent: input.idempotent,
+    argsSchemaName: `brain.pilot.${input.name}.args`,
+    returnsSchemaName: `brain.pilot.${input.name}.returns`,
+    argsSchema: input.argsSchema,
+    returnsSchema: input.returnsSchema,
+  });
+
+const submitNote = pilotContract(
   FunctionSpec.publicMutation({
     name: "submitNote",
     args: () => SubmitNoteArgs,
@@ -145,21 +178,9 @@ const submitNote = defineContractFunction(
     error: () => PilotError,
   }),
   {
-    namespace: "brain.pilot",
     name: "submitNote",
-    operationId: "brain.pilot.submitNote",
     kind: "mutation",
-    surfaces: ["web"],
-    typedErrors: [
-      "Unauthorized",
-      "Forbidden",
-      "BrainNotFound",
-      "LifecycleRevoked",
-      "ValidationFailed",
-    ],
     idempotent: false,
-    argsSchemaName: "brain.pilot.submitNote.args",
-    returnsSchemaName: "brain.pilot.submitNote.returns",
     argsSchema: SubmitNoteArgs,
     returnsSchema: SourceSummary,
   },
@@ -180,7 +201,7 @@ export const headlessSubmitNote = FunctionSpec.internalMutation({
   error: () => PilotError,
 });
 
-const reviewNote = defineContractFunction(
+const reviewNote = pilotContract(
   FunctionSpec.publicMutation({
     name: "reviewNote",
     args: () => ReviewNoteArgs,
@@ -188,27 +209,15 @@ const reviewNote = defineContractFunction(
     error: () => PilotError,
   }),
   {
-    namespace: "brain.pilot",
     name: "reviewNote",
-    operationId: "brain.pilot.reviewNote",
     kind: "mutation",
-    surfaces: ["web"],
-    typedErrors: [
-      "Unauthorized",
-      "Forbidden",
-      "BrainNotFound",
-      "LifecycleRevoked",
-      "ValidationFailed",
-    ],
     idempotent: false,
-    argsSchemaName: "brain.pilot.reviewNote.args",
-    returnsSchemaName: "brain.pilot.reviewNote.returns",
     argsSchema: ReviewNoteArgs,
     returnsSchema: SourceSummary,
   },
 );
 
-const listReviewQueue = defineContractFunction(
+const listReviewQueue = pilotContract(
   FunctionSpec.publicQuery({
     name: "listReviewQueue",
     args: () => BrainSelector,
@@ -216,27 +225,15 @@ const listReviewQueue = defineContractFunction(
     error: () => PilotError,
   }),
   {
-    namespace: "brain.pilot",
     name: "listReviewQueue",
-    operationId: "brain.pilot.listReviewQueue",
     kind: "query",
-    surfaces: ["web"],
-    typedErrors: [
-      "Unauthorized",
-      "Forbidden",
-      "BrainNotFound",
-      "LifecycleRevoked",
-      "ValidationFailed",
-    ],
     idempotent: true,
-    argsSchemaName: "brain.pilot.listReviewQueue.args",
-    returnsSchemaName: "brain.pilot.listReviewQueue.returns",
     argsSchema: BrainSelector,
     returnsSchema: ReviewQueueReturns,
   },
 );
 
-const search = defineContractFunction(
+const search = pilotContract(
   FunctionSpec.publicQuery({
     name: "search",
     args: () => SearchArgs,
@@ -244,27 +241,15 @@ const search = defineContractFunction(
     error: () => PilotError,
   }),
   {
-    namespace: "brain.pilot",
     name: "search",
-    operationId: "brain.pilot.search",
     kind: "query",
-    surfaces: ["web"],
-    typedErrors: [
-      "Unauthorized",
-      "Forbidden",
-      "BrainNotFound",
-      "LifecycleRevoked",
-      "ValidationFailed",
-    ],
     idempotent: true,
-    argsSchemaName: "brain.pilot.search.args",
-    returnsSchemaName: "brain.pilot.search.returns",
     argsSchema: SearchArgs,
     returnsSchema: SearchReturns,
   },
 );
 
-const ask = defineContractFunction(
+const ask = pilotContract(
   FunctionSpec.publicQuery({
     name: "ask",
     args: () => SearchArgs,
@@ -272,27 +257,15 @@ const ask = defineContractFunction(
     error: () => PilotError,
   }),
   {
-    namespace: "brain.pilot",
     name: "ask",
-    operationId: "brain.pilot.ask",
     kind: "query",
-    surfaces: ["web"],
-    typedErrors: [
-      "Unauthorized",
-      "Forbidden",
-      "BrainNotFound",
-      "LifecycleRevoked",
-      "ValidationFailed",
-    ],
     idempotent: true,
-    argsSchemaName: "brain.pilot.ask.args",
-    returnsSchemaName: "brain.pilot.ask.returns",
     argsSchema: SearchArgs,
     returnsSchema: AskReturns,
   },
 );
 
-const updatePage = defineContractFunction(
+const updatePage = pilotContract(
   FunctionSpec.publicMutation({
     name: "updatePage",
     args: () => UpdatePageArgs,
@@ -300,11 +273,8 @@ const updatePage = defineContractFunction(
     error: () => PilotWriteError,
   }),
   {
-    namespace: "brain.pilot",
     name: "updatePage",
-    operationId: "brain.pilot.updatePage",
     kind: "mutation",
-    surfaces: ["web"],
     typedErrors: [
       "Unauthorized",
       "Forbidden",
@@ -315,8 +285,6 @@ const updatePage = defineContractFunction(
       "ValidationFailed",
     ],
     idempotent: false,
-    argsSchemaName: "brain.pilot.updatePage.args",
-    returnsSchemaName: "brain.pilot.updatePage.returns",
     argsSchema: UpdatePageArgs,
     returnsSchema: PageSummary,
   },
