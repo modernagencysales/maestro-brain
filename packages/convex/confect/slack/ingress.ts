@@ -12,6 +12,11 @@ type IngressInput = Parameters<typeof admitSlackSignedEvent>[0] & {
   readonly receivedAt: number;
 };
 
+type VerifiedIngressInput = Pick<
+  IngressInput,
+  "payload" | "transportDeliveryId" | "routing" | "receivedAt" | "channelKey"
+> & { readonly providerEventId: string };
+
 type IngressDb = {
   readonly findReceipt: (
     transportDeliveryId: string,
@@ -28,19 +33,15 @@ type IngressDb = {
   ) => Promise<void>;
 };
 
-export const ingestSlackEvent = async (db: IngressDb, input: IngressInput) => {
-  const binding = await admitSlackSignedEvent(input);
-  return await ingestVerifiedSlackEvent(db, input, binding);
-};
-
-export const ingestVerifiedSlackEvent = async (
+export const ingestSlackEvent = async (
   db: IngressDb,
-  input: Pick<
-    IngressInput,
-    "payload" | "transportDeliveryId" | "routing" | "receivedAt" | "channelKey"
-  > & { readonly providerEventId: string },
-  binding: VerifiedSlackEnvelope,
+  input: IngressInput | VerifiedIngressInput,
+  verifiedBinding?: VerifiedSlackEnvelope,
 ) => {
+  const binding =
+    verifiedBinding === undefined
+      ? await admitSlackSignedEvent(input as IngressInput)
+      : verifiedBinding;
   if (await db.findReceipt(input.transportDeliveryId))
     return { outcome: "duplicate_delivery" as const };
   if (db.findReplay && (await db.findReplay(input.providerEventId)))

@@ -66,31 +66,38 @@ export type NangoSlackWebhook =
   | Readonly<{ kind: "unattributed_slack" }>
   | Readonly<{ kind: "malformed" }>;
 
+const attributedSlackForward = (
+  body: Record<string, unknown>,
+): NangoSlackForward | null => {
+  const connectionId = string(body.connectionId);
+  const providerConfigKey = string(body.providerConfigKey);
+  const rawPayload = object(body.payload);
+  if (connectionId === null) return null;
+  if (providerConfigKey === null) return null;
+  if (rawPayload === null) return null;
+  const payload = Object.fromEntries(
+    Object.entries(rawPayload).filter(([key]) => key !== "token"),
+  );
+  return { connectionId, providerConfigKey, payload };
+};
+
+const slackForwardWebhook = (
+  body: Record<string, unknown>,
+): NangoSlackWebhook => {
+  const forward = attributedSlackForward(body);
+  return forward === null
+    ? { kind: "malformed" }
+    : { kind: "slack_forward", forward };
+};
+
+const isSlackForward = (body: Record<string, unknown>): boolean =>
+  body.from === "slack" && body.type === "forward";
+
 export const parseNangoSlackWebhook = (value: unknown): NangoSlackWebhook => {
   const body = object(value);
   if (body === null) return { kind: "malformed" };
-
-  if (body.from === "slack" && body.type === "forward") {
-    const connectionId = string(body.connectionId);
-    const providerConfigKey = string(body.providerConfigKey);
-    const rawPayload = object(body.payload);
-    if (
-      connectionId === null ||
-      providerConfigKey === null ||
-      rawPayload === null
-    )
-      return { kind: "malformed" };
-    const payload = Object.fromEntries(
-      Object.entries(rawPayload).filter(([key]) => key !== "token"),
-    );
-    return {
-      kind: "slack_forward",
-      forward: { connectionId, providerConfigKey, payload },
-    };
-  }
-
+  if (isSlackForward(body)) return slackForwardWebhook(body);
   if (string(body.team_id) !== null || object(body.team) !== null)
     return { kind: "unattributed_slack" };
-
   return { kind: "ignored" };
 };

@@ -1,9 +1,9 @@
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseWriter, MutationCtx } from "../_generated/server";
-import { ingestVerifiedSlackEvent } from "../../confect/slack/ingress";
+import { ingestSlackEvent } from "../../confect/slack/ingress";
 import { admitSlackSignedEvent } from "../../confect/slack/admission";
 import type { VerifiedSlackEnvelope } from "../../confect/sources/sourceSchemas";
 import {
@@ -1114,12 +1114,191 @@ type VerifiedIngressInput = IngressInput &
     };
   }>;
 
+const assertSlackCaptureRevision: (
+  receipt: NonNullable<Awaited<ReturnType<typeof receiptFor>>>,
+  revision: Doc<"sourceRevisions"> | null,
+) => asserts revision is Doc<"sourceRevisions"> = (receipt, revision) => {
+  if (revision === null)
+    throw new Error("SlackCaptureRevisionAuthorityMissing");
+  if (revision.sourceKey !== receipt.sourceKey)
+    throw new Error("SlackCaptureRevisionAuthorityMissing");
+  if (revision.connectionKey !== receipt.connectionKey)
+    throw new Error("SlackCaptureRevisionAuthorityMissing");
+  if (revision.connectionGeneration !== receipt.connectionGeneration)
+    throw new Error("SlackCaptureRevisionAuthorityMissing");
+};
+
+const loadSlackCaptureAuthority = async (
+  ctx: MutationCtx,
+  input: VerifiedIngressInput,
+  sourceRevisionKey: string,
+) => {
+  const receipt = await receiptFor(ctx.db, input);
+  if (receipt === null || receipt.sourceKey === null)
+    throw new Error("SlackCaptureReceiptMissing");
+  const revision = await ctx.db
+    .query("sourceRevisions")
+    .withIndex("by_source_revision_key", (query) =>
+      query
+        .eq("organizationKey", receipt.organizationKey)
+        .eq("sourceRevisionKey", sourceRevisionKey),
+    )
+    .unique();
+  assertSlackCaptureRevision(receipt, revision);
+  return {
+    receipt,
+    providerAuthority: liveSlackParentAuthority({
+      receiptId: receipt._id,
+      organizationKey: receipt.organizationKey,
+      channelKey: receipt.channelKey,
+      connectionKey: receipt.connectionKey,
+      connectionGeneration: receipt.connectionGeneration,
+      sourceKey: receipt.sourceKey,
+      sourceRevisionKey,
+      observationDigest: revision.contentHash,
+      capturedAt: receipt.receivedAt,
+    }),
+  };
+};
+
+const assertProviderTargetResolutionAuthority = (
+  existing: Doc<"providerTargetResolutionIntents"> | undefined,
+  authorityDigest: string,
+) => {
+  if (existing === undefined) return;
+  if (existing.authorityKind !== "live_capture")
+    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
+  if (existing.authorityDigest !== authorityDigest)
+    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
+};
+
+const ensureProviderTargetResolutionIntent = async (
+  ctx: MutationCtx,
+  providerAuthority: ReturnType<typeof liveSlackParentAuthority>,
+  now: number,
+) => {
+  const providerRows = await ctx.db
+    .query("providerTargetResolutionIntents")
+    .withIndex("by_target_resolution_intent_key", (query) =>
+      query.eq(
+        "targetResolutionIntentKey",
+        providerAuthority.targetResolutionIntentKey,
+      ),
+    )
+    .take(2);
+  if (providerRows.length > 1)
+    throw new Error("SlackProviderTargetResolutionConflict");
+  const existing = providerRows[0];
+  const authorityDigest =
+    providerTargetResolutionAuthorityDigest(providerAuthority);
+  assertProviderTargetResolutionAuthority(existing, authorityDigest);
+  return (
+    existing?._id ??
+    (await ctx.db.insert("providerTargetResolutionIntents", {
+      schemaVersion: 1,
+      ...providerAuthority,
+      authorityDigest,
+      status: "pending",
+      attemptCount: 0,
+      nextAttemptAt: now,
+      lastErrorTag: null,
+      targetCount: 0,
+      targetDigest: null,
+      targets: [],
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
+};
+
+const ensureSlackPublicationTargetIntent = async (input: {
+  readonly ctx: MutationCtx;
+  readonly receipt: Awaited<ReturnType<typeof receiptFor>> & {};
+  readonly sourceRevisionKey: string;
+  readonly providerTargetResolutionIntentId: Id<"providerTargetResolutionIntents">;
+  readonly now: number;
+}) => {
+  const existing = await input.ctx.db
+    .query("slackPublicationTargetIntents")
+    .withIndex("by_receipt_id", (query) =>
+      query.eq("receiptId", input.receipt._id),
+    )
+    .unique();
+  if (existing === null) {
+    await input.ctx.db.insert("slackPublicationTargetIntents", {
+      schemaVersion: 1,
+      receiptId: input.receipt._id,
+      organizationKey: input.receipt.organizationKey,
+      channelKey: input.receipt.channelKey,
+      sourceRevisionKey: input.sourceRevisionKey,
+      providerTargetResolutionIntentId: input.providerTargetResolutionIntentId,
+      status: "pending",
+      attemptCount: 0,
+      nextAttemptAt: input.now,
+      lastErrorTag: null,
+      resolutionGeneration: 1,
+      targetCount: 0,
+      completedAt: null,
+      createdAt: input.now,
+      updatedAt: input.now,
+    });
+    return;
+  }
+  if (existing.providerTargetResolutionIntentId === undefined) {
+    await input.ctx.db.patch(existing._id, {
+      providerTargetResolutionIntentId: input.providerTargetResolutionIntentId,
+      updatedAt: input.now,
+    });
+    return;
+  }
+  if (
+    existing.providerTargetResolutionIntentId !==
+    input.providerTargetResolutionIntentId
+  )
+    throw new Error("SlackProviderTargetResolutionLinkageConflict");
+};
+
+const scheduleCapturedSlackPublication = async (
+  ctx: MutationCtx,
+  input: VerifiedIngressInput,
+  sourceRevisionKey: string,
+) => {
+  const authority = await loadSlackCaptureAuthority(
+    ctx,
+    input,
+    sourceRevisionKey,
+  );
+  const providerTargetResolutionIntentId =
+    await ensureProviderTargetResolutionIntent(
+      ctx,
+      authority.providerAuthority,
+      input.receivedAt,
+    );
+  await progressSlackLiveParentObligation(
+    ctx,
+    providerTargetResolutionIntentId,
+    input.receivedAt,
+  );
+  await ensureSlackPublicationTargetIntent({
+    ctx,
+    receipt: authority.receipt,
+    sourceRevisionKey,
+    providerTargetResolutionIntentId,
+    now: input.receivedAt,
+  });
+  await ctx.scheduler.runAfter(0, resolveSlackPublicationTargetsRef, {
+    receiptId: authority.receipt._id,
+    now: input.receivedAt,
+  });
+};
+
 export const receiveVerifiedSlackEvent = async (
   ctx: MutationCtx,
   i: VerifiedIngressInput,
   binding: VerifiedSlackEnvelope,
 ) => {
-  const result = await ingestVerifiedSlackEvent(
+  const result = await ingestSlackEvent(
     {
       findReceipt: (d) => receiptFor(ctx.db, { ...i, transportDeliveryId: d }),
       findReplay: () => replayFor(ctx.db, i),
@@ -1148,113 +1327,7 @@ export const receiveVerifiedSlackEvent = async (
     binding,
   );
   if (result.sourceRevisionKey === undefined) return result;
-  const receipt = await receiptFor(ctx.db, i);
-  if (receipt === null || receipt.sourceKey === null)
-    throw new Error("SlackCaptureReceiptMissing");
-  const revision = await ctx.db
-    .query("sourceRevisions")
-    .withIndex("by_source_revision_key", (query) =>
-      query
-        .eq("organizationKey", receipt.organizationKey)
-        .eq("sourceRevisionKey", result.sourceRevisionKey ?? ""),
-    )
-    .unique();
-  if (
-    revision === null ||
-    revision.sourceKey !== receipt.sourceKey ||
-    revision.connectionKey !== receipt.connectionKey ||
-    revision.connectionGeneration !== receipt.connectionGeneration
-  )
-    throw new Error("SlackCaptureRevisionAuthorityMissing");
-  const providerAuthority = liveSlackParentAuthority({
-    receiptId: receipt._id,
-    organizationKey: receipt.organizationKey,
-    channelKey: receipt.channelKey,
-    connectionKey: receipt.connectionKey,
-    connectionGeneration: receipt.connectionGeneration,
-    sourceKey: receipt.sourceKey,
-    sourceRevisionKey: result.sourceRevisionKey,
-    observationDigest: revision.contentHash,
-    capturedAt: receipt.receivedAt,
-  });
-  const providerRows = await ctx.db
-    .query("providerTargetResolutionIntents")
-    .withIndex("by_target_resolution_intent_key", (query) =>
-      query.eq(
-        "targetResolutionIntentKey",
-        providerAuthority.targetResolutionIntentKey,
-      ),
-    )
-    .take(2);
-  if (providerRows.length > 1)
-    throw new Error("SlackProviderTargetResolutionConflict");
-  const existingProvider = providerRows[0];
-  if (
-    existingProvider !== undefined &&
-    (existingProvider.authorityKind !== "live_capture" ||
-      existingProvider.authorityDigest !==
-        providerTargetResolutionAuthorityDigest(providerAuthority))
-  )
-    throw new Error("SlackProviderTargetResolutionAuthorityConflict");
-  const providerTargetResolutionIntentId =
-    existingProvider?._id ??
-    (await ctx.db.insert("providerTargetResolutionIntents", {
-      schemaVersion: 1,
-      ...providerAuthority,
-      authorityDigest:
-        providerTargetResolutionAuthorityDigest(providerAuthority),
-      status: "pending",
-      attemptCount: 0,
-      nextAttemptAt: i.receivedAt,
-      lastErrorTag: null,
-      targetCount: 0,
-      targetDigest: null,
-      targets: [],
-      completedAt: null,
-      createdAt: i.receivedAt,
-      updatedAt: i.receivedAt,
-    }));
-  await progressSlackLiveParentObligation(
-    ctx,
-    providerTargetResolutionIntentId,
-    i.receivedAt,
-  );
-  const existingIntent = await ctx.db
-    .query("slackPublicationTargetIntents")
-    .withIndex("by_receipt_id", (q) => q.eq("receiptId", receipt._id))
-    .unique();
-  if (existingIntent === null)
-    await ctx.db.insert("slackPublicationTargetIntents", {
-      schemaVersion: 1,
-      receiptId: receipt._id,
-      organizationKey: receipt.organizationKey,
-      channelKey: receipt.channelKey,
-      sourceRevisionKey: result.sourceRevisionKey,
-      providerTargetResolutionIntentId,
-      status: "pending",
-      attemptCount: 0,
-      nextAttemptAt: i.receivedAt,
-      lastErrorTag: null,
-      resolutionGeneration: 1,
-      targetCount: 0,
-      completedAt: null,
-      createdAt: i.receivedAt,
-      updatedAt: i.receivedAt,
-    });
-  else if (existingIntent.providerTargetResolutionIntentId === undefined)
-    await ctx.db.patch(existingIntent._id, {
-      providerTargetResolutionIntentId,
-      updatedAt: i.receivedAt,
-    });
-  else if (
-    existingIntent.providerTargetResolutionIntentId !==
-    providerTargetResolutionIntentId
-  )
-    throw new Error("SlackProviderTargetResolutionLinkageConflict");
-  await ctx.scheduler.runAfter(0, resolveSlackPublicationTargetsRef, {
-    receiptId: receipt._id,
-    now: i.receivedAt,
-  });
+  await scheduleCapturedSlackPublication(ctx, i, result.sourceRevisionKey);
   return { ...result, publicationResolution: { status: "pending" } };
 };
 

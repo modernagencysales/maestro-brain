@@ -1,5 +1,6 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import {
+  type NangoSlackWebhook,
   parseNangoSlackWebhook,
   verifyNangoWebhookSignature,
 } from "@maestro-template/integrations/nango/webhook";
@@ -240,71 +241,107 @@ const receiveNangoSlackWebhookRef = makeFunctionReference<
   unknown
 >("slack/nangoWebhook:receiveNangoSlackWebhook");
 
-const nangoWebhookRouteResponse = async (
-  ctx: HeadlessHttpCtx,
-  request: Request,
-): Promise<Response> => {
-  if (request.method !== "POST")
-    return jsonResponse(
-      { ok: false, error: { _tag: "MethodNotAllowed" } },
-      { status: 405 },
-    );
-  const signingKey = readProcessEnv().NANGO_WEBHOOK_SIGNING_KEY?.trim() ?? "";
-  const signature = request.headers.get("x-nango-hmac-sha256");
+type SignedNangoBody =
+  Readonly<{ rawBody: string; signature: string }> | Response;
+
+const signedNangoBody = async (request: Request): Promise<SignedNangoBody> => {
   const rawBody = await request.text();
   if (rawBody.length > 1_000_000)
     return jsonResponse(
       { ok: false, error: { _tag: "PayloadTooLarge" } },
       { status: 413 },
     );
-  if (
-    !(await verifyNangoWebhookSignature({
-      rawBody,
-      signingKey,
-      signature,
-    }))
-  )
-    return jsonResponse(
-      { ok: false, error: { _tag: "Unauthorized" } },
-      { status: 401 },
-    );
+  const signature = request.headers.get("x-nango-hmac-sha256") ?? "";
+  const signingKey = readProcessEnv().NANGO_WEBHOOK_SIGNING_KEY?.trim() ?? "";
+  const verified = await verifyNangoWebhookSignature({
+    rawBody,
+    signingKey,
+    signature,
+  });
+  return verified
+    ? { rawBody, signature }
+    : jsonResponse(
+        { ok: false, error: { _tag: "Unauthorized" } },
+        { status: 401 },
+      );
+};
 
-  let parsed: unknown;
+const parseNangoBody = (rawBody: string): unknown | Response => {
   try {
-    parsed = JSON.parse(rawBody) as unknown;
+    return JSON.parse(rawBody) as unknown;
   } catch {
     return jsonResponse(
       { ok: false, error: { _tag: "ValidationFailed" } },
       { status: 400 },
     );
   }
+};
+
+const nangoWebhookKindResponse = (
+  webhook: NangoSlackWebhook,
+): Response | null => {
+  switch (webhook.kind) {
+    case "slack_forward":
+      return null;
+    case "ignored":
+      return jsonResponse({ ok: true, outcome: "ignored" }, { status: 202 });
+    case "unattributed_slack":
+      return jsonResponse(
+        { ok: false, error: { _tag: "ConnectionAttributionRequired" } },
+        { status: 422 },
+      );
+    case "malformed":
+      return jsonResponse(
+        { ok: false, error: { _tag: "ValidationFailed" } },
+        { status: 400 },
+      );
+  }
+};
+
+const nangoWebhookPostResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  const signedBody = await signedNangoBody(request);
+  if (signedBody instanceof Response) return signedBody;
+  const parsed = parseNangoBody(signedBody.rawBody);
+  if (parsed instanceof Response) return parsed;
   const webhook = parseNangoSlackWebhook(parsed);
-  if (webhook.kind === "ignored")
-    return jsonResponse({ ok: true, outcome: "ignored" }, { status: 202 });
-  if (webhook.kind === "unattributed_slack")
-    return jsonResponse(
-      { ok: false, error: { _tag: "ConnectionAttributionRequired" } },
-      { status: 422 },
-    );
-  if (webhook.kind === "malformed")
-    return jsonResponse(
-      { ok: false, error: { _tag: "ValidationFailed" } },
-      { status: 400 },
-    );
+  const kindResponse = nangoWebhookKindResponse(webhook);
+  if (kindResponse !== null) return kindResponse;
+  const forward = (
+    webhook as Extract<NangoSlackWebhook, { readonly kind: "slack_forward" }>
+  ).forward;
+  let response: Response;
   try {
     const result = await ctx.runMutation(receiveNangoSlackWebhookRef, {
-      ...webhook.forward,
-      deliveryDigest: sha256Hex(rawBody),
-      signature: signature ?? "",
+      ...forward,
+      deliveryDigest: sha256Hex(signedBody.rawBody),
+      signature: signedBody.signature,
       receivedAt: Date.now(),
     });
-    return jsonResponse({ ok: true, result }, { status: 202 });
+    response = jsonResponse({ ok: true, result }, { status: 202 });
   } catch {
-    return jsonResponse(
+    response = jsonResponse(
       { ok: false, error: { _tag: "WebhookProcessingUnavailable" } },
       { status: 503 },
     );
   }
+  return response;
+};
+
+const nangoWebhookRouteResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  const response =
+    request.method === "POST"
+      ? await nangoWebhookPostResponse(ctx, request)
+      : jsonResponse(
+          { ok: false, error: { _tag: "MethodNotAllowed" } },
+          { status: 405 },
+        );
+  return response;
 };
 
 const operationRouteResponse = async (
