@@ -34,9 +34,11 @@ embedding the bearer value:
 
 ```bash
 export BRAIN_CLI="$PWD/apps/cli/bin/maestro-brain.mjs"
-"$BRAIN_CLI" setup codex
-"$BRAIN_CLI" setup claude-code
-"$BRAIN_CLI" setup cowork
+"$BRAIN_CLI" install
+export PATH="$HOME/.local/bin:$PATH"
+maestro-brain setup codex
+maestro-brain setup claude-code
+maestro-brain setup cowork
 ```
 
 It preserves unrelated configuration and refuses to replace a conflicting

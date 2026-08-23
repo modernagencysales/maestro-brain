@@ -76,6 +76,7 @@ describe("maestro-template CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Company Brain CLI");
+    expect(result.stdout).toContain('"$BRAIN_CLI" install');
     expect(result.stdout).toContain("export CONVEX_SITE_URL=");
     expect(result.stdout).toContain("maestro-brain setup <runtime>");
     expect(result.stdout).toContain("maestro-brain doctor");
@@ -101,6 +102,7 @@ describe("maestro-template CLI", () => {
   });
 
   it.each([
+    ["install", "Install a durable maestro-brain command"],
     ["ask", "Ask a source-grounded question"],
     ["search", "Search current Company Brain evidence"],
     ["source", "Open one source or citation"],

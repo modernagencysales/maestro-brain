@@ -20,22 +20,24 @@ export BRAIN_CLI="$BRAIN_REPO/apps/cli/bin/maestro-brain.mjs"
 export CONVEX_SITE_URL="https://your-company-brain.example"
 export MAESTRO_BRAIN_API_KEY="..."
 pnpm --dir "$BRAIN_REPO" install --frozen-lockfile
+"$BRAIN_CLI" install
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Connect a runtime
 
 Change into the repository where the teammate's agent works, then run setup for
-that terminal. The CLI executable lives in the Brain checkout but preserves the
-caller's working directory.
+that terminal. The installed command points to the Brain checkout but preserves
+the caller's working directory.
 
 ```bash
 cd /path/to/teammate-project
-"$BRAIN_CLI" setup codex
-"$BRAIN_CLI" setup claude-code
-"$BRAIN_CLI" setup cowork
+maestro-brain setup codex
+maestro-brain setup claude-code
+maestro-brain setup cowork
 ```
 
-For automation, `"$BRAIN_CLI" setup codex --repo /path/to/project` targets a
+For automation, `maestro-brain setup codex --repo /path/to/project` targets a
 repository explicitly.
 
 Codex setup copies the shared Ask Apero skill and adds the remote HTTP MCP

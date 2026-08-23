@@ -1,3 +1,4 @@
+import { runInstallCommand } from "./cliInstaller";
 import { doctorBrainEnvironment } from "./environmentSetup";
 import { noteInputFromArgs } from "./noteCommand";
 import {
@@ -12,6 +13,13 @@ import { runSetupCommand } from "./setupCommand";
 import type { CliResult, CliRuntimeConfig } from "./types";
 
 const commandHelp: Readonly<Record<string, string>> = {
+  install: [
+    "Install a durable maestro-brain command for terminal use.",
+    "",
+    "Usage: maestro-brain install [--bin-dir <directory>]",
+    "Default: ~/.local/bin",
+    "Creates a conflict-safe symlink to this checkout and never writes secrets.",
+  ].join("\n"),
   ask: [
     "Ask a source-grounded question of the Company Brain.",
     "",
@@ -210,6 +218,7 @@ export const runSpecialCommand = async (
   const currentDirectory = options.currentDirectory ?? process.cwd();
   const handlers = [
     async () => focusedHelp(argv),
+    async () => runInstallCommand(argv, { currentDirectory }),
     async () => await contentCommand(argv, config, readStdin),
     async () =>
       runSetupCommand(

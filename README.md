@@ -30,20 +30,26 @@ directory, so setup, Markdown notes, and snapshots use the expected paths.
 export BRAIN_REPO="/absolute/path/to/maestro-brain"
 export BRAIN_CLI="$BRAIN_REPO/apps/cli/bin/maestro-brain.mjs"
 pnpm --dir "$BRAIN_REPO" install --frozen-lockfile
+"$BRAIN_CLI" install
+export PATH="$HOME/.local/bin:$PATH"
 
 cd /path/to/the-teammates-project
 export CONVEX_SITE_URL="https://perfect-sparrow-808.convex.site"
 export MAESTRO_BRAIN_API_KEY="<display-once-key>"
-"$BRAIN_CLI" setup codex # or claude-code / cowork
-"$BRAIN_CLI" doctor
-"$BRAIN_CLI" ask "What is our ICP?"
-"$BRAIN_CLI" mcp tools
+maestro-brain setup codex # or claude-code / cowork
+maestro-brain doctor
+maestro-brain ask "What is our ICP?"
+maestro-brain mcp tools
 ```
+
+The installer creates `~/.local/bin/maestro-brain` without replacing an existing
+command. Its JSON result reports whether that directory is already on `PATH` and
+always provides an immediately runnable absolute path.
 
 Automation can target a project without changing directories:
 
 ```bash
-"$BRAIN_CLI" setup codex --repo /path/to/project
+maestro-brain setup codex --repo /path/to/project
 ```
 
 Setup copies the shared Ask Apero skill into the target project and writes
