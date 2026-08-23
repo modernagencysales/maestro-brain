@@ -38,7 +38,7 @@ const helpResult = (): CliResult =>
       "Quick start",
       '  export CONVEX_SITE_URL="https://your-company-brain.example"',
       '  export MAESTRO_BRAIN_API_KEY="<display-once-key>"',
-      "  pnpm brain setup <runtime>    # codex, claude-code, or cowork",
+      "  pnpm brain setup <runtime> [--repo <project-directory>]",
       "  pnpm brain doctor",
       '  pnpm brain ask "What is our ICP?"',
       "",

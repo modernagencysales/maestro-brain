@@ -1,16 +1,10 @@
-import {
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readlinkSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { formatJsonOutput } from "./result";
 import { brainApiOrigin } from "./remoteSafety";
-import { setupOutput } from "./setupOutput";
+import { setupOutput, type SetupArtifact } from "./setupOutput";
+import { installSkillDirectory } from "./skillInstaller";
 import type { CliResult } from "./types";
 
 export { doctorBrainEnvironment } from "./environmentDoctor";
@@ -18,12 +12,6 @@ export { doctorBrainEnvironment } from "./environmentDoctor";
 export { brainApiOrigin } from "./remoteSafety";
 
 type SetupStatus = "created" | "updated" | "unchanged" | "conflict";
-
-type SetupArtifact = {
-  readonly id: string;
-  readonly path: string;
-  readonly status: SetupStatus;
-};
 
 const secretEnvName = "MAESTRO_BRAIN_API_KEY";
 
@@ -287,28 +275,16 @@ const installGeneratedFile = (
   return { id: file.id, path: file.path, status: "created" };
 };
 
-const installSkillLink = (
+const installSkill = (
   repoRoot: string,
+  skillSourceDirectory: string,
   discoveryPath: string,
 ): SetupArtifact => {
-  const source = join(repoRoot, "company-context/skills/ask-apero");
-  const destination = join(repoRoot, discoveryPath);
-  if (!pathExists(source)) {
-    return { id: "ask-apero.skill", path: discoveryPath, status: "conflict" };
-  }
-  if (pathExists(destination)) {
-    const matches =
-      lstatSync(destination).isSymbolicLink() &&
-      resolve(dirname(destination), readlinkSync(destination)) === source;
-    return {
-      id: "ask-apero.skill",
-      path: discoveryPath,
-      status: matches ? "unchanged" : "conflict",
-    };
-  }
-  mkdirSync(dirname(destination), { recursive: true });
-  symlinkSync(relative(dirname(destination), source), destination, "dir");
-  return { id: "ask-apero.skill", path: discoveryPath, status: "created" };
+  return installSkillDirectory({
+    source: skillSourceDirectory,
+    destination: join(repoRoot, discoveryPath),
+    artifactPath: discoveryPath,
+  });
 };
 
 export type SetupRuntime = "all" | "codex" | "claude-code" | "cowork";
@@ -330,11 +306,23 @@ export const setupBrainEnvironment = ({
   repoRoot,
   siteUrl,
   runtime = "all",
+  skillSourceDirectory = join(repoRoot, "company-context/skills/ask-apero"),
 }: {
   readonly repoRoot: string;
   readonly siteUrl: string | undefined;
   readonly runtime?: SetupRuntime;
+  readonly skillSourceDirectory?: string;
 }): CliResult => {
+  if (!pathExists(repoRoot) || !lstatSync(repoRoot).isDirectory()) {
+    return {
+      exitCode: 1,
+      stdout: formatJsonOutput({
+        ok: false,
+        error: `Setup target is not an existing directory: ${repoRoot}`,
+      }),
+      stderr: "",
+    };
+  }
   const origin = brainApiOrigin(siteUrl);
   if (origin === undefined) {
     return {
@@ -352,12 +340,24 @@ export const setupBrainEnvironment = ({
       installSetupFile(repoRoot, origin, file),
     ),
     ...(runtime === "all" || runtime === "codex"
-      ? [installSkillLink(repoRoot, ".agents/skills/ask-apero")]
+      ? [
+          installSkill(
+            repoRoot,
+            skillSourceDirectory,
+            ".agents/skills/ask-apero",
+          ),
+        ]
       : []),
     ...(runtime === "all" || runtime === "claude-code"
-      ? [installSkillLink(repoRoot, ".claude/skills/ask-apero")]
+      ? [
+          installSkill(
+            repoRoot,
+            skillSourceDirectory,
+            ".claude/skills/ask-apero",
+          ),
+        ]
       : []),
   ];
   const ok = artifacts.every(({ status }) => status !== "conflict");
-  return setupOutput(ok, artifacts);
+  return setupOutput(ok, repoRoot, artifacts);
 };

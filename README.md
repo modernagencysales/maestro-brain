@@ -22,19 +22,35 @@ Brain without running the web app. Create a display-once key with `brain:read`
 and `brain:ask` at
 [`/settings`](https://maestro-brain-staging.tim-bb0.workers.dev/settings), then:
 
+Install the Brain checkout once, then invoke its executable from the repository
+where the teammate actually works. This preserves that project's working
+directory, so setup, Markdown notes, and snapshots use the expected paths.
+
 ```bash
+export BRAIN_REPO="/absolute/path/to/maestro-brain"
+export BRAIN_CLI="$BRAIN_REPO/apps/cli/bin/maestro-brain.mjs"
+pnpm --dir "$BRAIN_REPO" install --frozen-lockfile
+
+cd /path/to/the-teammates-project
 export CONVEX_SITE_URL="https://perfect-sparrow-808.convex.site"
 export MAESTRO_BRAIN_API_KEY="<display-once-key>"
-pnpm install --frozen-lockfile
-pnpm brain setup codex # or claude-code / cowork
-pnpm brain doctor
-pnpm brain ask "What is our ICP?"
-pnpm brain mcp tools
+"$BRAIN_CLI" setup codex # or claude-code / cowork
+"$BRAIN_CLI" doctor
+"$BRAIN_CLI" ask "What is our ICP?"
+"$BRAIN_CLI" mcp tools
 ```
 
-Setup writes project-local runtime configuration. Cowork users import the
-generated `.cowork/maestro-brain.json` descriptor through Cowork's connector UI.
-See [terminal testing](./company-context/terminal-testing.md) for adding notes,
+Automation can target a project without changing directories:
+
+```bash
+"$BRAIN_CLI" setup codex --repo /path/to/project
+```
+
+Setup copies the shared Ask Apero skill into the target project and writes
+project-local runtime configuration, so the project remains usable without a
+symlink back to the Brain checkout. Cowork users import the generated
+`.cowork/maestro-brain.json` descriptor through Cowork's connector UI. See
+[terminal testing](./company-context/terminal-testing.md) for adding notes,
 inspecting/importing Markdown snapshots, and the acceptance checklist.
 
 ## Quickstart

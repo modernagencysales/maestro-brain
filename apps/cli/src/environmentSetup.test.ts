@@ -4,12 +4,11 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -29,6 +28,12 @@ const makeRepo = (): string => {
   return root;
 };
 
+const makeEmptyRepo = (): string => {
+  const root = mkdtempSync(join(tmpdir(), "maestro-brain-target-"));
+  roots.push(root);
+  return root;
+};
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true });
   vi.unstubAllGlobals();
@@ -38,11 +43,49 @@ describe("maestro-brain environment setup", () => {
   it("routes setup and doctor as strict no-argument terminal commands", async () => {
     await expect(runCliAsync(["setup", "extra"])).resolves.toMatchObject({
       exitCode: 1,
-      stderr: "setup accepts codex, claude-code, or cowork.\n",
+      stderr:
+        "setup accepts an optional runtime followed by --repo <project-directory>.\n",
     });
     await expect(runCliAsync(["doctor", "extra"])).resolves.toMatchObject({
       exitCode: 1,
       stderr: "doctor takes no arguments.\n",
+    });
+  });
+
+  it("configures an explicit target repository with a self-contained skill", async () => {
+    const repoRoot = makeEmptyRepo();
+    const result = await runCliAsync(["setup", "codex", "--repo", repoRoot], {
+      brainSiteUrl: "https://brain.example.test",
+      providerEnv: {},
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      target: repoRoot,
+    });
+    expect(existsSync(join(repoRoot, ".codex/config.toml"))).toBe(true);
+    const skillPath = join(repoRoot, ".agents/skills/ask-apero");
+    expect(lstatSync(skillPath).isDirectory()).toBe(true);
+    expect(lstatSync(skillPath).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(skillPath, "SKILL.md"), "utf8")).toContain(
+      "name: ask-apero",
+    );
+  });
+
+  it("rejects a missing setup target without creating it", async () => {
+    const parent = makeEmptyRepo();
+    const missing = join(parent, "missing");
+    const result = await runCliAsync(["setup", "codex", `--repo=${missing}`], {
+      brainSiteUrl: "https://brain.example.test",
+      providerEnv: {},
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(existsSync(missing)).toBe(false);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: `Setup target is not an existing directory: ${missing}`,
     });
   });
 
@@ -58,7 +101,7 @@ describe("maestro-brain environment setup", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       next: [
         "Export MAESTRO_BRAIN_API_KEY in this terminal.",
-        "Run pnpm brain doctor.",
+        "Run the doctor command with the same CLI invocation.",
       ],
     });
     expect(existsSync(join(repoRoot, ".cowork/maestro-brain.json"))).toBe(true);
@@ -110,10 +153,11 @@ describe("maestro-brain environment setup", () => {
       ".agents/skills/ask-apero",
       ".claude/skills/ask-apero",
     ]) {
-      const link = join(repoRoot, path);
-      expect(lstatSync(link).isSymbolicLink()).toBe(true);
-      expect(resolve(join(link, ".."), readlinkSync(link))).toBe(
-        join(repoRoot, "company-context/skills/ask-apero"),
+      const skill = join(repoRoot, path);
+      expect(lstatSync(skill).isDirectory()).toBe(true);
+      expect(lstatSync(skill).isSymbolicLink()).toBe(false);
+      expect(readFileSync(join(skill, "SKILL.md"), "utf8")).toContain(
+        "name: ask-apero",
       );
     }
   });

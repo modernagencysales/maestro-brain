@@ -1,22 +1,20 @@
-import {
-  doctorBrainEnvironment,
-  setupBrainEnvironment,
-  type SetupRuntime,
-} from "./environmentSetup";
+import { doctorBrainEnvironment } from "./environmentSetup";
 import { noteInputFromArgs } from "./noteCommand";
 import { executeRemoteBrainRequest, remoteBrainApiResult } from "./remoteApi";
 import { runRemoteMcpCommand } from "./remoteMcp";
 import { cliFailure, cliSuccess, formatJsonOutput } from "./result";
 import { runSnapshotSubmit } from "./snapshotCommand";
+import { runSetupCommand } from "./setupCommand";
 import type { CliResult, CliRuntimeConfig } from "./types";
 
 const commandHelp: Readonly<Record<string, string>> = {
   setup: [
     "Configure a terminal runtime in the current repository.",
     "",
-    "Usage: pnpm brain setup <codex|claude-code|cowork>",
+    "Usage: pnpm brain setup [codex|claude-code|cowork] [--repo <project-directory>]",
     "Requires: CONVEX_SITE_URL",
-    "Writes project-local config and never writes MAESTRO_BRAIN_API_KEY.",
+    "Copies the Ask Apero skill and writes project-local MCP config.",
+    "Never writes MAESTRO_BRAIN_API_KEY.",
   ].join("\n"),
   doctor: [
     "Verify configuration, API access, and hosted MCP prompts/tools.",
@@ -111,31 +109,10 @@ const contentCommand = async (
   );
 };
 
-const setupRuntime = (argv: readonly string[]): SetupRuntime | undefined => {
-  if (argv.length > 2) return undefined;
-  const runtime = argv[1];
-  if (runtime === undefined) return "all";
-  return (["codex", "claude-code", "cowork"] as const).includes(
-    runtime as Exclude<SetupRuntime, "all">,
-  )
-    ? (runtime as SetupRuntime)
-    : undefined;
-};
-
 const environmentCommand = async (
   argv: readonly string[],
   config: CliRuntimeConfig,
 ): Promise<CliResult | undefined> => {
-  if (argv[0] === "setup") {
-    const runtime = setupRuntime(argv);
-    return runtime === undefined
-      ? cliFailure("setup accepts codex, claude-code, or cowork.\n")
-      : setupBrainEnvironment({
-          repoRoot: process.cwd(),
-          siteUrl: config.brainSiteUrl,
-          runtime,
-        });
-  }
   if (argv[0] !== "doctor") return undefined;
   return argv.length === 1
     ? await doctorBrainEnvironment(config)
@@ -146,10 +123,22 @@ export const runSpecialCommand = async (
   argv: readonly string[],
   config: CliRuntimeConfig,
   readStdin: () => Promise<string>,
+  options: {
+    readonly currentDirectory?: string;
+    readonly skillSourceDirectory?: string;
+  } = {},
 ): Promise<CliResult | undefined> => {
+  const currentDirectory = options.currentDirectory ?? process.cwd();
   const handlers = [
     async () => focusedHelp(argv),
     async () => await contentCommand(argv, config, readStdin),
+    async () =>
+      runSetupCommand(
+        argv,
+        config,
+        currentDirectory,
+        options.skillSourceDirectory,
+      ),
     async () => await environmentCommand(argv, config),
     async () => await runRemoteMcpCommand(argv, config),
     async () =>
