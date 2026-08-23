@@ -32,6 +32,12 @@ describe('Brain page editor persistence decision', () => {
 
   it('distinguishes stale revision conflicts from transport failures', () => {
     expect(classifyBrainSaveFailure({ _tag: 'StaleRevision' })).toBe('conflict')
+    expect(
+      classifyBrainSaveFailure({ data: { _tag: 'StaleRevision' } }),
+    ).toBe('conflict')
+    expect(
+      classifyBrainSaveFailure({ cause: { data: { _tag: 'StaleRevision' } } }),
+    ).toBe('conflict')
     expect(classifyBrainSaveFailure(new Error('offline'))).toBe('error')
   })
 })
