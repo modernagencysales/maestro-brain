@@ -86,7 +86,10 @@ const isRecordOperation = (
   recordOperationIds.some((candidate) => candidate === operationId);
 
 const operationRefs = {
+  "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
+  "brain.pages.history": api.brain.pages.history,
+  "brain.pages.updateMarkdown": api.brain.pages.updateMarkdown,
   "ops.email.previewBroadcast": (
     api as unknown as {
       readonly ops: {

@@ -18,7 +18,10 @@ export { decodeCliRuntimeConfig };
 export type { CliResult, CliRuntimeConfig };
 
 export const staticCliOperationRefs: Readonly<Record<string, string>> = {
+  "agents.assistant.answerQuestion": "agents.assistant.answerQuestion",
   "brain.pages.createMarkdown": "brain.pages.createMarkdown",
+  "brain.pages.history": "brain.pages.history",
+  "brain.pages.updateMarkdown": "brain.pages.updateMarkdown",
   "ops.email.previewBroadcast": "ops.email.previewBroadcast",
   "ops.email.dispatchBroadcast": "ops.email.dispatchBroadcast",
 };

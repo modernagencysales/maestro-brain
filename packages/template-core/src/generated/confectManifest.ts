@@ -5,6 +5,17 @@ export const confectManifest = {
   generatedAt: "1970-01-01T00:00:00.000Z",
   functions: [
     {
+      namespace: "agents.assistant",
+      name: "answerQuestion",
+      operationId: "agents.assistant.answerQuestion",
+      kind: "query",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: ["Unauthenticated", "NoWorkspaceAccess", "ValidationFailed"],
+      idempotent: true,
+      argsSchemaName: "agents.assistant.answerQuestion.args",
+      returnsSchemaName: "agents.assistant.answerQuestion.returns",
+    },
+    {
       namespace: "brain.pages",
       name: "archive",
       operationId: "brain.pages.archive",
@@ -67,6 +78,7 @@ export const confectManifest = {
         "MemberNotInWorkspace",
         "WorkspaceNotFound",
         "NotFound",
+        "ValidationFailed",
       ],
       idempotent: true,
       argsSchemaName: "brain.pages.get.args",
@@ -83,6 +95,7 @@ export const confectManifest = {
         "MemberNotInWorkspace",
         "WorkspaceNotFound",
         "NotFound",
+        "ValidationFailed",
       ],
       idempotent: true,
       argsSchemaName: "brain.pages.history.args",
@@ -516,6 +529,247 @@ const sharedConfectJsonSchemasValue4 = {
 } as const;
 
 const sharedConfectJsonSchemas = {
+  "agents.assistant.answerQuestion.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      question: {
+        type: "string",
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
+      },
+      maxCitations: {
+        anyOf: [
+          {
+            type: "integer",
+            allOf: [
+              {
+                minimum: 1,
+              },
+              {
+                maximum: 10,
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "question"],
+    additionalProperties: false,
+  },
+  "agents.assistant.answerQuestion.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    anyOf: [
+      {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["answered"],
+          },
+          answerMarkdown: {
+            type: "string",
+          },
+          contextPack: {
+            $ref: "#/$defs/Objects_",
+          },
+        },
+        required: ["status", "answerMarkdown", "contextPack"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["insufficient-context"],
+          },
+          reason: {
+            type: "string",
+            enum: ["no-eligible-evidence"],
+          },
+          answerMarkdown: {
+            type: "null",
+          },
+          contextPack: {
+            $ref: "#/$defs/Objects_",
+          },
+        },
+        required: ["status", "reason", "answerMarkdown", "contextPack"],
+        additionalProperties: false,
+      },
+    ],
+    $defs: {
+      Objects_: {
+        type: "object",
+        properties: {
+          schemaVersion: {
+            type: "string",
+            enum: ["3"],
+          },
+          candidateManifest: {
+            type: "object",
+            properties: {
+              schemaVersion: {
+                type: "string",
+                enum: ["2"],
+              },
+              candidateKeys: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+            },
+            required: ["schemaVersion", "candidateKeys"],
+            additionalProperties: false,
+          },
+          workspaceId: {
+            type: "string",
+          },
+          question: {
+            type: "string",
+          },
+          asOf: {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          freshness: {
+            type: "string",
+            enum: ["current", "review-due", "stale", "unknown"],
+          },
+          citations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                citationKey: {
+                  type: "string",
+                },
+                sourceId: {
+                  type: "string",
+                },
+                sourceRevisionId: {
+                  type: "string",
+                },
+                pageId: {
+                  type: "string",
+                },
+                revisionUpdatedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                title: {
+                  type: "string",
+                },
+                excerpt: {
+                  type: "string",
+                },
+                startOffset: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                endOffset: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                freshness: {
+                  type: "string",
+                  enum: ["current", "review-due", "stale"],
+                },
+              },
+              required: [
+                "citationKey",
+                "sourceId",
+                "sourceRevisionId",
+                "pageId",
+                "revisionUpdatedAt",
+                "title",
+                "excerpt",
+                "startOffset",
+                "endOffset",
+                "freshness",
+              ],
+              additionalProperties: false,
+            },
+          },
+          omissions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                reason: {
+                  type: "string",
+                  enum: ["archived", "revision-mismatch", "not-relevant"],
+                },
+                count: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+              },
+              required: ["reason", "count"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: [
+          "schemaVersion",
+          "candidateManifest",
+          "workspaceId",
+          "question",
+          "asOf",
+          "freshness",
+          "citations",
+          "omissions",
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
   "brain.pages.archive.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",

@@ -22,6 +22,7 @@ const BrainPageError = Schema.Union([
   MemberNotInWorkspace,
   WorkspaceNotFound,
   NotFound,
+  ValidationFailed,
 ]);
 
 const BrainPageWriteError = Schema.Union([
@@ -146,6 +147,7 @@ const get = defineContractFunction(
       "MemberNotInWorkspace",
       "WorkspaceNotFound",
       "NotFound",
+      "ValidationFailed",
     ],
     idempotent: true,
     argsSchemaName: "brain.pages.get.args",
@@ -229,6 +231,7 @@ const history = defineContractFunction(
       "MemberNotInWorkspace",
       "WorkspaceNotFound",
       "NotFound",
+      "ValidationFailed",
     ],
     idempotent: true,
     argsSchemaName: "brain.pages.history.args",
