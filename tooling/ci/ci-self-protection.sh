@@ -10,7 +10,11 @@ source "$(dirname "$0")/setup.sh"
 # config; do not grant this step any secrets.
 
 pnpm check:ci-completeness
-pnpm check:deploy-authority
+if [[ -f template-instance.json ]]; then
+  echo "Generated customer target: skipping factory deploy authority verification."
+else
+  pnpm check:deploy-authority
+fi
 pnpm check:config-drift
 pnpm check:workflow-semantics
 pnpm check:convex-ai-files

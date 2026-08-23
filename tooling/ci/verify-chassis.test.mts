@@ -69,6 +69,23 @@ describe("customer chassis Woodpecker admission", () => {
     );
   });
 
+  it("runs factory deploy authority verification only outside generated customer targets", () => {
+    const source = read("tooling/ci/ci-self-protection.sh");
+    const customerGuard = source.indexOf("[[ -f template-instance.json ]]");
+    const deployAuthority = source.indexOf("pnpm check:deploy-authority");
+
+    expect(customerGuard).toBeGreaterThan(
+      source.indexOf("pnpm check:ci-completeness"),
+    );
+    expect(customerGuard).toBeLessThan(deployAuthority);
+    expect(source).toContain(
+      "Generated customer target: skipping factory deploy authority verification.",
+    );
+    expect(deployAuthority).toBeLessThan(
+      source.indexOf("pnpm check:config-drift"),
+    );
+  });
+
   it("declares the sole deterministic PR context", () => {
     const project = read(".factory/project.yaml");
     expect(project).toContain("required: []");
