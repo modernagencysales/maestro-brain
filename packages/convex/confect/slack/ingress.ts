@@ -33,6 +33,55 @@ type IngressDb = {
   ) => Promise<void>;
 };
 
+type ExistingSlackArtifact = Readonly<{
+  _id?: string;
+  sourceKey: string;
+  latestProviderOrder: string;
+  lifecycle: { generation: number };
+  createdAt: number;
+}>;
+
+type SlackCaptureRows = ReturnType<typeof captureAdmittedSlackEvent>;
+
+const duplicateOutcome = async (
+  db: IngressDb,
+  input: IngressInput | VerifiedIngressInput,
+) => {
+  if (await db.findReceipt(input.transportDeliveryId))
+    return "duplicate_delivery" as const;
+  if (db.findReplay && (await db.findReplay(input.providerEventId)))
+    return "duplicate_replay" as const;
+  return null;
+};
+
+const persistSlackCapture = async (
+  db: IngressDb,
+  source: unknown | null,
+  rows: SlackCaptureRows,
+) => {
+  await db.insert("providerEventReceipts", rows.receipt);
+  if (!(rows.artifact && rows.revision && rows.processingJob)) return;
+  if (source)
+    await db.patchArtifact(source as ExistingSlackArtifact, rows.artifact);
+  else await db.insert("sourceArtifacts", rows.artifact);
+  await db.insert("sourceRevisions", rows.revision);
+  await db.insert("sourceProcessingJobs", rows.processingJob);
+};
+
+const slackIngestResult = (rows: SlackCaptureRows) => {
+  const revision = rows.revision;
+  return {
+    outcome: (rows.receipt as { outcome: string }).outcome,
+    ...(revision == null
+      ? {}
+      : {
+          sourceKey: (revision as { sourceKey: string }).sourceKey,
+          sourceRevisionKey: (revision as { sourceRevisionKey: string })
+            .sourceRevisionKey,
+        }),
+  };
+};
+
 export const ingestSlackEvent = async (
   db: IngressDb,
   input: IngressInput | VerifiedIngressInput,
@@ -42,10 +91,8 @@ export const ingestSlackEvent = async (
     verifiedBinding === undefined
       ? await admitSlackSignedEvent(input as IngressInput)
       : verifiedBinding;
-  if (await db.findReceipt(input.transportDeliveryId))
-    return { outcome: "duplicate_delivery" as const };
-  if (db.findReplay && (await db.findReplay(input.providerEventId)))
-    return { outcome: "duplicate_replay" as const };
+  const duplicate = await duplicateOutcome(db, input);
+  if (duplicate !== null) return { outcome: duplicate };
   const envelope = {
     ...binding,
     transport: "live" as const,
@@ -61,31 +108,10 @@ export const ingestSlackEvent = async (
     routing: input.routing,
     ...(source
       ? {
-          existingArtifact: source as {
-            sourceKey: string;
-            latestProviderOrder: string;
-            lifecycle: { generation: number };
-            createdAt: number;
-          },
+          existingArtifact: source as ExistingSlackArtifact,
         }
       : {}),
   });
-  await db.insert("providerEventReceipts", rows.receipt);
-  if (rows.artifact && rows.revision && rows.processingJob) {
-    if (source)
-      await db.patchArtifact(source as { _id?: string }, rows.artifact);
-    else await db.insert("sourceArtifacts", rows.artifact);
-    await db.insert("sourceRevisions", rows.revision);
-    await db.insert("sourceProcessingJobs", rows.processingJob);
-  }
-  return {
-    outcome: (rows.receipt as { outcome: string }).outcome,
-    ...(rows.revision === null || rows.revision === undefined
-      ? {}
-      : {
-          sourceKey: (rows.revision as { sourceKey: string }).sourceKey,
-          sourceRevisionKey: (rows.revision as { sourceRevisionKey: string })
-            .sourceRevisionKey,
-        }),
-  };
+  await persistSlackCapture(db, source, rows);
+  return slackIngestResult(rows);
 };
