@@ -9,6 +9,10 @@ import {
 } from "@maestro-template/convex/refs";
 import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
 import { useWorkspaceSlug } from "#features/common/hooks/use-workspace-slug";
+import {
+  hasConfiguredConvexRuntime,
+  isContractModeRuntime,
+} from "../../env.js";
 import type {
   RecordAdapter,
   SaaSRecord,
@@ -85,9 +89,9 @@ export function RecordsSurface({
 }: {
   readonly fakeAdapter?: RecordAdapter;
 }) {
-  return import.meta.env.VITE_MAESTRO_CONTRACT_MODE === "1" ? (
+  return isContractModeRuntime() ? (
     <FakeRecordsSurface adapter={sharedHttpAdapter} />
-  ) : import.meta.env.VITE_CONVEX_URL ? (
+  ) : hasConfiguredConvexRuntime() ? (
     <LocalRecordsSurface />
   ) : (
     <FakeRecordsSurface adapter={fakeAdapter} />
