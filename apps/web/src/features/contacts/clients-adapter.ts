@@ -36,9 +36,9 @@ export const projectClientWorkspaceToContact = (
   workspace: ClientWorkspace,
 ): ContactDTO => ({
   id: workspace._id,
-  workspaceId: workspace._id,
+  workspaceId: workspace.slug,
   name: workspace.name,
-  email: `${workspace.slug}@client.maestro.local`,
+  email: workspace.slug,
   avatar: null,
   status: workspace.status === 'active' ? 'active' : 'inactive',
   type: 'customer',
@@ -50,9 +50,27 @@ export const projectClientWorkspaceToContact = (
 
 export const projectClientWorkspacesToContacts = (
   workspaces: readonly ClientWorkspace[],
+  currentWorkspaceId?: string,
 ): { contacts: ContactDTO[] } => ({
-  contacts: workspaces.map(projectClientWorkspaceToContact),
+  contacts: workspaces
+    .filter(({ _id }) => _id !== currentWorkspaceId)
+    .map(projectClientWorkspaceToContact),
 })
+
+export const contactNavigationFor = (
+  mode: 'clients' | 'contacts',
+  contact: Pick<ContactDTO, 'id' | 'workspaceId'>,
+  currentWorkspaceSlug: string,
+) =>
+  mode === 'clients'
+    ? {
+        to: '/$workspace/inbox' as const,
+        params: { workspace: contact.workspaceId },
+      }
+    : {
+        to: '/$workspace/contacts/view/$id' as const,
+        params: { workspace: currentWorkspaceSlug, id: contact.id },
+      }
 
 export const clientWorkspaceFixtures: readonly ClientWorkspace[] = [
   {
@@ -81,7 +99,6 @@ const useClientsList = ({
   workspaceId,
   type,
 }: ContactsListInput): ContactsListDataResult => {
-  void workspaceId
   void type
   const fixtureRuntime = isFixtureAuthRuntime()
   const result = useConvexQuery(
@@ -91,6 +108,7 @@ const useClientsList = ({
   return {
     data: projectClientWorkspacesToContacts(
       fixtureRuntime ? clientWorkspaceFixtures : (result.data ?? []),
+      workspaceId,
     ),
     isLoading: fixtureRuntime ? false : result.isLoading,
   }

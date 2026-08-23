@@ -58,7 +58,10 @@ import { ContactAvatar } from '../common/contact-avatar'
 import { ContactStatus } from '../common/contact-status'
 import { ContactTag } from '../common/contact-tag'
 import { ContactType } from '../common/contact-type'
-import { contactsListDataHooks } from '../clients-adapter'
+import {
+  contactNavigationFor,
+  contactsListDataHooks,
+} from '../clients-adapter'
 import { AddPersonDialog } from './add-person-dialog'
 import { ContactBoardHeader } from './contact-board-header'
 import { bulkActions } from './contact-bulk-actions'
@@ -155,8 +158,11 @@ export function ContactsListPage({
           <HStack gap="4">
             <ContactAvatar contact={cell.row.original} size="xs" />
             <Link
-              to="/$workspace/contacts/view/$id"
-              params={{ workspace: params.workspace, id: cell.row.original.id }}
+              {...contactNavigationFor(
+                productShell.contacts,
+                cell.row.original,
+                params.workspace,
+              )}
             >
               {cell.getValue()}
             </Link>

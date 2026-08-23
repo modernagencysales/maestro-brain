@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   clientWorkspaceFixtures,
+  contactNavigationFor,
   contactsListDataHooks,
   projectClientWorkspaceToContact,
   projectClientWorkspacesToContacts,
@@ -21,9 +22,9 @@ describe('client workspaces to Starter Contacts adapter', () => {
       }),
     ).toEqual({
       id: 'workspace-northstar',
-      workspaceId: 'workspace-northstar',
+      workspaceId: 'northstar',
       name: 'Northstar Labs',
-      email: 'northstar@client.maestro.local',
+      email: 'northstar',
       avatar: null,
       status: 'active',
       type: 'customer',
@@ -32,6 +33,26 @@ describe('client workspaces to Starter Contacts adapter', () => {
       createdAt: new Date(1_782_924_800_000),
       updatedAt: new Date(1_782_928_400_000),
     })
+  })
+
+  it('switches workspace before opening a client Brain', () => {
+    expect(
+      contactNavigationFor(
+        'clients',
+        { id: 'workspace-northstar', workspaceId: 'northstar' },
+        'agency',
+      ),
+    ).toEqual({
+      to: '/$workspace/inbox',
+      params: { workspace: 'northstar' },
+    })
+  })
+
+  it('excludes the active agency workspace from its client list', () => {
+    expect(
+      projectClientWorkspacesToContacts(clientWorkspaceFixtures, 'client-northstar')
+        .contacts.map(({ name }) => name),
+    ).toEqual(['Juniper Works'])
   })
 
   it('ships populated fake-safe Clients data', () => {
