@@ -4,7 +4,7 @@ export const TEMPLATE_INSTANCE_COMPATIBILITY_SET_VERSION = 1 as const;
 export const CURRENT_TEMPLATE_INSTANCE_VERSIONS = Object.freeze({
   pack: "0.1.0-alpha.1",
   cli: "0.1.0-alpha.1",
-  template: "0.2.0-alpha.1",
+  template: "0.2.0-alpha.9",
   workflowSchema: 2,
   compatibilitySet: TEMPLATE_INSTANCE_COMPATIBILITY_SET_VERSION,
 } as const);
@@ -25,8 +25,8 @@ export type TemplateHostCompatibility = {
 };
 
 const currentHostCompatibility = Object.freeze({
-  templateVersion: "0.2.0-alpha.1",
-  templateTag: "maestro-template-v0.2.0-alpha.1",
+  templateVersion: "0.2.0-alpha.9",
+  templateTag: "maestro-template-v0.2.0-alpha.9",
   packRange: ">=0.1.0-alpha.1 <0.2.0",
   cliRange: ">=0.1.0-alpha.1 <0.2.0",
   supportState: "supported",
@@ -36,8 +36,8 @@ const currentHostCompatibility = Object.freeze({
 } as const satisfies TemplateHostCompatibility);
 
 const previousHostCompatibility = Object.freeze({
-  templateVersion: "0.1.0-alpha.1",
-  templateTag: "maestro-template-v0.1.0-alpha.1",
+  templateVersion: "0.2.0-alpha.1",
+  templateTag: "maestro-template-v0.2.0-alpha.1",
   packRange: ">=0.1.0-alpha.1 <0.2.0",
   cliRange: ">=0.1.0-alpha.1 <0.2.0",
   supportState: "planned",
@@ -713,6 +713,7 @@ const validateLegacyV1 = (
   };
 };
 
+/* eslint-disable complexity -- AP-008 tracks decomposing the closed legacy V0 compatibility parser. */
 const validateLegacyNestedShape = (
   input: RecordValue,
 ): readonly CompatibilityIssue[] => {
@@ -962,6 +963,7 @@ const validateLegacyNestedShape = (
   }
   return [];
 };
+/* eslint-enable complexity */
 
 const validateLegacyV0 = (
   input: RecordValue,
@@ -1004,6 +1006,7 @@ const numericFact = (value: unknown): number | null =>
 const stringFact = (value: unknown): string | null =>
   typeof value === "string" ? value : null;
 
+/* eslint-disable complexity -- AP-008 tracks decomposing compatibility fact projection without widening its closed schema. */
 const targetFacts = (
   input: unknown,
 ): TemplateInstanceResolutionPacket["target"] => {
@@ -1039,6 +1042,7 @@ const targetFacts = (
     releaseAvailability: stringFact(support.releaseAvailability),
   };
 };
+/* eslint-enable complexity */
 
 const packet = (
   input: unknown,

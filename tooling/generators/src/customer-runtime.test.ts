@@ -125,8 +125,8 @@ describe("customer generator runtime", () => {
       {
         schemaVersion: 1,
         release: {
-          version: "0.2.0-alpha.1",
-          tag: "maestro-template-v0.2.0-alpha.1",
+          version: "0.2.0-alpha.9",
+          tag: "maestro-template-v0.2.0-alpha.9",
           sourceCommit: "0123456789abcdef0123456789abcdef01234567",
           sourceChecksum: `sha256:${"a".repeat(64)}`,
         },

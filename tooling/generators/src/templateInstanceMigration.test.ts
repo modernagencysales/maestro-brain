@@ -34,13 +34,13 @@ const legacyCompatibility = {
 const currentV1 = () => ({
   schemaVersion: 1,
   release: {
-    version: "0.2.0-alpha.1",
-    tag: "maestro-template-v0.2.0-alpha.1",
+    version: "0.2.0-alpha.9",
+    tag: "maestro-template-v0.2.0-alpha.9",
     sourceCommit: "customer-pinned-commit",
   },
   compatibility: { ...legacyCompatibility },
   ownership: {
-    manifest: "releases/v0.2.0-alpha.1/manifest.json",
+    manifest: "releases/v0.2.0-alpha.9/manifest.json",
   },
   personalization: { name: "Customer App" },
 });
@@ -48,12 +48,12 @@ const currentV1 = () => ({
 const previousV1 = () => ({
   ...currentV1(),
   release: {
-    version: "0.1.0-alpha.1",
-    tag: "maestro-template-v0.1.0-alpha.1",
+    version: "0.2.0-alpha.1",
+    tag: "maestro-template-v0.2.0-alpha.1",
     sourceCommit: "customer-pinned-commit",
   },
   ownership: {
-    manifest: "releases/v0.1.0-alpha.1/manifest.json",
+    manifest: "releases/v0.2.0-alpha.1/manifest.json",
   },
 });
 

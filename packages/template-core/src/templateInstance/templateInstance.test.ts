@@ -18,13 +18,13 @@ import {
 } from "./index";
 
 const currentRelease = {
-  version: "0.2.0-alpha.1",
-  tag: "maestro-template-v0.2.0-alpha.1",
+  version: "0.2.0-alpha.9",
+  tag: "maestro-template-v0.2.0-alpha.9",
 } as const;
 
 const previousRelease = {
-  version: "0.1.0-alpha.1",
-  tag: "maestro-template-v0.1.0-alpha.1",
+  version: "0.2.0-alpha.1",
+  tag: "maestro-template-v0.2.0-alpha.1",
 } as const;
 
 const currentSupport = {
@@ -368,14 +368,14 @@ describe("templateInstance compatibility authority", () => {
     expect(CURRENT_TEMPLATE_INSTANCE_VERSIONS).toEqual({
       pack: "0.1.0-alpha.1",
       cli: "0.1.0-alpha.1",
-      template: "0.2.0-alpha.1",
+      template: "0.2.0-alpha.9",
       workflowSchema: 2,
       compatibilitySet: 1,
     });
     expect(TEMPLATE_INSTANCE_COMPATIBILITY).toEqual({
       current: {
-        templateVersion: "0.2.0-alpha.1",
-        templateTag: "maestro-template-v0.2.0-alpha.1",
+        templateVersion: "0.2.0-alpha.9",
+        templateTag: "maestro-template-v0.2.0-alpha.9",
         packRange: ">=0.1.0-alpha.1 <0.2.0",
         cliRange: ">=0.1.0-alpha.1 <0.2.0",
         supportState: "supported",
@@ -384,8 +384,8 @@ describe("templateInstance compatibility authority", () => {
         releaseEvidence: "workspace-only",
       },
       previous: {
-        templateVersion: "0.1.0-alpha.1",
-        templateTag: "maestro-template-v0.1.0-alpha.1",
+        templateVersion: "0.2.0-alpha.1",
+        templateTag: "maestro-template-v0.2.0-alpha.1",
         packRange: ">=0.1.0-alpha.1 <0.2.0",
         cliRange: ">=0.1.0-alpha.1 <0.2.0",
         supportState: "planned",
@@ -434,8 +434,8 @@ describe("templateInstance compatibility authority", () => {
         schemaVersion: 2,
         packVersion: "0.1.0-alpha.1",
         cliVersion: "0.1.0-alpha.1",
-        templateVersion: "0.2.0-alpha.1",
-        templateTag: "maestro-template-v0.2.0-alpha.1",
+        templateVersion: "0.2.0-alpha.9",
+        templateTag: "maestro-template-v0.2.0-alpha.9",
         workflowSchema: 2,
         compatibilitySet: 1,
         agentPackRange: ">=0.1.0-alpha.1 <0.2.0",
@@ -447,8 +447,8 @@ describe("templateInstance compatibility authority", () => {
       lastSupported: {
         packVersion: "0.1.0-alpha.1",
         cliVersion: "0.1.0-alpha.1",
-        templateVersion: "0.2.0-alpha.1",
-        templateTag: "maestro-template-v0.2.0-alpha.1",
+        templateVersion: "0.2.0-alpha.9",
+        templateTag: "maestro-template-v0.2.0-alpha.9",
         releaseAvailability: "unavailable",
       },
       recovery: {
@@ -754,8 +754,8 @@ describe("templateInstance compatibility authority", () => {
           supportState: "planned",
           cliRange: ">=0.1.0-alpha.1 <0.2.0",
           packRange: ">=0.1.0-alpha.1 <0.2.0",
-          templateTag: "maestro-template-v0.1.0-alpha.1",
-          templateVersion: "0.1.0-alpha.1",
+          templateTag: "maestro-template-v0.2.0-alpha.1",
+          templateVersion: "0.2.0-alpha.1",
         },
         current: {
           releaseEvidence: "workspace-only",
@@ -764,15 +764,15 @@ describe("templateInstance compatibility authority", () => {
           supportState: "supported",
           cliRange: ">=0.1.0-alpha.1 <0.2.0",
           packRange: ">=0.1.0-alpha.1 <0.2.0",
-          templateTag: "maestro-template-v0.2.0-alpha.1",
-          templateVersion: "0.2.0-alpha.1",
+          templateTag: "maestro-template-v0.2.0-alpha.9",
+          templateVersion: "0.2.0-alpha.9",
         },
       },
       release: { tag: currentRelease.tag, version: currentRelease.version },
       versions: {
         compatibilitySet: 1,
         workflowSchema: 2,
-        template: "0.2.0-alpha.1",
+        template: "0.2.0-alpha.9",
         cli: "0.1.0-alpha.1",
         pack: "0.1.0-alpha.1",
       },
