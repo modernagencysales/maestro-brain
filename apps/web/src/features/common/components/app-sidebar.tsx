@@ -126,22 +126,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
               icon={<LuSquareUser />}
               hotkey="navigation.contacts"
             />
-            <AppSidebarLink
-              to={productShell.navigation.kanban.to}
-              params={{ workspace }}
-              activeOptions={{ exact: true }}
-              label={productShell.navigation.kanban.label}
-              icon={<LuLayoutDashboard />}
-              hotkey="navigation.kanban"
-            />
-            <AppSidebarLink
-              to={productShell.navigation.showcase.to}
-              params={{ workspace }}
-              activeOptions={{ exact: true }}
-              label={productShell.navigation.showcase.label}
-              icon={<LuSparkles />}
-              hotkey="navigation.showcase"
-            />
+            {productShell.navigation.kanban.visible ? (
+              <AppSidebarLink
+                to={productShell.navigation.kanban.to}
+                params={{ workspace }}
+                activeOptions={{ exact: true }}
+                label={productShell.navigation.kanban.label}
+                icon={<LuLayoutDashboard />}
+                hotkey="navigation.kanban"
+              />
+            ) : null}
+            {productShell.navigation.showcase.visible ? (
+              <AppSidebarLink
+                to={productShell.navigation.showcase.to}
+                params={{ workspace }}
+                activeOptions={{ exact: true }}
+                label={productShell.navigation.showcase.label}
+                icon={<LuSparkles />}
+                hotkey="navigation.showcase"
+              />
+            ) : null}
           </Sidebar.Group>
 
           <AppSidebarTags />

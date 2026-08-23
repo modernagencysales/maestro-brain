@@ -188,7 +188,7 @@
       "source": "apps/web/src/features/common/components/app-sidebar.tsx",
       "destination": "apps/web/src/features/common/components/app-sidebar.tsx",
       "sourceSha256": "9864a913f4266a6412eb3a452582e554d85983f4d9242ab2995d177c2f95dd3c",
-      "sha256": "23aeacaf4d98b2c7bdcecef85fa7231d46ab46ad615cc5ed5baeb1d040496b9f",
+      "sha256": "ce7ac795dd67b6341c0b16d6cf6c3cce46f8ef00a029e00d9ce1e5089fbd23bd",
       "adapted": true
     },
     {

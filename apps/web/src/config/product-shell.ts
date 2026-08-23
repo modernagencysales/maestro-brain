@@ -1,17 +1,21 @@
 export const productShell = {
   navigation: {
-    dashboard: { label: 'Dashboard', to: '/$workspace' },
-    inbox: { label: 'Inbox', to: '/$workspace/inbox' },
-    contacts: { label: 'Contacts', to: '/$workspace/contacts' },
-    kanban: { label: 'Kanban', to: '/$workspace/kanban' },
-    showcase: { label: 'Showcase', to: '/$workspace/showcase' },
+    dashboard: { label: 'Connections', to: '/$workspace' },
+    inbox: { label: 'Brain', to: '/$workspace/inbox' },
+    contacts: { label: 'Clients', to: '/$workspace/contacts' },
+    kanban: { label: 'Kanban', to: '/$workspace/kanban', visible: false },
+    showcase: {
+      label: 'Showcase',
+      to: '/$workspace/showcase',
+      visible: false,
+    },
   },
   labels: {
-    contacts: 'Contacts',
-    inbox: 'Inbox',
+    contacts: 'Clients',
+    inbox: 'Brain',
   },
-  dashboard: 'reports' as 'reports' | 'connections',
-  inbox: 'contacts' as 'contacts' | 'brain',
-  contacts: 'contacts' as 'contacts' | 'clients',
-  search: 'workspace' as 'workspace' | 'assistant',
+  dashboard: 'connections' as 'reports' | 'connections',
+  inbox: 'brain' as 'contacts' | 'brain',
+  contacts: 'clients' as 'contacts' | 'clients',
+  search: 'assistant' as 'workspace' | 'assistant',
 } as const
