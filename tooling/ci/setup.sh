@@ -153,4 +153,8 @@ run_without_ci_secrets node --experimental-strip-types tooling/ci/candidate-sand
 run_without_ci_secrets pnpm fetch --frozen-lockfile --ignore-scripts
 run_without_ci_secrets pnpm install --offline --frozen-lockfile --ignore-scripts
 
-run_without_ci_secrets bash tooling/ci/seed-frozen-alpha2-store.sh
+if [[ -f template-instance.json ]]; then
+  echo "Generated customer target: skipping factory release cache seeding."
+else
+  run_without_ci_secrets bash tooling/ci/seed-frozen-alpha2-store.sh
+fi

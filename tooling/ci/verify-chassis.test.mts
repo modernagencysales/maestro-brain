@@ -52,12 +52,20 @@ describe("customer chassis Woodpecker admission", () => {
     );
   });
 
-  it("seeds the current immutable release for offline runtime tests", () => {
+  it("seeds factory releases only outside generated customer targets", () => {
     const source = read("tooling/ci/seed-frozen-alpha2-store.sh");
+    const setup = read("tooling/ci/setup.sh");
 
     expect(source).toContain("maestro-template-v0.2.0-alpha.2");
     expect(source).toContain(
       "checkout --quiet --force --detach maestro-template-v0.2.0-alpha.3",
+    );
+    expect(setup).toContain("[[ -f template-instance.json ]]");
+    expect(setup).toContain(
+      "Generated customer target: skipping factory release cache seeding.",
+    );
+    expect(setup.indexOf("[[ -f template-instance.json ]]")).toBeLessThan(
+      setup.indexOf("bash tooling/ci/seed-frozen-alpha2-store.sh"),
     );
   });
 
