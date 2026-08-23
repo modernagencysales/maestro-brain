@@ -270,14 +270,16 @@ const checkDescriptorDefinitions = {
       {
         file: "tooling/ci/verify-aggregate.mjs",
         includes: [
-          '"verify-core"',
-          '"verify-coverage"',
-          "CI_PIPELINE_URL",
-          "pipeline.workflows",
+          '"ci/woodpecker/pr/verify-core"',
+          '"ci/woodpecker/pr/verify-coverage"',
+          "CI_REPO",
+          "CI_COMMIT_SHA",
+          "combinedStatus.statuses",
           '!== "success"',
         ],
+        absent: ["CI_PIPELINE_URL", "pipeline.workflows"],
         message:
-          "the required aggregate context must fail closed against Woodpecker dependency states",
+          "the required aggregate context must fail closed against exact GitHub commit statuses without Woodpecker API credentials",
       },
       {
         file: "apps/cli/package.json",

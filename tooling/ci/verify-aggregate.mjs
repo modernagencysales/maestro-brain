@@ -4,35 +4,49 @@ import console from "node:console";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 
-const requiredWorkflows = ["verify-core", "verify-coverage"];
+const requiredContexts = [
+  "ci/woodpecker/pr/verify-core",
+  "ci/woodpecker/pr/verify-coverage",
+];
 
 export async function verifyAggregate(
-  pipelineUrl = process.env.CI_PIPELINE_URL,
-  fetchPipeline = globalThis.fetch,
+  repository = process.env.CI_REPO,
+  commitSha = process.env.CI_COMMIT_SHA,
+  fetchStatuses = globalThis.fetch,
+  githubApiUrl = process.env.GITHUB_API_URL ?? "https://api.github.com",
 ) {
-  const endpoint = pipelineEndpoint(pipelineUrl);
-  const response = await fetchPipeline(endpoint, {
+  const endpoint = statusEndpoint(repository, commitSha, githubApiUrl);
+  const response = await fetchStatuses(endpoint, {
+    headers: {
+      accept: "application/vnd.github+json",
+      "user-agent": "maestro-template-verify-aggregate",
+    },
     signal: globalThis.AbortSignal.timeout(10_000),
   });
   if (!response.ok) {
-    throw new Error(`Woodpecker API returned HTTP ${response.status}`);
+    throw new Error(`GitHub status API returned HTTP ${response.status}`);
   }
 
-  const pipeline = await response.json();
-  if (!Array.isArray(pipeline?.workflows)) {
-    throw new Error("Woodpecker API response omitted workflows");
+  const combinedStatus = await response.json();
+  if (!Array.isArray(combinedStatus?.statuses)) {
+    throw new Error("GitHub status API response omitted statuses");
   }
 
-  const states = new Map(
-    pipeline.workflows.map((workflow) => [workflow?.name, workflow?.state]),
-  );
-  const unsuccessful = requiredWorkflows.filter(
-    (name) => states.get(name) !== "success",
+  // GitHub returns newest statuses first. Keep the first state for each context
+  // so a retried workflow cannot be shadowed by an older result.
+  const states = new Map();
+  for (const status of combinedStatus.statuses) {
+    if (typeof status?.context === "string" && !states.has(status.context)) {
+      states.set(status.context, status.state);
+    }
+  }
+  const unsuccessful = requiredContexts.filter(
+    (context) => states.get(context) !== "success",
   );
   if (unsuccessful.length > 0) {
     throw new Error(
       unsuccessful
-        .map((name) => `${name}=${states.get(name) ?? "missing"}`)
+        .map((context) => `${context}=${states.get(context) ?? "missing"}`)
         .join(", "),
     );
   }
@@ -40,16 +54,15 @@ export async function verifyAggregate(
   console.log("verify-aggregate: required workflows succeeded");
 }
 
-function pipelineEndpoint(pipelineUrl) {
-  if (pipelineUrl === undefined || pipelineUrl === "") {
-    throw new Error("CI_PIPELINE_URL is required");
+function statusEndpoint(repository, commitSha, githubApiUrl) {
+  if (!/^[^/]+\/[^/]+$/u.test(repository ?? "")) {
+    throw new Error("CI_REPO must be owner/name");
   }
-  const url = new URL(pipelineUrl);
-  const match = /^\/repos\/(\d+)\/pipeline\/(\d+)\/?$/u.exec(url.pathname);
-  if (match === null) {
-    throw new Error(`unexpected CI_PIPELINE_URL path: ${url.pathname}`);
+  if (!/^[a-f\d]{40}$/iu.test(commitSha ?? "")) {
+    throw new Error("CI_COMMIT_SHA must be a full Git OID");
   }
-  url.pathname = `/api/repos/${match[1]}/pipelines/${match[2]}`;
+  const url = new URL(githubApiUrl);
+  url.pathname = `/repos/${repository}/commits/${commitSha}/status`;
   url.search = "";
   url.hash = "";
   return url;
