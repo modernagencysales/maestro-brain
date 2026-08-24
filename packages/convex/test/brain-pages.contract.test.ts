@@ -164,9 +164,9 @@ describe("brain pages Confect contract", () => {
         { workspaceId: seeded.workspaceId, pageId },
       );
       const createRevision = beforeRestore.find(
-        ({ causation }) => causation === "create",
+        (revision) => "pageId" in revision && revision.causation === "create",
       );
-      if (createRevision === undefined)
+      if (createRevision === undefined || !("pageId" in createRevision))
         return yield* Effect.die("missing create revision");
       const archived = yield* actor.mutation(refs.public.brain.pages.archive, {
         workspaceId: seeded.workspaceId,

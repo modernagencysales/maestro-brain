@@ -195,6 +195,20 @@ describe("headless API-key auth", () => {
       agencyCreatedAtOrder: 1,
       principalKind: "creator",
     });
+    expect(
+      Schema.decodeUnknownSync(ApiKeyRow)({
+        ...created.row,
+        principalId: "principal_123",
+        organizationId: "organization_123",
+        brainKey: "brain_123",
+        scopes: ["brain:read", "brain:ask"],
+      }),
+    ).toMatchObject({
+      principalId: "principal_123",
+      organizationId: "organization_123",
+      brainKey: "brain_123",
+      scopes: ["brain:read", "brain:ask"],
+    });
     await expect(
       verifyApiKey({
         presentedKey: created.displayKey,

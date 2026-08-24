@@ -1,6 +1,5 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-import providerConnections from "../_generated/tables/providerConnections";
 import { Id } from "../_generated/id";
 import {
   MemberNotInWorkspace,
@@ -15,8 +14,14 @@ import {
   defineContractFunction,
 } from "../capabilities/_kit/capability";
 import { providerKeys } from "./connectionLifecycle";
+import { CurrentProviderConnectionRow } from "../tables/providerConnections";
 
 const ProviderKey = Schema.Literals(providerKeys);
+const CurrentProviderConnectionDoc = Schema.Struct({
+  ...CurrentProviderConnectionRow.fields,
+  _id: Id("providerConnections"),
+  _creationTime: Schema.Number,
+});
 const AccessError = Schema.Union([
   Unauthorized,
   MemberNotInWorkspace,
@@ -64,7 +69,7 @@ const ActorRevokeArgs = Schema.Struct({
   ...RevokeArgs.fields,
   userId: Id("users"),
 });
-const ConnectionList = Schema.Array(providerConnections.Doc);
+const ConnectionList = Schema.Array(CurrentProviderConnectionDoc);
 
 const list = defineContractFunction(
   FunctionSpec.publicQuery({
@@ -97,7 +102,7 @@ const begin = defineContractFunction(
   FunctionSpec.publicMutation({
     name: "begin",
     args: () => WorkspaceProviderArgs,
-    returns: () => providerConnections.Doc,
+    returns: () => CurrentProviderConnectionDoc,
     error: () => MutationError,
   }),
   {
@@ -117,7 +122,7 @@ const begin = defineContractFunction(
     argsSchemaName: "integrations.connections.begin.args",
     returnsSchemaName: "integrations.connections.begin.returns",
     argsSchema: WorkspaceProviderArgs,
-    returnsSchema: providerConnections.Doc,
+    returnsSchema: CurrentProviderConnectionDoc,
   },
 );
 
@@ -125,7 +130,7 @@ const complete = defineContractFunction(
   FunctionSpec.publicMutation({
     name: "complete",
     args: () => CompletionArgs,
-    returns: () => providerConnections.Doc,
+    returns: () => CurrentProviderConnectionDoc,
     error: () => MutationError,
   }),
   {
@@ -145,7 +150,7 @@ const complete = defineContractFunction(
     argsSchemaName: "integrations.connections.complete.args",
     returnsSchemaName: "integrations.connections.complete.returns",
     argsSchema: CompletionArgs,
-    returnsSchema: providerConnections.Doc,
+    returnsSchema: CurrentProviderConnectionDoc,
   },
 );
 
@@ -153,7 +158,7 @@ const revoke = defineContractFunction(
   FunctionSpec.publicMutation({
     name: "revoke",
     args: () => RevokeArgs,
-    returns: () => providerConnections.Doc,
+    returns: () => CurrentProviderConnectionDoc,
     error: () => MutationError,
   }),
   {
@@ -173,7 +178,7 @@ const revoke = defineContractFunction(
     argsSchemaName: "integrations.connections.revoke.args",
     returnsSchemaName: "integrations.connections.revoke.returns",
     argsSchema: RevokeArgs,
-    returnsSchema: providerConnections.Doc,
+    returnsSchema: CurrentProviderConnectionDoc,
   },
 );
 
@@ -186,19 +191,19 @@ const listForActor = FunctionSpec.internalQuery({
 const beginForActor = FunctionSpec.internalMutation({
   name: "beginForActor",
   args: () => ActorWorkspaceProviderArgs,
-  returns: () => providerConnections.Doc,
+  returns: () => CurrentProviderConnectionDoc,
   error: () => MutationError,
 });
 const completeForActor = FunctionSpec.internalMutation({
   name: "completeForActor",
   args: () => ActorCompletionArgs,
-  returns: () => providerConnections.Doc,
+  returns: () => CurrentProviderConnectionDoc,
   error: () => MutationError,
 });
 const revokeForActor = FunctionSpec.internalMutation({
   name: "revokeForActor",
   args: () => ActorRevokeArgs,
-  returns: () => providerConnections.Doc,
+  returns: () => CurrentProviderConnectionDoc,
   error: () => MutationError,
 });
 

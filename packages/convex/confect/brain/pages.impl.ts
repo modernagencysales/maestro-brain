@@ -139,7 +139,8 @@ const pageHistory = (args: {
       )
       .collect()
       .pipe(Effect.orDie);
-    return [...rows]
+    return rows
+      .filter((revision) => "pageId" in revision)
       .sort((left, right) => right.updatedAt - left.updatedAt)
       .slice(0, Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100));
   });
@@ -425,7 +426,7 @@ const restore = FunctionImpl.make(databaseSchema, pages, "restore", (args) =>
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (revision === null)
+      if (revision === null || !("pageId" in revision))
         return yield* new NotFound({
           resource: "pageRevisions",
           id: `${args.pageId}:${args.revisionUpdatedAt}`,
