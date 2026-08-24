@@ -4,8 +4,10 @@ import {
   selectStalePKCEVerifierCookieNames,
   type AuthService,
 } from "@workos/authkit-session";
+import { handleCallbackRoute } from "@workos/authkit-tanstack-react-start";
 
 import { fixtureAuthRedirect } from "./fixture-auth";
+import { guardedCallback } from "./workos-callback";
 import { safeReturnPath } from "./return-path";
 import { isFixtureAuthRuntime } from "./route-auth";
 import {
@@ -43,6 +45,9 @@ export async function appendStaleVerifierDeletes(input: {
 }
 
 type AuthEntryKind = "sign-in" | "sign-up";
+
+export const createWorkosCallbackHandler = () =>
+  guardedCallback(handleCallbackRoute());
 
 export function createAuthEntryHandler(kind: AuthEntryKind) {
   return async ({ request }: { readonly request: Request }) => {
