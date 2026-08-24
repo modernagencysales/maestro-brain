@@ -45,6 +45,19 @@ export function buildRequestMiddleware<Middleware>(input: {
     : [input.csrf, input.createWorkos()];
 }
 
+export function fixtureAuthWorkerVariables(
+  environment: AuthEnvironment,
+): Readonly<Record<string, string>> {
+  if (resolveWebAuthMode(environment) !== "fixture") return {};
+  return {
+    VITE_MAESTRO_AUTH_MODE: "fixture",
+    ...(environment.APP_ENV ? { APP_ENV: environment.APP_ENV } : {}),
+    ...(environment.APP_PROVIDER_MODE
+      ? { APP_PROVIDER_MODE: environment.APP_PROVIDER_MODE }
+      : {}),
+  };
+}
+
 export function assertProductionAuthConfiguration(
   environment: AuthEnvironment,
 ): void {

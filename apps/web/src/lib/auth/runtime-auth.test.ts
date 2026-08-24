@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   assertProductionAuthConfiguration,
   buildRequestMiddleware,
+  fixtureAuthWorkerVariables,
   resolveWebAuthMode,
 } from "./runtime-auth";
 
@@ -53,6 +54,23 @@ describe("web runtime auth mode", () => {
       buildRequestMiddleware({ mode: "workos", csrf, createWorkos }),
     ).toEqual([csrf, workos]);
     expect(createWorkos).toHaveBeenCalledOnce();
+  });
+
+  it("projects fixture auth into the Cloudflare worker runtime", () => {
+    expect(
+      fixtureAuthWorkerVariables({
+        APP_ENV: "fake",
+        APP_PROVIDER_MODE: "fake",
+        VITE_MAESTRO_AUTH_MODE: "fixture",
+      }),
+    ).toEqual({
+      APP_ENV: "fake",
+      APP_PROVIDER_MODE: "fake",
+      VITE_MAESTRO_AUTH_MODE: "fixture",
+    });
+    expect(
+      fixtureAuthWorkerVariables({ VITE_MAESTRO_AUTH_MODE: "workos" }),
+    ).toEqual({});
   });
 
   it("fails production before build when WorkOS configuration is incomplete", () => {
