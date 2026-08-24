@@ -44,11 +44,13 @@ VITE_CONVEX_URL="$(node scripts/_project-config.mjs get production convexUrl)"
 TEMPLATE_HOSTED_URL="$(node scripts/_project-config.mjs get production hostedUrl)"
 CLOUDFLARE_PAGES_PROJECT="$(node scripts/_project-config.mjs get production cloudflarePagesProject)"
 CLOUDFLARE_PAGES_BRANCH="$(node scripts/_project-config.mjs get production cloudflareBranch)"
+CLOUDFLARE_DEPLOYMENT_KIND="$(node scripts/_project-config.mjs get production cloudflareDeploymentKind)"
 DEPLOY_ENVIRONMENT=production
 CLOUDFLARE_DEPLOYMENT_VERSION="${CI_COMMIT_SHA}"
 export CONVEX_DEPLOY_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 export CONVEX_DEPLOYMENT VITE_CONVEX_URL TEMPLATE_HOSTED_URL
-export CLOUDFLARE_PAGES_PROJECT CLOUDFLARE_PAGES_BRANCH DEPLOY_ENVIRONMENT
+export CLOUDFLARE_DEPLOYMENT_KIND CLOUDFLARE_PAGES_PROJECT CLOUDFLARE_PAGES_BRANCH
+export DEPLOY_ENVIRONMENT
 export CLOUDFLARE_DEPLOYMENT_VERSION
 
 node scripts/_project-config.mjs assert-convex-deploy-key production
