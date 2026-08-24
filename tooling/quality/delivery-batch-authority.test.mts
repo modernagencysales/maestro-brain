@@ -185,6 +185,12 @@ describe("deterministic suite ownership", () => {
 
     expect(epoch.match(/pnpm verify/gu)).toHaveLength(1);
     expect(epoch).toContain("if ! bash tooling/ci/install-qlty.sh");
+    expect(epoch).toContain(
+      "pnpm exec playwright install --with-deps chromium",
+    );
+    expect(
+      epoch.indexOf("pnpm exec playwright install --with-deps chromium"),
+    ).toBeLessThan(epoch.indexOf("pnpm verify"));
     expect(epoch).not.toContain("pnpm acceptance:");
     expect(phase1.match(/pnpm verify/gu)).toHaveLength(1);
     expect(phase1).toContain("pnpm template:workflow-output-smoke");
