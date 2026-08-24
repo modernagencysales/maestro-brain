@@ -135,6 +135,8 @@ const useBrainMarkdown = (input: {
   workspaceId: string
 }) => {
   const updateMarkdown = useConvexMutation(updatePageRef)
+  const pageRef = React.useRef(input.page)
+  const updateMarkdownRef = React.useRef(updateMarkdown)
   const [markdown, setMarkdown] = React.useState(pageMarkdown(input.page))
   const loadedMarkdownRef = React.useRef(pageMarkdown(input.page))
   const revisionRef = React.useRef(pageUpdatedAt(input.page))
@@ -143,6 +145,9 @@ const useBrainMarkdown = (input: {
   const [savedUpdatedAt, setSavedUpdatedAt] = React.useState(
     pageUpdatedAt(input.page),
   )
+
+  pageRef.current = input.page
+  updateMarkdownRef.current = updateMarkdown
 
   React.useEffect(() => {
     setMarkdown(pageMarkdown(input.page))
@@ -163,7 +168,7 @@ const useBrainMarkdown = (input: {
     )
       return
     // shouldPersistBrainMarkdown can only pass when a live page is loaded.
-    const page = input.page as BrainEditorPage
+    const page = pageRef.current as BrainEditorPage
     const saveKey = `${revisionRef.current}:${markdown}`
     if (failedSaveRef.current === saveKey) return
     const timeout = window.setTimeout(() => {
@@ -179,7 +184,7 @@ const useBrainMarkdown = (input: {
             },
             idempotencyKey: `brain-page-update-${page._id}-${expectedUpdatedAt}`,
           })
-        : updateMarkdown({
+        : updateMarkdownRef.current({
             workspaceId: input.workspaceId,
             pageId: page._id,
             markdown,
@@ -200,10 +205,9 @@ const useBrainMarkdown = (input: {
   }, [
     input.fixtureRuntime,
     input.isolatedContracts,
-    input.page,
+    input.page?._id,
     input.workspaceId,
     markdown,
-    updateMarkdown,
   ])
 
   const updateDraft = React.useCallback((value: string) => {
