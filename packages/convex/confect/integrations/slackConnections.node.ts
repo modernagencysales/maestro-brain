@@ -16,6 +16,60 @@ import {
 } from "./slackConnections.impl";
 import { readProcessEnv } from "../shared/env";
 
+export const slackConnectBotScopes = [
+  "app_mentions:read",
+  "channels:read",
+  "channels:history",
+  "groups:read",
+  "groups:history",
+  "im:read",
+  "im:history",
+  "im:write",
+  "chat:write",
+  "users:read",
+] as const;
+
+type NangoSlackConnectSessionInput = Readonly<{
+  organizationKey: string;
+  endUserId: string;
+  providerConfigKey: string;
+  correlationTag: string;
+}>;
+
+export const nangoSlackConnectSessionBody = (
+  input: NangoSlackConnectSessionInput,
+  webhookUrl: string,
+) => {
+  const scopes = slackConnectBotScopes.join(",");
+  return {
+    allowed_integrations: [input.providerConfigKey],
+    end_user: { id: input.endUserId },
+    organization: { id: input.organizationKey },
+    tags: { correlationTag: input.correlationTag },
+    integrations_config_defaults: {
+      [input.providerConfigKey]: {
+        authorization_params: { scope: scopes },
+        connection_config: { oauth_scopes_override: scopes },
+      },
+    },
+    webhook_url_override: webhookUrl,
+  };
+};
+
+const nangoWebhookUrl = (siteUrl: string | undefined): string => {
+  const trimmed = siteUrl?.trim();
+  if (!trimmed) throw new ProviderUnavailable();
+  try {
+    const url = new URL("/webhooks/nango", trimmed);
+    if (url.protocol !== "https:" || url.username || url.password)
+      throw new ProviderUnavailable();
+    return url.toString();
+  } catch (error) {
+    if (error instanceof ProviderUnavailable) throw error;
+    throw new ProviderUnavailable();
+  }
+};
+
 const nango = (now: number) => {
   const env = readProcessEnv();
   if ((env.APP_PROVIDER_MODE ?? "fake").trim().toLowerCase() !== "live")
@@ -47,7 +101,8 @@ const nango = (now: number) => {
     };
   const secretKey = env.NANGO_SECRET_KEY?.trim();
   const providerConfigKey = env.NANGO_CONNECT_INTEGRATION_ID?.trim();
-  if (!secretKey || !providerConfigKey)
+  const siteUrl = env.CONVEX_SITE_URL?.trim();
+  if (!secretKey || !providerConfigKey || !siteUrl)
     return {
       createConnectSession: async () => {
         throw new ProviderUnavailable();
@@ -56,6 +111,7 @@ const nango = (now: number) => {
         throw new ProviderUnavailable();
       },
     };
+  const webhookUrl = nangoWebhookUrl(siteUrl);
   const request = async (path: string, init?: RequestInit) => {
     const response = await fetch(`https://api.nango.dev${path}`, {
       ...init,
@@ -80,12 +136,7 @@ const nango = (now: number) => {
         throw new ConnectSessionInvalid();
       const body = await request("/connect/sessions", {
         method: "POST",
-        body: JSON.stringify({
-          allowed_integrations: [providerConfigKey],
-          end_user: { id: input.endUserId },
-          organization: { id: input.organizationKey },
-          tags: { correlationTag: input.correlationTag },
-        }),
+        body: JSON.stringify(nangoSlackConnectSessionBody(input, webhookUrl)),
       });
       const data = (body.data ?? body) as Record<string, unknown>;
       const token = data.token;
