@@ -86,6 +86,10 @@ steps:
       PROMOTION_AUTHORITY_ENDPOINT:
         from_secret: promotion_authority_endpoint
       PROMOTION_TARGET_ID: template-staging
+      TRUSTED_CI_SELF_PROTECTION_COMMIT:
+        from_secret: trusted_ci_self_protection_commit
+      TRUSTED_DEPLOY_ROOT_SHA256:
+        from_secret: trusted_deploy_root_sha256
       TRUSTED_ROLLBACK_SEED_COMMIT:
         from_secret: trusted_rollback_seed_commit
       ROLLBACK_RECEIPT_BUILD_ID:
@@ -98,6 +102,8 @@ steps:
         from_secret: template_production_convex_deployment
       TEMPLATE_PRODUCTION_CONVEX_URL:
         from_secret: template_production_convex_url
+      TEMPLATE_PRODUCTION_HOSTED_URL:
+        from_secret: template_production_hosted_url
       TEMPLATE_STAGING_HOSTED_URL:
         from_secret: template_staging_hosted_url
       TEMPLATE_STAGING_CONVEX_DEPLOY_KEY:
@@ -156,6 +162,10 @@ steps:
       PROMOTION_AUTHORITY_ENDPOINT:
         from_secret: promotion_authority_endpoint
       PROMOTION_TARGET_ID: template-production
+      TRUSTED_CI_SELF_PROTECTION_COMMIT:
+        from_secret: trusted_ci_self_protection_commit
+      TRUSTED_DEPLOY_ROOT_SHA256:
+        from_secret: trusted_deploy_root_sha256
       TRUSTED_ROLLBACK_SEED_COMMIT:
         from_secret: trusted_rollback_seed_commit
       ROLLBACK_RECEIPT_BUILD_ID:
@@ -170,6 +180,8 @@ steps:
         from_secret: template_staging_convex_deployment
       TEMPLATE_STAGING_CONVEX_URL:
         from_secret: template_staging_convex_url
+      TEMPLATE_STAGING_HOSTED_URL:
+        from_secret: template_staging_hosted_url
       TEMPLATE_PRODUCTION_HOSTED_URL:
         from_secret: template_production_hosted_url
       TEMPLATE_PRODUCTION_CONVEX_DEPLOY_KEY:

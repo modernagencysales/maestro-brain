@@ -224,6 +224,16 @@ describe("deploy authority self-protection", () => {
         "TEMPLATE_STAGING_CONVEX_URL",
         "template_staging_convex_url",
       ],
+      [
+        "staging-deploy",
+        "TEMPLATE_PRODUCTION_HOSTED_URL",
+        "template_production_hosted_url",
+      ],
+      [
+        "production-promote",
+        "TRUSTED_DEPLOY_ROOT_SHA256",
+        "trusted_deploy_root_sha256",
+      ],
     ] as const) {
       const pipeline = removeStepBinding(
         base.pipeline,
