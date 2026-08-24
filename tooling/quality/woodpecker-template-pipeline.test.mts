@@ -24,6 +24,7 @@ describe("Woodpecker firewall and epoch pipelines", () => {
     expect(firewall).toContain("source tooling/ci/setup.sh");
     expect(firewall).not.toContain("pnpm install --frozen-lockfile");
     expect(epoch).toContain("pnpm verify");
+    expect(epoch).toContain("bash tooling/ci/install-gitleaks.sh");
     expect(epoch).toContain(
       "pnpm exec playwright install --with-deps chromium",
     );
