@@ -11,6 +11,7 @@ import {
   type VerdictInput,
   verdictPayload,
 } from "./admin";
+import { ConvexError } from "convex/values";
 import {
   canonical,
   DEPLOY_AUTHORITY_ISSUER_ID,
@@ -394,29 +395,34 @@ const provisionEvidence = async (input: {
     input.evidence.approval,
     input.now,
   );
-  assertProvisioned(approval, input.evidence.approval.approvalHash);
+  assertProvisioned(approval, input.evidence.approval.approvalHash, "approval");
   const census = await provisionCensus(
     input.context,
     input.operator,
     input.evidence.census,
     input.now,
   );
-  assertProvisioned(census, input.evidence.census.snapshotId);
+  assertProvisioned(census, input.evidence.census.snapshotId, "census");
   const verdict = await provisionVerdict(
     input.context,
     input.operator,
     input.evidence.verdict,
     input.now,
   );
-  assertProvisioned(verdict, input.evidence.verdict.verdictHash);
+  assertProvisioned(verdict, input.evidence.verdict.verdictHash, "verdict");
 };
 
 const assertProvisioned = (
   result: Awaited<ReturnType<typeof provisionApproval>>,
   expectedHash: string,
+  phase: "approval" | "census" | "verdict",
 ): void => {
   if (result.kind !== "ok" || result.resourceHash !== expectedHash) {
-    throw new Error("Deployment evidence provisioning invariant failed");
+    throw new ConvexError({
+      kind: "deployment-evidence-provisioning-invariant",
+      phase,
+      code: result.kind === "blocked" ? result.code : "hash-mismatch",
+    });
   }
 };
 
