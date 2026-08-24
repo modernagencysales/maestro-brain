@@ -19,7 +19,9 @@ describe("Saas UI registry ESLint overrides", () => {
   it("targets exactly receipt-listed files and only named upstream rules", () => {
     const config = saasUiRegistryReceiptConfig(receiptPath);
     expect(config).toEqual({
-      files: ["apps/web/src/components/button/button.tsx"],
+      files: [
+        "apps/web/src/components/add-contact-drawer/add-contact-drawer.tsx",
+      ],
       rules: saasUiRegistryStandardRuleOverrides,
     });
     expect(Object.keys(config.rules)).toEqual([
@@ -34,7 +36,7 @@ describe("Saas UI registry ESLint overrides", () => {
   it("does not match an adjacent unlisted custom file", () => {
     const config = saasUiRegistryReceiptConfig(receiptPath);
     expect(config.files).not.toContain(
-      "apps/web/src/components/button/custom-wrapper.tsx",
+      "apps/web/src/components/add-contact-drawer/custom-wrapper.tsx",
     );
     expect(config.files.some((file) => file.includes("**"))).toBe(false);
   });
@@ -49,7 +51,7 @@ describe("Saas UI starter ESLint overrides", () => {
     const config = saasUiStarterReceiptConfig(receiptPath);
     expect(config.files.length).toBeGreaterThan(1);
     expect(config.files).toContain(
-      "apps/web/src/features/common/layouts/fullscreen-layout.tsx",
+      "apps/web/src/features/common/layouts/app-layout.tsx",
     );
     expect(config.files).not.toContain(
       "apps/web/src/features/common/layouts/custom-layout.tsx",

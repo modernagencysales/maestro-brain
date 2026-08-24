@@ -1,9 +1,9 @@
-"use client";
+'use client'
 
-import * as React from "react";
+import * as React from 'react'
 
-import { Box, Group, HStack, Spacer } from "@chakra-ui/react";
-import { useDebouncedCallback } from "@react-hookz/web";
+import { Box, Group, HStack, Spacer } from '@chakra-ui/react'
+import { useDebouncedCallback } from '@react-hookz/web'
 import {
   ActiveFiltersList,
   ColumnFiltersState,
@@ -20,7 +20,7 @@ import {
   useColumnVisibility,
   useColumns,
   useFiltersContext,
-} from "@saas-ui-pro/react";
+} from '@saas-ui-pro/react'
 import {
   Button,
   ButtonGroup,
@@ -33,57 +33,62 @@ import {
   Text,
   Tooltip,
   createListCollection,
-} from "@saas-ui/react";
-import { ActionBar, Page } from "@saas-ui/react";
-import { useHotkeys, useHotkeysShortcut } from "@saas-ui/use-hotkeys";
-import { TableState } from "@tanstack/react-table";
-import { format } from "date-fns";
-import { LuSlidersHorizontal, LuSquareUser } from "react-icons/lu";
-import { z } from "zod";
+} from '@saas-ui/react'
+import { ActionBar, Page } from '@saas-ui/react'
+import { useHotkeys, useHotkeysShortcut } from '@saas-ui/use-hotkeys'
+import { TableState } from '@tanstack/react-table'
+import { format } from 'date-fns'
+import { LuSlidersHorizontal, LuSquareUser } from 'react-icons/lu'
+import { z } from 'zod'
 
-import { ContactDTO } from "@workspace/api/types";
-import { DataBoard, type DataBoardProps } from "@workspace/ui/data-board";
-import { useDataGridFocus } from "@workspace/ui/hooks";
-import { InlineSearch } from "@workspace/ui/inline-search";
-import { useModals } from "@workspace/ui/modals";
-import { OverflowMenu } from "@workspace/ui/overflow-menu";
+import { ContactDTO } from '@workspace/api/types'
+import { DataBoard } from '@workspace/ui/data-board'
+import { useDataGridFocus } from '@workspace/ui/hooks'
+import { InlineSearch } from '@workspace/ui/inline-search'
+import { useModals } from '@workspace/ui/modals'
+import { OverflowMenu } from '@workspace/ui/overflow-menu'
 
-import { Link } from "#components/link";
-import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
-import { api } from "#lib/trpc/react";
-import { useUserSettings } from "#lib/user-settings/use-user-settings";
+import { Link } from '#components/link'
+import { productShell } from '#config/product-shell'
+import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
+import { api } from '#lib/trpc/react'
+import { useUserSettings } from '#lib/user-settings/use-user-settings'
 
-import { ContactAvatar } from "../common/contact-avatar";
-import { ContactStatus } from "../common/contact-status";
-import { ContactTag } from "../common/contact-tag";
-import { ContactType } from "../common/contact-type";
-import { AddPersonDialog } from "./add-person-dialog";
-import { ContactBoardHeader } from "./contact-board-header";
-import { bulkActions } from "./contact-bulk-actions";
-import { ContactCard } from "./contact-card";
-import { AddFilterButton, useContactFilters } from "./contact-filters";
-import { ContactTypes } from "./contact-types";
+import { ContactAvatar } from '../common/contact-avatar'
+import { ContactStatus } from '../common/contact-status'
+import { ContactTag } from '../common/contact-tag'
+import { ContactType } from '../common/contact-type'
+import {
+  contactNavigationFor,
+  contactsListDataHooks,
+} from '../clients-adapter'
+import { AddPersonDialog } from './add-person-dialog'
+import { ContactBoardHeader } from './contact-board-header'
+import { bulkActions } from './contact-bulk-actions'
+import { ContactCard } from './contact-card'
+import { AddFilterButton, useContactFilters } from './contact-filters'
+import { ContactTypes } from './contact-types'
 
 function TrackDefaultFilters({
   defaultFilters,
 }: {
-  defaultFilters?: Filter[];
+  defaultFilters?: Filter[]
 }) {
-  const { enableFilter, activeFilters } = useFiltersContext();
+  const { enableFilter, activeFilters } = useFiltersContext()
 
   React.useEffect(() => {
     defaultFilters?.forEach((filter) => {
-      const key = activeFilters?.find(({ id }) => id === filter.id)?.key;
-      enableFilter(key ? { key, ...filter } : filter);
-    });
-  }, [defaultFilters]);
+      const key = activeFilters?.find(({ id }) => id === filter.id)?.key
+      enableFilter(key ? { key, ...filter } : filter)
+    })
+  }, [defaultFilters])
 
-  return null;
+  return null
 }
 
 const DateCell = ({ date }: { date?: string | Date | null }) => {
-  return <>{date ? format(new Date(date), "PP") : null}</>;
-};
+  return <>{date ? format(new Date(date), 'PP') : null}</>
+}
 
 const ActionCell: DataGridCell<ContactDTO> = (cell) => {
   return (
@@ -97,62 +102,98 @@ const ActionCell: DataGridCell<ContactDTO> = (cell) => {
         </OverflowMenu.Item>
       </OverflowMenu.Root>
     </Box>
-  );
-};
+  )
+}
 
-const getType = (type?: "leads" | "customers") => {
+const getType = (type?: 'leads' | 'customers') => {
   switch (type) {
-    case "leads":
-      return "lead";
-    case "customers":
-      return "customer";
+    case 'leads':
+      return 'lead'
+    case 'customers':
+      return 'customer'
   }
-};
+}
 
-const useContactColumns = () =>
-  useColumns<ContactDTO>(
+export const paramsSchema = z.object({
+  workspace: z.string(),
+  type: z.enum(['leads', 'customers']).optional(),
+  tag: z.string().optional(),
+})
+
+export function ContactsListPage({
+  params,
+}: {
+  params: {
+    workspace: string
+    type?: 'leads' | 'customers'
+    tag?: string
+  }
+}) {
+  const modals = useModals()
+
+  const [searchQuery, setSearchQuery] = React.useState('')
+
+  const type = getType(params.type)
+
+  const [workspace] = useCurrentWorkspace()
+
+  const [userSettings] = useUserSettings()
+
+  const { data, isLoading } = contactsListDataHooks[productShell.contacts]({
+    workspaceId: workspace.id,
+    type,
+  })
+
+  const updateContactMutation = api.contacts.update.useMutation()
+
+  const filters = useContactFilters()
+
+  const columns = useColumns<ContactDTO>(
     (helper) => [
-      helper.accessor("name", {
-        header: "Name",
+      helper.accessor('name', {
+        header: 'Name',
         size: 200,
         enableHiding: false,
         cell: (cell) => (
           <HStack gap="4">
             <ContactAvatar contact={cell.row.original} size="xs" />
             <Link
-              to="/contacts/$contactId"
-              params={{ contactId: cell.row.original.id }}
+              {...contactNavigationFor(
+                productShell.contacts,
+                cell.row.original,
+                params.workspace,
+              )}
             >
               {cell.getValue()}
             </Link>
           </HStack>
         ),
       }),
-      helper.accessor("email", {
-        header: "Email",
+      helper.accessor('email', {
+        header: 'Email',
         size: 300,
         cell: (cell) => <Text color="muted">{cell.getValue()}</Text>,
       }),
-      helper.accessor("createdAt", {
-        header: "Created at",
+      helper.accessor('createdAt', {
+        header: 'Created at',
         cell: (cell) => <DateCell date={cell.getValue()} />,
-        filterFn: getDataGridFilter("date"),
+        filterFn: getDataGridFilter('date'),
         enableGlobalFilter: false,
       }),
-      helper.accessor("updatedAt", {
-        header: "Updated at",
+      helper.accessor('updatedAt', {
+        header: 'Updated at',
         cell: (cell) => <DateCell date={cell.getValue()} />,
-        filterFn: getDataGridFilter("date"),
+        filterFn: getDataGridFilter('date'),
         enableGlobalFilter: false,
       }),
-      helper.accessor("type", {
-        header: "Type",
+      helper.accessor('type', {
+        header: 'Type',
         cell: (cell) => <ContactType type={cell.getValue()} />,
-        filterFn: getDataGridFilter("string"),
+        filterFn: getDataGridFilter('string'),
         enableGlobalFilter: false,
       }),
-      helper.accessor("tags", {
-        header: "Tags",
+      helper.accessor('tags', {
+        header: 'Tags',
         cell: (cell) => (
           <HStack>
             {cell.getValue()?.map((tag) => (
@@ -160,20 +201,20 @@ const useContactColumns = () =>
             ))}
           </HStack>
         ),
-        filterFn: getDataGridFilter("string"),
+        filterFn: getDataGridFilter('string'),
         enableGlobalFilter: false,
       }),
-      helper.accessor("status", {
-        header: "Status",
+      helper.accessor('status', {
+        header: 'Status',
         cell: (cell) => (
           <ContactStatus status={cell.getValue()} color="muted" />
         ),
-        filterFn: getDataGridFilter("string"),
+        filterFn: getDataGridFilter('string'),
         enableGlobalFilter: false,
       }),
       helper.display({
-        id: "action",
-        header: "",
+        id: 'action',
+        header: '',
         cell: ActionCell,
         size: 60,
         enableGlobalFilter: false,
@@ -184,69 +225,33 @@ const useContactColumns = () =>
       }),
     ],
     [],
-  );
-
-export const paramsSchema = z.object({
-  workspace: z.string(),
-  type: z.enum(["leads", "customers"]).optional(),
-  tag: z.string().optional(),
-});
-
-export function ContactsListPage({
-  params,
-}: {
-  params: {
-    workspace: string;
-    type?: "leads" | "customers";
-    tag?: string;
-  };
-}) {
-  const modals = useModals();
-
-  const [searchQuery, setSearchQuery] = React.useState("");
-
-  const type = getType(params.type);
-
-  const [workspace] = useCurrentWorkspace();
-
-  const [userSettings] = useUserSettings();
-
-  const { data, isLoading } = api.contacts.listByType.useQuery({
-    workspaceId: workspace.id,
-    type,
-  });
-
-  const updateContactMutation = api.contacts.update.useMutation();
-
-  const filters = useContactFilters();
-
-  const columns = useContactColumns();
+  )
 
   const addPerson = () => {
     modals.open(AddPersonDialog, {
-      type: type ?? "lead",
-    });
-  };
+      type: type ?? 'lead',
+    })
+  }
 
-  const addCommand = useHotkeysShortcut("contacts.add", addPerson);
+  const addCommand = useHotkeysShortcut('contacts.add', addPerson)
 
-  const [groupBy, setGroupBy] = React.useState("status");
+  const [groupBy, setGroupBy] = React.useState('status')
 
   const visibleColumns = userSettings.contactsColumns ?? [
-    "name",
-    "email",
-    "createdAt",
-    "type",
-    "status",
-  ];
+    'name',
+    'email',
+    'createdAt',
+    'type',
+    'status',
+  ]
 
   const groupCollection = createListCollection({
     items: [
-      { value: "status", label: "Status" },
-      { value: "type", label: "Type" },
-      { value: "tags", label: "Tag" },
+      { value: 'status', label: 'Status' },
+      { value: 'type', label: 'Type' },
+      { value: 'tags', label: 'Tag' },
     ],
-  });
+  })
 
   const groupBySelect = (
     <Select.Root
@@ -268,7 +273,7 @@ export function ContactsListPage({
         ))}
       </Select.Content>
     </Select.Root>
-  );
+  )
 
   const primaryAction = (
     <Tooltip
@@ -280,7 +285,7 @@ export function ContactsListPage({
       }
     >
       <Button
-        variant="solid"
+        variant="primary"
         colorPalette="accent"
         size="xs"
         onClick={addPerson}
@@ -288,15 +293,15 @@ export function ContactsListPage({
         Add person
       </Button>
     </Tooltip>
-  );
+  )
 
-  const [showSearch, setShowSearch] = React.useState(false);
+  const [showSearch, setShowSearch] = React.useState(false)
 
-  useHotkeys("cmd+f", () => setShowSearch((prev) => !prev), {
+  useHotkeys('cmd+f', () => setShowSearch((prev) => !prev), {
     preventDefault: true,
-  });
+  })
 
-  const displayProperties = <div />;
+  const displayProperties = <div />
 
   const toolbar = (
     <ButtonGroup>
@@ -305,20 +310,20 @@ export function ContactsListPage({
       {showSearch && (
         <InlineSearch
           ref={(el) => {
-            el?.focus();
+            el?.focus()
           }}
           placeholder="Search by name or email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onReset={() => {
-            setSearchQuery("");
-            setShowSearch(false);
+            setSearchQuery('')
+            setShowSearch(false)
           }}
         />
       )}
       {primaryAction}
     </ButtonGroup>
-  );
+  )
 
   const tabbar = (
     <ButtonGroup py="2">
@@ -329,7 +334,7 @@ export function ContactsListPage({
       <Popover.Root
         size="sm"
         positioning={{
-          placement: "bottom-end",
+          placement: 'bottom-end',
         }}
       >
         <Popover.Trigger asChild>
@@ -361,12 +366,12 @@ export function ContactsListPage({
         </Popover.Content>
       </Popover.Root>
     </ButtonGroup>
-  );
+  )
 
-  let defaultFilters: Filter[] = [];
+  let defaultFilters: Filter[] = []
 
   if (params?.tag) {
-    defaultFilters = [{ id: "tags", operator: "contains", value: params.tag }];
+    defaultFilters = [{ id: 'tags', operator: 'contains', value: params.tag }]
   }
 
   const emptyState = (
@@ -376,25 +381,25 @@ export function ContactsListPage({
       icon={<LuSquareUser />}
       height="full"
     >
-      <Button variant="solid" colorPalette="accent" onClick={addPerson}>
+      <Button variant="primary" colorPalette="accent" onClick={addPerson}>
         Add a person
       </Button>
       <Button>Import data</Button>
     </EmptyState>
-  );
+  )
 
   // Composed page state (replacing ListPage)
-  const gridRef = React.useRef<TableInstance<ContactDTO>>(null);
-  const boardRef = React.useRef<TableInstance<ContactDTO>>(null);
+  const gridRef = React.useRef<TableInstance<ContactDTO>>(null)
+  const boardRef = React.useRef<TableInstance<ContactDTO>>(null)
 
-  const [selections, setSelections] = React.useState<string[]>([]);
+  const [selections, setSelections] = React.useState<string[]>([])
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
-  );
-  const [globalFilter, setGlobalFilter] = React.useState("");
+  )
+  const [globalFilter, setGlobalFilter] = React.useState('')
 
-  const { onFocusChange, containerRef } = useDataGridFocus<ContactDTO>();
+  const { onFocusChange, containerRef } = useDataGridFocus<ContactDTO>()
 
   const onFilter = React.useCallback((newFilters: Filter[]) => {
     setColumnFilters(
@@ -405,52 +410,51 @@ export function ContactsListPage({
           operator: filter.operator,
         },
       })) as ColumnFiltersState,
-    );
-  }, []);
+    )
+  }, [])
 
-  const onSearch = useDebouncedCallback(setGlobalFilter, [], 100);
+  const onSearch = useDebouncedCallback(setGlobalFilter, [], 100)
 
   React.useEffect(() => {
-    onSearch(searchQuery || "");
-  }, [searchQuery, onSearch]);
+    onSearch(searchQuery || '')
+  }, [searchQuery, onSearch])
 
   const onBeforeEnableFilter = React.useCallback(
     (activeFilter: Filter): Promise<Filter> => Promise.resolve(activeFilter),
     [],
-  );
+  )
 
   const columnVisibility = useColumnVisibility({
     columns,
     visibleColumns,
-  });
+  })
 
   const state: Partial<TableState> = {
     columnVisibility,
     columnFilters,
     globalFilter,
-  };
+  }
 
   const getRowId = (row: ContactDTO, index: number, parent?: Row<ContactDTO>) =>
-    row.id || `${parent ? [parent.id, index].join(".") : index}`;
+    row.id || `${parent ? [parent.id, index].join('.') : index}`
 
   const onRowClick = (_row: Row<ContactDTO>, e: React.MouseEvent) => {
-    const link: HTMLAnchorElement | null =
-      e.currentTarget.querySelector("td a");
-    link?.click();
-  };
+    const link: HTMLAnchorElement | null = e.currentTarget.querySelector('td a')
+    link?.click()
+  }
 
-  const view = userSettings.contactsView ?? "list";
-  const contacts = data?.contacts ?? [];
+  const view = userSettings.contactsView ?? 'list'
+  const contacts = data?.contacts ?? []
 
-  let content: React.ReactNode;
+  let content: React.ReactNode
 
   if (!contacts.length) {
     content = (
       <Box p="20" height="full">
         {emptyState}
       </Box>
-    );
-  } else if (view === "board") {
+    )
+  } else if (view === 'board') {
     content = (
       <Box height="100%" width="100%" bg="page-body-bg-subtle">
         <DataBoard<ContactDTO>
@@ -462,13 +466,61 @@ export function ContactsListPage({
           renderHeader={(header) => <ContactBoardHeader {...header} />}
           renderCard={(row) => <ContactCard contact={row.original} />}
           groupBy={userSettings.contactsGroupBy}
-          onCardDragEnd={(event) =>
-            handleContactCardDragEnd(
-              event,
-              contacts,
-              workspace.id,
-              updateContactMutation.mutateAsync,
+          onCardDragEnd={
+            // eslint-disable-next-line complexity -- MAESTRO-UI-CANON-05 preserves the pinned Starter board interaction while adding only a product-label seam.
+            ({ items, to, from }) => {
+            const contact = data?.contacts.find(
+              ({ id }) => id === items[to.columnId]?.[to.index],
             )
+
+            const [field, toValue] = (to.columnId as string).split(':') as [
+              keyof ContactDTO,
+              string,
+            ]
+            const [, prevValue] = (from.columnId as string).split(':')
+
+            if (!contact) {
+              throw new Error('Contact not found')
+            }
+
+            const prevId = items[to.columnId]?.[to.index - 1]
+            let prevContact = data?.contacts.find(({ id }) => id === prevId)
+
+            const nextId = items[to.columnId]?.[to.index + 1]
+            let nextContact = data?.contacts.find(({ id }) => id === nextId)
+
+            if (prevContact && !nextContact) {
+              nextContact =
+                data?.contacts[
+                  data?.contacts.findIndex(({ id }) => id === prevId) + 1
+                ]
+            } else if (!prevContact && !nextContact) {
+              prevContact =
+                data?.contacts[
+                  data?.contacts.findIndex(({ id }) => id === prevId) - 1
+                ]
+            }
+
+            const prevSortOrder = prevContact?.sortOrder || 0
+            const nextSortOrder =
+              nextContact?.sortOrder ?? data?.contacts.length ?? 0
+
+            const sortOrder = (prevSortOrder + nextSortOrder) / 2 || to.index
+
+            let value: string | string[] = toValue
+            if (Array.isArray(contact[field])) {
+              value = (value !== '' ? [value] : []).concat(
+                (contact[field] as string[]).filter((v) => v !== prevValue),
+              )
+            }
+
+            updateContactMutation.mutateAsync({
+              workspaceId: workspace.id,
+              id: contact.id,
+              [field]: value,
+              sortOrder,
+            })
+            }
           }
           noResults={NoFilteredResults}
           getRowId={getRowId}
@@ -476,14 +528,14 @@ export function ContactsListPage({
             columnVisibility,
             pagination: { pageSize: 20 },
             columnPinning: {
-              left: ["selection", "name"],
-              right: ["action"],
+              left: ['selection', 'name'],
+              right: ['action'],
             },
           }}
           state={state}
         />
       </Box>
-    );
+    )
   } else {
     content = (
       <DataGrid<ContactDTO>
@@ -505,8 +557,8 @@ export function ContactsListPage({
           columnVisibility,
           pagination: { pageSize: 20 },
           columnPinning: {
-            left: ["selection", "name"],
-            right: ["action"],
+            left: ['selection', 'name'],
+            right: ['action'],
           },
         }}
         state={state}
@@ -518,15 +570,15 @@ export function ContactsListPage({
           <DataGridPagination.NextButton />
         </DataGridPagination.Root>
       </DataGrid>
-    );
+    )
   }
 
   const stickyStyles = {
-    position: "sticky" as const,
+    position: 'sticky' as const,
     zIndex: 1,
-    bg: "chakra-body-bg",
+    bg: 'chakra-body-bg',
     borderWidth: 0,
-  };
+  }
 
   return (
     <FiltersProvider
@@ -539,30 +591,34 @@ export function ContactsListPage({
         position="relative"
         loading={isLoading}
         css={{
-          "& thead": {
+          '& thead': {
             ...stickyStyles,
-            boxShadow: "xs",
+            boxShadow: 'xs',
             _dark: {
-              boxShadow: "sm",
+              boxShadow: 'sm',
             },
           },
-          "& .sui-data-grid__pagination": {
+          '& .sui-data-grid__pagination': {
             ...stickyStyles,
             bottom: 0,
-            borderTopWidth: "1px",
+            borderTopWidth: '1px',
           },
-          "& tbody tr": {
-            cursor: "pointer",
+          '& tbody tr': {
+            cursor: 'pointer',
           },
-          "& tbody tr a:hover": {
-            textDecoration: "none",
+          '& tbody tr a:hover': {
+            textDecoration: 'none',
           },
-          "& tbody tr:last-of-type td": {
+          '& tbody tr:last-of-type td': {
             borderBottomWidth: 0,
           },
         }}
       >
-        <Page.Header title="Contacts" actions={toolbar} footer={tabbar} />
+        <Page.Header
+          title={productShell.labels.contacts}
+          actions={toolbar}
+          footer={tabbar}
+        />
         <ActionBar.Root open={selections.length > 0}>
           <ActionBar.Content portalled>
             <Group
@@ -589,68 +645,5 @@ export function ContactsListPage({
         <Page.Body p="0">{content}</Page.Body>
       </Page.Root>
     </FiltersProvider>
-  );
+  )
 }
-
-type ContactCardDragEvent = Parameters<
-  NonNullable<DataBoardProps<ContactDTO>["onCardDragEnd"]>
->[0];
-
-const handleContactCardDragEnd = (
-  { from, items, to }: ContactCardDragEvent,
-  contacts: ContactDTO[],
-  workspaceId: string,
-  mutate: ReturnType<typeof api.contacts.update.useMutation>["mutateAsync"],
-) => {
-  const contact = contacts.find(
-    ({ id }) => id === items[to.columnId]?.[to.index],
-  );
-  if (!contact) throw new Error("Contact not found");
-  const [field, toValue] = (to.columnId as string).split(":") as [
-    keyof ContactDTO,
-    string,
-  ];
-  const [, previousValue] = (from.columnId as string).split(":");
-  const neighbors = adjacentContacts(contacts, items, to);
-  const sortOrder = contactSortOrder(neighbors, contacts.length, to.index);
-  const value = updatedContactField(contact, field, toValue, previousValue);
-  mutate({ workspaceId, id: contact.id, [field]: value, sortOrder });
-};
-
-const adjacentContacts = (
-  contacts: ContactDTO[],
-  items: ContactCardDragEvent["items"],
-  to: ContactCardDragEvent["to"],
-) => {
-  const previousId = items[to.columnId]?.[to.index - 1];
-  const nextId = items[to.columnId]?.[to.index + 1];
-  let previous = contacts.find(({ id }) => id === previousId);
-  let next = contacts.find(({ id }) => id === nextId);
-  const previousIndex = contacts.findIndex(({ id }) => id === previousId);
-  if (previous && !next) next = contacts[previousIndex + 1];
-  else if (!previous && !next) previous = contacts[previousIndex - 1];
-  return { next, previous };
-};
-
-const contactSortOrder = (
-  { next, previous }: ReturnType<typeof adjacentContacts>,
-  contactCount: number,
-  targetIndex: number,
-) => {
-  const previousSortOrder = previous?.sortOrder || 0;
-  const nextSortOrder = next?.sortOrder ?? contactCount;
-  return (previousSortOrder + nextSortOrder) / 2 || targetIndex;
-};
-
-const updatedContactField = (
-  contact: ContactDTO,
-  field: keyof ContactDTO,
-  targetValue: string,
-  previousValue: string,
-): string | string[] => {
-  if (!Array.isArray(contact[field])) return targetValue;
-  const replacement = targetValue !== "" ? [targetValue] : [];
-  return replacement.concat(
-    (contact[field] as string[]).filter((value) => value !== previousValue),
-  );
-};

@@ -1,15 +1,10 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDeployDoctorReport,
-  buildDeploymentIsolationReceipt,
-  buildCompanyBrainRolloutPreflight,
   buildProductionPromotePlan,
-  buildRollbackPlan,
-  buildStagedReleasePacket,
   buildStagingDeployPlan,
   buildCompletionAuditReport,
   buildClientReleaseReport,
@@ -34,93 +29,6 @@ const makeRepo = (): string => {
   writeFileSync(join(assets, "index.js"), "console.log('ok');");
 
   return repoRoot;
-};
-
-const releaseToolingRepoRoot = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../..",
-);
-
-const readReleaseRepoFile = (path: string): string =>
-  readFileSync(resolve(releaseToolingRepoRoot, path), "utf8");
-
-const validCompanyBrainPilotConfig = {
-  schemaVersion: 1,
-  organizationKey: "org_apero",
-  workspaceId: "workspace_apero",
-  activeAgencyBrainKey: "brain_apero",
-  owners: {
-    context: "Apero context owner",
-    engineering: "Maestro engineering",
-    connector: "Apero systems owner",
-  },
-  evaluationSetRef: "restricted://ask-apero/e0-v1",
-  dogfoodUsers: ["user-one", "user-two"],
-  sourceSlos: Object.fromEntries(
-    ["brain-pages", "slack", "transcripts", "documents"].map((corpus) => [
-      corpus,
-      {
-        maxObservationToPublicationMinutes: 5,
-        maxReconciliationAgeHours: 24,
-        maxEditPropagationMinutes: 10,
-        maxRemovalPropagationHours: 4,
-        maxNonterminalObligationMinutes: 30,
-        deadLetterEscalationMinutes: 60,
-      },
-    ]),
-  ),
-  drive: {
-    connectionKey: "drive_connection",
-    connectionGeneration: 1,
-    allowlistGeneration: 1,
-    driveId: "shared_drive",
-    rootFolderIds: ["folder_b", "folder_a"],
-    retentionClass: "internal-company-context",
-    permissionPolicyDigest: `sha256:${"a".repeat(64)}`,
-    expectedScopeGeneration: 0,
-    expectedIntentGeneration: 0,
-    expectedConfigurationGeneration: 0,
-  },
-};
-
-const expectBuildkiteSigningSecretWiring = () => {
-  const pipeline = readReleaseRepoFile(".buildkite/pipeline.yml");
-  const stagingStep = pipeline.slice(
-    pipeline.indexOf('key: "staging-deploy"'),
-    pipeline.indexOf('key: "production-approval"'),
-  );
-  const productionStep = pipeline.slice(
-    pipeline.indexOf('key: "production-promote"'),
-    pipeline.indexOf("  - wait: ~"),
-  );
-
-  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNER");
-  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
-  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
-  expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
-  expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
-
-  const stagingScript = readReleaseRepoFile(
-    ".buildkite/scripts/staging-deploy.sh",
-  );
-  const productionScript = readReleaseRepoFile(
-    ".buildkite/scripts/production-promote.sh",
-  );
-  expect(stagingScript).toContain(
-    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
-  );
-  expect(stagingScript).toContain(
-    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
-  );
-  expect(productionScript).toContain(
-    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
-  );
-  expect(productionScript).toContain(
-    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
-  );
-  expect(`${pipeline}
-${stagingScript}
-${productionScript}`).not.toContain("test-signing-secret");
 };
 
 const makeStartRepo = (): string => {
@@ -163,10 +71,12 @@ const makeReviewerRepo = (): string => {
     "docs/template/integrations.md",
     "docs/template/workflow-authoring-guide.md",
     "docs/rule-coverage.md",
-    ".buildkite/pipeline.yml",
+    ".woodpecker/firewall.yml",
+    ".woodpecker/epoch.yml",
+    ".woodpecker/deploy.yml",
     "apps/cli/src/index.ts",
     "apps/web/src/routes/index.tsx",
-    "apps/web/src/saas-ui/business-shell.tsx",
+    "apps/web/src/features/common/layouts/app-layout.tsx",
     "apps/web/src/sample/templateData.ts",
     "apps/web/src/sample/templateData.test.ts",
     "examples/generic-ai-ops/seed/workspace.json",
@@ -188,8 +98,8 @@ const makeReviewerRepo = (): string => {
     "tooling/generators/src/index.test.ts",
     "tooling/release/src/index.ts",
     "tooling/release/src/index.test.ts",
-    "tests/e2e/hosted-reference-app.spec.ts",
-    "tests/e2e/hosted-reference-app.visual.spec.ts",
+    "tests/e2e/saas-ui-golden.spec.ts",
+    "tests/e2e/saas-ui-golden.visual.spec.ts",
   ];
 
   for (const file of files) {
@@ -225,215 +135,7 @@ const writeEnvManifest = (
   );
 };
 
-const isolatedProjectConfig = {
-  project: { name: "maestro-template" },
-  environments: {
-    staging: {
-      name: "staging",
-      domain: "staging.example.test",
-      cloudflarePagesProject: "maestro-template-staging",
-      cloudflareBranch: "staging",
-      convexDeployName: "maestro-template-staging",
-      convexUrl: "https://staging.convex.cloud",
-      convexDeployKeyEnv: "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-      callbackOriginEnv: "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
-      requiredEnvGroups: ["cloudflare", "convex"],
-      requiredSecrets: [
-        "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID",
-      ],
-    },
-    production: {
-      name: "production",
-      domain: "example.test",
-      cloudflarePagesProject: "maestro-template-production",
-      cloudflareBranch: "main",
-      convexDeployName: "maestro-template-production",
-      convexUrl: "https://production.convex.cloud",
-      convexDeployKeyEnv: "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-      callbackOriginEnv: "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
-      requiredEnvGroups: ["cloudflare", "convex"],
-      requiredSecrets: [
-        "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-        "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_API_TOKEN",
-        "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_ACCOUNT_ID",
-      ],
-    },
-  },
-};
-
-const writeProjectConfig = (
-  repoRoot: string,
-  config: unknown = isolatedProjectConfig,
-): void => {
-  writeFileSync(
-    join(repoRoot, "project.config.json"),
-    JSON.stringify(config, null, 2),
-  );
-};
-
 describe("release tooling", () => {
-  it("fails the Company Brain rollout preflight on repository placeholders", () => {
-    const result = runReleaseCli(
-      [
-        "company-brain-preflight",
-        "company-context/pilot-config.example.v1.json",
-      ],
-      releaseToolingRepoRoot,
-    );
-    const report = JSON.parse(result.stdout) as {
-      readonly ok: boolean;
-      readonly errors: readonly { readonly path: string }[];
-      readonly operations: readonly unknown[];
-    };
-
-    expect(result.exitCode).toBe(1);
-    expect(report.ok).toBe(false);
-    expect(report.operations).toEqual([]);
-    expect(report.errors.map(({ path }) => path)).toEqual(
-      expect.arrayContaining([
-        "organizationKey",
-        "workspaceId",
-        "activeAgencyBrainKey",
-        "drive.driveId",
-        "drive.permissionPolicyDigest",
-      ]),
-    );
-  });
-
-  it("emits deterministic ordered Drive rollout operations from real inputs", () => {
-    const repoRoot = join(
-      tmpdir(),
-      `maestro-company-brain-rollout-${Math.random().toString(16).slice(2)}`,
-    );
-    mkdirSync(repoRoot, { recursive: true });
-    writeFileSync(
-      join(repoRoot, "pilot.json"),
-      JSON.stringify(validCompanyBrainPilotConfig),
-    );
-
-    try {
-      const report = buildCompanyBrainRolloutPreflight({
-        repoRoot,
-        configPath: "pilot.json",
-        now: 1_787_416_000_000,
-      });
-      expect(report).toMatchObject({
-        ok: true,
-        errors: [],
-        derived: {
-          rootFolderIds: ["folder_a", "folder_b"],
-          connectorScopeKey: expect.stringMatching(/^gds_[a-f0-9]{64}$/),
-          controllingConfigurationDigest: expect.stringMatching(
-            /^sha256:[a-f0-9]{64}$/,
-          ),
-        },
-      });
-      expect(
-        report.operations.map(({ order, functionName }) => ({
-          order,
-          functionName,
-        })),
-      ).toEqual([
-        {
-          order: 1,
-          functionName:
-            "integrations/providerReconciliation:activateRequiredScope",
-        },
-        {
-          order: 2,
-          functionName:
-            "integrations/providerReconciliation:upsertDriveScopeConfiguration",
-        },
-        {
-          order: 3,
-          functionName:
-            "integrations/providerReconciliationWorker:startProviderReconciliation",
-        },
-        {
-          order: 4,
-          functionName: "brain/rolloutStatus:getBrainRolloutStatus",
-        },
-      ]);
-      expect(report.operations[0]?.args).toMatchObject({
-        providerKind: "google_drive",
-        corpusKey: "documents",
-        providerContainerKey: "shared_drive",
-        activationKind: "activate",
-        expectedScopeGeneration: 0,
-        now: 1_787_416_000_000,
-      });
-      expect(report.operations[1]?.args).toMatchObject({
-        rootFolderIds: ["folder_a", "folder_b"],
-        sharedDrive: true,
-        expectedConfigurationGeneration: 0,
-      });
-      expect(report.operations[3]?.args).toEqual({
-        organizationKey: "org_apero",
-        workspaceId: "workspace_apero",
-        brainKey: "brain_apero",
-        now: 1_787_416_000_000,
-      });
-
-      const reversed = {
-        ...validCompanyBrainPilotConfig,
-        drive: {
-          ...validCompanyBrainPilotConfig.drive,
-          rootFolderIds: ["folder_a", "folder_b"],
-        },
-      };
-      writeFileSync(join(repoRoot, "pilot.json"), JSON.stringify(reversed));
-      expect(
-        buildCompanyBrainRolloutPreflight({
-          repoRoot,
-          configPath: "pilot.json",
-          now: 1_787_416_000_000,
-        }).derived?.connectorScopeKey,
-      ).toBe(report.derived?.connectorScopeKey);
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects credentials from the Company Brain rollout config", () => {
-    const repoRoot = join(
-      tmpdir(),
-      `maestro-company-brain-secret-${Math.random().toString(16).slice(2)}`,
-    );
-    mkdirSync(repoRoot, { recursive: true });
-    writeFileSync(
-      join(repoRoot, "pilot.json"),
-      JSON.stringify({
-        ...validCompanyBrainPilotConfig,
-        drive: {
-          ...validCompanyBrainPilotConfig.drive,
-          accessToken: "must-not-live-here",
-        },
-      }),
-    );
-
-    try {
-      expect(
-        buildCompanyBrainRolloutPreflight({
-          repoRoot,
-          configPath: "pilot.json",
-        }),
-      ).toMatchObject({
-        ok: false,
-        errors: expect.arrayContaining([
-          {
-            path: "drive.accessToken",
-            message: expect.stringContaining("Credentials are forbidden"),
-          },
-        ]),
-        operations: [],
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
   it("passes for a built static web app", () => {
     const repoRoot = makeRepo();
 
@@ -510,516 +212,6 @@ describe("release tooling", () => {
     }
   });
 
-  it("rejects shared staging and production Convex backends", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot, {
-        project: { name: "maestro-template" },
-        environments: {
-          staging: {
-            ...isolatedProjectConfig.environments.staging,
-            convexDeployName: "shared-demo",
-            convexUrl: "https://shared.convex.cloud",
-          },
-          production: {
-            ...isolatedProjectConfig.environments.production,
-            convexDeployName: "shared-demo",
-            convexUrl: "https://shared.convex.cloud",
-          },
-        },
-      });
-
-      expect(() =>
-        buildDeployDoctorReport({ repoRoot, environment: "staging", env: {} }),
-      ).toThrow(/SharedBackendForbidden/);
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("requires environment-scoped deploy credentials and callback origins", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      writeEnvManifest(repoRoot, [
-        {
-          name: "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
-          group: "convex",
-          requiredFor: ["deploy"],
-        },
-      ]);
-
-      expect(
-        buildDeployDoctorReport({
-          repoRoot,
-          environment: "staging",
-          env: {
-            MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY: "prod-key",
-            MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN: "cf-token",
-            MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID: "cf-account",
-          },
-        }),
-      ).toMatchObject({
-        ok: false,
-        requiredSecretNames: expect.arrayContaining([
-          "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-        ]),
-        missingSecretNames: ["MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY"],
-        requiredEnvNames: expect.arrayContaining([
-          "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
-        ]),
-        missingEnvNames: ["MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN"],
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("passes the committed staging deploy doctor with only staging-scoped deploy inputs", () => {
-    const repoRoot = resolve(__dirname, "../../..");
-
-    expect(
-      buildDeployDoctorReport({
-        repoRoot,
-        environment: "staging",
-        env: {
-          MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY: "staging-key",
-          MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN: "cf-token",
-          MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID: "cf-account",
-          MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN:
-            "https://maestro-template-staging.pages.dev",
-        },
-      }),
-    ).toMatchObject({
-      ok: true,
-      missingSecretNames: [],
-      missingEnvNames: [],
-      requiredEnvNames: ["MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN"],
-      requiredSecretNames: [
-        "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN",
-        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID",
-      ],
-    });
-  });
-
-  it("passes staging deploy doctor with only staging-scoped deploy inputs", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot, {
-        project: { name: "maestro-template" },
-        environments: {
-          staging: {
-            ...isolatedProjectConfig.environments.staging,
-            requiredEnvGroups: ["cloudflare", "convex", "fake-providers"],
-          },
-          production: isolatedProjectConfig.environments.production,
-        },
-      });
-      writeEnvManifest(repoRoot, [
-        {
-          name: "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
-          group: "convex",
-          requiredFor: ["deploy"],
-        },
-        {
-          name: "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
-          group: "convex",
-          requiredFor: ["deploy"],
-        },
-        {
-          name: "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-          group: "convex",
-          requiredFor: ["deploy", "live"],
-        },
-      ]);
-
-      expect(
-        buildDeployDoctorReport({
-          repoRoot,
-          environment: "staging",
-          env: {
-            MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY: "staging-key",
-            MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN: "cf-token",
-            MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID: "cf-account",
-            MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN:
-              "https://maestro-template-staging.pages.dev",
-          },
-        }),
-      ).toMatchObject({
-        ok: true,
-        requiredSecretNames: expect.not.arrayContaining([
-          "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-        ]),
-        requiredEnvNames: expect.not.arrayContaining([
-          "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
-        ]),
-        missingSecretNames: [],
-        missingEnvNames: [],
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects cross-environment Convex deploy key wiring", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot, {
-        project: { name: "maestro-template" },
-        environments: {
-          staging: {
-            ...isolatedProjectConfig.environments.staging,
-            requiredSecrets: ["MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY"],
-          },
-          production: isolatedProjectConfig.environments.production,
-        },
-      });
-
-      expect(() =>
-        buildDeployDoctorReport({ repoRoot, environment: "staging", env: {} }),
-      ).toThrow(/EnvironmentCredentialMismatch/);
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects tenant deploy scripts that seed demo showcase data", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      const scriptPath = join(repoRoot, ".buildkite/scripts/staging-deploy.sh");
-      mkdirSync(dirname(scriptPath), { recursive: true });
-      writeFileSync(scriptPath, "pnpm exec convex run demo/showcase:seed\n");
-
-      expect(() =>
-        buildDeployDoctorReport({ repoRoot, environment: "staging", env: {} }),
-      ).toThrow(/DemoSeedForbidden/);
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("requires an exact staged release packet before production promotion", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      const staged = buildStagedReleasePacket({
-        repoRoot,
-        commitSha: "abc123",
-        deploymentHash: "deploy-hash",
-        schemaHash: "schema-hash",
-        manifestHash: "manifest-hash",
-        buildId: "build-1",
-        timestamp: "2026-07-14T00:00:00.000Z",
-        signing: {
-          signer: "release-bot@example.test",
-          keyId: "release-key-1",
-          secret: "test-signing-secret",
-        },
-      });
-
-      expect(
-        buildProductionPromotePlan({
-          repoRoot,
-          stagedSha: "abc123",
-          currentSha: "abc123",
-          expectedSchemaHash: "schema-hash",
-          expectedManifestHash: "manifest-hash",
-          releasePacket: staged,
-          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
-        }),
-      ).toMatchObject({ ok: true, releasePacket: staged });
-      expect(
-        buildProductionPromotePlan({
-          repoRoot,
-          stagedSha: "abc123",
-          currentSha: "abc123",
-        }),
-      ).toMatchObject({
-        ok: false,
-        failure: { code: "UnstagedCommit" },
-        refusal: expect.stringMatching(/UnstagedCommit/),
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects signed production packets with stale schema or manifest hashes", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      const stale = buildStagedReleasePacket({
-        repoRoot,
-        commitSha: "abc123",
-        deploymentHash: "deploy-hash",
-        schemaHash: "old-schema",
-        manifestHash: "old-manifest",
-        buildId: "build-1",
-        timestamp: "2026-07-14T00:00:00.000Z",
-        signing: {
-          signer: "release-bot@example.test",
-          keyId: "release-key-1",
-          secret: "test-signing-secret",
-        },
-      });
-
-      expect(
-        buildProductionPromotePlan({
-          repoRoot,
-          stagedSha: "abc123",
-          currentSha: "abc123",
-          expectedSchemaHash: "schema-hash",
-          expectedManifestHash: "manifest-hash",
-          releasePacket: stale,
-          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
-        }),
-      ).toMatchObject({
-        ok: false,
-        failure: { code: "UnstagedCommit" },
-        refusal: expect.stringMatching(/schema\/manifest/),
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects rollback candidates with incompatible schema or manifest", () => {
-    const repoRoot = makeRepo();
-    writeProjectConfig(repoRoot);
-    const current = buildStagedReleasePacket({
-      repoRoot,
-      commitSha: "current",
-      deploymentHash: "deploy-current",
-      schemaHash: "schema-v2",
-      manifestHash: "manifest-v2",
-      buildId: "build-current",
-      timestamp: "2026-07-14T01:00:00.000Z",
-      signing: {
-        signer: "release-bot@example.test",
-        keyId: "release-key-1",
-        secret: "test-signing-secret",
-      },
-    });
-    const candidate = buildStagedReleasePacket({
-      repoRoot,
-      commitSha: "previous",
-      deploymentHash: "deploy-previous",
-      schemaHash: "schema-v1",
-      manifestHash: "manifest-v2",
-      buildId: "build-previous",
-      timestamp: "2026-07-14T00:00:00.000Z",
-      signing: {
-        signer: "release-bot@example.test",
-        keyId: "release-key-1",
-        secret: "test-signing-secret",
-      },
-    });
-
-    expect(buildRollbackPlan({ current, candidate })).toMatchObject({
-      ok: false,
-      refusal: expect.stringMatching(/IncompatibleRollback/),
-    });
-  });
-
-  it("rejects rollback candidates that are not prior binaries", () => {
-    const repoRoot = makeRepo();
-    writeProjectConfig(repoRoot);
-    const makePacket = (
-      commitSha: string,
-      buildId: string,
-      timestamp: string,
-    ) =>
-      buildStagedReleasePacket({
-        repoRoot,
-        commitSha,
-        deploymentHash: `deploy-${commitSha}`,
-        schemaHash: "schema-v2",
-        manifestHash: "manifest-v2",
-        buildId,
-        timestamp,
-        signing: {
-          signer: "release-bot@example.test",
-          keyId: "release-key-1",
-          secret: "test-signing-secret",
-        },
-      });
-    const current = makePacket(
-      "current",
-      "build-2",
-      "2026-07-14T01:00:00.000Z",
-    );
-
-    expect(buildRollbackPlan({ current, candidate: current })).toMatchObject({
-      ok: false,
-      refusal: expect.stringMatching(/prior binary/),
-    });
-    expect(
-      buildRollbackPlan({
-        current,
-        candidate: makePacket("future", "build-3", "2026-07-14T02:00:00.000Z"),
-      }),
-    ).toMatchObject({
-      ok: false,
-      refusal: expect.stringMatching(/prior binary/),
-    });
-    expect(
-      buildRollbackPlan({
-        current,
-        candidate: makePacket(
-          "previous",
-          "build-1",
-          "2026-07-14T00:00:00.000Z",
-        ),
-      }),
-    ).toMatchObject({ ok: true });
-
-    rmSync(repoRoot, { recursive: true, force: true });
-  });
-
-  it("requires signed release packets with trusted signer and key verification", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      const packet = buildStagedReleasePacket({
-        repoRoot,
-        commitSha: "abc123",
-        deploymentHash: "deploy-hash",
-        schemaHash: "schema-hash",
-        manifestHash: "manifest-hash",
-        buildId: "build-1",
-        timestamp: "2026-07-14T00:00:00.000Z",
-        signing: {
-          signer: "release-bot@example.test",
-          keyId: "release-key-1",
-          secret: "test-signing-secret",
-        },
-      });
-
-      expect(packet.signature).toMatchObject({
-        algorithm: "hmac-sha256",
-        signer: "release-bot@example.test",
-        keyId: "release-key-1",
-      });
-      expect(
-        buildProductionPromotePlan({
-          repoRoot,
-          stagedSha: "abc123",
-          currentSha: "abc123",
-          releasePacket: { ...packet, manifestHash: "tampered" },
-          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
-        }),
-      ).toMatchObject({
-        ok: false,
-        failure: { code: "UnstagedCommit" },
-      });
-      expect(
-        buildProductionPromotePlan({
-          repoRoot,
-          stagedSha: "abc123",
-          currentSha: "abc123",
-          releasePacket: packet,
-          trustedSigningKeys: { "other-key": "test-signing-secret" },
-        }),
-      ).toMatchObject({
-        ok: false,
-        failure: { code: "UnstagedCommit" },
-      });
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("wires release signing secret names into scoped Buildkite deploy jobs", () => {
-    expectBuildkiteSigningSecretWiring();
-  });
-
-  it("checks Buildkite release signing wiring independent of cwd", () => {
-    const originalCwd = process.cwd();
-    const repoRoot = makeRepo();
-
-    try {
-      process.chdir(repoRoot);
-      expectBuildkiteSigningSecretWiring();
-    } finally {
-      process.chdir(originalCwd);
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("records a deployment isolation receipt without raw URLs or secrets", () => {
-    const repoRoot = makeRepo();
-
-    try {
-      writeProjectConfig(repoRoot);
-      const receipt = buildDeploymentIsolationReceipt({
-        repoRoot,
-        commandResults: [
-          { command: "rtk pnpm --dir tooling/release typecheck", ok: true },
-          {
-            command: "rtk pnpm deploy:doctor staging",
-            ok: false,
-            detail: "credentials unavailable",
-          },
-        ],
-      });
-
-      expect(receipt).toMatchObject({
-        ok: true,
-        environments: {
-          staging: {
-            convexUrlHash: expect.stringMatching(/^sha256:/),
-            deployKeyOwner: "Backend owner",
-          },
-          production: {
-            convexUrlHash: expect.stringMatching(/^sha256:/),
-            deployKeyOwner: "Backend owner",
-          },
-        },
-        negativeCrossDeployAttempts: expect.arrayContaining([
-          expect.objectContaining({
-            attemptedEnvironment: "staging",
-            providedKeyEnv: "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
-            failure: expect.objectContaining({
-              code: "EnvironmentCredentialMismatch",
-            }),
-          }),
-        ]),
-        noDemoSeedTranscript: expect.arrayContaining([
-          expect.objectContaining({
-            path: ".buildkite/scripts/staging-deploy.sh",
-            status: "pass",
-          }),
-          expect.objectContaining({
-            path: ".buildkite/scripts/production-promote.sh",
-            status: "pass",
-          }),
-        ]),
-        commandResults: expect.arrayContaining([
-          expect.objectContaining({
-            command: "rtk pnpm --dir tooling/release typecheck",
-            ok: true,
-          }),
-        ]),
-      });
-      expect(JSON.stringify(receipt)).not.toContain(
-        "https://staging.convex.cloud",
-      );
-      expect(JSON.stringify(receipt)).not.toContain("test-signing-secret");
-    } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
   it("builds an investor readiness report", () => {
     const repoRoot = makeReviewerRepo();
 
@@ -1073,8 +265,8 @@ describe("release tooling", () => {
           "pnpm check:format",
           "pnpm check:confect-contracts",
           "pnpm check:confect-compat",
-          "pnpm smoke:hosted:browser",
-          "pnpm smoke:hosted:visual",
+          "pnpm smoke:golden:browser",
+          "pnpm smoke:golden:visual",
         ]),
       });
     } finally {
@@ -1127,8 +319,8 @@ describe("release tooling", () => {
             id: "clear-sample-app",
             status: "pass",
             verification: expect.arrayContaining([
-              "pnpm smoke:hosted:browser",
-              "pnpm smoke:hosted:visual",
+              "pnpm smoke:golden:browser",
+              "pnpm smoke:golden:visual",
             ]),
           }),
           expect.objectContaining({
@@ -1338,6 +530,88 @@ describe("release tooling", () => {
     }
   });
 
+  it("fails deploy doctor closed for unsafe or target-coupled authority endpoints", () => {
+    const repoRoot = makeReviewerRepo();
+    writeEnvManifest(repoRoot, [
+      {
+        name: "PROMOTION_AUTHORITY_ENDPOINT",
+        group: "woodpecker",
+        requiredFor: ["deploy"],
+      },
+      {
+        name: "TRUSTED_DEPLOY_ROOT_SHA256",
+        group: "woodpecker",
+        requiredFor: ["deploy"],
+      },
+    ]);
+    writeFileSync(
+      join(repoRoot, "project.config.json"),
+      JSON.stringify({
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            name: "staging",
+            domain: "staging.example.test",
+            cloudflarePagesProject: "maestro-template-staging",
+            cloudflareBranch: "staging",
+            convexDeployName: "maestro-template-staging",
+            convexUrl: "https://target-staging.convex.cloud",
+            requiredEnvGroups: ["woodpecker"],
+            requiredSecrets: [],
+          },
+          production: {
+            name: "production",
+            domain: "app.example.test",
+            cloudflarePagesProject: "maestro-template",
+            cloudflareBranch: "main",
+            convexDeployName: "maestro-template-production",
+            convexUrl: "https://target-production.convex.cloud",
+            requiredEnvGroups: ["woodpecker"],
+            requiredSecrets: [],
+          },
+        },
+      }),
+    );
+
+    try {
+      const trustedRoot = `sha256:${"a".repeat(64)}`;
+      expect(
+        buildDeployDoctorReport({
+          repoRoot,
+          environment: "staging",
+          env: {
+            PROMOTION_AUTHORITY_ENDPOINT: "https://authority.example.test/",
+            TRUSTED_DEPLOY_ROOT_SHA256: trustedRoot,
+          },
+        }),
+      ).toMatchObject({ ok: true, invalidEnvNames: [] });
+      for (const endpoint of [
+        "http://authority.example.test",
+        "https://user:pass@authority.example.test",
+        "https://authority.example.test/control-plane",
+        "https://authority.example.test?target=staging",
+        "https://authority.example.test#fragment",
+        "https://target-staging.convex.cloud",
+      ]) {
+        const report = buildDeployDoctorReport({
+          repoRoot,
+          environment: "staging",
+          env: {
+            PROMOTION_AUTHORITY_ENDPOINT: endpoint,
+            TRUSTED_DEPLOY_ROOT_SHA256: trustedRoot,
+          },
+        });
+        expect(report).toMatchObject({
+          ok: false,
+          invalidEnvNames: ["PROMOTION_AUTHORITY_ENDPOINT"],
+        });
+        expect(JSON.stringify(report)).not.toContain(endpoint);
+      }
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("builds staging and production promotion plans from project config", () => {
     const repoRoot = makeReviewerRepo();
     writeFileSync(
@@ -1380,29 +654,11 @@ describe("release tooling", () => {
         cloudflareBranch: "staging",
         convexDeployName: "maestro-template-staging",
       });
-      const releasePacket = buildStagedReleasePacket({
-        repoRoot,
-        commitSha: "abc123",
-        deploymentHash: "deploy-hash",
-        schemaHash: "schema-hash",
-        manifestHash: "manifest-hash",
-        buildId: "build-1",
-        timestamp: "2026-07-14T00:00:00.000Z",
-        signing: {
-          signer: "release-bot@example.test",
-          keyId: "release-key-1",
-          secret: "test-signing-secret",
-        },
-      });
       expect(
         buildProductionPromotePlan({
           repoRoot,
           stagedSha: "abc123",
           currentSha: "abc123",
-          expectedSchemaHash: "schema-hash",
-          expectedManifestHash: "manifest-hash",
-          releasePacket,
-          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
         }),
       ).toMatchObject({
         ok: true,
@@ -1419,9 +675,8 @@ describe("release tooling", () => {
         }),
       ).toMatchObject({
         ok: false,
-        failure: { code: "UnstagedCommit" },
         refusal:
-          "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
+          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
         alert: {
           severity: "critical",
           title: "Production promotion refused",
@@ -1430,7 +685,7 @@ describe("release tooling", () => {
             environment: "production",
             commitSha: "def456",
             refusal:
-              "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
+              "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
           },
         },
       });
@@ -1620,33 +875,14 @@ describe("release tooling", () => {
         ok: true,
         cloudflarePagesProject: "maestro-template-staging",
       });
-      const stagedPacket = JSON.stringify({
-        commitSha: "abc123",
-        deploymentHash: "deploy-hash",
-        schemaHash: "schema-hash",
-        manifestHash: "manifest-hash",
-        buildId: "build-1",
-        timestamp: "2026-07-14T00:00:00.000Z",
-      });
       expect(
         JSON.parse(
-          runReleaseCli(
-            [
-              "promote-plan",
-              "abc123",
-              "def456",
-              "schema-hash",
-              "manifest-hash",
-              stagedPacket,
-            ],
-            repoRoot,
-          ).stdout,
+          runReleaseCli(["promote-plan", "abc123", "def456"], repoRoot).stdout,
         ),
       ).toMatchObject({
         ok: false,
-        failure: { code: "UnstagedCommit" },
         refusal:
-          "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
+          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

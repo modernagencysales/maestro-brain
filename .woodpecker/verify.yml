@@ -1,74 +1,26 @@
 labels:
   platform: linux/amd64
-  role: maestro-ci
+  role: factory-ci
 
 clone:
   git:
     image: woodpeckerci/plugin-git:2.9.2@sha256:ebde4a4d07e0e24b630082484d192890dd4f6d442d90bf5466f0763860f83652
     settings:
-      depth: 500
-      tags: true
+      depth: 1
       partial: false
-      fetch-target-branch: true
-      target-branch: main
+      tags: false
 
 when:
   - event: pull_request
-    evaluate: 'CI_COMMIT_PULL_REQUEST_DRAFT == "false"'
-  - event: pull_request_metadata
-    evaluate:
-      'CI_PIPELINE_EVENT_REASON == "ready_for_review" &&
-      CI_COMMIT_PULL_REQUEST_DRAFT == "false"'
-  - event: manual
+    status: [success, failure]
+
+depends_on:
+  - verify-core
+  - verify-coverage
 
 steps:
-  - name: setup
-    image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
-    environment:
-      CI: "true"
-      NODE_OPTIONS: "--max-old-space-size=6144"
+  - name: aggregate
+    # Keep ci/woodpecker/pr/verify terminal and red when either required lane fails.
+    image: node:22.23.2-bookworm@sha256:0557ac14e0d45d02ed563067b82856ca5e7aa3437fa28d98d4350ea9c3d9494a
     commands:
-      - npm install --global pnpm@10.12.1 --ignore-scripts
-      - pnpm install --frozen-lockfile
-      - pnpm check:format
-      - pnpm lint
-    failure: cancel
-
-  - name: typecheck
-    image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
-    depends_on:
-      - setup
-    environment:
-      CI: "true"
-      NODE_OPTIONS: "--max-old-space-size=6144"
-    commands:
-      - npm install --global pnpm@10.12.1 --ignore-scripts
-      - pnpm typecheck
-    failure: cancel
-
-  - name: tests
-    image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
-    depends_on:
-      - typecheck
-    environment:
-      CI: "true"
-      NODE_OPTIONS: "--max-old-space-size=6144"
-    commands:
-      - npm install --global pnpm@10.12.1 --ignore-scripts
-      - pnpm test
-      - pnpm test:tooling
-      - pnpm test:workflow
-      - pnpm test:pr-backlog
-    failure: cancel
-
-  - name: strict-diagnostics
-    image: node:22.12.0-bookworm@sha256:0e910f435308c36ea60b4cfd7b80208044d77a074d16b768a81901ce938a62dc
-    depends_on:
-      - tests
-    environment:
-      CI: "true"
-      NODE_OPTIONS: "--max-old-space-size=6144"
-    commands:
-      - npm install --global pnpm@10.12.1 --ignore-scripts
-      - pnpm check:effect-diagnostics
-    failure: cancel
+      - node tooling/ci/verify-aggregate.mjs

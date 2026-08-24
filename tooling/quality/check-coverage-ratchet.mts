@@ -8,15 +8,26 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 
+import { CUSTOMER_COVERAGE_SCOPE } from "./customer-coverage-contract.mts";
+
 const ROOT = new URL("../..", import.meta.url).pathname;
 const SUMMARY = `${ROOT}coverage/coverage-summary.json`;
 const BASELINE = `${ROOT}coverage-baseline.json`;
 const METRICS = ["lines", "functions", "branches", "statements"] as const;
-// v8 percentages carry float noise; anything below this is not a real drop.
-const EPSILON = 0.005;
+// Vitest reports two-decimal V8 percentages and one scheduling-dependent
+// covered function can move the rounded value by 0.01. Ignore that single
+// reporting quantum; a 0.02 drop still fails closed.
+const EPSILON = 0.015;
 
 type Metric = (typeof METRICS)[number];
 type Totals = Record<Metric, number>;
+type CoverageBaseline = Readonly<
+  Totals & {
+    schemaVersion: 2;
+    provider: "@vitest/coverage-v8@4.1.11";
+    scope: string;
+  }
+>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -50,9 +61,24 @@ export function droppedMetrics(actual: Totals, baseline: Totals): Metric[] {
   );
 }
 
+export function readCoverageBaseline(path: string): CoverageBaseline {
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (
+    !isRecord(parsed) ||
+    parsed.schemaVersion !== 2 ||
+    parsed.provider !== "@vitest/coverage-v8@4.1.11" ||
+    parsed.scope !== CUSTOMER_COVERAGE_SCOPE
+  ) {
+    throw new Error(
+      `coverage baseline must match the current generated-customer scope: ${CUSTOMER_COVERAGE_SCOPE}`,
+    );
+  }
+  return { ...parsed, ...readTotals(path, false) } as CoverageBaseline;
+}
+
 function main(): void {
   const actual = readTotals(SUMMARY, true);
-  const baseline = readTotals(BASELINE, false);
+  const baseline = readCoverageBaseline(BASELINE);
 
   if (process.argv.includes("--update")) {
     const lowered = droppedMetrics(actual, baseline);
@@ -62,9 +88,15 @@ function main(): void {
       );
       process.exit(1);
     }
-    const next = Object.fromEntries(
+    const metrics = Object.fromEntries(
       METRICS.map((metric) => [metric, actual[metric]]),
     );
+    const next = {
+      schemaVersion: 2,
+      provider: "@vitest/coverage-v8@4.1.11",
+      scope: CUSTOMER_COVERAGE_SCOPE,
+      ...metrics,
+    };
     writeFileSync(BASELINE, `${JSON.stringify(next, null, 2)}\n`);
     console.log("✓ coverage baseline updated");
     return;

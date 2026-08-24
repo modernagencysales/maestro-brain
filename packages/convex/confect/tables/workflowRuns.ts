@@ -1,14 +1,24 @@
 import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
+import {
+  WorkflowComponentCleanupState,
+  WorkflowComponentResidualState,
+  WorkflowGenerationQuiescence,
+  WorkflowLifecycleExecution,
+  WorkflowOnCompleteContext,
+  WorkflowProductCleanupState,
+} from "../workflows/_kit/lifecycleState";
+import { DurableWorkflowPrincipal } from "../workflows/_kit/principal";
+import { WorkflowPolicySnapshot } from "../workflows/_kit/policySnapshot";
 
-export const WorkflowRunStatus = Schema.Literal(
+export const WorkflowRunStatus = Schema.Literals([
   "queued",
   "running",
   "completed",
   "failed",
   "canceled",
   "timedOut",
-);
+]);
 
 export type WorkflowRunStatus = Schema.Schema.Type<typeof WorkflowRunStatus>;
 
@@ -34,7 +44,7 @@ const HistoricalPrincipalSnapshot = Schema.Struct({
   kickoffAt: Schema.Number,
   kind: Schema.Literal("user"),
   provenance: Schema.String,
-  role: Schema.Literal("viewer", "editor", "admin", "owner"),
+  role: Schema.Literals(["viewer", "editor", "admin", "owner"]),
   version: Schema.Number,
   workspaceId: Schema.String,
 });
@@ -60,21 +70,42 @@ export const WorkflowRunRow = Schema.Struct({
   timedOutAt: Schema.optional(Schema.NullOr(Schema.Number)),
   timeoutErrorCode: Schema.optional(Schema.NullOr(Schema.String)),
   timeoutSummary: Schema.optional(Schema.NullOr(Schema.String)),
-  // Immutable lifecycle and retention snapshots from the staging workflow pilot.
-  childRetentionUntil: Schema.optional(Schema.NullOr(Schema.Number)),
-  cleanupState: Schema.optional(Schema.Literal("not-requested")),
-  componentCleanupState: Schema.optional(Schema.Literal("not-requested")),
-  componentResidualState: Schema.optional(Schema.Literal("not-assessed")),
-  evidenceRetentionUntil: Schema.optional(Schema.NullOr(Schema.Number)),
-  lifecycleExecution: Schema.optional(Schema.Literal("terminal")),
-  lifecycleGeneration: Schema.optional(Schema.Number),
-  lifecycleGenerationAnchor: Schema.optional(Schema.String),
+  // Current writers validate the stricter lifecycle contracts before writing.
+  // Persisted staging rows remain decodable through the historical unions.
+  lifecycleExecution: Schema.optional(
+    Schema.NullOr(WorkflowLifecycleExecution),
+  ),
+  lifecycleGeneration: Schema.optional(Schema.NullOr(Schema.Number)),
+  lifecycleGenerationAnchor: Schema.optional(Schema.NullOr(Schema.String)),
   lifecycleRestartAnchor: Schema.optional(Schema.NullOr(Schema.String)),
-  onCompleteContext: Schema.optional(HistoricalOnCompleteContext),
+  priorGenerationQuiescence: Schema.optional(
+    Schema.NullOr(WorkflowGenerationQuiescence),
+  ),
+  cleanupState: Schema.optional(Schema.NullOr(WorkflowProductCleanupState)),
+  componentCleanupState: Schema.optional(
+    Schema.NullOr(WorkflowComponentCleanupState),
+  ),
+  componentResidualState: Schema.optional(
+    Schema.NullOr(WorkflowComponentResidualState),
+  ),
   parentRetentionUntil: Schema.optional(Schema.NullOr(Schema.Number)),
-  policySnapshot: Schema.optional(HistoricalPolicySnapshot),
-  principalSnapshot: Schema.optional(HistoricalPrincipalSnapshot),
-  priorGenerationQuiescence: Schema.optional(Schema.Literal("pending")),
+  childRetentionUntil: Schema.optional(Schema.NullOr(Schema.Number)),
+  evidenceRetentionUntil: Schema.optional(Schema.NullOr(Schema.Number)),
+  onCompleteContext: Schema.optional(
+    Schema.NullOr(
+      Schema.Union([WorkflowOnCompleteContext, HistoricalOnCompleteContext]),
+    ),
+  ),
+  principalSnapshot: Schema.optional(
+    Schema.NullOr(
+      Schema.Union([DurableWorkflowPrincipal, HistoricalPrincipalSnapshot]),
+    ),
+  ),
+  policySnapshot: Schema.optional(
+    Schema.NullOr(
+      Schema.Union([WorkflowPolicySnapshot, HistoricalPolicySnapshot]),
+    ),
+  ),
 });
 
 export default Table.make(() => WorkflowRunRow)

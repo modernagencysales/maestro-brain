@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import templateHttp from "../confect/http";
+import { createEmailUnsubscribeToken } from "../confect/email/unsubscribeToken";
+import { buildGeneratedMcpTools } from "../confect/manifest/mcp";
 import {
   type HeadlessHttpCtx,
   handleTemplateHttpRequest,
@@ -34,13 +36,14 @@ describe("template HTTP docs routes", () => {
       .sort(byPathThenMethod);
 
     expect(routes).toEqual(
-      templateHttpRoutes
-        .map(({ path, method }) => ({ path, method }))
-        .sort(byPathThenMethod),
+      [
+        ...templateHttpRoutes.map(({ path, method }) => ({ path, method })),
+        { path: "/deploy-authority/consume", method: "POST" },
+      ].sort(byPathThenMethod),
     );
   });
 
-  it("declares docs routes and omits the deleted legacy page route", () => {
+  it("declares OpenAPI, Scalar docs, and executable API routes", () => {
     expect(templateHttpRoutes).toEqual(
       expect.arrayContaining([
         {
@@ -54,18 +57,167 @@ describe("template HTTP docs routes", () => {
           description: "Serves the Scalar API documentation shell.",
         },
         {
-          path: "/mcp",
+          path: "/api/brain.pages.createMarkdown",
           method: "POST",
-          description: "Serves the stateless MCP tool transport.",
+          description: "Executes brain.pages.createMarkdown.",
         },
       ]),
     );
-    expect(templateHttpRoutes).not.toContainEqual(
-      expect.objectContaining({ path: "/api/brain.pages.createMarkdown" }),
-    );
   });
 
-  it("serves generated OpenAPI JSON without the deleted legacy page operation", async () => {
+  it("forwards the untouched Dodo body and signature headers to the webhook action", async () => {
+    const calls: unknown[] = [];
+    const rawBody =
+      '{"type":"payment.succeeded","data":{"payment_id":"pay_1"}}';
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runAction: async (ref, input) => {
+          calls.push({ ref, input });
+          return { eventId: "evt_1", status: "processed" };
+        },
+      },
+      new Request("https://template.local/webhooks/dodo", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "webhook-id": "evt_1",
+          "webhook-signature": "v1,signature",
+          "webhook-timestamp": "1700000000",
+        },
+        body: rawBody,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([
+      expect.objectContaining({
+        input: {
+          rawBody,
+          webhookId: "evt_1",
+          signature: "v1,signature",
+          signatureTimestamp: "1700000000",
+        },
+      }),
+    ]);
+  });
+
+  it("authenticates and normalizes Postmark webhooks before mutation", async () => {
+    const previousUsername = process.env.POSTMARK_WEBHOOK_USERNAME;
+    const previousPassword = process.env.POSTMARK_WEBHOOK_PASSWORD;
+    process.env.POSTMARK_WEBHOOK_USERNAME = "postmark";
+    process.env.POSTMARK_WEBHOOK_PASSWORD = "webhook-secret";
+    try {
+      const calls: unknown[] = [];
+      const ctx: HeadlessHttpCtx = {
+        ...noopCtx,
+        runMutation: async (ref, input) => {
+          calls.push({ ref, input });
+          return { status: "processed", suppressed: true };
+        },
+      };
+      const unauthorized = await handleTemplateHttpRequest(
+        ctx,
+        new Request("https://template.local/webhooks/email/postmark", {
+          method: "POST",
+          body: JSON.stringify({ RecordType: "Bounce" }),
+        }),
+      );
+      expect(unauthorized.status).toBe(401);
+      expect(calls).toHaveLength(0);
+
+      const response = await handleTemplateHttpRequest(
+        ctx,
+        new Request("https://template.local/webhooks/email/postmark", {
+          method: "POST",
+          headers: {
+            authorization: `Basic ${btoa("postmark:webhook-secret")}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            RecordType: "Bounce",
+            Type: "HardBounce",
+            Email: "Person@Example.com",
+            MessageID: "message-1",
+            BouncedAt: "2026-08-02T12:00:00Z",
+            Description: "raw provider detail must not be forwarded",
+          }),
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect(calls).toEqual([
+        expect.objectContaining({
+          input: {
+            fingerprint: expect.any(String),
+            kind: "hard_bounce",
+            recipient: "person@example.com",
+            providerMessageId: "message-1",
+          },
+        }),
+      ]);
+      expect(JSON.stringify(calls)).not.toContain("raw provider detail");
+    } finally {
+      if (previousUsername === undefined)
+        delete process.env.POSTMARK_WEBHOOK_USERNAME;
+      else process.env.POSTMARK_WEBHOOK_USERNAME = previousUsername;
+      if (previousPassword === undefined)
+        delete process.env.POSTMARK_WEBHOOK_PASSWORD;
+      else process.env.POSTMARK_WEBHOOK_PASSWORD = previousPassword;
+    }
+  });
+
+  it("shows a signed unsubscribe confirmation and mutates only on POST", async () => {
+    const previousSecret = process.env.EMAIL_UNSUBSCRIBE_SECRET;
+    process.env.EMAIL_UNSUBSCRIBE_SECRET = "test-fixture";
+    try {
+      const token = await createEmailUnsubscribeToken({
+        subscriberId: "emailSubscribers_123",
+        secret: process.env.EMAIL_UNSUBSCRIBE_SECRET,
+      });
+      const calls: unknown[] = [];
+      const ctx: HeadlessHttpCtx = {
+        ...noopCtx,
+        runMutation: async (ref, input) => {
+          calls.push({ ref, input });
+          return { status: "unsubscribed" };
+        },
+      };
+      const confirmation = await handleTemplateHttpRequest(
+        ctx,
+        new Request(
+          `https://template.local/email/unsubscribe?token=${encodeURIComponent(token)}`,
+        ),
+      );
+      expect(confirmation.status).toBe(200);
+      expect(await confirmation.text()).toContain("Stop marketing emails?");
+      expect(confirmation.headers.get("content-security-policy")).toContain(
+        "form-action 'self'",
+      );
+      expect(calls).toHaveLength(0);
+
+      const applied = await handleTemplateHttpRequest(
+        ctx,
+        new Request("https://template.local/email/unsubscribe", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ token }),
+        }),
+      );
+      expect(applied.status).toBe(200);
+      expect(await applied.text()).toContain("You are unsubscribed.");
+      expect(calls).toEqual([
+        expect.objectContaining({
+          input: { subscriberId: "emailSubscribers_123" },
+        }),
+      ]);
+    } finally {
+      if (previousSecret === undefined)
+        delete process.env.EMAIL_UNSUBSCRIBE_SECRET;
+      else process.env.EMAIL_UNSUBSCRIBE_SECRET = previousSecret;
+    }
+  });
+
+  it("serves generated OpenAPI JSON", async () => {
     const response = await handleTemplateHttpRequest(
       noopCtx,
       new Request("https://template.local/api/openapi.json"),
@@ -73,10 +225,68 @@ describe("template HTTP docs routes", () => {
     const body = await readJson(response);
 
     expect(response.headers.get("content-type")).toContain("application/json");
-    expect(body).toMatchObject({ openapi: "3.1.0" });
-    expect(
-      (body as { paths: Record<string, unknown> }).paths,
-    ).not.toHaveProperty("/api/brain.pages.createMarkdown");
+    expect(body).toMatchObject({
+      openapi: "3.1.0",
+      paths: {
+        "/api/brain.pages.createMarkdown": {
+          post: {
+            operationId: "brain.pages.createMarkdown",
+            tags: ["template-headless"],
+            "x-maestro-auth-scope": "workspace member",
+            "x-maestro-typed-errors": [
+              "Unauthorized",
+              "MemberNotInWorkspace",
+              "WorkspaceNotFound",
+              "ValidationFailed",
+            ],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["input", "idempotencyKey"],
+                    properties: {
+                      input: {
+                        type: "object",
+                        required: ["workspaceId", "slug", "title", "markdown"],
+                      },
+                      idempotencyKey: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+            responses: {
+              "200": { description: "Typed operation result." },
+              "400": { description: "Declared typed failure." },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("serves MCP tools with generated Effect JSON schemas", () => {
+    const createMarkdownTool = buildGeneratedMcpTools().find(
+      (tool) => tool.name === "template.brain.pages.createMarkdown",
+    );
+
+    expect(createMarkdownTool?.inputSchema).toMatchObject({
+      type: "object",
+      required: ["workspaceId", "slug", "title", "markdown"],
+      properties: {
+        workspaceId: { type: "string" },
+        slug: { type: "string" },
+        title: { type: "string" },
+        markdown: { type: "string" },
+      },
+    });
+    expect(createMarkdownTool?.inputSchema).not.toEqual({
+      type: "object",
+      additionalProperties: true,
+    });
   });
 
   it("applies security headers to every HTTP response", async () => {
@@ -120,29 +330,230 @@ describe("template HTTP docs routes", () => {
     expect(html).toContain('data-url="/api/openapi.json"');
   });
 
-  it("returns the typed external error contract for POST to the deleted legacy page route without runner calls", async () => {
-    const calls: string[] = [];
+  it("executes a generated API operation through the Convex adapter runner", async () => {
+    const calls: unknown[] = [];
     const ctx: HeadlessHttpCtx = {
-      runQuery: async () => {
-        calls.push("query");
-        throw new Error("runQuery should not be called");
-      },
-      runMutation: async () => {
-        calls.push("mutation");
-        throw new Error("runMutation should not be called");
-      },
-      runAction: async () => {
-        calls.push("action");
-        throw new Error("runAction should not be called");
+      ...noopCtx,
+      runMutation: async (ref, input) => {
+        calls.push([ref, input]);
+        return { id: "brainPage_123", source: "adapter-runner" };
       },
     };
+    const response = await handleTemplateHttpRequest(
+      ctx,
+      new Request("https://template.local/api/brain.pages.createMarkdown", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceSlug: "acme-demo",
+          input: { slug: "a-note", title: "A note", markdown: "# A note" },
+          idempotencyKey: "brain-page-example-001",
+        }),
+      }),
+    );
+    const body = await readJson(response);
+
+    expect(body).toMatchObject({
+      ok: true,
+      operationId: "brain.pages.createMarkdown",
+      result: {
+        id: "brainPage_123",
+        source: "adapter-runner",
+      },
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject([
+      expect.anything(),
+      {
+        workspaceId: "workspace_123",
+        slug: "a-note",
+        title: "A note",
+        markdown: "# A note",
+        idempotencyKey: "brain-page-example-001",
+      },
+    ]);
+  });
+
+  it("requires a bearer API key for records operations", async () => {
+    const response = await handleTemplateHttpRequest(
+      noopCtx,
+      new Request("https://template.local/api/records.list", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceSlug: "template-demo", input: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await readJson(response)).toEqual({
+      ok: false,
+      error: {
+        _tag: "Unauthorized",
+        code: "API_KEY_MISSING",
+        message: "Missing bearer API key.",
+      },
+    });
+  });
+
+  it("resolves a records actor before dispatching the operation", async () => {
+    const calls: Array<{ readonly input: Record<string, unknown> }> = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          calls.push({ input });
+          return "keyHash" in input
+            ? {
+                ok: true,
+                keyId: "api_key_contracts",
+                workspaceId: "workspace_contracts",
+                userId: "user_contracts",
+              }
+            : [
+                {
+                  _id: "record_contracts",
+                  workspaceId: "workspace_contracts",
+                  title: "Launch checklist",
+                  detail: "Created from the app",
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              ];
+        },
+      },
+      new Request("https://template.local/api/records.list", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceSlug: "template-demo",
+          input: {},
+          idempotencyKey: "contracts-list-1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "records.list",
+      result: [{ title: "Launch checklist" }],
+    });
+    expect(calls).toEqual([
+      {
+        input: {
+          keyHash: expect.any(String),
+          workspaceSlug: "template-demo",
+          requiredScope: "workspace:read",
+          nowMs: expect.any(Number),
+        },
+      },
+      {
+        input: {
+          workspaceId: "workspace_contracts",
+          userId: "user_contracts",
+        },
+      },
+    ]);
+    expect(JSON.stringify(calls)).not.toContain("mtk_live_contracts");
+  });
+
+  it("rejects a key bound to another workspace before records dispatch", async () => {
+    let queryCount = 0;
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async () => {
+          queryCount += 1;
+          return {
+            ok: false,
+            code: "API_KEY_WORKSPACE_MISMATCH",
+            message: "API key is bound to a different workspace.",
+          };
+        },
+      },
+      new Request("https://template.local/api/records.list", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ workspaceSlug: "another-workspace", input: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(queryCount).toBe(1);
+    expect(await readJson(response)).toEqual({
+      ok: false,
+      error: {
+        _tag: "Forbidden",
+        code: "API_KEY_WORKSPACE_MISMATCH",
+        message: "API key is bound to a different workspace.",
+      },
+    });
+  });
+
+  it("executes the documented OpenAPI request envelope", async () => {
+    const calls: unknown[] = [];
+    const ctx: HeadlessHttpCtx = {
+      ...noopCtx,
+      runMutation: async (ref, input) => {
+        calls.push([ref, input]);
+        return { id: "brainPage_456", source: "openapi-envelope" };
+      },
+    };
+    const response = await handleTemplateHttpRequest(
+      ctx,
+      new Request("https://template.local/api/brain.pages.createMarkdown", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          input: {
+            workspaceId: "workspace_openapi",
+            slug: "openapi-note",
+            title: "OpenAPI note",
+            markdown: "# OpenAPI note",
+          },
+          idempotencyKey: "openapi-envelope-001",
+        }),
+      }),
+    );
+
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "brain.pages.createMarkdown",
+      result: {
+        id: "brainPage_456",
+        source: "openapi-envelope",
+      },
+    });
+    expect(calls[0]).toMatchObject([
+      expect.anything(),
+      {
+        workspaceId: "workspace_openapi",
+        slug: "openapi-note",
+        title: "OpenAPI note",
+        markdown: "# OpenAPI note",
+        idempotencyKey: "openapi-envelope-001",
+      },
+    ]);
+  });
+
+  it("fails closed when generated API request fields cannot be mapped", async () => {
     const body = await readJson(
       await handleTemplateHttpRequest(
-        ctx,
+        noopCtx,
         new Request("https://template.local/api/brain.pages.createMarkdown", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ input: {}, idempotencyKey: "old-write" }),
+          body: JSON.stringify({
+            workspaceSlug: "unknown-workspace",
+            input: { slug: "a-note", title: "A note", markdown: "# A note" },
+            idempotencyKey: "brain-page-example-001",
+          }),
         }),
       ),
     );
@@ -151,28 +562,102 @@ describe("template HTTP docs routes", () => {
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message: "Headless operation is not available.",
+        message:
+          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
       },
     });
-    expect(calls).toEqual([]);
   });
 
-  it("does not translate deleted createMarkdown requests through legacy caller-ID compatibility", async () => {
-    const { executorRequestFor } = await import("../confect/httpRequest");
+  it("returns typed validation errors for malformed JSON requests", async () => {
+    const body = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/api/brain.pages.createMarkdown", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{",
+        }),
+      ),
+    );
 
-    expect(
-      executorRequestFor("brain.pages.createMarkdown", {
-        workspaceSlug: "acme-demo",
-        input: { slug: "legacy", title: "Legacy", markdown: "# Legacy" },
-        idempotencyKey: "legacy-write",
-      }),
-    ).toEqual({
-      ok: true,
-      request: {
-        operationId: "brain.pages.createMarkdown",
-        surface: "api",
-        input: { slug: "legacy", title: "Legacy", markdown: "# Legacy" },
-        idempotencyKey: "legacy-write",
+    expect(body).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "Request body must be valid JSON.",
+      },
+    });
+  });
+
+  it("returns typed validation errors for generated API operations", async () => {
+    const body = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/api/brain.pages.createMarkdown", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspaceSlug: "acme-demo",
+            input: {},
+          }),
+        }),
+      ),
+    );
+
+    expect(body).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
+      },
+    });
+  });
+
+  it("returns typed validation errors for non-string API envelope fields", async () => {
+    const invalidIdempotencyKey = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/api/brain.pages.createMarkdown", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspaceSlug: "acme-demo",
+            input: { slug: "a-note", title: "A note", markdown: "# A note" },
+            idempotencyKey: 42,
+          }),
+        }),
+      ),
+    );
+    const invalidWorkspaceSlug = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/api/brain.pages.createMarkdown", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspaceSlug: true,
+            input: { slug: "a-note", title: "A note", markdown: "# A note" },
+            idempotencyKey: "brain-page-example-001",
+          }),
+        }),
+      ),
+    );
+
+    expect(invalidIdempotencyKey).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
+      },
+    });
+    expect(invalidWorkspaceSlug).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
       },
     });
   });
@@ -203,284 +688,6 @@ describe("template HTTP docs routes", () => {
       error: {
         _tag: "NotFound",
         message: "Unknown template HTTP route: /nope",
-      },
-    });
-  });
-
-  it("serves the generated MCP tool list and initialize handshake", async () => {
-    const initialize = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
-        }),
-      ),
-    );
-    const listed = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-        }),
-      ),
-    );
-
-    expect(initialize).toMatchObject({
-      jsonrpc: "2.0",
-      id: 1,
-      result: { capabilities: { prompts: {}, tools: {} } },
-    });
-    expect(listed).toMatchObject({
-      jsonrpc: "2.0",
-      id: 2,
-      result: {
-        tools: expect.arrayContaining([
-          expect.objectContaining({ name: "template.brain.sources.search" }),
-          expect.objectContaining({ name: "template.brain.answers.ask" }),
-          expect.objectContaining({ name: "template.brain.pages.history" }),
-        ]),
-      },
-    });
-    const tools = (
-      listed as {
-        result: {
-          tools: readonly {
-            name: string;
-            description: string;
-            annotations: {
-              readOnlyHint: boolean;
-              destructiveHint: boolean;
-              idempotentHint: boolean;
-              openWorldHint: boolean;
-            };
-            inputSchema: {
-              properties: Readonly<Record<string, unknown>>;
-              required?: readonly string[];
-            };
-          }[];
-        };
-      }
-    ).result.tools;
-    expect(tools).toHaveLength(7);
-    expect(tools.map((tool) => tool.name)).not.toContain(
-      "template.brain.pilot.ask",
-    );
-    for (const tool of tools) {
-      expect(tool.annotations).toEqual({
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      });
-      expect(tool.description).not.toContain("generated Confect");
-      expect(Object.keys(tool.inputSchema.properties)).not.toContain(
-        "brainKey",
-      );
-      expect(tool.inputSchema.required ?? []).not.toContain("brainKey");
-    }
-    expect(
-      tools.find((tool) => tool.name === "template.brain.answers.ask")
-        ?.inputSchema,
-    ).toMatchObject({
-      properties: {
-        maxCitations: expect.any(Object),
-        question: expect.any(Object),
-      },
-      required: ["question"],
-    });
-  });
-
-  it("serves the Ask Apero MCP prompt with grounded answer guidance", async () => {
-    const listed = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 3,
-            method: "prompts/list",
-          }),
-        }),
-      ),
-    );
-    const question = "What is Apero's current launch plan?";
-    const prompt = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 4,
-            method: "prompts/get",
-            params: { name: "ask-apero", arguments: { question } },
-          }),
-        }),
-      ),
-    );
-
-    expect(listed).toEqual({
-      jsonrpc: "2.0",
-      id: 3,
-      result: {
-        prompts: [
-          {
-            name: "ask-apero",
-            title: "Ask Apero",
-            description: expect.any(String),
-            arguments: [
-              {
-                name: "question",
-                description: expect.any(String),
-                required: true,
-              },
-            ],
-          },
-        ],
-      },
-    });
-    expect(prompt).toMatchObject({
-      jsonrpc: "2.0",
-      id: 4,
-      result: {
-        description: expect.any(String),
-        messages: [
-          {
-            role: "user",
-            content: { type: "text", text: expect.any(String) },
-          },
-        ],
-      },
-    });
-    const text = (
-      prompt as {
-        result: { messages: readonly [{ content: { text: string } }] };
-      }
-    ).result.messages[0].content.text;
-    expect(text).toContain(question);
-    expect(text).toContain("template.brain.context.get");
-    expect(text).toContain("ContextPack schema version 3");
-    expect(text).toContain("candidate-manifest version 2");
-    expect(text).toContain("citations");
-    expect(text).toContain("freshness");
-    expect(text).toContain("required coverage is unavailable");
-    expect(text).toContain("Do not invent");
-  });
-
-  it("rejects unknown and invalid Ask Apero MCP prompt requests", async () => {
-    const requestPrompt = async (
-      id: number,
-      params: Record<string, unknown>,
-    ): Promise<unknown> =>
-      await readJson(
-        await handleTemplateHttpRequest(
-          noopCtx,
-          new Request("https://template.local/mcp", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id,
-              method: "prompts/get",
-              params,
-            }),
-          }),
-        ),
-      );
-
-    expect(
-      await requestPrompt(5, {
-        name: "not-a-prompt",
-        arguments: { question: "What changed?" },
-      }),
-    ).toEqual({
-      jsonrpc: "2.0",
-      id: 5,
-      error: { code: -32602, message: "Unknown or unavailable MCP prompt." },
-    });
-    for (const [id, question] of [
-      [6, undefined],
-      [7, "   "],
-      [8, 42],
-    ] as const) {
-      expect(
-        await requestPrompt(id, {
-          name: "ask-apero",
-          arguments: { question },
-        }),
-      ).toEqual({
-        jsonrpc: "2.0",
-        id,
-        error: {
-          code: -32602,
-          message: "MCP prompt question must be a non-empty string.",
-        },
-      });
-    }
-  });
-
-  it("rejects MCP tool calls that are not in the reviewed operation policy", async () => {
-    const body = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 3,
-            method: "tools/call",
-            params: { name: "template.ops.brainOperations.listPolicies" },
-          }),
-        }),
-      ),
-    );
-
-    expect(body).toEqual({
-      jsonrpc: "2.0",
-      id: 3,
-      error: { code: -32602, message: "Unknown or unavailable MCP tool." },
-    });
-  });
-
-  it("marks typed Brain failures as MCP tool errors", async () => {
-    const body = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/mcp", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 4,
-            method: "tools/call",
-            params: {
-              name: "template.brain.context.get",
-              arguments: { question: "What is our ICP?" },
-            },
-          }),
-        }),
-      ),
-    );
-
-    expect(body).toMatchObject({
-      jsonrpc: "2.0",
-      id: 4,
-      result: {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: expect.stringContaining('"_tag":"Unauthorized"'),
-          },
-        ],
       },
     });
   });

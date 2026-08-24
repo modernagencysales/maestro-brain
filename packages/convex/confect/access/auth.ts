@@ -6,7 +6,7 @@ export type WorkspaceAccessReason =
 export type WorkspaceRef = {
   readonly id: string;
   readonly organizationId: string;
-  readonly status: "provisioning" | "active" | "archived";
+  readonly status: "active" | "archived";
 };
 
 export type OrganizationRef = {
@@ -180,11 +180,8 @@ export const resolveRoleCandidates = (
 
 export const highestCandidate = (
   candidates: readonly RoleCandidate[],
-): RoleCandidate | undefined => {
-  const direct = candidates.find((candidate) => candidate.source === "direct");
-  if (direct) return direct;
-
-  return candidates.reduce<RoleCandidate | undefined>((highest, candidate) => {
+): RoleCandidate | undefined =>
+  candidates.reduce<RoleCandidate | undefined>((highest, candidate) => {
     if (!highest) {
       return candidate;
     }
@@ -205,12 +202,11 @@ export const highestCandidate = (
 
     return highest;
   }, undefined);
-};
 
 export const resolveEffectiveWorkspaceRole = (
   snapshot: WorkspaceAccessSnapshot,
 ): WorkspaceRoleResolution => {
-  if (snapshot.workspace.status !== "active") {
+  if (snapshot.workspace.status === "archived") {
     return { ok: false, reason: "WORKSPACE_ARCHIVED" };
   }
 

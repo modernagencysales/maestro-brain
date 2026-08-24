@@ -1,8 +1,6 @@
 import { PostHog } from "@posthog/convex";
 import {
   createConfectFailureEvent,
-  createBrainMetricEvent,
-  type BrainMetricInput,
   type CapturedFailureKind,
 } from "@maestro-template/observability";
 import type { Scheduler } from "convex/server";
@@ -32,12 +30,4 @@ export const captureFailure = (
 ): Effect.Effect<void, unknown> =>
   Effect.tryPromise(() =>
     posthog.capture(ctx, createConfectFailureEvent(input)),
-  ).pipe(Effect.asVoid);
-
-export const captureBrainMetric = (
-  ctx: SchedulerCtx,
-  input: BrainMetricInput,
-): Effect.Effect<void, unknown> =>
-  Effect.tryPromise(() =>
-    posthog.capture(ctx, createBrainMetricEvent(input)),
   ).pipe(Effect.asVoid);

@@ -1,10 +1,33 @@
 import { Table } from "@confect/server";
+import * as Schema from "effect/Schema";
+import { Id } from "../_generated/id";
 
-import { PageRevisionRow } from "../brain/pageSchemas";
-
-export default Table.make(() => PageRevisionRow)
-  .index("by_workspace_ledger", ["workspaceId"])
-  .index("by_workspace_revision_key", ["workspaceId", "revisionKey"])
-  .index("by_page_created", ["workspaceId", "pageKey", "createdAt"])
-  .index("by_page_hash", ["workspaceId", "pageKey", "contentHash"])
-  .index("by_effect_key", ["workspaceId", "effectKey"]);
+// Immutable snapshots of every user-visible Brain page mutation.
+export default Table.make(() =>
+  Schema.Struct({
+    workspaceId: Id("workspaces"),
+    pageId: Id("brainPages"),
+    priorUpdatedAt: Schema.NullOr(Schema.Number),
+    updatedAt: Schema.Number,
+    title: Schema.String,
+    markdown: Schema.String,
+    sourceKind: Schema.Literals(["markdown", "link", "note"]),
+    causation: Schema.Literals([
+      "create",
+      "update",
+      "rename",
+      "move",
+      "favorite",
+      "archive",
+      "restore",
+    ]),
+    parentPageId: Schema.NullOr(Id("brainPages")),
+    sortKey: Schema.String,
+    favorite: Schema.Boolean,
+    status: Schema.Literals(["active", "archived"]),
+    actorUserId: Id("users"),
+    createdAt: Schema.Number,
+  }),
+)
+  .index("by_workspace", ["workspaceId"])
+  .index("by_workspace_page_updated", ["workspaceId", "pageId", "updatedAt"]);

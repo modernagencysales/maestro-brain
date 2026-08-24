@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   isSafeConditionExpression,
@@ -12,6 +12,8 @@ import {
 } from "../confect/workflows/_kit/graphRunner";
 import { validateWorkflowIdempotencyKey } from "../confect/workflows/_kit/ownership";
 import { projectWorkflowStatus } from "../confect/workflows/_kit/status";
+
+type AwaitEventInput = Parameters<RunDurableGraphStep["awaitEvent"]>[0];
 
 const classifyRef =
   "internal.capabilities.classify" as unknown as DurableGraphStepRef<"query">;
@@ -143,6 +145,33 @@ const agentGraph = {
   joins: [],
 } satisfies DurableWorkflowGraph;
 
+const parallelJoinGraph = {
+  id: "workflow_parallel_join",
+  version: 1,
+  startNodeId: "source",
+  nodes: ["source", "branchA", "branchB", "output"].map((id) => ({
+    id,
+    kind:
+      id === "source" ? "source" : id === "output" ? "output" : "capability",
+    label: id,
+    ...(id.startsWith("branch") ? { capability: id } : {}),
+    retry: { maxAttempts: 1, backoffMs: 0 },
+  })) as DurableWorkflowGraph["nodes"],
+  edges: [
+    { id: "source-a", sourceNodeId: "source", targetNodeId: "branchA" },
+    { id: "source-b", sourceNodeId: "source", targetNodeId: "branchB" },
+    { id: "a-output", sourceNodeId: "branchA", targetNodeId: "output" },
+    { id: "b-output", sourceNodeId: "branchB", targetNodeId: "output" },
+  ],
+  joins: [
+    {
+      nodeId: "output",
+      strategy: "all-successful",
+      sourceNodeIds: ["branchA", "branchB"],
+    },
+  ],
+} satisfies DurableWorkflowGraph;
+
 describe("workflow status projection", () => {
   it("projects component statuses and defaults unknown blobs safely", () => {
     expect(
@@ -209,9 +238,9 @@ describe("workflow ownership", () => {
     );
 
     expect(result).toMatchObject({
-      code: "VALIDATION_FAILED",
+      _tag: "ValidationFailed",
+      field: "idempotencyKey",
       message: "idempotencyKey must not have leading or trailing whitespace.",
-      details: { idempotencyKey: " workflow-run-001 " },
     });
   });
 });
@@ -250,132 +279,130 @@ describe("workflow condition grammar", () => {
 });
 
 describe("durable graph runner", () => {
-  it("returns default output without inserting it into its own context", async () => {
-    const sourceOutputGraph = {
-      id: "workflow_source_output",
-      version: 1,
-      startNodeId: "start",
-      nodes: [
-        {
-          id: "start",
-          kind: "source",
-          label: "Start",
-          retry: { maxAttempts: 1, backoffMs: 0 },
-        },
-        {
-          id: "output",
-          kind: "output",
-          label: "Output",
-          retry: { maxAttempts: 1, backoffMs: 0 },
-        },
-      ],
-      edges: [
-        {
-          id: "start_output",
-          sourceNodeId: "start",
-          targetNodeId: "output",
-        },
-      ],
-      joins: [],
-    } satisfies DurableWorkflowGraph;
-    const step: RunDurableGraphStep = {
-      runQuery: async () => null,
-      runAction: async () => null,
-      runMutation: async () => null,
-      sleep: async () => {},
-      awaitEvent: async <Result>() => ({}) as Result,
+  it("starts a complete ready wave and commits results in graph order", async () => {
+    const started: string[] = [];
+    const resolvers = new Map<string, (value: unknown) => void>();
+    const runQuery = async (
+      _ref: DurableGraphStepRef<"query">,
+      args: Record<string, unknown>,
+    ) => {
+      const nodeId = String(args.nodeId);
+      started.push(nodeId);
+      return new Promise((resolve) => resolvers.set(nodeId, resolve));
     };
-    const inputs = { workspaceId: "workspace_123" };
-    const policySnapshot = { mode: "test" };
-
-    await expect(
-      runDurableGraphWorkflow(step, {
-        graph: sourceOutputGraph,
-        inputs,
-        policySnapshot,
-        capabilityRegistry: {},
-      }),
-    ).resolves.toEqual({
-      inputs,
-      context: { start: inputs },
-      policySnapshot,
-    });
-  });
-
-  it("retries a failed node using its declared attempt and backoff policy", async () => {
-    const retryGraph = {
-      id: "workflow_retry",
-      version: 1,
-      startNodeId: "source",
-      nodes: [
-        {
-          id: "source",
-          kind: "source",
-          label: "Source",
-          retry: { maxAttempts: 1, backoffMs: 0 },
+    const promise = runDurableGraphWorkflow(
+      {
+        runQuery,
+        runMutation: async () => undefined,
+        runAction: async () => undefined,
+        sleep: async () => undefined,
+        awaitEvent: async () => {
+          throw new Error("parallel fixture does not await events");
         },
-        {
-          id: "unstable",
-          kind: "capability",
-          label: "Unstable",
-          capability: "unstableCapability",
-          retry: { maxAttempts: 2, backoffMs: 1_000 },
-        },
-        {
-          id: "output",
-          kind: "output",
-          label: "Output",
-          retry: { maxAttempts: 1, backoffMs: 0 },
-        },
-      ],
-      edges: [
-        {
-          id: "source_unstable",
-          sourceNodeId: "source",
-          targetNodeId: "unstable",
-        },
-        {
-          id: "unstable_output",
-          sourceNodeId: "unstable",
-          targetNodeId: "output",
-        },
-      ],
-      joins: [],
-    } satisfies DurableWorkflowGraph;
-    let attempts = 0;
-    const sleeps: Array<{
-      readonly delayMs: number;
-      readonly name: string | undefined;
-    }> = [];
-    const step: RunDurableGraphStep = {
-      runQuery: async () => {
-        attempts += 1;
-        if (attempts === 1) throw new Error("transient output failure");
-        return { ok: true };
       },
-      runAction: async () => null,
-      runMutation: async () => null,
-      sleep: async (delayMs, options) => {
-        sleeps.push({ delayMs, name: options?.name });
-      },
-      awaitEvent: async <Result>() => ({}) as Result,
-    };
-
-    await expect(
-      runDurableGraphWorkflow(step, {
-        graph: retryGraph,
+      {
+        graph: parallelJoinGraph,
         inputs: {},
         policySnapshot: {},
         capabilityRegistry: {
-          unstableCapability: { kind: "query", ref: classifyRef },
+          branchA: {
+            kind: "query",
+            ref: classifyRef,
+            buildArgs: ({ node }) => ({ nodeId: node.id }),
+          },
+          branchB: {
+            kind: "query",
+            ref: classifyRef,
+            buildArgs: ({ node }) => ({ nodeId: node.id }),
+          },
         },
-        projectOutput: ({ context }) => ({ result: context.unstable }),
-      }),
-    ).resolves.toEqual({ result: { ok: true } });
-    expect(attempts).toBe(2);
-    expect(sleeps).toEqual([
-      { delayMs: 1_000, name: "workflow_retry.unstable.retry.2" },
+        projectOutput: ({ context }) => ({ keys: Object.keys(context) }),
+      },
+    );
+
+    await vi.waitFor(() => expect(started).toEqual(["branchA", "branchB"]));
+    resolvers.get("branchB")?.({ branch: "B" });
+    let settled = false;
+    void promise.finally(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    resolvers.get("branchA")?.({ branch: "A" });
+    await expect(promise).resolves.toEqual({
+      keys: ["source", "branchA", "branchB"],
+    });
+  });
+
+  it("waits for settled siblings and preserves stable observation order on failure", async () => {
+    const resolvers = new Map<
+      string,
+      { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    >();
+    const observations: Record<string, unknown>[] = [];
+    const promise = runDurableGraphWorkflow(
+      {
+        runQuery: async (_ref, args) =>
+          new Promise((resolve, reject) =>
+            resolvers.set(String(args.nodeId), { resolve, reject }),
+          ),
+        runMutation: async (_ref, args) => {
+          observations.push(args);
+          return undefined;
+        },
+        runAction: async () => undefined,
+        sleep: async () => undefined,
+        awaitEvent: async () => {
+          throw new Error("parallel fixture does not await events");
+        },
+      },
+      {
+        graph: parallelJoinGraph,
+        inputs: {},
+        policySnapshot: {},
+        capabilityRegistry: {
+          branchA: {
+            kind: "query",
+            ref: classifyRef,
+            buildArgs: ({ node }) => ({ nodeId: node.id }),
+          },
+          branchB: {
+            kind: "query",
+            ref: classifyRef,
+            buildArgs: ({ node }) => ({ nodeId: node.id }),
+          },
+        },
+        observability: {
+          recordStageStarted: stageStartedRef,
+          recordStageFinished: stageFinishedRef,
+        },
+      },
+    );
+    await vi.waitFor(() => expect(resolvers.size).toBe(2));
+    resolvers.get("branchB")?.reject(new Error("branch B failed"));
+    let settled = false;
+    void promise
+      .finally(() => {
+        settled = true;
+      })
+      .catch(() => undefined);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    resolvers.get("branchA")?.resolve({ branch: "A" });
+    await expect(promise).rejects.toThrow("branch B failed");
+    expect(
+      observations.filter(
+        (entry) =>
+          entry.status === "running" &&
+          String(entry.nodeId).startsWith("branch"),
+      ),
+    ).toEqual([
+      expect.objectContaining({ nodeId: "branchA", order: 1 }),
+      expect.objectContaining({ nodeId: "branchB", order: 2 }),
     ]);
+    expect(observations).toContainEqual(
+      expect.objectContaining({ nodeId: "branchA", status: "succeeded" }),
+    );
   });
 
   it("dispatches through the registry, sleeps, awaits approval, and observes stages", async () => {
@@ -407,7 +434,8 @@ describe("durable graph runner", () => {
       sleep: async (delayMs, options) => {
         sleeps.push({ delayMs, name: options?.name });
       },
-      awaitEvent: async <Result>(event: { readonly name: string }) => {
+      awaitEvent: async <Result>(event: AwaitEventInput) => {
+        if (!event.name) throw new Error("V1 approval fixture requires a name");
         events.push(event.name);
         return { approvedBy: "user_123" } as Result;
       },
@@ -481,7 +509,8 @@ describe("durable graph runner", () => {
       sleep: async (delayMs, options) => {
         sleeps.push({ delayMs, name: options?.name });
       },
-      awaitEvent: async <Result>(event: { readonly name: string }) => {
+      awaitEvent: async <Result>(event: AwaitEventInput) => {
+        if (!event.name) throw new Error("V1 approval fixture requires a name");
         events.push(event.name);
         return { approvedBy: "user_123" } as Result;
       },

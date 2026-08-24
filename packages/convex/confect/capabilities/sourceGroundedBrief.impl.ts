@@ -5,9 +5,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
 import { requireWorkspaceAccess } from "./_kit/workspaceAccess";
+import { runFakeSourceGroundedBrief } from "./sourceGroundedBrief.fake";
 import { normalizeSourceGroundedBriefInput } from "./sourceGroundedBrief.domain";
 import type { SourceGroundedBriefInput } from "./sourceGroundedBrief.domain";
-import { runFakeSourceGroundedBrief } from "./sourceGroundedBrief.fake";
 import sourceGroundedBrief from "./sourceGroundedBrief.spec";
 
 const unsafeAssumeClockProvided = <A, E, R>(
@@ -30,15 +30,13 @@ const runSourceGroundedBrief = (input: SourceGroundedBriefInput) =>
       return yield* normalized;
     }
 
-    const sources = normalized.sourceIds.map((sourceId) => ({
-      id: sourceId,
-      title: `Source ${sourceId}`,
-      markdown: "Synthetic source content for fake-mode capability run.",
-    }));
-
     return runFakeSourceGroundedBrief({
       input: normalized,
-      sources,
+      sources: normalized.sourceIds.map((sourceId) => ({
+        id: sourceId,
+        title: `Source ${sourceId}`,
+        markdown: "Synthetic source content for fake-mode capability run.",
+      })),
       policySnapshotId: `policy_snapshot_${normalized.idempotencyKey}`,
       modelReceiptId: `model_receipt_${normalized.idempotencyKey}`,
     });

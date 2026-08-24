@@ -13,6 +13,10 @@ import {
   schemaRegistry as sourceGroundedBriefSchemaRegistry,
 } from "../../../packages/convex/confect/capabilities/sourceGroundedBrief.spec";
 import {
+  manifest as assistantManifest,
+  schemaRegistry as assistantSchemaRegistry,
+} from "../../../packages/convex/confect/agents/assistant.spec";
+import {
   manifest as brainPagesManifest,
   schemaRegistry as brainPagesSchemaRegistry,
 } from "../../../packages/convex/confect/brain/pages.spec";
@@ -21,27 +25,23 @@ import {
   schemaRegistry as dataLifecycleSchemaRegistry,
 } from "../../../packages/convex/confect/ops/dataLifecycle.spec";
 import {
-  manifest as brainPilotManifest,
-  schemaRegistry as brainPilotSchemaRegistry,
-} from "../../../packages/convex/confect/brain/pilot.spec";
-import {
-  manifest as brainReadApiManifest,
-  schemaRegistry as brainReadApiSchemaRegistry,
-} from "../../../packages/convex/confect/brain/readApi.spec";
+  manifest as emailManifest,
+  schemaRegistry as emailSchemaRegistry,
+} from "../../../packages/convex/confect/ops/email.spec";
 
 const functions = [
+  ...assistantManifest,
   ...brainPagesManifest,
   ...sourceGroundedBriefManifest,
   ...dataLifecycleManifest,
-  ...brainPilotManifest,
-  ...brainReadApiManifest,
+  ...emailManifest,
 ];
 const schemaRegistry = mergeContractSchemaRegistries(
+  assistantSchemaRegistry,
   brainPagesSchemaRegistry,
   sourceGroundedBriefSchemaRegistry,
   dataLifecycleSchemaRegistry,
-  brainPilotSchemaRegistry,
-  brainReadApiSchemaRegistry,
+  emailSchemaRegistry,
 );
 
 const duplicateIds = duplicateOperationIds(functions);
@@ -75,12 +75,12 @@ if (missingSchemas.length > 0) {
 }
 
 const generatedRefModules: Readonly<Record<string, string>> = {
+  "agents.assistant": "packages/convex/convex/agents/assistant.ts",
   "brain.pages": "packages/convex/convex/brain/pages.ts",
   "capabilities.sourceGroundedBrief":
     "packages/convex/convex/capabilities/sourceGroundedBrief.ts",
   "ops.dataLifecycle": "packages/convex/convex/ops/dataLifecycle.ts",
-  "brain.pilot": "packages/convex/convex/brain/pilot.ts",
-  "brain.readApi": "packages/convex/convex/brain/readApi.ts",
+  "ops.email": "packages/convex/convex/ops/email.ts",
 };
 
 const escapeRegExp = (input: string): string =>

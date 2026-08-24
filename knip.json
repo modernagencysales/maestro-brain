@@ -3,34 +3,70 @@
   "include": ["dependencies"],
   "workspaces": {
     ".": {
-      "entry": ["package.json"],
-      "project": []
+      "entry": ["package.json", "tooling/saas-ui/*.{ts,mts}"],
+      "project": ["tooling/saas-ui/**/*.{ts,mts}"]
+    },
+    "apps/web": {
+      "entry": [
+        "src/start.ts",
+        "src/routes/**/*.{ts,tsx}",
+        "src/components/**/*.{ts,tsx}",
+        "src/features/**/*.{ts,tsx}"
+      ],
+      "ignoreDependencies": ["@confect/react"]
+    },
+    "packages/convex": {
+      "ignoreDependencies": ["dodopayments"]
+    },
+    "packages/i18n": {
+      "ignoreDependencies": [
+        "@formatjs/intl-localematcher",
+        "@formatjs/ts-transformer",
+        "intl-messageformat",
+        "negotiator",
+        "server-only"
+      ]
+    },
+    "packages/ui": {
+      "entry": ["src/*/index.ts"],
+      "ignoreDependencies": [
+        "@internationalized/date",
+        "@react-hookz/web",
+        "@storybook/addon-essentials",
+        "@storybook/addon-links",
+        "@storybook/cli",
+        "@tiptap/extension-mention",
+        "@tiptap/extension-text-style",
+        "@tiptap/suggestion",
+        "@workspace/i18n",
+        "date-fns",
+        "prosemirror-commands",
+        "prosemirror-dropcursor",
+        "prosemirror-gapcursor",
+        "prosemirror-history",
+        "prosemirror-keymap",
+        "prosemirror-model",
+        "prosemirror-schema-list",
+        "prosemirror-state",
+        "prosemirror-transform",
+        "prosemirror-view",
+        "react-icons",
+        "react-is"
+      ]
     }
   },
   "ignoreDependencies": [
     "@blocknote/core",
-    "@blocknote/react",
     "@confect/js",
     "@confect/core",
     "@confect/server",
+    "fast-check",
     "@confect/test",
     "@convex-dev/prosemirror-sync",
     "@convex-dev/workflow",
-    "@effect/cluster",
-    "@effect/platform",
-    "@effect/platform-node",
     "@effect/vitest",
-    "@maestro-template/editor-core",
-    "@maestro-template/editor-react",
     "@maestro-template/template-core",
-    "@maestro-template/workflow-tooling",
     "@posthog/convex",
-    "@dnd-kit/core",
-    "@dnd-kit/sortable",
-    "@dnd-kit/utilities",
-    "@saas-ui-pro/feature-flags",
-    "@saas-ui/assets",
-    "@tailwindcss/vite",
     "@tiptap/core",
     "@tiptap/pm",
     "convex",
@@ -38,7 +74,6 @@
     "effect",
     "react",
     "react-dom",
-    "tailwindcss",
     "tsx"
   ]
 }

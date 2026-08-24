@@ -15,6 +15,10 @@ import {
 } from "./graphRunnerTraversal";
 import { runObservedWorkflowStage } from "./observedStage";
 import type { RunDurableGraphInput, RunDurableGraphStep } from "./graphRunner";
+import {
+  assertWorkflowPayloadBudget,
+  observeWorkflowPayload,
+} from "./payloadBudget";
 
 type GraphExecutionState = Omit<
   TraversalSnapshot,
@@ -30,6 +34,8 @@ type GraphExecutionState = Omit<
   readonly failedEdges: Set<string>;
   readonly queuedNodes: Set<string>;
   readonly queue: string[];
+  readonly graphOrder: ReadonlyMap<string, number>;
+  observedJournalBytes: number;
   order: number;
 };
 
@@ -68,7 +74,7 @@ export const runGraphExecution = async (
   const state = createExecutionState(input, startNode);
 
   while (state.queue.length > 0) {
-    const outcome = await processNextQueuedNode(step, state);
+    const outcome = await processReadyWave(step, state);
     if (outcome.type === "output") {
       return outcome.value;
     }
@@ -99,63 +105,82 @@ const createExecutionState = (
     failedEdges: new Set<string>(),
     queuedNodes: new Set<string>([startNode.id]),
     queue: [startNode.id],
+    graphOrder: new Map(
+      input.graph.nodes.map((node, index) => [node.id, index]),
+    ),
+    observedJournalBytes: 0,
     order: 0,
   };
 };
 
-const processNextQueuedNode = async (
+const processReadyWave = async (
   step: RunDurableGraphStep,
   state: GraphExecutionState,
 ): Promise<ProcessNodeOutcome> => {
-  const node = dequeueNode(state);
-  if (!node) {
+  const wave = dequeueReadyWave(state);
+  if (wave.length === 0) {
     return { type: "continue" };
   }
-
-  const result = await runGraphNode(step, state, node);
-  if (node.kind === "output") {
-    return outputNodeResult(result);
+  const outcomes = await Promise.allSettled(
+    wave.map((node, index) =>
+      runGraphNode(step, state, node, state.order + index),
+    ),
+  );
+  for (const [index, node] of wave.entries()) {
+    const outcome = outcomes[index];
+    if (outcome?.status === "fulfilled")
+      recordNodeResult(state, node, outcome.value);
   }
-  recordNodeResult(state, node, result);
-  return continueAfterEnqueue(state, node);
+  const failedIndex = outcomes.findIndex(
+    (outcome) => outcome.status === "rejected",
+  );
+  if (failedIndex >= 0)
+    throw (outcomes[failedIndex] as PromiseRejectedResult).reason;
+  for (const node of wave) enqueueActiveTargets(state, node);
+  const outputIndex = wave.findIndex((node) => node.kind === "output");
+  return outputIndex < 0
+    ? { type: "continue" }
+    : outputNodeResult(
+        (outcomes[outputIndex] as PromiseFulfilledResult<unknown>).value,
+      );
 };
 
-const dequeueNode = (state: GraphExecutionState): WorkflowNode | undefined => {
-  const nodeId = state.queue.shift();
-  if (!nodeId || state.completedNodes.has(nodeId)) {
-    return undefined;
-  }
-  state.queuedNodes.delete(nodeId);
-  return state.nodesById.get(nodeId);
+const dequeueReadyWave = (
+  state: GraphExecutionState,
+): readonly WorkflowNode[] => {
+  const nodeIds = state.queue.splice(0);
+  const nodes = nodeIds
+    .flatMap((nodeId) => {
+      state.queuedNodes.delete(nodeId);
+      const node = state.nodesById.get(nodeId);
+      return node && !state.completedNodes.has(nodeId) ? [node] : [];
+    })
+    .sort(
+      (left, right) =>
+        (state.graphOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+          (state.graphOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) ||
+        left.id.localeCompare(right.id),
+    );
+  return nodes;
 };
 
-const runGraphNode = async (
+const runGraphNode = (
   step: RunDurableGraphStep,
   state: GraphExecutionState,
   node: WorkflowNode,
-): Promise<unknown> => {
-  for (let attemptNumber = 1; ; attemptNumber += 1) {
-    try {
-      return await runObservedWorkflowStage({
-        step,
-        ...observabilityArgs(state.input),
-        nodeId: node.id,
-        label: node.label,
-        kind: node.kind,
-        stageKey: node.id,
-        attemptNumber,
-        order: state.order,
-        run: () => executeAndValidateNode(step, state, node),
-      });
-    } catch (error) {
-      if (attemptNumber >= node.retry.maxAttempts) throw error;
-      const nextAttempt = attemptNumber + 1;
-      await step.sleep(node.retry.backoffMs, {
-        name: `${state.input.graph.id}.${node.id}.retry.${nextAttempt}`,
-      });
-    }
-  }
-};
+  order: number,
+): Promise<unknown> =>
+  runObservedWorkflowStage({
+    step,
+    ...observabilityArgs(state.input),
+    nodeId: node.id,
+    label: node.label,
+    kind: node.kind,
+    stageKey: node.id,
+    attemptNumber: "unknown",
+    order,
+    run: () => executeAndValidateNode(step, state, node),
+  });
 
 const observabilityArgs = (
   input: RunDurableGraphInput,
@@ -184,6 +209,15 @@ const executeAndValidateNode = async (
     context: state.context,
   });
   assertJsonSafe(result, `Workflow node ${node.id} returned non-JSON output.`);
+  assertWorkflowPayloadBudget({
+    surface: node.kind === "output" ? "workflow-return" : "step-result",
+    phase:
+      node.kind === "output"
+        ? "pre-product-projection"
+        : "pre-component-return",
+    nodeId: node.id,
+    value: result,
+  });
   if (node.kind === "output") {
     assertJsonObject(result, "Workflow output must be a JSON object.");
   }
@@ -197,20 +231,17 @@ const recordNodeResult = (
 ): void => {
   state.order += 1;
   state.context[node.id] = result;
+  state.observedJournalBytes = observeWorkflowPayload({
+    nodeId: node.id,
+    observedJournalBytes: state.observedJournalBytes,
+    value: result,
+  }).observedJournalBytes;
   state.completedNodes.add(node.id);
 };
 
 const outputNodeResult = (result: unknown): ProcessNodeOutcome => {
   assertJsonObject(result, "Workflow output must be a JSON object.");
   return { type: "output", value: result as Readonly<Record<string, unknown>> };
-};
-
-const continueAfterEnqueue = (
-  state: GraphExecutionState,
-  node: WorkflowNode,
-): ProcessNodeOutcome => {
-  enqueueActiveTargets(state, node);
-  return { type: "continue" };
 };
 
 const enqueueActiveTargets = (

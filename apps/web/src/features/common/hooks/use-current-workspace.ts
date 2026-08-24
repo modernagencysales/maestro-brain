@@ -1,19 +1,28 @@
-"use client";
+'use client'
 
-import type { TagDTO, WorkspaceDTO } from "@workspace/api/types";
+import { api } from '#lib/trpc/react'
+import type { Workspace } from '#lib/trpc/react'
 
-import { useGoldenAdapter } from "../../golden/adapters";
-
-import { useWorkspaceSlug } from "./use-workspace-slug";
+import { useWorkspaceSlug } from './use-workspace-slug'
 
 export const useCurrentWorkspace = () => {
-  useWorkspaceSlug();
-  const { currentWorkspace } = useGoldenAdapter();
-  const workspace: WorkspaceDTO & { tags: TagDTO[] } = {
-    ...currentWorkspace,
-    members: currentWorkspace.members.map((member) => ({ ...member })),
-    subscription: { ...currentWorkspace.subscription },
-    tags: currentWorkspace.tags.map((tag) => ({ ...tag })),
-  };
-  return [workspace] as const;
-};
+  const slug = useWorkspaceSlug()
+
+  const [workspace, query] = api.workspaces.bySlug.useSuspenseQuery(
+    { slug },
+    {
+      retry(failureCount, error) {
+        return failureCount < 3 && error.data?.httpStatus !== 404
+      },
+    },
+  )
+
+  return [requireCurrentWorkspace(workspace), query] as const
+}
+
+export const requireCurrentWorkspace = (
+  workspace: Workspace | null,
+): Workspace => {
+  if (!workspace) throw new Error('The current workspace route was not admitted')
+  return workspace
+}

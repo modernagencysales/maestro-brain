@@ -1,155 +1,338 @@
+import {
+  Agent,
+  extractText,
+  getThreadMetadata,
+  listMessages,
+  type AgentComponent,
+  type MessageDoc,
+} from "@convex-dev/agent";
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import { componentsGeneric } from "convex/server";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
-import { continueAgentTurn, createAgentRuntime } from "./runtime";
-import { sourceGroundedBriefTool } from "./defineTools";
-import assistant, {
-  AssistantError,
-  verifyWorkspaceAccess,
-} from "./assistant.spec";
+import refs from "../_generated/refs";
+import {
+  ActionCtx,
+  DatabaseReader,
+  QueryCtx,
+  QueryRunner,
+} from "../_generated/services";
+import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import {
+  MemberNotInWorkspace,
+  Unauthorized,
+  WorkspaceNotFound,
+} from "../errors";
+import { RuntimeModeConfig } from "../shared/config";
+import { loadLlmGatewayEnvConfig } from "../shared/env";
+import assistant, { AssistantError } from "./assistant.spec";
+import { buildGroundedAnswer } from "./assistantGrounding";
+import { createAssistantLanguageModel } from "./assistantModel";
 
-const fakeMemberships = [
-  {
-    workspaceId: "workspace_123",
-    userId: "user_123",
-    status: "active",
-  },
-] as const;
+const agentComponent = componentsGeneric().agent as unknown as AgentComponent;
 
-const requireWorkspaceAccess = (input: {
-  readonly workspaceId: string;
-  readonly userId: string;
-}) => {
-  const access = verifyWorkspaceAccess({
-    ...input,
-    memberships: fakeMemberships,
+const withConfectClock = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, Clock.Clock>> =>
+  effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
+
+const assistantAccess = (
+  workspaceId: Parameters<typeof requireWorkspaceAccess>[0],
+) =>
+  withConfectClock(requireWorkspaceAccess(workspaceId, "viewer")).pipe(
+    Effect.mapError((error) => {
+      if (error instanceof Unauthorized) {
+        return new AssistantError.Unauthenticated();
+      }
+      if (
+        error instanceof MemberNotInWorkspace ||
+        error instanceof WorkspaceNotFound
+      ) {
+        return new AssistantError.NoWorkspaceAccess({
+          workspaceId,
+          userId: "authenticated-user",
+        });
+      }
+      return new AssistantError.Unauthenticated();
+    }),
+  );
+
+const threadOwnerKey = (workspaceId: string, userId: string) =>
+  `workspace:${workspaceId}:user:${userId}`;
+
+const resolveAgent = Effect.gen(function* () {
+  const mode = yield* RuntimeModeConfig.pipe(Effect.orDie);
+  const env = yield* loadLlmGatewayEnvConfig.pipe(Effect.orDie);
+  const languageModel = yield* Effect.try({
+    try: () => createAssistantLanguageModel({ mode, env }),
+    catch: providerUnavailable,
   });
 
-  return access.ok ? undefined : access.error;
+  return new Agent(agentComponent, {
+    name: "Maestro Assistant",
+    languageModel,
+    instructions:
+      "Help the user understand and act on their workspace context. Be concise and do not invent sources.",
+  });
+});
+
+const projectMessage = (message: MessageDoc) => {
+  const role = message.message?.role;
+  if (role !== "user" && role !== "assistant" && role !== "tool") return null;
+  return {
+    id: message._id,
+    role,
+    content:
+      (message.message === undefined
+        ? undefined
+        : extractText(message.message)) ??
+      message.text ??
+      "",
+    createdAt: message._creationTime,
+  };
 };
+
+const readThreadMessages = async (
+  ctx: Parameters<typeof listMessages>[0],
+  threadId: string,
+) => {
+  const result = await listMessages(ctx, agentComponent, {
+    threadId,
+    paginationOpts: { numItems: 100, cursor: null },
+  });
+  return result.page.flatMap((message) => {
+    const projected = projectMessage(message);
+    return projected === null ? [] : [projected];
+  });
+};
+
+const readThreadOwner = async (
+  ctx: Parameters<typeof getThreadMetadata>[0],
+  threadId: string,
+) => {
+  const metadata = await getThreadMetadata(ctx, agentComponent, { threadId });
+  return metadata.userId;
+};
+
+const providerUnavailable = () =>
+  new AssistantError.ValidationFailed({
+    field: "provider",
+    message: "Assistant provider is unavailable.",
+  });
+
+const resolveAccess = FunctionImpl.make(
+  databaseSchema,
+  assistant,
+  "resolveAccess",
+  ({ workspaceId }) =>
+    assistantAccess(workspaceId).pipe(Effect.map(({ userId }) => ({ userId }))),
+);
+
+const answerQuestion = FunctionImpl.make(
+  databaseSchema,
+  assistant,
+  "answerQuestion",
+  ({ workspaceId, question, maxCitations }) =>
+    Effect.gen(function* () {
+      const normalizedQuestion = question.trim();
+      if (normalizedQuestion.length === 0)
+        return yield* new AssistantError.ValidationFailed({
+          field: "question",
+          message: "Question must not be blank.",
+        });
+      yield* assistantAccess(workspaceId);
+      const reader = yield* DatabaseReader;
+      const now = yield* withConfectClock(Clock.currentTimeMillis);
+      const pages = yield* reader
+        .table("brainPages")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .collect()
+        .pipe(Effect.orDie);
+      const revisions = yield* reader
+        .table("pageRevisions")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .collect()
+        .pipe(Effect.orDie);
+      const grounded = buildGroundedAnswer({
+        workspaceId,
+        question: normalizedQuestion,
+        pages: pages.map((page) => ({
+          id: page._id,
+          workspaceId: page.workspaceId,
+          title: page.title,
+          markdown: page.markdown,
+          updatedAt: page.updatedAt,
+          status: page.status ?? "active",
+        })),
+        revisions: revisions.map((revision) => ({
+          workspaceId: revision.workspaceId,
+          pageId: revision.pageId,
+          title: revision.title,
+          markdown: revision.markdown,
+          updatedAt: revision.updatedAt,
+          status: revision.status,
+        })),
+        now,
+        ...(maxCitations === undefined ? {} : { maxCitations }),
+      });
+      const contextPack = {
+        schemaVersion: "3" as const,
+        candidateManifest: {
+          schemaVersion: "2" as const,
+          candidateKeys: grounded.citations.map(
+            ({ sourceRevisionId }) => sourceRevisionId,
+          ),
+        },
+        workspaceId,
+        question: normalizedQuestion,
+        asOf: grounded.asOf,
+        freshness: grounded.freshness,
+        citations: grounded.citations,
+        omissions: grounded.omissions,
+      };
+
+      return grounded.status === "answered"
+        ? {
+            status: "answered" as const,
+            answerMarkdown: grounded.answerMarkdown ?? "",
+            contextPack,
+          }
+        : {
+            status: "insufficient-context" as const,
+            reason: "no-eligible-evidence" as const,
+            answerMarkdown: null,
+            contextPack,
+          };
+    }),
+);
+
+const resolveActionAccess = (
+  workspaceId: Parameters<typeof assistantAccess>[0],
+) =>
+  Effect.gen(function* () {
+    const query = yield* QueryRunner;
+    return yield* query(refs.internal.agents.assistant.resolveAccess, {
+      workspaceId,
+    }).pipe(Effect.catchTag("SchemaError", () => providerUnavailable()));
+  });
 
 const startThread = FunctionImpl.make(
   databaseSchema,
   assistant,
   "startThread",
-  ({ workspaceId, userId, firstMessage }) => {
-    const accessError = requireWorkspaceAccess({ workspaceId, userId });
-
-    if (accessError) {
-      return Effect.fail(accessError);
-    }
-
-    return Effect.succeed({
-      threadId: `thread_${workspaceId}_${userId}`,
-      messages: [
-        {
-          id: "msg_user_001",
-          role: "user" as const,
-          content: firstMessage,
-          createdAt: 1,
+  ({ workspaceId, firstMessage }) =>
+    Effect.gen(function* () {
+      const access = yield* resolveActionAccess(workspaceId);
+      const ctx = yield* ActionCtx;
+      const runtime = yield* resolveAgent.pipe(
+        Effect.mapError(providerUnavailable),
+      );
+      const ownerKey = threadOwnerKey(workspaceId, access.userId);
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const { threadId } = await runtime.createThread(ctx, {
+            userId: ownerKey,
+            title: firstMessage.slice(0, 80),
+          });
+          await runtime.generateText(
+            ctx,
+            { threadId, userId: ownerKey },
+            { prompt: firstMessage },
+          );
+          return {
+            threadId,
+            messages: await readThreadMessages(ctx, threadId),
+          };
         },
-        {
-          id: "msg_assistant_001",
-          role: "assistant" as const,
-          content:
-            "I can use sourceGroundedBrief when the agent policy grants capability.run.",
-          createdAt: 2,
-        },
-      ],
-    });
-  },
+        catch: (error) =>
+          error instanceof AssistantError.ThreadNotFound
+            ? error
+            : new AssistantError.ValidationFailed({
+                field: "message",
+                message: "Unable to start assistant thread.",
+              }),
+      });
+    }),
 );
 
 const continueThread = FunctionImpl.make(
   databaseSchema,
   assistant,
   "continueThread",
-  ({ workspaceId, userId, threadId, message, idempotencyKey }) => {
-    const accessError = requireWorkspaceAccess({ workspaceId, userId });
-
-    if (accessError) {
-      return Effect.fail(accessError);
-    }
-
-    return Effect.promise(async () => {
-      const runtime = createAgentRuntime({
-        workspaceId,
-        policy: {
-          allowedToolGrantIds: ["capability.run"],
-          maxToolCalls: 2,
-          modelRef: "openrouter:fake/local-demo",
-        },
-        tools: [sourceGroundedBriefTool],
+  ({ workspaceId, threadId, message }) =>
+    Effect.gen(function* () {
+      const access = yield* resolveActionAccess(workspaceId);
+      const ctx = yield* ActionCtx;
+      const runtime = yield* resolveAgent.pipe(
+        Effect.mapError(providerUnavailable),
+      );
+      const ownerKey = threadOwnerKey(workspaceId, access.userId);
+      const storedOwner = yield* Effect.tryPromise({
+        try: () => readThreadOwner(ctx, threadId),
+        catch: () => new AssistantError.ThreadNotFound({ threadId }),
       });
-      const turn = await continueAgentTurn(runtime, {
-        threadId,
-        userMessage: message,
-        requestedToolName: "sourceGroundedBrief",
-        toolArgs: {
-          workspaceId,
-          sourceIds: ["source_1"],
-          briefGoal: message,
-          idempotencyKey,
+      if (storedOwner !== ownerKey) {
+        return yield* new AssistantError.ThreadNotFound({ threadId });
+      }
+      return yield* Effect.tryPromise({
+        try: async () => {
+          await runtime.generateText(
+            ctx,
+            { threadId, userId: ownerKey },
+            { prompt: message },
+          );
+          return {
+            threadId,
+            messages: await readThreadMessages(ctx, threadId),
+            toolCallCount: 0,
+          };
         },
+        catch: (error) =>
+          error instanceof AssistantError.ThreadNotFound
+            ? error
+            : new AssistantError.ValidationFailed({
+                field: "message",
+                message: "Unable to continue assistant thread.",
+              }),
       });
-
-      return {
-        threadId,
-        messages: [
-          {
-            id: "msg_user_continue",
-            role: "user" as const,
-            content: message,
-            createdAt: 3,
-          },
-          {
-            id: "msg_assistant_continue",
-            role: "assistant" as const,
-            content: turn.assistantMessage,
-            createdAt: 4,
-          },
-        ],
-        toolCallCount: turn.toolCalls.length,
-      };
-    }).pipe(
-      Effect.mapError(
-        () =>
-          new AssistantError.ValidationFailed({
-            field: "message",
-            message: "Unable to continue assistant thread.",
-          }),
-      ),
-    );
-  },
+    }),
 );
 
 const listThreadMessages = FunctionImpl.make(
   databaseSchema,
   assistant,
   "listThreadMessages",
-  ({ workspaceId, userId, threadId }) => {
-    const accessError = requireWorkspaceAccess({ workspaceId, userId });
-
-    if (accessError) {
-      return Effect.fail(accessError);
-    }
-
-    return Effect.succeed([
-      {
-        id: `${threadId}_summary`,
-        role: "assistant" as const,
-        content:
-          "This fake/local assistant thread re-verifies workspace access before reading messages.",
-        createdAt: 1,
-      },
-    ]);
-  },
+  ({ workspaceId, threadId }) =>
+    Effect.gen(function* () {
+      const access = yield* assistantAccess(workspaceId);
+      const ctx = yield* QueryCtx;
+      const ownerKey = threadOwnerKey(workspaceId, access.userId);
+      const storedOwner = yield* Effect.tryPromise({
+        try: () => readThreadOwner(ctx, threadId),
+        catch: () => new AssistantError.ThreadNotFound({ threadId }),
+      });
+      if (storedOwner !== ownerKey) {
+        return yield* new AssistantError.ThreadNotFound({ threadId });
+      }
+      return yield* Effect.tryPromise({
+        try: async () => {
+          return await readThreadMessages(ctx, threadId);
+        },
+        catch: (error) =>
+          error instanceof AssistantError.ThreadNotFound
+            ? error
+            : new AssistantError.ThreadNotFound({ threadId }),
+      });
+    }),
 );
 
 export default GroupImpl.make(databaseSchema, assistant).pipe(
+  Layer.provide(answerQuestion),
   Layer.provide(startThread),
   Layer.provide(continueThread),
   Layer.provide(listThreadMessages),
+  Layer.provide(resolveAccess),
   GroupImpl.finalize,
 );

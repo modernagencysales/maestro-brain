@@ -5,52 +5,15 @@ export const confectManifest = {
   generatedAt: "1970-01-01T00:00:00.000Z",
   functions: [
     {
-      namespace: "brain.readApi",
-      name: "answersAsk",
-      operationId: "brain.answers.ask",
+      namespace: "agents.assistant",
+      name: "answerQuestion",
+      operationId: "agents.assistant.answerQuestion",
       kind: "query",
-      surfaces: ["api", "mcp"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "PageNotFound",
-        "ValidationFailed",
-        "SubsystemDisabled",
-        "CitationIntegrityFailure",
-        "RetrievalCapacityExceeded",
-        "RetrievalIntegrityFailure",
-        "RolloutStatusCapacityExceeded",
-        "RolloutStatusIntegrityConflict",
-      ],
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: ["Unauthenticated", "NoWorkspaceAccess", "ValidationFailed"],
       idempotent: true,
-      argsSchemaName: "brain.readApi.answersAsk.args",
-      returnsSchemaName: "brain.readApi.answersAsk.returns",
-    },
-    {
-      namespace: "brain.readApi",
-      name: "contextGet",
-      operationId: "brain.context.get",
-      kind: "query",
-      surfaces: ["api", "mcp"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "PageNotFound",
-        "ValidationFailed",
-        "SubsystemDisabled",
-        "CitationIntegrityFailure",
-        "RetrievalCapacityExceeded",
-        "RetrievalIntegrityFailure",
-        "RolloutStatusCapacityExceeded",
-        "RolloutStatusIntegrityConflict",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.readApi.contextGet.args",
-      returnsSchemaName: "brain.readApi.contextGet.returns",
+      argsSchemaName: "agents.assistant.answerQuestion.args",
+      returnsSchemaName: "agents.assistant.answerQuestion.returns",
     },
     {
       namespace: "brain.pages",
@@ -60,13 +23,10 @@ export const confectManifest = {
       surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -75,24 +35,19 @@ export const confectManifest = {
     },
     {
       namespace: "brain.pages",
-      name: "create",
-      operationId: "brain.pages.create",
+      name: "createMarkdown",
+      operationId: "brain.pages.createMarkdown",
       kind: "mutation",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
-        "StaleRevision",
       ],
       idempotent: false,
-      argsSchemaName: "brain.pages.create.args",
-      returnsSchemaName: "brain.pages.create.returns",
+      argsSchemaName: "brain.pages.createMarkdown.args",
+      returnsSchemaName: "brain.pages.createMarkdown.returns",
     },
     {
       namespace: "brain.pages",
@@ -102,13 +57,10 @@ export const confectManifest = {
       surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -120,13 +72,12 @@ export const confectManifest = {
       name: "get",
       operationId: "brain.pages.get",
       kind: "query",
-      surfaces: ["web", "api", "mcp"],
+      surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
       ],
       idempotent: true,
@@ -138,13 +89,12 @@ export const confectManifest = {
       name: "history",
       operationId: "brain.pages.history",
       kind: "query",
-      surfaces: ["web", "api", "mcp"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
       ],
       idempotent: true,
@@ -156,14 +106,11 @@ export const confectManifest = {
       name: "list",
       operationId: "brain.pages.list",
       kind: "query",
-      surfaces: ["web", "api", "mcp"],
+      surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
       ],
       idempotent: true,
       argsSchemaName: "brain.pages.list.args",
@@ -177,13 +124,10 @@ export const confectManifest = {
       surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -198,13 +142,10 @@ export const confectManifest = {
       surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -219,13 +160,10 @@ export const confectManifest = {
       surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "PageNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-        "PageTreeConflict",
-        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -233,175 +171,22 @@ export const confectManifest = {
       returnsSchemaName: "brain.pages.restore.returns",
     },
     {
-      namespace: "brain.pilot",
-      name: "ask",
-      operationId: "brain.pilot.ask",
-      kind: "query",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.pilot.ask.args",
-      returnsSchemaName: "brain.pilot.ask.returns",
-    },
-    {
-      namespace: "brain.pilot",
-      name: "listReviewQueue",
-      operationId: "brain.pilot.listReviewQueue",
-      kind: "query",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.pilot.listReviewQueue.args",
-      returnsSchemaName: "brain.pilot.listReviewQueue.returns",
-    },
-    {
-      namespace: "brain.pilot",
-      name: "reviewNote",
-      operationId: "brain.pilot.reviewNote",
+      namespace: "brain.pages",
+      name: "updateMarkdown",
+      operationId: "brain.pages.updateMarkdown",
       kind: "mutation",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
         "ValidationFailed",
-      ],
-      idempotent: false,
-      argsSchemaName: "brain.pilot.reviewNote.args",
-      returnsSchemaName: "brain.pilot.reviewNote.returns",
-    },
-    {
-      namespace: "brain.pilot",
-      name: "search",
-      operationId: "brain.pilot.search",
-      kind: "query",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.pilot.search.args",
-      returnsSchemaName: "brain.pilot.search.returns",
-    },
-    {
-      namespace: "brain.pilot",
-      name: "submitNote",
-      operationId: "brain.pilot.submitNote",
-      kind: "mutation",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
-      ],
-      idempotent: false,
-      argsSchemaName: "brain.pilot.submitNote.args",
-      returnsSchemaName: "brain.pilot.submitNote.returns",
-    },
-    {
-      namespace: "brain.pilot",
-      name: "updatePage",
-      operationId: "brain.pilot.updatePage",
-      kind: "mutation",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "PageNotFound",
         "StaleRevision",
-        "ValidationFailed",
       ],
       idempotent: false,
-      argsSchemaName: "brain.pilot.updatePage.args",
-      returnsSchemaName: "brain.pilot.updatePage.returns",
-    },
-    {
-      namespace: "brain.readApi",
-      name: "brainRolloutStatus",
-      operationId: "brain.rollout.status",
-      kind: "query",
-      surfaces: ["api", "cli"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "ValidationFailed",
-        "RolloutStatusCapacityExceeded",
-        "RolloutStatusIntegrityConflict",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.readApi.brainRolloutStatus.args",
-      returnsSchemaName: "brain.readApi.brainRolloutStatus.returns",
-    },
-    {
-      namespace: "brain.readApi",
-      name: "sourcesGet",
-      operationId: "brain.sources.get",
-      kind: "query",
-      surfaces: ["api", "mcp"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "PageNotFound",
-        "ValidationFailed",
-        "SubsystemDisabled",
-        "CitationIntegrityFailure",
-        "RetrievalCapacityExceeded",
-        "RetrievalIntegrityFailure",
-        "RolloutStatusCapacityExceeded",
-        "RolloutStatusIntegrityConflict",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.readApi.sourcesGet.args",
-      returnsSchemaName: "brain.readApi.sourcesGet.returns",
-    },
-    {
-      namespace: "brain.readApi",
-      name: "sourcesSearch",
-      operationId: "brain.sources.search",
-      kind: "query",
-      surfaces: ["api", "mcp"],
-      typedErrors: [
-        "Unauthorized",
-        "Forbidden",
-        "BrainNotFound",
-        "LifecycleRevoked",
-        "PageNotFound",
-        "ValidationFailed",
-        "SubsystemDisabled",
-        "CitationIntegrityFailure",
-        "RetrievalCapacityExceeded",
-        "RetrievalIntegrityFailure",
-        "RolloutStatusCapacityExceeded",
-        "RolloutStatusIntegrityConflict",
-      ],
-      idempotent: true,
-      argsSchemaName: "brain.readApi.sourcesSearch.args",
-      returnsSchemaName: "brain.readApi.sourcesSearch.returns",
+      argsSchemaName: "brain.pages.updateMarkdown.args",
+      returnsSchemaName: "brain.pages.updateMarkdown.returns",
     },
     {
       namespace: "capabilities.sourceGroundedBrief",
@@ -455,38 +240,6 @@ export const confectManifest = {
     },
     {
       namespace: "ops.dataLifecycle",
-      name: "downloadBrainExport",
-      operationId: "ops.dataLifecycle.downloadBrainExport",
-      kind: "query",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "MemberNotInWorkspace",
-        "WorkspaceNotFound",
-        "ValidationFailed",
-      ],
-      idempotent: true,
-      argsSchemaName: "ops.dataLifecycle.downloadBrainExport.args",
-      returnsSchemaName: "ops.dataLifecycle.downloadBrainExport.returns",
-    },
-    {
-      namespace: "ops.dataLifecycle",
-      name: "getBrainExport",
-      operationId: "ops.dataLifecycle.getBrainExport",
-      kind: "query",
-      surfaces: ["web"],
-      typedErrors: [
-        "Unauthorized",
-        "MemberNotInWorkspace",
-        "WorkspaceNotFound",
-        "ValidationFailed",
-      ],
-      idempotent: true,
-      argsSchemaName: "ops.dataLifecycle.getBrainExport.args",
-      returnsSchemaName: "ops.dataLifecycle.getBrainExport.returns",
-    },
-    {
-      namespace: "ops.dataLifecycle",
       name: "listDsarRequests",
       operationId: "ops.dataLifecycle.listDsarRequests",
       kind: "query",
@@ -502,20 +255,38 @@ export const confectManifest = {
       returnsSchemaName: "ops.dataLifecycle.listDsarRequests.returns",
     },
     {
-      namespace: "ops.dataLifecycle",
-      name: "requestBrainExport",
-      operationId: "ops.dataLifecycle.requestBrainExport",
-      kind: "mutation",
-      surfaces: ["web"],
+      namespace: "ops.email",
+      name: "dispatchBroadcast",
+      operationId: "ops.email.dispatchBroadcast",
+      kind: "action",
+      surfaces: ["api", "cli", "mcp", "web"],
       typedErrors: [
         "Unauthorized",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: false,
+      argsSchemaName: "ops.email.dispatchBroadcast.args",
+      returnsSchemaName: "ops.email.dispatchBroadcast.returns",
+    },
+    {
+      namespace: "ops.email",
+      name: "previewBroadcast",
+      operationId: "ops.email.previewBroadcast",
+      kind: "query",
+      surfaces: ["api", "cli", "mcp", "web"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
         "MemberNotInWorkspace",
         "WorkspaceNotFound",
         "ValidationFailed",
       ],
       idempotent: true,
-      argsSchemaName: "ops.dataLifecycle.requestBrainExport.args",
-      returnsSchemaName: "ops.dataLifecycle.requestBrainExport.returns",
+      argsSchemaName: "ops.email.previewBroadcast.args",
+      returnsSchemaName: "ops.email.previewBroadcast.returns",
     },
   ],
 } as const;
@@ -523,117 +294,159 @@ export const confectManifest = {
 const sharedConfectJsonSchemasValue1 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
-  required: [
-    "pageKey",
-    "parentPageKey",
-    "siblingSlug",
-    "sortKey",
-    "title",
-    "favorite",
-    "status",
-    "currentRevisionKey",
-    "lifecycleGeneration",
-  ],
   properties: {
-    pageKey: {
+    workspaceId: {
       type: "string",
-      description: "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-      pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
     },
-    parentPageKey: {
-      anyOf: [
-        {
-          type: "string",
-          description:
-            "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-          pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        },
-        {
-          type: "null",
-        },
-      ],
-    },
-    siblingSlug: {
+    slug: {
       type: "string",
-      description:
-        "a string matching the pattern ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-      pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-    },
-    sortKey: {
-      type: "string",
-      description:
-        "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-      pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
     },
     title: {
       type: "string",
     },
-    favorite: {
-      type: "boolean",
-    },
-    status: {
+    markdown: {
       type: "string",
-      enum: ["active", "archived", "redacted", "purged"],
     },
-    currentRevisionKey: {
+    editorSnapshotJson: {
       anyOf: [
         {
           type: "string",
-          description:
-            "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-          pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
         },
         {
           type: "null",
         },
       ],
     },
-    lifecycleGeneration: {
-      type: "number",
+    editorSnapshotVersion: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    sourceKind: {
+      type: "string",
+      enum: ["markdown", "link", "note"],
+    },
+    parentPageId: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    sortKey: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    favorite: {
+      anyOf: [
+        {
+          type: "boolean",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    status: {
+      anyOf: [
+        {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    createdAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    updatedAt: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+    _id: {
+      type: "string",
+    },
+    _creationTime: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
     },
   },
+  required: [
+    "workspaceId",
+    "slug",
+    "title",
+    "markdown",
+    "sourceKind",
+    "updatedAt",
+    "_id",
+    "_creationTime",
+  ],
   additionalProperties: false,
 } as const;
 
 const sharedConfectJsonSchemasValue2 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
-  required: ["brainKey", "query"],
-  properties: {
-    brainKey: {
-      type: "string",
-      description: "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-    },
-    query: {
-      type: "string",
-    },
-  },
-  additionalProperties: false,
-} as const;
-
-const sharedConfectJsonSchemasValue3 = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  type: "object",
-  required: ["sourceKey", "status"],
-  properties: {
-    sourceKey: {
-      type: "string",
-      description: "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
-      pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
-    },
-    status: {
-      type: "string",
-      enum: ["pending_review", "published", "rejected"],
-    },
-  },
-  additionalProperties: false,
-} as const;
-
-const sharedConfectJsonSchemasValue4 = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  type: "object",
-  required: ["workspaceId", "sourceIds", "briefGoal", "idempotencyKey"],
   properties: {
     workspaceId: {
       type: "string",
@@ -643,36 +456,36 @@ const sharedConfectJsonSchemasValue4 = {
       items: {
         type: "string",
       },
-      description: "an array of at least 1 item(s)",
-      title: "minItems(1)",
-      minItems: 1,
+      allOf: [
+        {
+          minItems: 1,
+        },
+      ],
     },
     briefGoal: {
       type: "string",
-      description: "a string at least 1 character(s) long",
-      title: "minLength(1)",
-      minLength: 1,
+      allOf: [
+        {
+          minLength: 1,
+        },
+      ],
     },
     idempotencyKey: {
       type: "string",
-      description: "a string at least 1 character(s) long",
-      title: "minLength(1)",
-      minLength: 1,
+      allOf: [
+        {
+          minLength: 1,
+        },
+      ],
     },
   },
+  required: ["workspaceId", "sourceIds", "briefGoal", "idempotencyKey"],
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue5 = {
+const sharedConfectJsonSchemasValue3 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
-  required: [
-    "briefMarkdown",
-    "sourceTitles",
-    "policySnapshotId",
-    "modelReceiptId",
-    "trustClaim",
-  ],
   properties: {
     briefMarkdown: {
       type: "string",
@@ -693,146 +506,305 @@ const sharedConfectJsonSchemasValue5 = {
       type: "string",
     },
   },
+  required: [
+    "briefMarkdown",
+    "sourceTitles",
+    "policySnapshotId",
+    "modelReceiptId",
+    "trustClaim",
+  ],
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue6 = {
+const sharedConfectJsonSchemasValue4 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
-  required: ["brainKey", "jobId"],
   properties: {
-    brainKey: {
-      type: "string",
-    },
-    jobId: {
-      type: "string",
-      description: "a string at least 1 character(s) long",
-      title: "minLength(1)",
-      minLength: 1,
-    },
-  },
-  additionalProperties: false,
-} as const;
-
-const sharedConfectJsonSchemasValue7 = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  type: "object",
-  required: ["brainKey", "jobId", "state", "createdAt", "updatedAt"],
-  properties: {
-    brainKey: {
-      type: "string",
-    },
-    jobId: {
-      type: "string",
-    },
-    state: {
-      type: "string",
-      enum: [
-        "requested",
-        "running",
-        "ready",
-        "revoked",
-        "failed",
-        "expired",
-        "purged",
-      ],
-    },
-    createdAt: {
-      type: "number",
-    },
-    updatedAt: {
-      type: "number",
-    },
-    expiresAt: {
-      type: "number",
-    },
-    sizeBytes: {
-      type: "number",
-    },
-    manifestHash: {
-      type: "string",
-    },
-    artifactHash: {
-      type: "string",
-    },
-    downloadUrl: {
+    workspaceId: {
       type: "string",
     },
   },
+  required: ["workspaceId"],
   additionalProperties: false,
 } as const;
 
 const sharedConfectJsonSchemas = {
-  "brain.pages.archive.args": {
+  "agents.assistant.answerQuestion.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "pageKey", "expectedCurrentRevisionKey"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      question: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
       },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pages.archive.returns": sharedConfectJsonSchemasValue1,
-  "brain.pages.create.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: [
-      "brainKey",
-      "parentPageKey",
-      "siblingSlug",
-      "sortKey",
-      "title",
-      "markdown",
-      "expectedCurrentRevisionKey",
-    ],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      parentPageKey: {
+      maxCitations: {
         anyOf: [
           {
-            type: "string",
-            description:
-              "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-            pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+            type: "integer",
+            allOf: [
+              {
+                minimum: 1,
+              },
+              {
+                maximum: 10,
+              },
+            ],
           },
           {
             type: "null",
           },
         ],
       },
-      siblingSlug: {
-        type: "string",
-        description:
-          "a string matching the pattern ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-        pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+    },
+    required: ["workspaceId", "question"],
+    additionalProperties: false,
+  },
+  "agents.assistant.answerQuestion.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    anyOf: [
+      {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["answered"],
+          },
+          answerMarkdown: {
+            type: "string",
+          },
+          contextPack: {
+            $ref: "#/$defs/Objects_",
+          },
+        },
+        required: ["status", "answerMarkdown", "contextPack"],
+        additionalProperties: false,
       },
-      sortKey: {
+      {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["insufficient-context"],
+          },
+          reason: {
+            type: "string",
+            enum: ["no-eligible-evidence"],
+          },
+          answerMarkdown: {
+            type: "null",
+          },
+          contextPack: {
+            $ref: "#/$defs/Objects_",
+          },
+        },
+        required: ["status", "reason", "answerMarkdown", "contextPack"],
+        additionalProperties: false,
+      },
+    ],
+    $defs: {
+      Objects_: {
+        type: "object",
+        properties: {
+          schemaVersion: {
+            type: "string",
+            enum: ["3"],
+          },
+          candidateManifest: {
+            type: "object",
+            properties: {
+              schemaVersion: {
+                type: "string",
+                enum: ["2"],
+              },
+              candidateKeys: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+            },
+            required: ["schemaVersion", "candidateKeys"],
+            additionalProperties: false,
+          },
+          workspaceId: {
+            type: "string",
+          },
+          question: {
+            type: "string",
+          },
+          asOf: {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          freshness: {
+            type: "string",
+            enum: ["current", "review-due", "stale", "unknown"],
+          },
+          citations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                citationKey: {
+                  type: "string",
+                },
+                sourceId: {
+                  type: "string",
+                },
+                sourceRevisionId: {
+                  type: "string",
+                },
+                pageId: {
+                  type: "string",
+                },
+                revisionUpdatedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                title: {
+                  type: "string",
+                },
+                excerpt: {
+                  type: "string",
+                },
+                startOffset: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                endOffset: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                freshness: {
+                  type: "string",
+                  enum: ["current", "review-due", "stale"],
+                },
+              },
+              required: [
+                "citationKey",
+                "sourceId",
+                "sourceRevisionId",
+                "pageId",
+                "revisionUpdatedAt",
+                "title",
+                "excerpt",
+                "startOffset",
+                "endOffset",
+                "freshness",
+              ],
+              additionalProperties: false,
+            },
+          },
+          omissions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                reason: {
+                  type: "string",
+                  enum: ["archived", "revision-mismatch", "not-relevant"],
+                },
+                count: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+              },
+              required: ["reason", "count"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: [
+          "schemaVersion",
+          "candidateManifest",
+          "workspaceId",
+          "question",
+          "asOf",
+          "freshness",
+          "citations",
+          "omissions",
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  "brain.pages.archive.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-        pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
+      },
+      pageId: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt"],
+    additionalProperties: false,
+  },
+  "brain.pages.archive.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.createMarkdown.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      slug: {
+        type: "string",
       },
       title: {
         type: "string",
@@ -840,13 +812,27 @@ const sharedConfectJsonSchemas = {
       markdown: {
         type: "string",
       },
-      expectedCurrentRevisionKey: {
+      parentPageId: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "string",
+              },
+              {
+                type: "null",
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      sortKey: {
         anyOf: [
           {
             type: "string",
-            description:
-              "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-            pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
           },
           {
             type: "null",
@@ -854,430 +840,423 @@ const sharedConfectJsonSchemas = {
         ],
       },
     },
+    required: ["workspaceId", "slug", "title", "markdown"],
     additionalProperties: false,
   },
-  "brain.pages.create.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.createMarkdown.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "string",
+  },
   "brain.pages.favorite.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "pageKey", "expectedCurrentRevisionKey", "favorite"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      pageId: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
       },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
       },
       favorite: {
         type: "boolean",
       },
     },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt", "favorite"],
     additionalProperties: false,
   },
   "brain.pages.favorite.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.get.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "pageKey"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      pageId: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
       },
     },
+    required: ["workspaceId", "pageId"],
     additionalProperties: false,
   },
-  "brain.pages.get.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["page", "markdown", "updatedAt"],
-    properties: {
-      page: {
-        type: "object",
-        required: [
-          "pageKey",
-          "parentPageKey",
-          "siblingSlug",
-          "sortKey",
-          "title",
-          "favorite",
-          "status",
-          "currentRevisionKey",
-          "lifecycleGeneration",
-        ],
-        properties: {
-          pageKey: {
-            type: "string",
-            description:
-              "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-            pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-          },
-          parentPageKey: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          siblingSlug: {
-            type: "string",
-            description:
-              "a string matching the pattern ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-            pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-          },
-          sortKey: {
-            type: "string",
-            description:
-              "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-            pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-          },
-          title: {
-            type: "string",
-          },
-          favorite: {
-            type: "boolean",
-          },
-          status: {
-            type: "string",
-            enum: ["active", "archived", "redacted", "purged"],
-          },
-          currentRevisionKey: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          lifecycleGeneration: {
-            type: "number",
-          },
-        },
-        additionalProperties: false,
-      },
-      markdown: {
-        type: "string",
-      },
-      editorSnapshotJson: {
-        type: "string",
-      },
-      editorSnapshotVersion: {
-        type: "number",
-      },
-      updatedAt: {
-        type: "number",
-      },
-    },
-    additionalProperties: false,
-  },
+  "brain.pages.get.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.history.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "pageKey"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-      },
-      cursor: {
+      pageId: {
         type: "string",
       },
       limit: {
-        type: "number",
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
       },
     },
+    required: ["workspaceId", "pageId"],
     additionalProperties: false,
   },
   "brain.pages.history.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "pageKey", "asOf", "freshness", "revisions"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      pageKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-      },
-      asOf: {
-        type: "number",
-      },
-      freshness: {
-        type: "object",
-        required: ["status"],
-        properties: {
-          status: {
-            type: "string",
-            enum: ["current"],
-          },
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        workspaceId: {
+          type: "string",
         },
-        additionalProperties: false,
-      },
-      revisions: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "revisionKey",
-            "priorRevisionKey",
-            "causation",
-            "createdAt",
-            "lifecycleGeneration",
-          ],
-          properties: {
-            revisionKey: {
-              type: "string",
-              description:
-                "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-              pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-            },
-            priorRevisionKey: {
+        pageId: {
+          type: "string",
+        },
+        priorUpdatedAt: {
+          anyOf: [
+            {
               anyOf: [
                 {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                  pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                  type: "number",
                 },
                 {
-                  type: "null",
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
                 },
               ],
             },
-            causation: {
-              type: "string",
+            {
+              type: "null",
             },
-            createdAt: {
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
               type: "number",
             },
-            lifecycleGeneration: {
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        title: {
+          type: "string",
+        },
+        markdown: {
+          type: "string",
+        },
+        sourceKind: {
+          type: "string",
+          enum: ["markdown", "link", "note"],
+        },
+        causation: {
+          type: "string",
+          enum: [
+            "create",
+            "update",
+            "rename",
+            "move",
+            "favorite",
+            "archive",
+            "restore",
+          ],
+        },
+        parentPageId: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        sortKey: {
+          type: "string",
+        },
+        favorite: {
+          type: "boolean",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        actorUserId: {
+          type: "string",
+        },
+        createdAt: {
+          anyOf: [
+            {
               type: "number",
             },
-            markdown: {
+            {
               type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
             },
-            contentHash: {
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
               type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
             },
-            state: {
-              type: "string",
-            },
-            actorKind: {
-              type: "string",
-            },
-            actorId: {
-              type: "string",
-            },
-          },
-          additionalProperties: false,
+          ],
         },
       },
+      required: [
+        "workspaceId",
+        "pageId",
+        "priorUpdatedAt",
+        "updatedAt",
+        "title",
+        "markdown",
+        "sourceKind",
+        "causation",
+        "parentPageId",
+        "sortKey",
+        "favorite",
+        "status",
+        "actorUserId",
+        "createdAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
     },
-    additionalProperties: false,
   },
   "brain.pages.list.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
       includeArchived: {
-        type: "boolean",
+        anyOf: [
+          {
+            type: "boolean",
+          },
+          {
+            type: "null",
+          },
+        ],
       },
     },
+    required: ["workspaceId"],
     additionalProperties: false,
   },
   "brain.pages.list.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "asOf", "freshness", "pages"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      asOf: {
-        type: "number",
-      },
-      freshness: {
-        type: "object",
-        required: ["status"],
-        properties: {
-          status: {
-            type: "string",
-            enum: ["current"],
-          },
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        workspaceId: {
+          type: "string",
         },
-        additionalProperties: false,
-      },
-      pages: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "pageKey",
-            "parentPageKey",
-            "siblingSlug",
-            "sortKey",
-            "title",
-            "favorite",
-            "status",
-            "currentRevisionKey",
-            "lifecycleGeneration",
-          ],
-          properties: {
-            pageKey: {
+        slug: {
+          type: "string",
+        },
+        title: {
+          type: "string",
+        },
+        markdown: {
+          type: "string",
+        },
+        editorSnapshotJson: {
+          anyOf: [
+            {
               type: "string",
-              description:
-                "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-              pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
             },
-            parentPageKey: {
+            {
+              type: "null",
+            },
+          ],
+        },
+        editorSnapshotVersion: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        sourceKind: {
+          type: "string",
+          enum: ["markdown", "link", "note"],
+        },
+        parentPageId: {
+          anyOf: [
+            {
               anyOf: [
                 {
                   type: "string",
-                  description:
-                    "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                  pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
                 },
                 {
                   type: "null",
                 },
               ],
             },
-            siblingSlug: {
-              type: "string",
-              description:
-                "a string matching the pattern ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-              pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+            {
+              type: "null",
             },
-            sortKey: {
-              type: "string",
-              description:
-                "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-              pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-            },
-            title: {
+          ],
+        },
+        sortKey: {
+          anyOf: [
+            {
               type: "string",
             },
-            favorite: {
+            {
+              type: "null",
+            },
+          ],
+        },
+        favorite: {
+          anyOf: [
+            {
               type: "boolean",
             },
-            status: {
-              type: "string",
-              enum: ["active", "archived", "redacted", "purged"],
+            {
+              type: "null",
             },
-            currentRevisionKey: {
+          ],
+        },
+        status: {
+          anyOf: [
+            {
+              type: "string",
+              enum: ["active", "archived"],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        createdAt: {
+          anyOf: [
+            {
               anyOf: [
                 {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                  pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                  type: "number",
                 },
                 {
-                  type: "null",
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
                 },
               ],
             },
-            lifecycleGeneration: {
+            {
+              type: "null",
+            },
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
               type: "number",
             },
-          },
-          additionalProperties: false,
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
         },
       },
+      required: [
+        "workspaceId",
+        "slug",
+        "title",
+        "markdown",
+        "sourceKind",
+        "updatedAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
     },
-    additionalProperties: false,
   },
   "brain.pages.move.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: [
-      "brainKey",
-      "pageKey",
-      "expectedCurrentRevisionKey",
-      "parentPageKey",
-      "sortKey",
-    ],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      pageId: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
       },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
       },
-      parentPageKey: {
+      parentPageId: {
         anyOf: [
           {
             type: "string",
-            description:
-              "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-            pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
           },
           {
             type: "null",
@@ -1286,2716 +1265,243 @@ const sharedConfectJsonSchemas = {
       },
       sortKey: {
         type: "string",
-        description:
-          "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
-        pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
       },
     },
+    required: [
+      "workspaceId",
+      "pageId",
+      "expectedUpdatedAt",
+      "parentPageId",
+      "sortKey",
+    ],
     additionalProperties: false,
   },
   "brain.pages.move.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.rename.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "pageKey", "expectedCurrentRevisionKey", "title"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      pageId: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
       },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
       },
       title: {
         type: "string",
       },
     },
+    required: ["workspaceId", "pageId", "expectedUpdatedAt", "title"],
     additionalProperties: false,
   },
   "brain.pages.rename.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.restore.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: [
-      "brainKey",
-      "pageKey",
-      "expectedCurrentRevisionKey",
-      "revisionKey",
-    ],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
       },
-      pageKey: {
+      pageId: {
         type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
       },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
       },
-      revisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      revisionUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
       },
     },
+    required: [
+      "workspaceId",
+      "pageId",
+      "expectedUpdatedAt",
+      "revisionUpdatedAt",
+    ],
     additionalProperties: false,
   },
   "brain.pages.restore.returns": sharedConfectJsonSchemasValue1,
-  "brain.pilot.ask.args": sharedConfectJsonSchemasValue2,
-  "brain.pilot.ask.returns": {
+  "brain.pages.updateMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "response"],
     properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      response: {
-        anyOf: [
-          {
-            type: "object",
-            required: ["status", "answer", "evidence"],
-            properties: {
-              status: {
-                type: "string",
-                enum: ["answered"],
-              },
-              answer: {
-                type: "string",
-              },
-              evidence: {
-                type: "array",
-                items: {
-                  type: "object",
-                  required: [
-                    "citationKey",
-                    "pageKey",
-                    "revisionKey",
-                    "title",
-                    "excerpt",
-                  ],
-                  properties: {
-                    citationKey: {
-                      type: "string",
-                    },
-                    pageKey: {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                      pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                    },
-                    revisionKey: {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                      pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                    },
-                    title: {
-                      type: "string",
-                    },
-                    excerpt: {
-                      type: "string",
-                    },
-                  },
-                  additionalProperties: false,
-                },
-              },
-            },
-            additionalProperties: false,
-          },
-          {
-            type: "object",
-            required: ["status", "reason", "answer", "evidence"],
-            properties: {
-              status: {
-                type: "string",
-                enum: ["abstained"],
-              },
-              reason: {
-                type: "string",
-                enum: ["insufficient_evidence"],
-              },
-              answer: {
-                type: "null",
-              },
-              evidence: {
-                type: "array",
-                items: {
-                  type: "object",
-                  required: [
-                    "citationKey",
-                    "pageKey",
-                    "revisionKey",
-                    "title",
-                    "excerpt",
-                  ],
-                  properties: {
-                    citationKey: {
-                      type: "string",
-                    },
-                    pageKey: {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                      pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-                    },
-                    revisionKey: {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                      pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                    },
-                    title: {
-                      type: "string",
-                    },
-                    excerpt: {
-                      type: "string",
-                    },
-                  },
-                  additionalProperties: false,
-                },
-              },
-            },
-            additionalProperties: false,
-          },
-        ],
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.listReviewQueue.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.listReviewQueue.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "items"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      items: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["sourceKey", "title", "submittedAt", "status", "route"],
-          properties: {
-            sourceKey: {
-              type: "string",
-              description:
-                "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
-              pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
-            },
-            title: {
-              type: "string",
-            },
-            submittedAt: {
-              type: "number",
-            },
-            status: {
-              type: "string",
-              enum: ["pending_review", "published", "rejected"],
-            },
-            route: {
-              anyOf: [
-                {
-                  type: "string",
-                  enum: ["direct", "classify", "capture-only"],
-                },
-                {
-                  type: "null",
-                },
-              ],
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.reviewNote.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "sourceKey", "decision"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      sourceKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
-        pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
-      },
-      decision: {
-        type: "string",
-        enum: ["approve", "reject"],
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.reviewNote.returns": sharedConfectJsonSchemasValue3,
-  "brain.pilot.search.args": sharedConfectJsonSchemasValue2,
-  "brain.pilot.search.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "results"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["sourceKey", "citationKey", "title", "excerpt"],
-          properties: {
-            sourceKey: {
-              type: "string",
-              description:
-                "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
-              pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
-            },
-            citationKey: {
-              type: "string",
-            },
-            title: {
-              type: "string",
-            },
-            excerpt: {
-              type: "string",
-            },
-            sourceRevisionKey: {
-              anyOf: [
-                {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                  pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-                },
-                {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^surev_[a-f0-9]{64}$",
-                  pattern: "^surev_[a-f0-9]{64}$",
-                },
-              ],
-            },
-            locator: {
-              type: "string",
-            },
-            citationLabel: {
-              type: "string",
-            },
-            permalink: {
-              type: "string",
-            },
-            freshness: {
-              type: "string",
-              enum: ["fresh", "stale"],
-            },
-            state: {
-              type: "string",
-              enum: ["resolved", "redacted", "legacy_unresolved"],
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.submitNote.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "title", "markdown"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      title: {
-        type: "string",
-      },
-      markdown: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.submitNote.returns": sharedConfectJsonSchemasValue3,
-  "brain.pilot.updatePage.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "pageKey", "expectedCurrentRevisionKey", "markdown"],
-    properties: {
-      brainKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
-        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
-      },
-      pageKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-      },
-      expectedCurrentRevisionKey: {
-        type: "string",
-        description:
-          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
-        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
-      },
-      markdown: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.pilot.updatePage.returns": sharedConfectJsonSchemasValue1,
-  "brain.readApi.answersAsk.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "question"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-      question: {
-        type: "string",
-      },
-      maxCitations: {
-        type: "number",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.answersAsk.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "/schemas/unknown",
-    title: "unknown",
-  },
-  "brain.readApi.brainRolloutStatus.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.brainRolloutStatus.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: [
-      "statusVersion",
-      "organizationKey",
-      "workspaceId",
-      "brainKey",
-      "evaluatedAt",
-      "freshness",
-      "coverageStatus",
-      "readiness",
-      "promotionReady",
-      "projection",
-      "scopes",
-      "alerts",
-    ],
-    properties: {
-      statusVersion: {
-        type: "number",
-        enum: [1],
-      },
-      organizationKey: {
-        type: "string",
-      },
       workspaceId: {
         type: "string",
       },
-      brainKey: {
+      pageId: {
         type: "string",
       },
-      evaluatedAt: {
-        type: "integer",
-        description: "a non-negative number",
-        title: "greaterThanOrEqualTo(0)",
-        minimum: 0,
-      },
-      freshness: {
+      markdown: {
         type: "string",
-        enum: ["current", "stale", "unknown"],
       },
-      coverageStatus: {
-        type: "string",
-        enum: ["complete", "partial", "unavailable", "unknown"],
-      },
-      readiness: {
-        type: "string",
-        enum: ["ready", "blocked"],
-      },
-      promotionReady: {
-        type: "boolean",
-      },
-      projection: {
-        type: "object",
-        required: [
-          "present",
-          "projectionPopulationGeneration",
-          "subjectBackfillGeneration",
-          "subjectPopulationDigest",
-          "subjectCompletionDigest",
-          "subjectValidated",
-          "fenceBackfillGeneration",
-          "fencePopulationDigest",
-          "fenceCompletionDigest",
-          "fenceValidated",
-          "conflictCount",
-          "capacityCount",
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
         ],
-        properties: {
-          present: {
-            type: "boolean",
-          },
-          projectionPopulationGeneration: {
-            type: "integer",
-            description: "a non-negative number",
-            title: "greaterThanOrEqualTo(0)",
-            minimum: 0,
-          },
-          subjectBackfillGeneration: {
-            type: "integer",
-            description: "a non-negative number",
-            title: "greaterThanOrEqualTo(0)",
-            minimum: 0,
-          },
-          subjectPopulationDigest: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                pattern: "^sha256:[a-f0-9]{64}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          subjectCompletionDigest: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                pattern: "^sha256:[a-f0-9]{64}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          subjectValidated: {
-            type: "boolean",
-          },
-          fenceBackfillGeneration: {
-            type: "integer",
-            description: "a non-negative number",
-            title: "greaterThanOrEqualTo(0)",
-            minimum: 0,
-          },
-          fencePopulationDigest: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                pattern: "^sha256:[a-f0-9]{64}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          fenceCompletionDigest: {
-            anyOf: [
-              {
-                type: "string",
-                description:
-                  "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                pattern: "^sha256:[a-f0-9]{64}$",
-              },
-              {
-                type: "null",
-              },
-            ],
-          },
-          fenceValidated: {
-            type: "boolean",
-          },
-          conflictCount: {
-            type: "integer",
-            description: "a non-negative number",
-            title: "greaterThanOrEqualTo(0)",
-            minimum: 0,
-          },
-          capacityCount: {
-            type: "integer",
-            description: "a non-negative number",
-            title: "greaterThanOrEqualTo(0)",
-            minimum: 0,
-          },
-        },
-        additionalProperties: false,
-      },
-      scopes: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "requiredScopeIntentKey",
-            "intentGeneration",
-            "corpusKey",
-            "providerKind",
-            "connectorScopeKey",
-            "configuration",
-            "eligibility",
-            "reconciliation",
-            "rebuild",
-            "health",
-            "freshness",
-            "coverageStatus",
-            "readiness",
-            "obligations",
-            "publication",
-            "targetResolution",
-            "workers",
-            "failures",
-            "blockers",
-          ],
-          properties: {
-            requiredScopeIntentKey: {
-              type: "string",
-            },
-            intentGeneration: {
-              type: "integer",
-              description: "a positive number",
-              title: "greaterThan(0)",
-              exclusiveMinimum: 0,
-            },
-            corpusKey: {
-              type: "string",
-              enum: ["slack", "transcripts", "documents"],
-            },
-            providerKind: {
-              type: "string",
-              enum: ["slack", "transcript", "google_drive"],
-            },
-            connectorScopeKey: {
-              type: "string",
-            },
-            configuration: {
-              type: "object",
-              required: [
-                "connectionKey",
-                "connectionGeneration",
-                "allowlistGeneration",
-                "controllingConfigurationDigest",
-                "connectorState",
-                "allowlistState",
-                "tupleMatches",
-              ],
-              properties: {
-                connectionKey: {
-                  type: "string",
-                },
-                connectionGeneration: {
-                  type: "integer",
-                  description: "a positive number",
-                  title: "greaterThan(0)",
-                  exclusiveMinimum: 0,
-                },
-                allowlistGeneration: {
-                  type: "integer",
-                  description: "a positive number",
-                  title: "greaterThan(0)",
-                  exclusiveMinimum: 0,
-                },
-                controllingConfigurationDigest: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                  pattern: "^sha256:[a-f0-9]{64}$",
-                },
-                connectorState: {
-                  type: "string",
-                  enum: ["active", "revoked", "missing"],
-                },
-                allowlistState: {
-                  type: "string",
-                  enum: ["current", "superseded", "revoked", "missing"],
-                },
-                tupleMatches: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            eligibility: {
-              type: "object",
-              required: ["status", "failureCount"],
-              properties: {
-                status: {
-                  type: "string",
-                  enum: ["eligible", "ineligible", "integrity_failure"],
-                },
-                failureCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-              },
-              additionalProperties: false,
-            },
-            reconciliation: {
-              type: "object",
-              required: [
-                "runKey",
-                "runGeneration",
-                "status",
-                "providerHighWater",
-                "ledgerHighWater",
-                "completedAt",
-                "completionDigest",
-                "blockingObligationCount",
-                "truncated",
-              ],
-              properties: {
-                runKey: {
-                  anyOf: [
-                    {
-                      type: "string",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                runGeneration: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                status: {
-                  anyOf: [
-                    {
-                      type: "string",
-                      enum: [
-                        "scan",
-                        "traversal_closed",
-                        "apply_removals",
-                        "drain_derived",
-                        "complete",
-                        "superseded",
-                        "blocked",
-                      ],
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                providerHighWater: {
-                  anyOf: [
-                    {
-                      type: "string",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                ledgerHighWater: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                completedAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                completionDigest: {
-                  anyOf: [
-                    {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                      pattern: "^sha256:[a-f0-9]{64}$",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                blockingObligationCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                truncated: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            rebuild: {
-              type: "object",
-              required: [
-                "runKey",
-                "runGeneration",
-                "status",
-                "ledgerHighWater",
-                "catchupHighWater",
-                "completionDigest",
-                "blockingChildCount",
-                "truncated",
-              ],
-              properties: {
-                runKey: {
-                  anyOf: [
-                    {
-                      type: "string",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                runGeneration: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                status: {
-                  anyOf: [
-                    {
-                      type: "string",
-                      enum: [
-                        "running",
-                        "closing",
-                        "complete",
-                        "superseded",
-                        "blocked",
-                      ],
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                ledgerHighWater: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                catchupHighWater: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                completionDigest: {
-                  anyOf: [
-                    {
-                      type: "string",
-                      description:
-                        "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                      pattern: "^sha256:[a-f0-9]{64}$",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                blockingChildCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                truncated: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            health: {
-              type: "object",
-              required: [
-                "rowPresent",
-                "lastObservedAt",
-                "lastPublishedAt",
-                "lastReconciledAt",
-                "freshnessThresholdMs",
-                "failedCount",
-                "degradedReason",
-              ],
-              properties: {
-                rowPresent: {
-                  type: "boolean",
-                },
-                lastObservedAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                lastPublishedAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                lastReconciledAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                freshnessThresholdMs: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                failedCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                degradedReason: {
-                  anyOf: [
-                    {
-                      type: "string",
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-              },
-              additionalProperties: false,
-            },
-            freshness: {
-              type: "string",
-              enum: ["current", "stale", "unknown"],
-            },
-            coverageStatus: {
-              type: "string",
-              enum: ["complete", "partial", "unavailable", "unknown"],
-            },
-            readiness: {
-              type: "string",
-              enum: ["ready", "blocked"],
-            },
-            obligations: {
-              type: "object",
-              required: [
-                "counts",
-                "nonterminalCount",
-                "oldestNonterminalAt",
-                "truncated",
-              ],
-              properties: {
-                counts: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: ["state", "count", "truncated"],
-                    properties: {
-                      state: {
-                        type: "string",
-                        enum: [
-                          "captured",
-                          "normalization_pending",
-                          "quarantined",
-                          "target_resolution_pending",
-                          "capacity_blocked",
-                          "publication_pending",
-                          "retry_wait",
-                          "removal_pending",
-                          "drain_pending",
-                          "complete",
-                          "policy_excluded",
-                          "failed",
-                        ],
-                      },
-                      count: {
-                        type: "integer",
-                        description: "a non-negative number",
-                        title: "greaterThanOrEqualTo(0)",
-                        minimum: 0,
-                      },
-                      truncated: {
-                        type: "boolean",
-                      },
-                    },
-                    additionalProperties: false,
-                  },
-                },
-                nonterminalCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                oldestNonterminalAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                truncated: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            publication: {
-              type: "object",
-              required: [
-                "counts",
-                "unresolvedCount",
-                "deadLetters",
-                "truncated",
-              ],
-              properties: {
-                counts: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: ["state", "count", "truncated"],
-                    properties: {
-                      state: {
-                        type: "string",
-                        enum: [
-                          "pending",
-                          "retry_wait",
-                          "succeeded",
-                          "superseded",
-                          "revoked",
-                          "integrity_failure",
-                          "dead_letter",
-                        ],
-                      },
-                      count: {
-                        type: "integer",
-                        description: "a non-negative number",
-                        title: "greaterThanOrEqualTo(0)",
-                        minimum: 0,
-                      },
-                      truncated: {
-                        type: "boolean",
-                      },
-                    },
-                    additionalProperties: false,
-                  },
-                },
-                unresolvedCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                deadLetters: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: [
-                      "jobKey",
-                      "effectClass",
-                      "attemptCount",
-                      "lastErrorTag",
-                      "repairOfJobKey",
-                    ],
-                    properties: {
-                      jobKey: {
-                        type: "string",
-                      },
-                      effectClass: {
-                        anyOf: [
-                          {
-                            type: "string",
-                          },
-                          {
-                            type: "null",
-                          },
-                        ],
-                      },
-                      attemptCount: {
-                        type: "integer",
-                        description: "a non-negative number",
-                        title: "greaterThanOrEqualTo(0)",
-                        minimum: 0,
-                      },
-                      lastErrorTag: {
-                        anyOf: [
-                          {
-                            type: "string",
-                          },
-                          {
-                            type: "null",
-                          },
-                        ],
-                      },
-                      repairOfJobKey: {
-                        anyOf: [
-                          {
-                            type: "string",
-                          },
-                          {
-                            type: "null",
-                          },
-                        ],
-                      },
-                    },
-                    additionalProperties: false,
-                  },
-                  description: "an array of at most 20 item(s)",
-                  title: "maxItems(20)",
-                  maxItems: 20,
-                },
-                truncated: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            targetResolution: {
-              type: "object",
-              required: [
-                "counts",
-                "unresolvedCount",
-                "oldestUnresolvedAt",
-                "truncated",
-              ],
-              properties: {
-                counts: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: ["state", "count", "truncated"],
-                    properties: {
-                      state: {
-                        type: "string",
-                        enum: [
-                          "pending",
-                          "retry_wait",
-                          "capacity_blocked",
-                          "integrity_failure",
-                        ],
-                      },
-                      count: {
-                        type: "integer",
-                        description: "a non-negative number",
-                        title: "greaterThanOrEqualTo(0)",
-                        minimum: 0,
-                      },
-                      truncated: {
-                        type: "boolean",
-                      },
-                    },
-                    additionalProperties: false,
-                  },
-                  description: "an array of at most 4 item(s)",
-                  title: "maxItems(4)",
-                  maxItems: 4,
-                },
-                unresolvedCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                oldestUnresolvedAt: {
-                  anyOf: [
-                    {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                    {
-                      type: "null",
-                    },
-                  ],
-                },
-                truncated: {
-                  type: "boolean",
-                },
-              },
-              additionalProperties: false,
-            },
-            workers: {
-              type: "object",
-              required: ["pauseEpoch", "state"],
-              properties: {
-                pauseEpoch: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                state: {
-                  type: "string",
-                  enum: ["running", "paused"],
-                },
-              },
-              additionalProperties: false,
-            },
-            failures: {
-              type: "object",
-              required: [
-                "capacityCount",
-                "publicationIntegrityCount",
-                "eligibilityIntegrityCount",
-              ],
-              properties: {
-                capacityCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                publicationIntegrityCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                eligibilityIntegrityCount: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-              },
-              additionalProperties: false,
-            },
-            blockers: {
-              type: "array",
-              items: {
-                type: "string",
-                enum: [
-                  "missing_health",
-                  "freshness_stale",
-                  "freshness_unknown",
-                  "coverage_incomplete",
-                  "configuration_mismatch",
-                  "scope_revoked",
-                  "eligibility_ineligible",
-                  "eligibility_integrity_failure",
-                  "reconciliation_incomplete",
-                  "obligations_nonterminal",
-                  "publication_jobs_unresolved",
-                  "target_resolution_intents_unresolved",
-                  "dead_letter",
-                  "quarantine",
-                  "cursor_stalled",
-                  "workers_paused",
-                  "capacity_failure",
-                  "publication_integrity_failure",
-                  "projection_population_invalid",
-                  "bounded_scan_overflow",
-                ],
-              },
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 10 item(s)",
-        title: "maxItems(10)",
-        maxItems: 10,
-      },
-      alerts: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "alertKey",
-            "kind",
-            "severity",
-            "dri",
-            "connectorScopeKey",
-            "requiredScopeIntentKey",
-            "intentGeneration",
-            "connectionGeneration",
-            "allowlistGeneration",
-            "reconciliationRunKey",
-            "count",
-            "oldestAt",
-            "entityKeys",
-            "runbookLink",
-          ],
-          properties: {
-            alertKey: {
-              type: "string",
-              description: "a string matching the pattern ^ralt_[a-f0-9]{64}$",
-              pattern: "^ralt_[a-f0-9]{64}$",
-            },
-            kind: {
-              type: "string",
-              enum: [
-                "freshness_breach",
-                "reconciliation_breach",
-                "oldest_obligation_breach",
-                "dead_letter",
-                "quarantine",
-                "stalled_cursor",
-                "integrity_failure",
-                "retrieval_capacity_overflow",
-                "bounded_scan_overflow",
-              ],
-            },
-            severity: {
-              type: "string",
-              enum: ["warning", "critical"],
-            },
-            dri: {
-              type: "string",
-              enum: ["workspace_owner"],
-            },
-            connectorScopeKey: {
-              type: "string",
-            },
-            requiredScopeIntentKey: {
-              type: "string",
-            },
-            intentGeneration: {
-              type: "integer",
-              description: "a positive number",
-              title: "greaterThan(0)",
-              exclusiveMinimum: 0,
-            },
-            connectionGeneration: {
-              type: "integer",
-              description: "a positive number",
-              title: "greaterThan(0)",
-              exclusiveMinimum: 0,
-            },
-            allowlistGeneration: {
-              type: "integer",
-              description: "a positive number",
-              title: "greaterThan(0)",
-              exclusiveMinimum: 0,
-            },
-            reconciliationRunKey: {
-              anyOf: [
-                {
-                  type: "string",
-                },
-                {
-                  type: "null",
-                },
-              ],
-            },
-            count: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            oldestAt: {
-              anyOf: [
-                {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                {
-                  type: "null",
-                },
-              ],
-            },
-            entityKeys: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-              description: "an array of at most 20 item(s)",
-              title: "maxItems(20)",
-              maxItems: 20,
-            },
-            runbookLink: {
-              type: "string",
-              enum: ["docs/template/operations-runbook.md#incident"],
-            },
-          },
-          additionalProperties: false,
-        },
       },
     },
+    required: ["workspaceId", "pageId", "markdown", "expectedUpdatedAt"],
     additionalProperties: false,
   },
-  "brain.readApi.contextGet.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-      question: {
-        type: "string",
-      },
-      pageKeys: {
-        type: "array",
-        items: {
-          type: "string",
-          description:
-            "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
-          pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
-        },
-      },
-      maxBytes: {
-        type: "number",
-      },
-      compatibilityMode: {
-        type: "string",
-        enum: ["legacy"],
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.contextGet.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: [
-      "schemaVersion",
-      "candidateManifest",
-      "requestId",
-      "organizationKey",
-      "brainKey",
-      "question",
-      "asOf",
-      "freshness",
-      "coverageStatus",
-      "readiness",
-      "coverage",
-      "entries",
-      "structuredFacts",
-      "conflicts",
-      "structuredConflicts",
-      "omissions",
-    ],
-    properties: {
-      schemaVersion: {
-        type: "string",
-        enum: ["3"],
-      },
-      candidateManifest: {
-        type: "object",
-        required: ["version", "hash"],
-        properties: {
-          version: {
-            type: "string",
-            enum: ["2"],
-          },
-          hash: {
-            type: "string",
-            description: "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-            pattern: "^sha256:[a-f0-9]{64}$",
-          },
-        },
-        additionalProperties: false,
-      },
-      requestId: {
-        type: "string",
-        description: "a string at most 2048 character(s) long",
-        title: "maxLength(2048)",
-        minLength: 1,
-        maxLength: 2048,
-      },
-      organizationKey: {
-        type: "string",
-        description: "a string at most 2048 character(s) long",
-        title: "maxLength(2048)",
-        minLength: 1,
-        maxLength: 2048,
-      },
-      brainKey: {
-        type: "string",
-        description: "a string at most 2048 character(s) long",
-        title: "maxLength(2048)",
-        minLength: 1,
-        maxLength: 2048,
-      },
-      question: {
-        type: "string",
-      },
-      asOf: {
-        type: "integer",
-        description: "a non-negative number",
-        title: "greaterThanOrEqualTo(0)",
-        minimum: 0,
-      },
-      freshness: {
-        type: "string",
-        enum: ["current", "stale", "unknown"],
-      },
-      coverageStatus: {
-        type: "string",
-        enum: ["complete", "partial", "unavailable", "unknown"],
-      },
-      readiness: {
-        type: "string",
-        enum: ["ready", "blocked"],
-      },
-      coverage: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "corpusKey",
-            "sourceKind",
-            "connectorScopeKey",
-            "required",
-            "status",
-            "freshness",
-            "generations",
-            "unresolvedFailureCount",
-          ],
-          properties: {
-            corpusKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            sourceKind: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            connectorScopeKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            required: {
-              type: "boolean",
-            },
-            status: {
-              type: "string",
-              enum: ["complete", "partial", "unavailable", "unknown"],
-            },
-            freshness: {
-              type: "string",
-              enum: ["current", "stale", "unknown"],
-            },
-            generations: {
-              type: "object",
-              required: [],
-              properties: {
-                connection: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                allowlist: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                policy: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                reconciliation: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-              },
-              additionalProperties: false,
-            },
-            lastObservedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            lastReconciledAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            unresolvedFailureCount: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            reason: {
-              type: "string",
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 200 item(s)",
-        title: "maxItems(200)",
-        maxItems: 200,
-      },
-      entries: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "kind",
-            "brainKey",
-            "title",
-            "excerpt",
-            "sourceKey",
-            "revisionKey",
-            "publicationSetKey",
-            "entryKey",
-            "passageKey",
-            "startOffset",
-            "endOffset",
-            "authority",
-            "freshness",
-            "truncated",
-          ],
-          properties: {
-            kind: {
-              type: "string",
-              enum: ["source", "page", "projection"],
-            },
-            brainKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            title: {
-              type: "string",
-            },
-            excerpt: {
-              type: "string",
-            },
-            sourceKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            revisionKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            publicationSetKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            entryKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            passageKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            unitKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            segmentKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            startOffset: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            endOffset: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            locator: {
-              type: "string",
-            },
-            contentHash: {
-              type: "string",
-              description:
-                "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-              pattern: "^sha256:[a-f0-9]{64}$",
-            },
-            authority: {
-              type: "string",
-              enum: ["authoritative", "derived", "advisory"],
-            },
-            sourceModifiedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            observedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            indexedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            freshness: {
-              type: "string",
-              enum: ["current", "stale", "unknown"],
-            },
-            truncated: {
-              type: "boolean",
-            },
-            sourceRevisionKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            citationKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            citationLabel: {
-              type: "string",
-            },
-            permalink: {
-              type: "string",
-            },
-            authorityPolicyKey: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            state: {
-              type: "string",
-              enum: ["resolved", "superseded"],
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 40 item(s)",
-        title: "maxItems(40)",
-        maxItems: 40,
-      },
-      structuredFacts: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "origin",
-            "entity",
-            "fieldPath",
-            "value",
-            "revision",
-            "valueHash",
-            "authority",
-            "sourceModifiedAt",
-            "observedAt",
-            "locator",
-          ],
-          properties: {
-            origin: {
-              type: "object",
-              required: [
-                "kind",
-                "organizationKey",
-                "workspaceId",
-                "brainKey",
-                "structuredEntityKey",
-                "structuredRevisionKey",
-                "structuredObservationKey",
-                "structuredRouteKey",
-                "fieldPath",
-                "valueHash",
-              ],
-              properties: {
-                kind: {
-                  type: "string",
-                  enum: ["structured"],
-                },
-                organizationKey: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                workspaceId: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                brainKey: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                structuredEntityKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sent_[a-f0-9]{64}$",
-                  pattern: "^sent_[a-f0-9]{64}$",
-                },
-                structuredRevisionKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^srev_[a-f0-9]{64}$",
-                  pattern: "^srev_[a-f0-9]{64}$",
-                },
-                structuredObservationKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sobs_[a-f0-9]{64}$",
-                  pattern: "^sobs_[a-f0-9]{64}$",
-                },
-                structuredRouteKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sroute_[a-f0-9]{64}$",
-                  pattern: "^sroute_[a-f0-9]{64}$",
-                },
-                fieldPath: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                valueHash: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-                  pattern: "^sha256:[a-f0-9]{64}$",
-                },
-              },
-              additionalProperties: false,
-            },
-            entity: {
-              type: "object",
-              required: [
-                "structuredEntityKey",
-                "providerKey",
-                "entityKind",
-                "providerEntityId",
-                "incarnation",
-              ],
-              properties: {
-                structuredEntityKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^sent_[a-f0-9]{64}$",
-                  pattern: "^sent_[a-f0-9]{64}$",
-                },
-                providerKey: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                entityKind: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                providerEntityId: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                incarnation: {
-                  type: "integer",
-                  description: "a positive number",
-                  title: "greaterThan(0)",
-                  exclusiveMinimum: 0,
-                },
-              },
-              additionalProperties: false,
-            },
-            fieldPath: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            value: {
-              anyOf: [
-                {
-                  type: "object",
-                  required: ["type", "value"],
-                  properties: {
-                    type: {
-                      type: "string",
-                      enum: ["string"],
-                    },
-                    value: {
-                      type: "string",
-                      description: "a string at most 2048 character(s) long",
-                      title: "maxLength(2048)",
-                      maxLength: 2048,
-                    },
-                  },
-                  additionalProperties: false,
-                },
-                {
-                  type: "object",
-                  required: ["type", "value"],
-                  properties: {
-                    type: {
-                      type: "string",
-                      enum: ["number"],
-                    },
-                    value: {
-                      type: "number",
-                    },
-                  },
-                  additionalProperties: false,
-                },
-                {
-                  type: "object",
-                  required: ["type", "value"],
-                  properties: {
-                    type: {
-                      type: "string",
-                      enum: ["boolean"],
-                    },
-                    value: {
-                      type: "boolean",
-                    },
-                  },
-                  additionalProperties: false,
-                },
-                {
-                  type: "object",
-                  required: ["type", "value"],
-                  properties: {
-                    type: {
-                      type: "string",
-                      enum: ["timestamp"],
-                    },
-                    value: {
-                      type: "integer",
-                      description: "a non-negative number",
-                      title: "greaterThanOrEqualTo(0)",
-                      minimum: 0,
-                    },
-                  },
-                  additionalProperties: false,
-                },
-              ],
-            },
-            revision: {
-              type: "object",
-              required: [
-                "structuredRevisionKey",
-                "providerRevision",
-                "observationOrder",
-                "incarnation",
-              ],
-              properties: {
-                structuredRevisionKey: {
-                  type: "string",
-                  description:
-                    "a string matching the pattern ^srev_[a-f0-9]{64}$",
-                  pattern: "^srev_[a-f0-9]{64}$",
-                },
-                providerRevision: {
-                  type: "string",
-                  description: "a string at most 2048 character(s) long",
-                  title: "maxLength(2048)",
-                  minLength: 1,
-                  maxLength: 2048,
-                },
-                observationOrder: {
-                  type: "integer",
-                  description: "a non-negative number",
-                  title: "greaterThanOrEqualTo(0)",
-                  minimum: 0,
-                },
-                incarnation: {
-                  type: "integer",
-                  description: "a positive number",
-                  title: "greaterThan(0)",
-                  exclusiveMinimum: 0,
-                },
-              },
-              additionalProperties: false,
-            },
-            valueHash: {
-              type: "string",
-              description:
-                "a string matching the pattern ^sha256:[a-f0-9]{64}$",
-              pattern: "^sha256:[a-f0-9]{64}$",
-            },
-            authority: {
-              type: "string",
-              enum: ["authoritative", "derived", "advisory"],
-            },
-            sourceModifiedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            observedAt: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-            locator: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            actionRef: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 400 item(s)",
-        title: "maxItems(400)",
-        maxItems: 400,
-      },
-      conflicts: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["subject", "revisionKeys"],
-          properties: {
-            subject: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            revisionKeys: {
-              type: "array",
-              items: {
-                type: "string",
-                description: "a string at most 2048 character(s) long",
-                title: "maxLength(2048)",
-                minLength: 1,
-                maxLength: 2048,
-              },
-              description: "an array of at most 100 item(s)",
-              title: "maxItems(100)",
-              maxItems: 100,
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 100 item(s)",
-        title: "maxItems(100)",
-        maxItems: 100,
-      },
-      structuredConflicts: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "subject",
-            "narrativeRevisionKeys",
-            "structuredRevisionKeys",
-            "reason",
-            "behavior",
-          ],
-          properties: {
-            subject: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            narrativeRevisionKeys: {
-              type: "array",
-              items: {
-                type: "string",
-                description: "a string at most 2048 character(s) long",
-                title: "maxLength(2048)",
-                minLength: 1,
-                maxLength: 2048,
-              },
-              description: "an array of at most 100 item(s)",
-              title: "maxItems(100)",
-              maxItems: 100,
-            },
-            structuredRevisionKeys: {
-              type: "array",
-              items: {
-                type: "string",
-                description: "a string at most 2048 character(s) long",
-                title: "maxLength(2048)",
-                minLength: 1,
-                maxLength: 2048,
-              },
-              description: "an array of at most 100 item(s)",
-              title: "maxItems(100)",
-              maxItems: 100,
-            },
-            reason: {
-              type: "string",
-              enum: ["narrative_typed_disagreement"],
-            },
-            behavior: {
-              type: "string",
-              enum: ["expose_both"],
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 100 item(s)",
-        title: "maxItems(100)",
-        maxItems: 100,
-      },
-      omissions: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["reason", "count"],
-          properties: {
-            reason: {
-              type: "string",
-              description: "a string at most 2048 character(s) long",
-              title: "maxLength(2048)",
-              minLength: 1,
-              maxLength: 2048,
-            },
-            count: {
-              type: "integer",
-              description: "a non-negative number",
-              title: "greaterThanOrEqualTo(0)",
-              minimum: 0,
-            },
-          },
-          additionalProperties: false,
-        },
-        description: "an array of at most 100 item(s)",
-        title: "maxItems(100)",
-        maxItems: 100,
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.sourcesGet.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-      sourceRevisionKey: {
-        type: "string",
-      },
-      entryKey: {
-        type: "string",
-      },
-      publicationSetKey: {
-        type: "string",
-      },
-      compatibilityMode: {
-        type: "string",
-        enum: ["legacy"],
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.sourcesGet.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: [
-      "sourceKey",
-      "sourceRevisionKey",
-      "entryKey",
-      "publicationSetKey",
-      "passageKey",
-      "startOffset",
-      "endOffset",
-      "contentHash",
-      "kind",
-      "citationKey",
-      "title",
-      "excerpt",
-      "authority",
-      "authorityPolicyKey",
-      "observedAt",
-      "indexedAt",
-      "freshness",
-      "truncated",
-      "state",
-      "brainKey",
-      "revisionKey",
-      "status",
-    ],
-    properties: {
-      sourceKey: {
-        type: "string",
-      },
-      sourceRevisionKey: {
-        type: "string",
-      },
-      entryKey: {
-        type: "string",
-      },
-      publicationSetKey: {
-        type: "string",
-      },
-      passageKey: {
-        type: "string",
-      },
-      startOffset: {
-        type: "number",
-      },
-      endOffset: {
-        type: "number",
-      },
-      contentHash: {
-        type: "string",
-      },
-      kind: {
-        type: "string",
-        enum: ["source", "page", "projection"],
-      },
-      unitKey: {
-        type: "string",
-      },
-      segmentKey: {
-        type: "string",
-      },
-      citationKey: {
-        type: "string",
-      },
-      title: {
-        type: "string",
-      },
-      excerpt: {
-        type: "string",
-      },
-      locator: {
-        type: "string",
-      },
-      citationLabel: {
-        type: "string",
-      },
-      permalink: {
-        type: "string",
-      },
-      authority: {
-        type: "string",
-        enum: ["authoritative", "derived", "advisory"],
-      },
-      authorityPolicyKey: {
-        type: "string",
-      },
-      sourceModifiedAt: {
-        type: "number",
-      },
-      observedAt: {
-        type: "number",
-      },
-      indexedAt: {
-        type: "number",
-      },
-      freshness: {
-        type: "string",
-        enum: ["current", "stale", "unknown"],
-      },
-      truncated: {
-        type: "boolean",
-      },
-      state: {
-        type: "string",
-        enum: ["resolved"],
-      },
-      brainKey: {
-        type: "string",
-      },
-      revisionKey: {
-        type: "string",
-      },
-      status: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.sourcesSearch.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "query"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-      query: {
-        type: "string",
-      },
-      compatibilityMode: {
-        type: "string",
-        enum: ["legacy"],
-      },
-    },
-    additionalProperties: false,
-  },
-  "brain.readApi.sourcesSearch.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["brainKey", "results", "coverage", "omissions"],
-    properties: {
-      brainKey: {
-        type: "string",
-      },
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          required: [
-            "sourceKey",
-            "sourceRevisionKey",
-            "entryKey",
-            "publicationSetKey",
-            "passageKey",
-            "startOffset",
-            "endOffset",
-            "contentHash",
-            "kind",
-            "citationKey",
-            "title",
-            "excerpt",
-            "authority",
-            "authorityPolicyKey",
-            "observedAt",
-            "indexedAt",
-            "freshness",
-            "truncated",
-            "state",
-          ],
-          properties: {
-            sourceKey: {
-              type: "string",
-            },
-            sourceRevisionKey: {
-              type: "string",
-            },
-            entryKey: {
-              type: "string",
-            },
-            publicationSetKey: {
-              type: "string",
-            },
-            passageKey: {
-              type: "string",
-            },
-            startOffset: {
-              type: "number",
-            },
-            endOffset: {
-              type: "number",
-            },
-            contentHash: {
-              type: "string",
-            },
-            kind: {
-              type: "string",
-              enum: ["source", "page", "projection"],
-            },
-            unitKey: {
-              type: "string",
-            },
-            segmentKey: {
-              type: "string",
-            },
-            citationKey: {
-              type: "string",
-            },
-            title: {
-              type: "string",
-            },
-            excerpt: {
-              type: "string",
-            },
-            locator: {
-              type: "string",
-            },
-            citationLabel: {
-              type: "string",
-            },
-            permalink: {
-              type: "string",
-            },
-            authority: {
-              type: "string",
-              enum: ["authoritative", "derived", "advisory"],
-            },
-            authorityPolicyKey: {
-              type: "string",
-            },
-            sourceModifiedAt: {
-              type: "number",
-            },
-            observedAt: {
-              type: "number",
-            },
-            indexedAt: {
-              type: "number",
-            },
-            freshness: {
-              type: "string",
-              enum: ["current", "stale", "unknown"],
-            },
-            truncated: {
-              type: "boolean",
-            },
-            state: {
-              type: "string",
-              enum: ["resolved"],
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-      coverage: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["sourceKind", "status", "freshness"],
-          properties: {
-            sourceKind: {
-              type: "string",
-            },
-            status: {
-              type: "string",
-              enum: ["complete", "partial", "unavailable", "unknown"],
-            },
-            freshness: {
-              type: "string",
-              enum: ["current", "stale", "unknown"],
-            },
-            lastSuccessfulAt: {
-              type: "number",
-            },
-            reason: {
-              type: "string",
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-      omissions: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["reason", "count"],
-          properties: {
-            reason: {
-              type: "string",
-            },
-            count: {
-              type: "number",
-            },
-          },
-          additionalProperties: false,
-        },
-      },
-    },
-    additionalProperties: false,
-  },
-  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue4,
+  "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue1,
+  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.run.returns":
-    sharedConfectJsonSchemasValue5,
+    sharedConfectJsonSchemasValue3,
   "capabilities.sourceGroundedBrief.runInternal.args":
-    sharedConfectJsonSchemasValue4,
+    sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.runInternal.returns":
-    sharedConfectJsonSchemasValue5,
+    sharedConfectJsonSchemasValue3,
   "ops.dataLifecycle.createDsarRequest.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["workspaceId", "requestId", "kind"],
     properties: {
       workspaceId: {
         type: "string",
       },
       requestId: {
         type: "string",
-        description: "a string at least 1 character(s) long",
-        title: "minLength(1)",
-        minLength: 1,
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
       },
       kind: {
         type: "string",
         enum: ["export", "delete"],
       },
       subjectId: {
-        type: "string",
-        description: "a string at least 1 character(s) long",
-        title: "minLength(1)",
-        minLength: 1,
+        anyOf: [
+          {
+            type: "string",
+            allOf: [
+              {
+                minLength: 1,
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
       },
       confirmationPhrase: {
-        type: "string",
-      },
-      legalHold: {
-        type: "object",
-        required: ["enabled", "reason"],
-        properties: {
-          enabled: {
-            type: "boolean",
-          },
-          reason: {
+        anyOf: [
+          {
             type: "string",
           },
-          expiresAt: {
-            type: "number",
+          {
+            type: "null",
           },
-        },
-        additionalProperties: false,
+        ],
+      },
+      legalHold: {
+        anyOf: [
+          {
+            type: "object",
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              reason: {
+                type: "string",
+              },
+              expiresAt: {
+                anyOf: [
+                  {
+                    anyOf: [
+                      {
+                        type: "number",
+                      },
+                      {
+                        type: "string",
+                        enum: ["Infinity", "-Infinity", "NaN"],
+                      },
+                    ],
+                  },
+                  {
+                    type: "null",
+                  },
+                ],
+              },
+            },
+            required: ["enabled", "reason"],
+            additionalProperties: false,
+          },
+          {
+            type: "null",
+          },
+        ],
       },
     },
+    required: ["workspaceId", "requestId", "kind"],
     additionalProperties: false,
   },
   "ops.dataLifecycle.createDsarRequest.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: [
-      "workspaceId",
-      "requestId",
-      "requestedByUserId",
-      "kind",
-      "status",
-      "dryRunOnly",
-      "plannedAt",
-      "confirmation",
-      "exportManifest",
-      "deletePlan",
-    ],
     properties: {
       workspaceId: {
         type: "string",
       },
       requestId: {
         type: "string",
-        description: "a string at least 1 character(s) long",
-        title: "minLength(1)",
-        minLength: 1,
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
       },
       requestedByUserId: {
         type: "string",
       },
       subjectId: {
-        type: "string",
-        description: "a string at least 1 character(s) long",
-        title: "minLength(1)",
-        minLength: 1,
+        anyOf: [
+          {
+            type: "string",
+            allOf: [
+              {
+                minLength: 1,
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
       },
       kind: {
         type: "string",
@@ -4014,30 +1520,66 @@ const sharedConfectJsonSchemas = {
         enum: [true],
       },
       plannedAt: {
-        type: "number",
-      },
-      confirmationPhrase: {
-        type: "string",
-      },
-      legalHold: {
-        type: "object",
-        required: ["enabled", "reason"],
-        properties: {
-          enabled: {
-            type: "boolean",
-          },
-          reason: {
-            type: "string",
-          },
-          expiresAt: {
+        anyOf: [
+          {
             type: "number",
           },
-        },
-        additionalProperties: false,
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      confirmationPhrase: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      legalHold: {
+        anyOf: [
+          {
+            type: "object",
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              reason: {
+                type: "string",
+              },
+              expiresAt: {
+                anyOf: [
+                  {
+                    anyOf: [
+                      {
+                        type: "number",
+                      },
+                      {
+                        type: "string",
+                        enum: ["Infinity", "-Infinity", "NaN"],
+                      },
+                    ],
+                  },
+                  {
+                    type: "null",
+                  },
+                ],
+              },
+            },
+            required: ["enabled", "reason"],
+            additionalProperties: false,
+          },
+          {
+            type: "null",
+          },
+        ],
       },
       confirmation: {
         type: "object",
-        required: ["required", "phrase", "reason"],
         properties: {
           required: {
             type: "boolean",
@@ -4050,57 +1592,64 @@ const sharedConfectJsonSchemas = {
             type: "string",
           },
         },
+        required: ["required", "phrase", "reason"],
         additionalProperties: false,
       },
       exportManifest: {
         type: "array",
         items: {
           type: "object",
-          required: ["resourceId", "exportMode", "detail"],
           properties: {
             resourceId: {
               type: "string",
               enum: [
-                "workspaces",
-                "workspaceMembers",
-                "brainPages",
-                "retrievalPublicationSubjects",
-                "retrievalEligibilityFences",
-                "retrievalPublicationSets",
-                "retrievalEntries",
-                "retrievalTokenCatalog",
-                "retrievalTokens",
-                "workflowRuns",
-                "workflowStageRuns",
-                "workflowRunEvents",
-                "workflowRunEvidenceSnapshots",
-                "workflowRunContextManifests",
-                "usageEvents",
-                "creditLedger",
-                "entitlements",
-                "webhookEvents",
-                "dsarRequests",
-                "featureFlagPolicies",
-                "notificationRecords",
-                "notificationPreferences",
+                "accessAuditEvents",
+                "actionApprovals",
+                "actionDigests",
+                "actionJobs",
+                "actionTriggers",
                 "apiKeys",
-                "invitations",
+                "billingPlans",
+                "brainPages",
+                "citations",
+                "claims",
+                "concepts",
+                "contextPacks",
+                "creditLedger",
+                "documentAnnotations",
                 "documents",
                 "documentVersions",
-                "documentAnnotations",
-                "concepts",
-                "claims",
-                "citations",
-                "contextPacks",
+                "dsarRequests",
+                "emailCampaigns",
+                "emailDeliveries",
+                "emailSubscribers",
+                "entitlements",
+                "featureFlagPolicies",
+                "invitations",
+                "notificationPreferences",
+                "notificationRecords",
+                "pageRevisions",
+                "policies",
+                "providerConnections",
+                "records",
+                "transformBlocks",
                 "transformDefinitions",
                 "transformRuns",
-                "transformBlocks",
-                "actionJobs",
-                "actionApprovals",
-                "actionTriggers",
-                "actionDigests",
+                "usageEvents",
                 "versionedEntries",
                 "versionFreshness",
+                "webhookEvents",
+                "workflowArtifacts",
+                "workflowEffectReservations",
+                "workflowEventInstances",
+                "workflowRunContextManifests",
+                "workflowRunEvents",
+                "workflowRunEvidenceSnapshots",
+                "workflowRunLinks",
+                "workflowRuns",
+                "workflowStageRuns",
+                "workspaceMembers",
+                "workspaces",
               ],
             },
             exportMode: {
@@ -4111,6 +1660,7 @@ const sharedConfectJsonSchemas = {
               type: "string",
             },
           },
+          required: ["resourceId", "exportMode", "detail"],
           additionalProperties: false,
         },
       },
@@ -4118,51 +1668,57 @@ const sharedConfectJsonSchemas = {
         type: "array",
         items: {
           type: "object",
-          required: ["resourceId", "deleteMode", "executable", "reason"],
           properties: {
             resourceId: {
               type: "string",
               enum: [
-                "workspaces",
-                "workspaceMembers",
-                "brainPages",
-                "retrievalPublicationSubjects",
-                "retrievalEligibilityFences",
-                "retrievalPublicationSets",
-                "retrievalEntries",
-                "retrievalTokenCatalog",
-                "retrievalTokens",
-                "workflowRuns",
-                "workflowStageRuns",
-                "workflowRunEvents",
-                "workflowRunEvidenceSnapshots",
-                "workflowRunContextManifests",
-                "usageEvents",
-                "creditLedger",
-                "entitlements",
-                "webhookEvents",
-                "dsarRequests",
-                "featureFlagPolicies",
-                "notificationRecords",
-                "notificationPreferences",
+                "accessAuditEvents",
+                "actionApprovals",
+                "actionDigests",
+                "actionJobs",
+                "actionTriggers",
                 "apiKeys",
-                "invitations",
+                "billingPlans",
+                "brainPages",
+                "citations",
+                "claims",
+                "concepts",
+                "contextPacks",
+                "creditLedger",
+                "documentAnnotations",
                 "documents",
                 "documentVersions",
-                "documentAnnotations",
-                "concepts",
-                "claims",
-                "citations",
-                "contextPacks",
+                "dsarRequests",
+                "emailCampaigns",
+                "emailDeliveries",
+                "emailSubscribers",
+                "entitlements",
+                "featureFlagPolicies",
+                "invitations",
+                "notificationPreferences",
+                "notificationRecords",
+                "pageRevisions",
+                "policies",
+                "providerConnections",
+                "records",
+                "transformBlocks",
                 "transformDefinitions",
                 "transformRuns",
-                "transformBlocks",
-                "actionJobs",
-                "actionApprovals",
-                "actionTriggers",
-                "actionDigests",
+                "usageEvents",
                 "versionedEntries",
                 "versionFreshness",
+                "webhookEvents",
+                "workflowArtifacts",
+                "workflowEffectReservations",
+                "workflowEventInstances",
+                "workflowRunContextManifests",
+                "workflowRunEvents",
+                "workflowRunEvidenceSnapshots",
+                "workflowRunLinks",
+                "workflowRuns",
+                "workflowStageRuns",
+                "workspaceMembers",
+                "workspaces",
               ],
             },
             deleteMode: {
@@ -4177,67 +1733,63 @@ const sharedConfectJsonSchemas = {
               type: "string",
             },
           },
+          required: ["resourceId", "deleteMode", "executable", "reason"],
           additionalProperties: false,
         },
       },
     },
+    required: [
+      "workspaceId",
+      "requestId",
+      "requestedByUserId",
+      "kind",
+      "status",
+      "dryRunOnly",
+      "plannedAt",
+      "confirmation",
+      "exportManifest",
+      "deletePlan",
+    ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.downloadBrainExport.args": sharedConfectJsonSchemasValue6,
-  "ops.dataLifecycle.downloadBrainExport.returns":
-    sharedConfectJsonSchemasValue7,
-  "ops.dataLifecycle.getBrainExport.args": sharedConfectJsonSchemasValue6,
-  "ops.dataLifecycle.getBrainExport.returns": sharedConfectJsonSchemasValue7,
-  "ops.dataLifecycle.listDsarRequests.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["workspaceId"],
-    properties: {
-      workspaceId: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue4,
   "ops.dataLifecycle.listDsarRequests.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["requests"],
     properties: {
       requests: {
         type: "array",
         items: {
           type: "object",
-          required: [
-            "workspaceId",
-            "requestId",
-            "requestedByUserId",
-            "kind",
-            "status",
-            "dryRunOnly",
-            "plannedAt",
-            "confirmation",
-            "exportManifest",
-            "deletePlan",
-          ],
           properties: {
             workspaceId: {
               type: "string",
             },
             requestId: {
               type: "string",
-              description: "a string at least 1 character(s) long",
-              title: "minLength(1)",
-              minLength: 1,
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
             },
             requestedByUserId: {
               type: "string",
             },
             subjectId: {
-              type: "string",
-              description: "a string at least 1 character(s) long",
-              title: "minLength(1)",
-              minLength: 1,
+              anyOf: [
+                {
+                  type: "string",
+                  allOf: [
+                    {
+                      minLength: 1,
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
             },
             kind: {
               type: "string",
@@ -4256,30 +1808,66 @@ const sharedConfectJsonSchemas = {
               enum: [true],
             },
             plannedAt: {
-              type: "number",
-            },
-            confirmationPhrase: {
-              type: "string",
-            },
-            legalHold: {
-              type: "object",
-              required: ["enabled", "reason"],
-              properties: {
-                enabled: {
-                  type: "boolean",
-                },
-                reason: {
-                  type: "string",
-                },
-                expiresAt: {
+              anyOf: [
+                {
                   type: "number",
                 },
-              },
-              additionalProperties: false,
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            confirmationPhrase: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            legalHold: {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: {
+                    enabled: {
+                      type: "boolean",
+                    },
+                    reason: {
+                      type: "string",
+                    },
+                    expiresAt: {
+                      anyOf: [
+                        {
+                          anyOf: [
+                            {
+                              type: "number",
+                            },
+                            {
+                              type: "string",
+                              enum: ["Infinity", "-Infinity", "NaN"],
+                            },
+                          ],
+                        },
+                        {
+                          type: "null",
+                        },
+                      ],
+                    },
+                  },
+                  required: ["enabled", "reason"],
+                  additionalProperties: false,
+                },
+                {
+                  type: "null",
+                },
+              ],
             },
             confirmation: {
               type: "object",
-              required: ["required", "phrase", "reason"],
               properties: {
                 required: {
                   type: "boolean",
@@ -4292,57 +1880,64 @@ const sharedConfectJsonSchemas = {
                   type: "string",
                 },
               },
+              required: ["required", "phrase", "reason"],
               additionalProperties: false,
             },
             exportManifest: {
               type: "array",
               items: {
                 type: "object",
-                required: ["resourceId", "exportMode", "detail"],
                 properties: {
                   resourceId: {
                     type: "string",
                     enum: [
-                      "workspaces",
-                      "workspaceMembers",
-                      "brainPages",
-                      "retrievalPublicationSubjects",
-                      "retrievalEligibilityFences",
-                      "retrievalPublicationSets",
-                      "retrievalEntries",
-                      "retrievalTokenCatalog",
-                      "retrievalTokens",
-                      "workflowRuns",
-                      "workflowStageRuns",
-                      "workflowRunEvents",
-                      "workflowRunEvidenceSnapshots",
-                      "workflowRunContextManifests",
-                      "usageEvents",
-                      "creditLedger",
-                      "entitlements",
-                      "webhookEvents",
-                      "dsarRequests",
-                      "featureFlagPolicies",
-                      "notificationRecords",
-                      "notificationPreferences",
+                      "accessAuditEvents",
+                      "actionApprovals",
+                      "actionDigests",
+                      "actionJobs",
+                      "actionTriggers",
                       "apiKeys",
-                      "invitations",
+                      "billingPlans",
+                      "brainPages",
+                      "citations",
+                      "claims",
+                      "concepts",
+                      "contextPacks",
+                      "creditLedger",
+                      "documentAnnotations",
                       "documents",
                       "documentVersions",
-                      "documentAnnotations",
-                      "concepts",
-                      "claims",
-                      "citations",
-                      "contextPacks",
+                      "dsarRequests",
+                      "emailCampaigns",
+                      "emailDeliveries",
+                      "emailSubscribers",
+                      "entitlements",
+                      "featureFlagPolicies",
+                      "invitations",
+                      "notificationPreferences",
+                      "notificationRecords",
+                      "pageRevisions",
+                      "policies",
+                      "providerConnections",
+                      "records",
+                      "transformBlocks",
                       "transformDefinitions",
                       "transformRuns",
-                      "transformBlocks",
-                      "actionJobs",
-                      "actionApprovals",
-                      "actionTriggers",
-                      "actionDigests",
+                      "usageEvents",
                       "versionedEntries",
                       "versionFreshness",
+                      "webhookEvents",
+                      "workflowArtifacts",
+                      "workflowEffectReservations",
+                      "workflowEventInstances",
+                      "workflowRunContextManifests",
+                      "workflowRunEvents",
+                      "workflowRunEvidenceSnapshots",
+                      "workflowRunLinks",
+                      "workflowRuns",
+                      "workflowStageRuns",
+                      "workspaceMembers",
+                      "workspaces",
                     ],
                   },
                   exportMode: {
@@ -4353,6 +1948,7 @@ const sharedConfectJsonSchemas = {
                     type: "string",
                   },
                 },
+                required: ["resourceId", "exportMode", "detail"],
                 additionalProperties: false,
               },
             },
@@ -4360,51 +1956,57 @@ const sharedConfectJsonSchemas = {
               type: "array",
               items: {
                 type: "object",
-                required: ["resourceId", "deleteMode", "executable", "reason"],
                 properties: {
                   resourceId: {
                     type: "string",
                     enum: [
-                      "workspaces",
-                      "workspaceMembers",
-                      "brainPages",
-                      "retrievalPublicationSubjects",
-                      "retrievalEligibilityFences",
-                      "retrievalPublicationSets",
-                      "retrievalEntries",
-                      "retrievalTokenCatalog",
-                      "retrievalTokens",
-                      "workflowRuns",
-                      "workflowStageRuns",
-                      "workflowRunEvents",
-                      "workflowRunEvidenceSnapshots",
-                      "workflowRunContextManifests",
-                      "usageEvents",
-                      "creditLedger",
-                      "entitlements",
-                      "webhookEvents",
-                      "dsarRequests",
-                      "featureFlagPolicies",
-                      "notificationRecords",
-                      "notificationPreferences",
+                      "accessAuditEvents",
+                      "actionApprovals",
+                      "actionDigests",
+                      "actionJobs",
+                      "actionTriggers",
                       "apiKeys",
-                      "invitations",
+                      "billingPlans",
+                      "brainPages",
+                      "citations",
+                      "claims",
+                      "concepts",
+                      "contextPacks",
+                      "creditLedger",
+                      "documentAnnotations",
                       "documents",
                       "documentVersions",
-                      "documentAnnotations",
-                      "concepts",
-                      "claims",
-                      "citations",
-                      "contextPacks",
+                      "dsarRequests",
+                      "emailCampaigns",
+                      "emailDeliveries",
+                      "emailSubscribers",
+                      "entitlements",
+                      "featureFlagPolicies",
+                      "invitations",
+                      "notificationPreferences",
+                      "notificationRecords",
+                      "pageRevisions",
+                      "policies",
+                      "providerConnections",
+                      "records",
+                      "transformBlocks",
                       "transformDefinitions",
                       "transformRuns",
-                      "transformBlocks",
-                      "actionJobs",
-                      "actionApprovals",
-                      "actionTriggers",
-                      "actionDigests",
+                      "usageEvents",
                       "versionedEntries",
                       "versionFreshness",
+                      "webhookEvents",
+                      "workflowArtifacts",
+                      "workflowEffectReservations",
+                      "workflowEventInstances",
+                      "workflowRunContextManifests",
+                      "workflowRunEvents",
+                      "workflowRunEvidenceSnapshots",
+                      "workflowRunLinks",
+                      "workflowRuns",
+                      "workflowStageRuns",
+                      "workspaceMembers",
+                      "workspaces",
                     ],
                   },
                   deleteMode: {
@@ -4419,35 +2021,156 @@ const sharedConfectJsonSchemas = {
                     type: "string",
                   },
                 },
+                required: ["resourceId", "deleteMode", "executable", "reason"],
                 additionalProperties: false,
               },
             },
           },
+          required: [
+            "workspaceId",
+            "requestId",
+            "requestedByUserId",
+            "kind",
+            "status",
+            "dryRunOnly",
+            "plannedAt",
+            "confirmation",
+            "exportManifest",
+            "deletePlan",
+          ],
           additionalProperties: false,
         },
       },
     },
+    required: ["requests"],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.requestBrainExport.args": {
+  "ops.email.dispatchBroadcast.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
-    required: ["brainKey", "idempotencyKey"],
     properties: {
-      brainKey: {
+      workspaceId: {
         type: "string",
       },
       idempotencyKey: {
         type: "string",
-        description: "a string at least 1 character(s) long",
-        title: "minLength(1)",
-        minLength: 1,
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
+      },
+      subject: {
+        type: "string",
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
+      },
+      preheader: {
+        type: "string",
+      },
+      textBody: {
+        type: "string",
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
+      },
+      htmlBody: {
+        type: "string",
+        allOf: [
+          {
+            minLength: 1,
+          },
+        ],
+      },
+      confirmation: {
+        type: "string",
+        enum: ["SEND"],
       },
     },
+    required: [
+      "workspaceId",
+      "idempotencyKey",
+      "subject",
+      "preheader",
+      "textBody",
+      "htmlBody",
+      "confirmation",
+    ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.requestBrainExport.returns":
-    sharedConfectJsonSchemasValue7,
+  "ops.email.dispatchBroadcast.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      campaignId: {
+        type: "string",
+      },
+      eligibleRecipients: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      accepted: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      failed: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      capped: {
+        type: "boolean",
+      },
+    },
+    required: [
+      "campaignId",
+      "eligibleRecipients",
+      "accepted",
+      "failed",
+      "capped",
+    ],
+    additionalProperties: false,
+  },
+  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue4,
+  "ops.email.previewBroadcast.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      eligibleRecipients: {
+        type: "integer",
+      },
+      capped: {
+        type: "boolean",
+      },
+    },
+    required: ["eligibleRecipients", "capped"],
+    additionalProperties: false,
+  },
 } as const;
 
 export const confectJsonSchemas = {

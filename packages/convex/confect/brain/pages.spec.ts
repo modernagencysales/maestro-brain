@@ -1,208 +1,258 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
+import {
+  MemberNotInWorkspace,
+  NotFound,
+  StaleRevision,
+  Unauthorized,
+  ValidationFailed,
+  WorkspaceNotFound,
+} from "../errors";
+import { Id } from "../_generated/id";
+import brainPages from "../_generated/tables/brainPages";
+import pageRevisions from "../_generated/tables/pageRevisions";
 import {
   collectContractManifest,
   collectContractSchemas,
   defineContractFunction,
 } from "../capabilities/_kit/capability";
-import {
-  BrainNotFound,
-  LifecycleRevoked,
-  PageNotFound,
-  PageTreeConflict,
-  RevisionNotFound,
-  StaleRevision,
-} from "./pageTree";
-import { PageKey, RevisionKey, SiblingSlug, SortKey } from "./pageSchemas";
 
-const BrainKey = Schema.String.pipe(
-  Schema.pattern(/^br_[0-9A-HJKMNP-TV-Z]{26}$/),
-);
-const BrainSelector = Schema.Struct({ brainKey: BrainKey });
-
-const BrainPageReadError = Schema.Union(
+const BrainPageError = Schema.Union([
   Unauthorized,
-  Forbidden,
-  BrainNotFound,
-  PageNotFound,
-  LifecycleRevoked,
+  MemberNotInWorkspace,
+  WorkspaceNotFound,
+  NotFound,
   ValidationFailed,
-);
+]);
 
-const BrainPageWriteError = Schema.Union(
-  BrainPageReadError,
-  PageTreeConflict,
-  RevisionNotFound,
+const BrainPageWriteError = Schema.Union([
+  BrainPageError,
+  ValidationFailed,
   StaleRevision,
-);
+]);
 
-// Contract check anchor: generated Confect tables expose brainPages.Doc to callers.
-const PageSummary = Schema.Struct({
-  pageKey: PageKey,
-  parentPageKey: Schema.NullOr(PageKey),
-  siblingSlug: SiblingSlug,
-  sortKey: SortKey,
+const ListArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  includeArchived: Schema.optional(Schema.Boolean),
+});
+
+const ListReturns = Schema.Array(brainPages.Doc);
+
+const CreateMarkdownArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  slug: Schema.String,
   title: Schema.String,
-  favorite: Schema.Boolean,
-  status: Schema.Literal("active", "archived", "redacted", "purged"),
-  currentRevisionKey: Schema.NullOr(RevisionKey),
-  lifecycleGeneration: Schema.Number,
-});
-
-const PageDetail = Schema.Struct({
-  page: PageSummary,
   markdown: Schema.String,
-  editorSnapshotJson: Schema.optional(Schema.String),
-  editorSnapshotVersion: Schema.optional(Schema.Number),
-  updatedAt: Schema.Number,
+  parentPageId: Schema.optional(Schema.NullOr(Id("brainPages"))),
+  sortKey: Schema.optional(Schema.String),
 });
 
-const ListArgs = Schema.extend(
-  BrainSelector,
-  Schema.Struct({ includeArchived: Schema.optional(Schema.Boolean) }),
-);
-const ListReturns = Schema.Struct({
-  brainKey: BrainKey,
-  asOf: Schema.Number,
-  freshness: Schema.Struct({ status: Schema.Literal("current") }),
-  pages: Schema.Array(PageSummary),
-});
-const GetArgs = Schema.extend(
-  BrainSelector,
-  Schema.Struct({ pageKey: PageKey }),
-);
-const HistoryArgs = Schema.extend(
-  BrainSelector,
-  Schema.Struct({
-    pageKey: PageKey,
-    cursor: Schema.optional(Schema.String),
-    limit: Schema.optional(Schema.Number),
-  }),
-);
-const HistoryReturns = Schema.Struct({
-  brainKey: BrainKey,
-  pageKey: PageKey,
-  asOf: Schema.Number,
-  freshness: Schema.Struct({ status: Schema.Literal("current") }),
-  revisions: Schema.Array(
-    Schema.Struct({
-      revisionKey: RevisionKey,
-      priorRevisionKey: Schema.NullOr(RevisionKey),
-      causation: Schema.String,
-      createdAt: Schema.Number,
-      lifecycleGeneration: Schema.Number,
-      markdown: Schema.optional(Schema.String),
-      contentHash: Schema.optional(Schema.String),
-      state: Schema.optional(Schema.String),
-      actorKind: Schema.optional(Schema.String),
-      actorId: Schema.optional(Schema.String),
-    }),
-  ),
+const CreateMarkdownReturns = Id("brainPages");
+
+const PageDetailArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  pageId: Id("brainPages"),
 });
 
-const CreateArgs = Schema.extend(
-  BrainSelector,
-  Schema.Struct({
-    parentPageKey: Schema.NullOr(PageKey),
-    siblingSlug: SiblingSlug,
-    sortKey: SortKey,
-    title: Schema.String,
-    markdown: Schema.String,
-    expectedCurrentRevisionKey: Schema.NullOr(RevisionKey),
-  }),
-);
-const PageRevisionSelector = Schema.extend(
-  BrainSelector,
-  Schema.Struct({
-    pageKey: PageKey,
-    expectedCurrentRevisionKey: RevisionKey,
-  }),
-);
-const RenameArgs = Schema.extend(
-  PageRevisionSelector,
-  Schema.Struct({ title: Schema.String }),
-);
-const MoveArgs = Schema.extend(
-  PageRevisionSelector,
-  Schema.Struct({
-    parentPageKey: Schema.NullOr(PageKey),
-    sortKey: SortKey,
-  }),
-);
-const FavoriteArgs = Schema.extend(
-  PageRevisionSelector,
-  Schema.Struct({ favorite: Schema.Boolean }),
-);
-const ArchiveArgs = PageRevisionSelector;
-const RestoreArgs = Schema.extend(
-  PageRevisionSelector,
-  Schema.Struct({ revisionKey: RevisionKey }),
-);
+const UpdateMarkdownArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  pageId: Id("brainPages"),
+  markdown: Schema.String,
+  expectedUpdatedAt: Schema.Number,
+});
+
+const HistoryArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  pageId: Id("brainPages"),
+  limit: Schema.optional(Schema.Number),
+});
+
+const HistoryReturns = Schema.Array(pageRevisions.Doc);
+
+const PageRevisionArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  pageId: Id("brainPages"),
+  expectedUpdatedAt: Schema.Number,
+});
+
+const RenameArgs = Schema.Struct({
+  ...PageRevisionArgs.fields,
+  title: Schema.String,
+});
+
+const MoveArgs = Schema.Struct({
+  ...PageRevisionArgs.fields,
+  parentPageId: Schema.NullOr(Id("brainPages")),
+  sortKey: Schema.String,
+});
+
+const FavoriteArgs = Schema.Struct({
+  ...PageRevisionArgs.fields,
+  favorite: Schema.Boolean,
+});
+
+const RestoreArgs = Schema.Struct({
+  ...PageRevisionArgs.fields,
+  revisionUpdatedAt: Schema.Number,
+});
 
 export const RecordSnapshotArgs = Schema.Struct({
-  brainKey: BrainKey,
-  pageKey: PageKey,
-  expectedCurrentRevisionKey: RevisionKey,
+  workspaceId: Id("workspaces"),
+  pageId: Id("brainPages"),
   snapshot: Schema.String,
   version: Schema.Number,
 });
 
 export const RecordSnapshotReturns = Schema.Struct({
-  pageKey: PageKey,
-  pageRevisionKey: RevisionKey,
-  contentHash: Schema.String,
-  savedAt: Schema.Number,
+  ok: Schema.Literal(true),
 });
 
-const pageReadErrors = [
-  "Unauthorized",
-  "Forbidden",
-  "BrainNotFound",
-  "PageNotFound",
-  "LifecycleRevoked",
-  "ValidationFailed",
-] as const;
+const list = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "list",
+    args: () => ListArgs,
+    returns: () => ListReturns,
+    error: () => BrainPageError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "list",
+    operationId: "brain.pages.list",
+    kind: "query",
+    surfaces: ["web"],
+    typedErrors: ["Unauthorized", "MemberNotInWorkspace", "WorkspaceNotFound"],
+    idempotent: true,
+    argsSchemaName: "brain.pages.list.args",
+    returnsSchemaName: "brain.pages.list.returns",
+    argsSchema: ListArgs,
+    returnsSchema: ListReturns,
+  },
+);
+
+const get = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "get",
+    args: () => PageDetailArgs,
+    returns: () => brainPages.Doc,
+    error: () => BrainPageError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "get",
+    operationId: "brain.pages.get",
+    kind: "query",
+    surfaces: ["web"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.pages.get.args",
+    returnsSchemaName: "brain.pages.get.returns",
+    argsSchema: PageDetailArgs,
+    returnsSchema: brainPages.Doc,
+  },
+);
+
+const createMarkdown = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "createMarkdown",
+    args: () => CreateMarkdownArgs,
+    returns: () => CreateMarkdownReturns,
+    error: () => BrainPageWriteError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "createMarkdown",
+    operationId: "brain.pages.createMarkdown",
+    kind: "mutation",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "brain.pages.createMarkdown.args",
+    returnsSchemaName: "brain.pages.createMarkdown.returns",
+    argsSchema: CreateMarkdownArgs,
+    returnsSchema: CreateMarkdownReturns,
+  },
+);
+
+const updateMarkdown = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "updateMarkdown",
+    args: () => UpdateMarkdownArgs,
+    returns: () => brainPages.Doc,
+    error: () => BrainPageWriteError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "updateMarkdown",
+    operationId: "brain.pages.updateMarkdown",
+    kind: "mutation",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+      "StaleRevision",
+    ],
+    idempotent: false,
+    argsSchemaName: "brain.pages.updateMarkdown.args",
+    returnsSchemaName: "brain.pages.updateMarkdown.returns",
+    argsSchema: UpdateMarkdownArgs,
+    returnsSchema: brainPages.Doc,
+  },
+);
+
+const history = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "history",
+    args: () => HistoryArgs,
+    returns: () => HistoryReturns,
+    error: () => BrainPageError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "history",
+    operationId: "brain.pages.history",
+    kind: "query",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.pages.history.args",
+    returnsSchemaName: "brain.pages.history.returns",
+    argsSchema: HistoryArgs,
+    returnsSchema: HistoryReturns,
+  },
+);
+
 const pageWriteErrors = [
-  ...pageReadErrors,
-  "PageTreeConflict",
-  "RevisionNotFound",
+  "Unauthorized",
+  "MemberNotInWorkspace",
+  "WorkspaceNotFound",
+  "NotFound",
+  "ValidationFailed",
   "StaleRevision",
 ] as const;
 
-const definePageQuery = <
-  const Name extends string,
-  Args extends Schema.Schema.AnyNoContext,
->(
-  name: Name,
-  args: Args,
-  returns: Schema.Schema.AnyNoContext,
-) =>
-  defineContractFunction(
-    FunctionSpec.publicQuery({
-      name,
-      args: () => args,
-      returns: () => returns,
-      error: () => BrainPageReadError,
-    }),
-    {
-      namespace: "brain.pages",
-      name,
-      operationId: `brain.pages.${name}`,
-      kind: "query",
-      surfaces: ["web", "api", "mcp"],
-      typedErrors: [...pageReadErrors],
-      idempotent: true,
-      argsSchemaName: `brain.pages.${name}.args`,
-      returnsSchemaName: `brain.pages.${name}.returns`,
-      argsSchema: args,
-      returnsSchema: returns,
-    },
-  );
-
 const definePageMutation = <
-  const Name extends string,
-  Args extends Schema.Schema.AnyNoContext,
+  const Name extends "rename" | "move" | "favorite" | "archive" | "restore",
+  Args extends Schema.Codec<unknown, unknown>,
 >(
   name: Name,
   inputSchema: Args,
@@ -211,7 +261,7 @@ const definePageMutation = <
     FunctionSpec.publicMutation({
       name,
       args: () => inputSchema,
-      returns: () => PageSummary,
+      returns: () => brainPages.Doc,
       error: () => BrainPageWriteError,
     }),
     {
@@ -225,32 +275,29 @@ const definePageMutation = <
       argsSchemaName: `brain.pages.${name}.args`,
       returnsSchemaName: `brain.pages.${name}.returns`,
       argsSchema: inputSchema,
-      returnsSchema: PageSummary,
+      returnsSchema: brainPages.Doc,
     },
   );
 
-const list = definePageQuery("list", ListArgs, ListReturns);
-const get = definePageQuery("get", GetArgs, PageDetail);
-const history = definePageQuery("history", HistoryArgs, HistoryReturns);
-const create = definePageMutation("create", CreateArgs);
 const rename = definePageMutation("rename", RenameArgs);
 const move = definePageMutation("move", MoveArgs);
 const favorite = definePageMutation("favorite", FavoriteArgs);
-const archive = definePageMutation("archive", ArchiveArgs);
+const archive = definePageMutation("archive", PageRevisionArgs);
 const restore = definePageMutation("restore", RestoreArgs);
 
 const recordSnapshotInternal = FunctionSpec.internalMutation({
   name: "recordSnapshotInternal",
   args: () => RecordSnapshotArgs,
   returns: () => RecordSnapshotReturns,
-  error: () => BrainPageWriteError,
+  error: () => Schema.Union([NotFound, ValidationFailed]),
 });
 
 const contractFunctions = [
   list,
   get,
   history,
-  create,
+  createMarkdown,
+  updateMarkdown,
   rename,
   move,
   favorite,
@@ -265,7 +312,8 @@ export default GroupSpec.make()
   .addFunction(list.spec)
   .addFunction(get.spec)
   .addFunction(history.spec)
-  .addFunction(create.spec)
+  .addFunction(createMarkdown.spec)
+  .addFunction(updateMarkdown.spec)
   .addFunction(rename.spec)
   .addFunction(move.spec)
   .addFunction(favorite.spec)

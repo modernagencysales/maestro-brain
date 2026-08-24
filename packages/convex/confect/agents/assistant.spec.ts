@@ -1,29 +1,90 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as S from "effect/Schema";
+import { Id } from "../_generated/id";
+import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+} from "../capabilities/_kit/capability";
 
 export const StartThreadArgs = S.Struct({
-  workspaceId: S.String.pipe(S.minLength(1)),
-  userId: S.String.pipe(S.minLength(1)),
-  firstMessage: S.String.pipe(S.minLength(1)),
+  workspaceId: Id("workspaces"),
+  firstMessage: S.String.pipe(S.check(S.isMinLength(1))),
 });
 
 export const ContinueThreadArgs = S.Struct({
-  workspaceId: S.String.pipe(S.minLength(1)),
-  userId: S.String.pipe(S.minLength(1)),
-  threadId: S.String.pipe(S.minLength(1)),
-  message: S.String.pipe(S.minLength(1)),
-  idempotencyKey: S.String.pipe(S.minLength(1)),
+  workspaceId: Id("workspaces"),
+  threadId: S.String.pipe(S.check(S.isMinLength(1))),
+  message: S.String.pipe(S.check(S.isMinLength(1))),
+  idempotencyKey: S.String.pipe(S.check(S.isMinLength(1))),
 });
 
 export const ListThreadMessagesArgs = S.Struct({
-  workspaceId: S.String.pipe(S.minLength(1)),
-  userId: S.String.pipe(S.minLength(1)),
-  threadId: S.String.pipe(S.minLength(1)),
+  workspaceId: Id("workspaces"),
+  threadId: S.String.pipe(S.check(S.isMinLength(1))),
 });
+
+export const AnswerQuestionArgs = S.Struct({
+  workspaceId: Id("workspaces"),
+  question: S.String.pipe(S.check(S.isMinLength(1))),
+  maxCitations: S.optional(
+    S.Number.pipe(
+      S.check(S.isInt()),
+      S.check(S.isGreaterThanOrEqualTo(1)),
+      S.check(S.isLessThanOrEqualTo(10)),
+    ),
+  ),
+});
+
+export const AnswerCitation = S.Struct({
+  citationKey: S.String,
+  sourceId: S.String,
+  sourceRevisionId: S.String,
+  pageId: Id("brainPages"),
+  revisionUpdatedAt: S.Number,
+  title: S.String,
+  excerpt: S.String,
+  startOffset: S.Number,
+  endOffset: S.Number,
+  freshness: S.Literals(["current", "review-due", "stale"]),
+});
+
+export const ContextPackV3 = S.Struct({
+  schemaVersion: S.Literal("3"),
+  candidateManifest: S.Struct({
+    schemaVersion: S.Literal("2"),
+    candidateKeys: S.Array(S.String),
+  }),
+  workspaceId: Id("workspaces"),
+  question: S.String,
+  asOf: S.Number,
+  freshness: S.Literals(["current", "review-due", "stale", "unknown"]),
+  citations: S.Array(AnswerCitation),
+  omissions: S.Array(
+    S.Struct({
+      reason: S.Literals(["archived", "revision-mismatch", "not-relevant"]),
+      count: S.Number,
+    }),
+  ),
+});
+
+export const AnswerQuestionReturn = S.Union([
+  S.Struct({
+    status: S.Literal("answered"),
+    answerMarkdown: S.String,
+    contextPack: ContextPackV3,
+  }),
+  S.Struct({
+    status: S.Literal("insufficient-context"),
+    reason: S.Literal("no-eligible-evidence"),
+    answerMarkdown: S.Null,
+    contextPack: ContextPackV3,
+  }),
+]);
 
 export const AssistantMessage = S.Struct({
   id: S.String,
-  role: S.Literal("user", "assistant", "tool"),
+  role: S.Literals(["user", "assistant", "tool"]),
   content: S.String,
   createdAt: S.Number,
 });
@@ -40,12 +101,12 @@ export const ContinueThreadReturn = S.Struct({
 });
 
 export namespace AssistantError {
-  export class Unauthenticated extends S.TaggedError<Unauthenticated>()(
+  export class Unauthenticated extends S.TaggedErrorClass<Unauthenticated>()(
     "Unauthenticated",
     {},
   ) {}
 
-  export class NoWorkspaceAccess extends S.TaggedError<NoWorkspaceAccess>()(
+  export class NoWorkspaceAccess extends S.TaggedErrorClass<NoWorkspaceAccess>()(
     "NoWorkspaceAccess",
     {
       workspaceId: S.String,
@@ -53,14 +114,14 @@ export namespace AssistantError {
     },
   ) {}
 
-  export class ThreadNotFound extends S.TaggedError<ThreadNotFound>()(
+  export class ThreadNotFound extends S.TaggedErrorClass<ThreadNotFound>()(
     "ThreadNotFound",
     {
       threadId: S.String,
     },
   ) {}
 
-  export class ToolGrantDenied extends S.TaggedError<ToolGrantDenied>()(
+  export class ToolGrantDenied extends S.TaggedErrorClass<ToolGrantDenied>()(
     "ToolGrantDenied",
     {
       toolName: S.String,
@@ -68,7 +129,7 @@ export namespace AssistantError {
     },
   ) {}
 
-  export class ValidationFailed extends S.TaggedError<ValidationFailed>()(
+  export class ValidationFailed extends S.TaggedErrorClass<ValidationFailed>()(
     "ValidationFailed",
     {
       field: S.String,
@@ -76,13 +137,13 @@ export namespace AssistantError {
     },
   ) {}
 
-  export const Schema = S.Union(
+  export const Schema = S.Union([
     Unauthenticated,
     NoWorkspaceAccess,
     ThreadNotFound,
     ToolGrantDenied,
     ValidationFailed,
-  );
+  ]);
 }
 
 export type WorkspaceMembership = {
@@ -125,14 +186,14 @@ export const verifyWorkspaceAccess = (
       };
 };
 
-const startThread = FunctionSpec.publicMutation({
+const startThread = FunctionSpec.publicAction({
   name: "startThread",
   args: () => StartThreadArgs,
   returns: () => StartThreadReturn,
   error: () => AssistantError.Schema,
 });
 
-const continueThread = FunctionSpec.publicMutation({
+const continueThread = FunctionSpec.publicAction({
   name: "continueThread",
   args: () => ContinueThreadArgs,
   returns: () => ContinueThreadReturn,
@@ -146,7 +207,41 @@ const listThreadMessages = FunctionSpec.publicQuery({
   error: () => AssistantError.Schema,
 });
 
+const answerQuestion = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "answerQuestion",
+    args: () => AnswerQuestionArgs,
+    returns: () => AnswerQuestionReturn,
+    error: () => AssistantError.Schema,
+  }),
+  {
+    namespace: "agents.assistant",
+    name: "answerQuestion",
+    operationId: "agents.assistant.answerQuestion",
+    kind: "query",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: ["Unauthenticated", "NoWorkspaceAccess", "ValidationFailed"],
+    idempotent: true,
+    argsSchemaName: "agents.assistant.answerQuestion.args",
+    returnsSchemaName: "agents.assistant.answerQuestion.returns",
+    argsSchema: AnswerQuestionArgs,
+    returnsSchema: AnswerQuestionReturn,
+  },
+);
+
+const resolveAccess = FunctionSpec.internalQuery({
+  name: "resolveAccess",
+  args: () => S.Struct({ workspaceId: Id("workspaces") }),
+  returns: () => S.Struct({ userId: Id("users") }),
+  error: () => AssistantError.Schema,
+});
+
 export default GroupSpec.make()
+  .addFunction(answerQuestion.spec)
   .addFunction(startThread)
   .addFunction(continueThread)
-  .addFunction(listThreadMessages);
+  .addFunction(listThreadMessages)
+  .addFunction(resolveAccess);
+
+export const manifest = collectContractManifest([answerQuestion]);
+export const schemaRegistry = collectContractSchemas([answerQuestion]);

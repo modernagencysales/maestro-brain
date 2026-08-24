@@ -1,185 +1,297 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
-import * as Clock from "effect/Clock";
+import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Clock from "effect/Clock";
 import * as Layer from "effect/Layer";
-
+import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
-import { Auth, DatabaseReader } from "../_generated/services";
-import { resolveEffectiveWorkspaceRole } from "../access/auth";
-import { extractIdentityBinding } from "../access/provisioning";
-import { loadCurrentUser } from "../access/handlerContext";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { Forbidden, MemberNotInWorkspace, ValidationFailed } from "../errors";
+import { isLiveWorkspaceMembership } from "../access/lifecycle";
+import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import {
-  OrganizationNotFound,
-  ProvisioningConflict,
-  Unauthorized,
-} from "../errors";
+  asGenericId,
+  loadCurrentUser,
+  toLifecycleMember,
+  type Reader,
+} from "../access/handlerContext";
 import workspaces from "./workspaces.spec";
 
-const isLiveOrganizationMembership = (member: {
-  readonly status: "pending" | "active" | "revoked";
-  readonly acceptedAt: number | null;
-  readonly revokedAt: number | null;
-}): boolean =>
-  member.status === "active" &&
-  member.acceptedAt !== null &&
-  member.revokedAt === null;
+const MEMBER_SCAN_CAP = 200;
+const WORKSPACE_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/u;
 
-const isLiveWorkspaceMembership = (member: {
-  readonly status: "pending" | "active" | "revoked";
-  readonly acceptedAt: number | null;
-  readonly revokedAt: number | null;
-  readonly deletedAt: number | null;
-}): boolean =>
-  isLiveOrganizationMembership(member) && member.deletedAt === null;
+const withConfectClock = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, Clock.Clock>> =>
+  effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 
-const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
+const normalizeWorkspaceInput = (input: {
+  readonly name: string;
+  readonly slug: string;
+}) => {
+  const name = input.name.trim();
+  const slug = input.slug.trim().toLowerCase();
+  if (name.length < 2 || name.length > 50)
+    return new ValidationFailed({
+      field: "name",
+      message: "Workspace name must contain between 2 and 50 characters.",
+    });
+  if (!WORKSPACE_SLUG.test(slug))
+    return new ValidationFailed({
+      field: "slug",
+      message:
+        "Workspace slug must contain 2 to 50 lowercase letters, numbers, or dashes.",
+    });
+  return { name, slug };
+};
+
+const requireAvailableSlug = (
+  reader: Reader,
+  slug: string,
+  currentWorkspaceId?: GenericId<"workspaces"> | undefined,
+) =>
   Effect.gen(function* () {
-    const auth = yield* Auth;
-    const identity = yield* extractIdentityBinding(
-      yield* auth.getUserIdentity.pipe(
-        Effect.mapError(() => new Unauthorized()),
-      ),
-    );
-    if (identity.workosOrganizationId === undefined) {
-      return yield* new Unauthorized();
-    }
+    const existing = yield* reader
+      .table("workspaces")
+      .index("by_slug", (q) => q.eq("slug", slug))
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (existing !== null && existing._id !== currentWorkspaceId)
+      return yield* new ValidationFailed({
+        field: "slug",
+        message: "Workspace slug is already in use.",
+      });
+  });
 
+const requireWritableOrganization = (
+  reader: Reader,
+  userId: GenericId<"users">,
+) =>
+  Effect.gen(function* () {
+    const ownedOrganization = yield* reader
+      .table("organizations")
+      .index("by_owner", (q) => q.eq("ownerUserId", userId))
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (ownedOrganization?.status === "active") return ownedOrganization;
+    const memberships = yield* reader
+      .table("organizationMembers")
+      .index("by_user", (q) => q.eq("userId", userId))
+      .take(MEMBER_SCAN_CAP)
+      .pipe(Effect.orDie);
+    const membership = memberships.find(
+      (candidate) =>
+        candidate.status === "active" &&
+        (candidate.role === "owner" || candidate.role === "admin"),
+    );
+    if (membership === undefined)
+      return yield* new Forbidden({
+        reason: "Organization administrator access is required.",
+      });
+    const organizationId = asGenericId<"organizations">(
+      membership.organizationId,
+    );
+    const organization = yield* reader
+      .table("organizations")
+      .get(organizationId)
+      .pipe(Effect.orDie);
+    if (organization === null || organization.status !== "active")
+      return yield* new Forbidden({ reason: "Organization is not active." });
+    return organization;
+  });
+
+const liveMemberships = (reader: Reader, userId: GenericId<"users">) =>
+  reader
+    .table("workspaceMembers")
+    .index("by_user", (q) => q.eq("userId", userId))
+    .take(MEMBER_SCAN_CAP)
+    .pipe(
+      Effect.map((rows) =>
+        rows.map(toLifecycleMember).filter(isLiveWorkspaceMembership),
+      ),
+      Effect.orDie,
+    );
+
+const frontendWorkspace = (row: {
+  readonly _id: GenericId<"workspaces">;
+  readonly slug: string;
+  readonly name: string;
+}) => ({
+  id: row._id,
+  slug: row.slug,
+  name: row.name,
+});
+
+const me = FunctionImpl.make(databaseSchema, workspaces, "me", () =>
+  Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const user = yield* loadCurrentUser(reader);
-    if (user.status !== "active") {
-      return yield* new Unauthorized();
-    }
-
-    const currentOrganizations = yield* reader
-      .table("organizations")
-      .index("by_workos_organization", (q) =>
-        q.eq("workosOrganizationId", identity.workosOrganizationId),
-      )
-      .collect()
-      .pipe(Effect.orDie);
-    const organizations = currentOrganizations.filter(
-      (organization) => organization.status === "active",
-    );
-    if (organizations.length > 1) {
-      return yield* new ProvisioningConflict({
-        resource: "organizations.workosOrganizationId",
-        message:
-          "Duplicate active organizations found for provider organization.",
-      });
-    }
-    const organization = organizations[0];
-    if (organization === undefined) {
-      return yield* new OrganizationNotFound({
-        workosOrganizationId: identity.workosOrganizationId,
-      });
-    }
-
-    const organizationMembers = yield* reader
-      .table("organizationMembers")
-      .index("by_organization_user", (q) =>
-        q.eq("organizationId", organization._id).eq("userId", user._id),
-      )
-      .collect()
-      .pipe(Effect.orDie);
-    const liveOrganizationMemberships = organizationMembers.filter(
-      isLiveOrganizationMembership,
-    );
-    if (liveOrganizationMemberships.length > 1) {
-      return yield* new ProvisioningConflict({
-        resource: "organizationMembers.organizationId.userId",
-        message: "Duplicate live organization memberships found.",
-      });
-    }
-    const nowMs = yield* Clock.currentTimeMillis;
-
-    const summaries = [];
-    if (organization.agencyKey !== undefined) {
-      const rows = yield* reader
+    const memberships = yield* liveMemberships(reader, user._id);
+    const rows = yield* Effect.forEach(memberships, (membership) =>
+      reader
         .table("workspaces")
-        .index("by_organization", (q) =>
-          q.eq("organizationId", organization._id),
+        .get(asGenericId<"workspaces">(membership.workspaceId))
+        .pipe(Effect.orDie),
+    );
+    return {
+      id: user._id,
+      email: user.email,
+      name: user.displayName ?? user.email,
+      image: null,
+      workspaces: rows
+        .filter(
+          (row): row is NonNullable<typeof row> =>
+            row !== null && row.status === "active",
         )
-        .collect()
-        .pipe(Effect.orDie);
-      const activeRows = rows.filter(
-        (row): row is typeof row & { readonly status: "active" } =>
-          row.status === "active",
-      );
-      const scopedWorkspaceMembers = [];
-      for (const workspace of activeRows) {
-        const members = yield* reader
-          .table("workspaceMembers")
-          .index("by_workspace_user", (q) =>
-            q.eq("workspaceId", workspace._id).eq("userId", user._id),
-          )
-          .collect()
-          .pipe(Effect.orDie);
-        scopedWorkspaceMembers.push(...members);
-      }
-      const liveMembershipCountsByWorkspace = new Map<string, number>();
-      for (const member of scopedWorkspaceMembers) {
-        if (!isLiveWorkspaceMembership(member)) continue;
-        liveMembershipCountsByWorkspace.set(
-          member.workspaceId,
-          (liveMembershipCountsByWorkspace.get(member.workspaceId) ?? 0) + 1,
-        );
-      }
-      if (
-        [...liveMembershipCountsByWorkspace.values()].some((count) => count > 1)
-      ) {
-        return yield* new ProvisioningConflict({
-          resource: "workspaceMembers.workspaceId.userId",
-          message: "Duplicate live workspace memberships found.",
-        });
-      }
-      const agencyRows = activeRows.filter(
-        (row) => (row.kind ?? "agency") === "agency",
-      );
-      if (agencyRows.length > 1) {
-        return yield* new ProvisioningConflict({
-          resource: "workspaces.organizationId.kind",
-          message: "Organization has more than one active Agency Brain.",
-        });
-      }
-      for (const workspace of activeRows) {
-        if (workspace.brainKey === undefined) continue;
-        const resolution = resolveEffectiveWorkspaceRole({
-          nowMs,
-          userId: user._id,
-          workspace: {
-            id: workspace._id,
-            organizationId: workspace.organizationId,
-            status: workspace.status,
-          },
-          organization: { id: organization._id, status: organization.status },
-          workspaceMembers: scopedWorkspaceMembers,
-          organizationMembers,
-          guestGrants: [],
-        });
-        if (!resolution.ok) continue;
-        summaries.push({
-          agencyKey: organization.agencyKey,
-          brainKey: workspace.brainKey,
-          name: workspace.name,
-          kind: workspace.kind ?? "agency",
-          ...(workspace.clientSlug === undefined
-            ? {}
-            : { clientSlug: workspace.clientSlug }),
-          effectiveRole: resolution.role,
-          status: workspace.status,
-          freshness: {
-            updatedAt: workspace.updatedAt,
-            lifecycleGeneration: workspace.lifecycleGeneration ?? 0,
-            revocationGeneration: workspace.revocationGeneration ?? 0,
-          },
-        });
-      }
-    }
-    return summaries;
+        .map(frontendWorkspace),
+    };
   }),
 );
 
+const bySlug = FunctionImpl.make(
+  databaseSchema,
+  workspaces,
+  "bySlug",
+  ({ slug }) =>
+    Effect.gen(function* () {
+      const reader = yield* DatabaseReader;
+      const user = yield* loadCurrentUser(reader);
+      const workspace = yield* reader
+        .table("workspaces")
+        .index("by_slug", (q) => q.eq("slug", slug))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (workspace === null || workspace.status !== "active") return null;
+      const membership = yield* reader
+        .table("workspaceMembers")
+        .index("by_workspace_user", (q) =>
+          q.eq("workspaceId", workspace._id).eq("userId", user._id),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        membership === null ||
+        !isLiveWorkspaceMembership(toLifecycleMember(membership))
+      ) {
+        return yield* Effect.fail(
+          new MemberNotInWorkspace({ membershipId: "workspace" }),
+        );
+      }
+      return frontendWorkspace(workspace);
+    }),
+);
+
+const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const user = yield* loadCurrentUser(reader);
+    const memberships = yield* liveMemberships(reader, user._id);
+    const rows = yield* Effect.forEach(memberships, (membership) =>
+      reader
+        .table("workspaces")
+        .get(asGenericId<"workspaces">(membership.workspaceId))
+        .pipe(Effect.orDie),
+    );
+    return rows.filter(
+      (row): row is NonNullable<typeof row> =>
+        row !== null && row.status === "active",
+    );
+  }),
+);
+
+const slugAvailable = FunctionImpl.make(
+  databaseSchema,
+  workspaces,
+  "slugAvailable",
+  ({ slug }) =>
+    Effect.gen(function* () {
+      const reader = yield* DatabaseReader;
+      yield* loadCurrentUser(reader);
+      const normalized = normalizeWorkspaceInput({ name: "ok", slug });
+      if (normalized instanceof ValidationFailed) return yield* normalized;
+      const existing = yield* reader
+        .table("workspaces")
+        .index("by_slug", (q) => q.eq("slug", normalized.slug))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      return { available: existing === null };
+    }),
+);
+
+const create = FunctionImpl.make(
+  databaseSchema,
+  workspaces,
+  "create",
+  (input) =>
+    Effect.gen(function* () {
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const user = yield* loadCurrentUser(reader);
+      const normalized = normalizeWorkspaceInput(input);
+      if (normalized instanceof ValidationFailed) return yield* normalized;
+      yield* requireAvailableSlug(reader, normalized.slug);
+      const organization = yield* requireWritableOrganization(reader, user._id);
+      const now = yield* withConfectClock(Clock.currentTimeMillis);
+      const workspaceId = yield* writer
+        .table("workspaces")
+        .insert({
+          organizationId: organization._id,
+          ownerUserId: user._id,
+          slug: normalized.slug,
+          name: normalized.name,
+          status: "active",
+          dataClassification: "confidential",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      yield* writer
+        .table("workspaceMembers")
+        .insert({
+          workspaceId,
+          userId: user._id,
+          role: "owner",
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      return { id: workspaceId, ...normalized };
+    }),
+);
+
+const update = FunctionImpl.make(
+  databaseSchema,
+  workspaces,
+  "update",
+  ({ workspaceId, ...input }) =>
+    Effect.gen(function* () {
+      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "admin"));
+      const normalized = normalizeWorkspaceInput(input);
+      if (normalized instanceof ValidationFailed) return yield* normalized;
+      const reader = yield* DatabaseReader;
+      yield* requireAvailableSlug(reader, normalized.slug, workspaceId);
+      const writer = yield* DatabaseWriter;
+      yield* writer
+        .table("workspaces")
+        .patch(workspaceId, {
+          ...normalized,
+          updatedAt: yield* withConfectClock(Clock.currentTimeMillis),
+        })
+        .pipe(Effect.orDie);
+      return { id: workspaceId, ...normalized };
+    }),
+);
+
 export default GroupImpl.make(databaseSchema, workspaces).pipe(
+  Layer.provide(me),
+  Layer.provide(bySlug),
   Layer.provide(list),
+  Layer.provide(slugAvailable),
+  Layer.provide(create),
+  Layer.provide(update),
   GroupImpl.finalize,
 );

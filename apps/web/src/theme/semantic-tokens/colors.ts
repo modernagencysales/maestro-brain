@@ -1,44 +1,44 @@
-import { defineSemanticTokens } from "@chakra-ui/react";
+import { defineSemanticTokens } from '@chakra-ui/react'
 
 export const colors = defineSemanticTokens({
   colors: {
     active: {
-      value: "{colors.green.400}",
+      value: '{colors.green.400}',
     },
     pending: {
-      value: "{colors.orange.400}",
+      value: '{colors.orange.400}',
     },
     tag: {
       gray: {
-        value: "{colors.gray.200}",
+        value: '{colors.gray.200}',
       },
       red: {
-        value: "{colors.red.500}",
+        value: '{colors.red.500}',
       },
       orange: {
-        value: "{colors.orange.500}",
+        value: '{colors.orange.500}',
       },
       yellow: {
-        value: "{colors.yellow.500}",
+        value: '{colors.yellow.500}',
       },
       green: {
-        value: "{colors.green.500}",
+        value: '{colors.green.500}',
       },
       teal: {
-        value: "{colors.teal.500}",
+        value: '{colors.teal.500}',
       },
       blue: {
-        value: "{colors.blue.500} ",
+        value: '{colors.blue.500} ',
       },
       cyan: {
-        value: "{colors.cyan.500}",
+        value: '{colors.cyan.500}',
       },
       purple: {
-        value: "{colors.purple.500}",
+        value: '{colors.purple.500}',
       },
       pink: {
-        value: "{colors.pink.500}",
+        value: '{colors.pink.500}',
       },
     },
   },
-});
+})

@@ -1,10 +1,10 @@
-import * as React from "react";
+import * as React from 'react'
 
-import { mergeRefs } from "@chakra-ui/react";
-import { Command } from "@saas-ui/react/command";
-import { useHotkeysShortcut } from "@saas-ui/use-hotkeys";
+import { mergeRefs } from '@chakra-ui/react'
+import { Command } from '@saas-ui/react/command'
+import { useHotkeysShortcut } from '@saas-ui/use-hotkeys'
 
-import { SearchInput, type SearchInputProps } from "@workspace/ui/search-input";
+import { SearchInput, type SearchInputProps } from '@workspace/ui/search-input'
 
 export interface GlobalSearchInputProps extends SearchInputProps {}
 
@@ -12,11 +12,11 @@ export const GlobalSearchInput = React.forwardRef<
   HTMLInputElement,
   GlobalSearchInputProps
 >(function GlobalSearchInput(props, ref) {
-  const searchRef = React.useRef<HTMLInputElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null)
 
-  const searchCommand = useHotkeysShortcut("general.search", () => {
-    searchRef.current?.focus();
-  });
+  const searchCommand = useHotkeysShortcut('general.search', () => {
+    searchRef.current?.focus()
+  })
 
   return (
     <SearchInput
@@ -26,5 +26,5 @@ export const GlobalSearchInput = React.forwardRef<
       endElement={<Command colorPalette="gray">{searchCommand}</Command>}
       {...props}
     />
-  );
-});
+  )
+})

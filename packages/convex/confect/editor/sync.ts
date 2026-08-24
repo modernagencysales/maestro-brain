@@ -27,30 +27,10 @@ export const resolveEditorWorkspaceId = async (
 ): Promise<string | null> => {
   const target = parseEditorTarget(documentId);
   if (target.kind !== "brainPage") return null;
-  if (target.legacyPageId !== null) {
-    const pageId = ctx.db.normalizeId("brainPages", target.legacyPageId);
-    if (pageId === null) return null;
-    const page = await ctx.db.get(pageId);
-    return page?.workspaceId ?? null;
-  }
-
-  const workspaces = await ctx.db.query("workspaces").collect();
-  const workspace = workspaces.find((row) => row.brainKey === target.brainKey);
-  if (workspace === undefined) return null;
-  const page = await ctx.db
-    .query("brainPages")
-    .withIndex("by_workspace_page_key", (q) =>
-      q.eq("workspaceId", workspace._id).eq("pageKey", target.pageKey),
-    )
-    .unique();
-  if (
-    page === null ||
-    page.status !== "active" ||
-    page.lifecycle?.state !== "active"
-  ) {
-    return null;
-  }
-  return workspace._id;
+  const pageId = ctx.db.normalizeId("brainPages", target.id);
+  if (pageId === null) return null;
+  const page = await ctx.db.get(pageId);
+  return page?.workspaceId ?? null;
 };
 
 export const requireEditorDocumentAccess = async (

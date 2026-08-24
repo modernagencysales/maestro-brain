@@ -1,31 +1,20 @@
-import { Badge, Box, type BoxProps, Text } from "@chakra-ui/react";
+import { Badge, Tag, Text, type TagRootProps } from '@chakra-ui/react'
 
-import { useTags } from "../../common/hooks/use-tags";
+import { useTags } from '../../common/hooks/use-tags'
 
-export const ContactTag: React.FC<BoxProps & { tag: string; size?: string }> = (
-  props,
-) => {
-  const { tag, size, ...rest } = props;
+export const ContactTag: React.FC<TagRootProps & { tag: string }> = (props) => {
+  const { tag, ...rest } = props
 
-  const tags = useTags();
+  const tags = useTags()
 
-  const t = tags.find((t) => t.id === tag);
+  const t = tags.find((t) => t.id === tag)
 
-  if (!t) return null;
+  if (!t) return null
 
   return (
-    <Box
-      display="inline-flex"
-      alignItems="center"
-      rounded="full"
-      bg="bg.muted"
-      px="2"
-      h="6"
-      data-size={size}
-      {...rest}
-    >
+    <Tag.Root size="sm" colorPalette="gray" h="6" {...rest}>
       <Badge bg={t.color ?? undefined} boxSize="2" rounded="full" me="2" />
       <Text>{t.name}</Text>
-    </Box>
-  );
-};
+    </Tag.Root>
+  )
+}

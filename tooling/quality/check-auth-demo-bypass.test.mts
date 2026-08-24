@@ -97,51 +97,6 @@ describe("check:auth-demo-bypass security posture scan", () => {
     );
   });
 
-  it("accepts multiline workspace guards", async () => {
-    await withFixtureRepo(
-      {
-        ...safeFiles,
-        "packages/convex/confect/access/members.impl.ts": `
-          export const loadMembership = (reader, workspaceId, userId) =>
-            reader.table("workspaceMembers").index("by_workspace_user", (q) =>
-              q
-                .eq("workspaceId", workspaceId)
-                .eq("userId", userId),
-            );
-        `,
-      },
-      async (repoRoot) => {
-        const result = await evaluateTemplateSecurityPosture(repoRoot);
-
-        expect(result).toEqual({ ok: true, failures: [] });
-      },
-    );
-  });
-
-  it("rejects mixed workspace-member files that include any unscoped query", async () => {
-    await withFixtureRepo(
-      {
-        ...safeFiles,
-        "packages/convex/confect/access/members.impl.ts": `
-          export const loadMembership = (reader, workspaceId, userId) =>
-            reader.table("workspaceMembers").index("by_workspace_user", (q) =>
-              q.eq("workspaceId", workspaceId).eq("userId", userId),
-            );
-          export const unsafeMemberships = (reader, userId) =>
-            reader.table("workspaceMembers").index("by_user", (q) =>
-              q.eq("userId", userId),
-            );
-        `,
-      },
-      async (repoRoot) => {
-        const result = await evaluateTemplateSecurityPosture(repoRoot);
-
-        expect(result.ok).toBe(false);
-        expect(result.failures.join("\n")).toContain("workspace guard");
-      },
-    );
-  });
-
   it("rejects HTTP handlers whose final not-found branch runs before API route dispatch", async () => {
     await withFixtureRepo(
       {

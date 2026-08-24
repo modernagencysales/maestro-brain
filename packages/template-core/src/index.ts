@@ -3,10 +3,10 @@ export type Tone = "neutral" | "good" | "warn";
 // actions.ts is Node-only (node:crypto) — import it by path, not through this
 // browser-safe barrel.
 export * from "./coediting";
-export * from "./brainExport";
-export * from "./brainExportJob";
-export * from "./brainExportWorker";
 export * from "./knowledge";
+export * from "./productContract";
+export * from "./productPlan";
+export * from "./recipes";
 export {
   checkPrimitiveContract,
   createPrimitiveContract,
@@ -19,6 +19,7 @@ export {
 } from "./primitiveContract";
 export * from "./transforms";
 export * from "./versioning";
+export * from "./workPackage";
 
 export type TemplateStat = {
   readonly label: string;
@@ -294,7 +295,7 @@ export const templateRegistry = {
     { name: "WorkOS/AuthKit", mode: "fake + live", status: "planned" },
     { name: "PostHog", mode: "event contract", status: "guarded" },
     { name: "Dodo", mode: "billing fake first", status: "planned" },
-    { name: "MailerSend", mode: "console + live", status: "planned" },
+    { name: "Email (Postmark)", mode: "fake + live", status: "planned" },
     { name: "OpenRouter", mode: "BYOK gateway", status: "planned" },
     { name: "Storage", mode: "signed URL policy", status: "guarded" },
   ],

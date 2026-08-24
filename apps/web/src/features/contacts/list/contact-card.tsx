@@ -1,53 +1,57 @@
-import React from "react";
+import React from 'react'
 
-import { Card, HStack, Heading, Stack, Text } from "@saas-ui/react";
-import { createLink } from "@tanstack/react-router";
+import { Card, HStack, Heading, Stack, Text } from '@saas-ui/react'
+import { createLink } from '@tanstack/react-router'
 
-import { ContactDTO } from "@workspace/api/types";
-import { useDataBoardContext } from "@workspace/ui/data-board";
+import { ContactDTO } from '@workspace/api/types'
+import { useDataBoardContext } from '@workspace/ui/data-board'
 
-import { ContactAvatar } from "../common/contact-avatar";
-import { ContactStatus } from "../common/contact-status";
-import { ContactTag } from "../common/contact-tag";
-import { ContactType } from "../common/contact-type";
+import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
+
+import { ContactAvatar } from '../common/contact-avatar'
+import { ContactStatus } from '../common/contact-status'
+import { ContactTag } from '../common/contact-tag'
+import { ContactType } from '../common/contact-type'
 
 export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
-  const grid = useDataBoardContext();
+  const workspace = useWorkspaceSlug()
+  const grid = useDataBoardContext()
 
-  const state = grid.getState();
-  const columns = state.columnVisibility;
-  const groupBy = state.grouping[0];
+  const state = grid.getState()
+  const columns = state.columnVisibility
+  const groupBy = state.grouping[0]
 
   const renderColumn = React.useCallback(
     (column: string, component: React.ReactNode) => {
       if (columns[column] && groupBy != column) {
-        return component;
+        return component
       }
-      return null;
+      return null
     },
     [columns, groupBy],
-  );
+  )
 
-  const tags = typeof contact.tags === "string" ? [contact.tags] : contact.tags;
+  const tags = typeof contact.tags === 'string' ? [contact.tags] : contact.tags
 
   return (
     <CardLink
-      to="/contacts/$contactId"
+      to="/$workspace/contacts/view/$id"
       params={{
-        contactId: contact.id,
+        workspace,
+        id: contact.id,
       }}
       position="relative"
       w="full"
       userSelect="none"
       _hover={{
-        textDecoration: "none",
-        bg: "gray.50",
+        textDecoration: 'none',
+        bg: 'gray.50',
         _dark: {
-          bg: "whiteAlpha.100",
+          bg: 'whiteAlpha.100',
         },
       }}
       css={{
-        WebkitUserDrag: "none",
+        WebkitUserDrag: 'none',
       }}
     >
       <Card.Body as={Stack} gap="4" position="relative">
@@ -55,7 +59,7 @@ export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
           <Stack gap="1">
             <HStack>
               {renderColumn(
-                "status",
+                'status',
                 <ContactStatus
                   status={contact.status}
                   hideLabel
@@ -70,7 +74,7 @@ export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
               </Heading>
             </HStack>
             {renderColumn(
-              "email",
+              'email',
               <Text color="muted" lineClamp={1}>
                 {contact.email}
               </Text>,
@@ -78,15 +82,15 @@ export const ContactCard = ({ contact }: { contact: ContactDTO }) => {
           </Stack>
         </Stack>
         <HStack>
-          {renderColumn("type", <ContactType type={contact.type} size="sm" />)}
+          {renderColumn('type', <ContactType type={contact.type} size="sm" />)}
           {renderColumn(
-            "tags",
+            'tags',
             tags?.map((tag) => <ContactTag key={tag} tag={tag} size="sm" />),
           )}
         </HStack>
       </Card.Body>
     </CardLink>
-  );
-};
+  )
+}
 
-const CardLink = createLink(Card.Root);
+const CardLink = createLink(Card.Root)

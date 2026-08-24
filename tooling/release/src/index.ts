@@ -1,13 +1,28 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
-import { readProjectConfigFile } from "./project-config";
-import type {
-  ProjectConfig,
-  ProjectEnvironment as DeployEnvironmentConfig,
-  ProjectEnvironmentName as DeployEnvironmentName,
-} from "./project-config";
+import { validatePromotionAuthorityEndpoint } from "./deploy/durableAuthority.js";
+export * from "./deploy/audit.js";
+export * from "./deploy/authority.js";
+export * from "./deploy/census.js";
+export * from "./deploy/censusEndpoint.js";
+export * from "./deploy/checkpoint.js";
+export * from "./deploy/consumption.js";
+export * from "./deploy/contract.js";
+export * from "./deploy/decision.js";
+export * from "./deploy/durableAuthority.js";
+export { evaluatePromotionRequirements } from "./deploy/requirements.js";
+export type {
+  PromotionEnvironment,
+  PromotionReadinessInput,
+  PromotionReadinessResult,
+  PromotionRequirement,
+  PromotionRequirementEvidence,
+  PromotionRequirementFinding,
+} from "./deploy/requirements.js";
+export * from "./deploy/trustedAuthority.js";
+export * from "./deploy/verdict.js";
+export * from "./deploy/verify.js";
 
 export type WebStaticSmokeReport = {
   readonly ok: boolean;
@@ -76,57 +91,40 @@ export type ClientReleaseReport = {
   }[];
 };
 
+export type DeployEnvironmentName = "staging" | "production";
+
+export type DeployEnvironmentConfig = {
+  readonly name: DeployEnvironmentName;
+  readonly domain: string;
+  readonly cloudflarePagesProject: string;
+  readonly cloudflareBranch: string;
+  readonly convexDeployName: string;
+  readonly convexUrl: string;
+  readonly requiredEnvGroups: readonly string[];
+  readonly requiredSecrets: readonly string[];
+};
+
+export type ProjectConfig = {
+  readonly project: {
+    readonly name: string;
+  };
+  readonly environments: Record<DeployEnvironmentName, DeployEnvironmentConfig>;
+};
+
 export type DeployDoctorReport = {
   readonly ok: boolean;
   readonly environment: DeployEnvironmentName;
   readonly domain: string;
   readonly cloudflarePagesProject: string;
   readonly convexDeployName: string;
-  readonly convexUrl?: string;
-  readonly convexDeployKeyEnv?: string;
-  readonly callbackOriginEnv?: string;
   readonly requiredEnvGroups: readonly string[];
   readonly manifestPath: string;
   readonly requiredEnvNames: readonly string[];
   readonly requiredSecretNames: readonly string[];
   readonly missingEnvNames: readonly string[];
   readonly missingSecretNames: readonly string[];
+  readonly invalidEnvNames: readonly string[];
   readonly alert?: ReleaseAlertPlan;
-};
-
-export type ReleaseFailureCode =
-  | "SharedBackendForbidden"
-  | "EnvironmentCredentialMismatch"
-  | "DemoSeedForbidden"
-  | "UnstagedCommit"
-  | "IncompatibleRollback";
-
-export type ReleaseFailure = {
-  readonly code: ReleaseFailureCode;
-  readonly message: string;
-};
-
-export type ReleaseSignature = {
-  readonly algorithm: "hmac-sha256";
-  readonly signer: string;
-  readonly keyId: string;
-  readonly digest: string;
-};
-
-export type ReleasePacket = {
-  readonly commitSha: string;
-  readonly deploymentHash: string;
-  readonly schemaHash: string;
-  readonly manifestHash: string;
-  readonly buildId: string;
-  readonly timestamp: string;
-  readonly signature: ReleaseSignature;
-};
-
-export type ReleasePacketSigningOptions = {
-  readonly signer: string;
-  readonly keyId: string;
-  readonly secret: string;
 };
 
 export type DeployPlan = {
@@ -137,50 +135,8 @@ export type DeployPlan = {
   readonly cloudflarePagesProject: string;
   readonly cloudflareBranch: string;
   readonly convexDeployName: string;
-  readonly convexUrl?: string;
-  readonly releasePacket?: ReleasePacket;
-  readonly expectedSchemaHash?: string;
-  readonly expectedManifestHash?: string;
-  readonly failure?: ReleaseFailure;
   readonly refusal?: string;
   readonly alert?: ReleaseAlertPlan;
-};
-
-export type RollbackPlan = {
-  readonly ok: boolean;
-  readonly current: ReleasePacket;
-  readonly candidate: ReleasePacket;
-  readonly failure?: ReleaseFailure;
-  readonly refusal?: string;
-};
-
-export type DeploymentIsolationReceipt = {
-  readonly ok: boolean;
-  readonly environments: Record<
-    DeployEnvironmentName,
-    {
-      readonly convexDeployName: string;
-      readonly convexUrlHash?: string;
-      readonly deployKeyEnv?: string;
-      readonly deployKeyOwner: string;
-      readonly callbackOriginEnv?: string;
-    }
-  >;
-  readonly negativeCrossDeployAttempts: readonly {
-    readonly attemptedEnvironment: DeployEnvironmentName;
-    readonly providedKeyEnv: string;
-    readonly failure: ReleaseFailure;
-  }[];
-  readonly commandResults: readonly {
-    readonly command: string;
-    readonly ok: boolean;
-    readonly detail?: string;
-  }[];
-  readonly noDemoSeedTranscript: readonly {
-    readonly path: string;
-    readonly status: "pass" | "fail";
-    readonly detail: string;
-  }[];
 };
 
 export type ReleaseAlertPlan = {
@@ -189,361 +145,6 @@ export type ReleaseAlertPlan = {
   readonly body: string;
   readonly dedupeKey: string;
   readonly metadata: Readonly<Record<string, unknown>>;
-};
-
-export type CompanyBrainRolloutOperation = {
-  readonly order: number;
-  readonly functionName: string;
-  readonly functionType:
-    "internalMutation" | "internalAction" | "internalQuery";
-  readonly args: Readonly<Record<string, unknown>>;
-  readonly successEvidence: string;
-};
-
-export type CompanyBrainRolloutPreflightReport = {
-  readonly ok: boolean;
-  readonly schemaVersion: 1;
-  readonly configPath: string;
-  readonly errors: readonly {
-    readonly path: string;
-    readonly message: string;
-  }[];
-  readonly derived: null | {
-    readonly connectorScopeKey: string;
-    readonly controllingConfigurationDigest: string;
-    readonly rootFolderIds: readonly string[];
-  };
-  readonly operations: readonly CompanyBrainRolloutOperation[];
-};
-
-type JsonRecord = Record<string, unknown>;
-
-const jsonRecord = (value: unknown): JsonRecord | null =>
-  value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-
-const configuredString = (value: unknown): value is string =>
-  typeof value === "string" &&
-  value.trim().length > 0 &&
-  !/^(?:TBD|REPLACE(?:_|\b))/i.test(value.trim());
-
-const positiveInteger = (value: unknown): value is number =>
-  Number.isSafeInteger(value) && Number(value) > 0;
-
-const nonNegativeInteger = (value: unknown): value is number =>
-  Number.isSafeInteger(value) && Number(value) >= 0;
-
-const stableJson = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value !== null && typeof value === "object")
-    return `{${Object.entries(value as JsonRecord)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
-      .join(",")}}`;
-  return JSON.stringify(value) ?? "null";
-};
-
-const credentialPaths = (value: unknown, prefix = ""): readonly string[] => {
-  if (Array.isArray(value))
-    return value.flatMap((nested, index) =>
-      credentialPaths(nested, `${prefix}[${index}]`),
-    );
-  const record = jsonRecord(value);
-  if (record === null) return [];
-  return Object.entries(record).flatMap(([key, nested]) => {
-    const path = prefix.length === 0 ? key : `${prefix}.${key}`;
-    return /(?:secret|token|password|credential|api[_-]?key)/i.test(key)
-      ? [path]
-      : credentialPaths(nested, path);
-  });
-};
-
-const sha256Hex = (value: string): string =>
-  createHash("sha256").update(value).digest("hex");
-
-export const buildCompanyBrainRolloutPreflight = (input: {
-  readonly repoRoot: string;
-  readonly configPath: string;
-  readonly now?: number;
-}): CompanyBrainRolloutPreflightReport => {
-  const configPath = resolve(input.repoRoot, input.configPath);
-  const errors: { path: string; message: string }[] = [];
-  if (!existsSync(configPath))
-    return {
-      ok: false,
-      schemaVersion: 1,
-      configPath,
-      errors: [
-        { path: "config", message: "The pilot config file is missing." },
-      ],
-      derived: null,
-      operations: [],
-    };
-
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(readFileSync(configPath, "utf8"));
-  } catch {
-    return {
-      ok: false,
-      schemaVersion: 1,
-      configPath,
-      errors: [
-        { path: "config", message: "The pilot config is not valid JSON." },
-      ],
-      derived: null,
-      operations: [],
-    };
-  }
-
-  const config = jsonRecord(decoded);
-  if (config === null)
-    return {
-      ok: false,
-      schemaVersion: 1,
-      configPath,
-      errors: [
-        { path: "config", message: "The pilot config must be an object." },
-      ],
-      derived: null,
-      operations: [],
-    };
-
-  if (config.schemaVersion !== 1)
-    errors.push({
-      path: "schemaVersion",
-      message: "Expected schema version 1.",
-    });
-  for (const path of credentialPaths(config))
-    errors.push({
-      path,
-      message:
-        "Credentials are forbidden in the rollout config; use the deployment secret store.",
-    });
-  for (const path of [
-    "organizationKey",
-    "workspaceId",
-    "activeAgencyBrainKey",
-    "evaluationSetRef",
-  ] as const)
-    if (!configuredString(config[path]))
-      errors.push({
-        path,
-        message: "Replace the placeholder with a real value.",
-      });
-
-  const owners = jsonRecord(config.owners);
-  for (const owner of ["context", "engineering", "connector"] as const)
-    if (!configuredString(owners?.[owner]))
-      errors.push({
-        path: `owners.${owner}`,
-        message: "Name the accountable owner.",
-      });
-
-  const dogfoodUsers = Array.isArray(config.dogfoodUsers)
-    ? config.dogfoodUsers.filter(configuredString)
-    : [];
-  if (
-    dogfoodUsers.length < 2 ||
-    dogfoodUsers.length !== new Set(dogfoodUsers).size
-  )
-    errors.push({
-      path: "dogfoodUsers",
-      message: "Provide at least two distinct dogfood users.",
-    });
-
-  const sourceSlos = jsonRecord(config.sourceSlos);
-  const sloFields = [
-    "maxObservationToPublicationMinutes",
-    "maxReconciliationAgeHours",
-    "maxEditPropagationMinutes",
-    "maxRemovalPropagationHours",
-    "maxNonterminalObligationMinutes",
-    "deadLetterEscalationMinutes",
-  ] as const;
-  for (const corpus of [
-    "brain-pages",
-    "slack",
-    "transcripts",
-    "documents",
-  ] as const) {
-    const slo = jsonRecord(sourceSlos?.[corpus]);
-    for (const field of sloFields)
-      if (!positiveInteger(slo?.[field]))
-        errors.push({
-          path: `sourceSlos.${corpus}.${field}`,
-          message: "Provide a positive integer threshold.",
-        });
-  }
-
-  const drive = jsonRecord(config.drive);
-  for (const field of ["connectionKey", "driveId", "retentionClass"] as const)
-    if (!configuredString(drive?.[field]))
-      errors.push({
-        path: `drive.${field}`,
-        message: "Replace the placeholder with a real value.",
-      });
-  for (const field of ["connectionGeneration", "allowlistGeneration"] as const)
-    if (!positiveInteger(drive?.[field]))
-      errors.push({
-        path: `drive.${field}`,
-        message: "Provide a positive integer generation.",
-      });
-  for (const field of [
-    "expectedScopeGeneration",
-    "expectedIntentGeneration",
-    "expectedConfigurationGeneration",
-  ] as const)
-    if (!nonNegativeInteger(drive?.[field]))
-      errors.push({
-        path: `drive.${field}`,
-        message: "Provide a non-negative compare-and-set generation.",
-      });
-
-  const rootFolderIds = Array.isArray(drive?.rootFolderIds)
-    ? drive.rootFolderIds.filter(configuredString)
-    : [];
-  const canonicalRootFolderIds = [...new Set(rootFolderIds)].sort();
-  if (
-    rootFolderIds.length === 0 ||
-    rootFolderIds.length > 100 ||
-    rootFolderIds.length !== canonicalRootFolderIds.length
-  )
-    errors.push({
-      path: "drive.rootFolderIds",
-      message: "Provide 1-100 distinct Shared Drive root folder IDs.",
-    });
-  if (
-    typeof drive?.permissionPolicyDigest !== "string" ||
-    !/^sha256:[a-f0-9]{64}$/.test(drive.permissionPolicyDigest)
-  )
-    errors.push({
-      path: "drive.permissionPolicyDigest",
-      message:
-        "Provide a lowercase sha256 digest of the reviewed scope policy.",
-    });
-
-  if (errors.length > 0)
-    return {
-      ok: false,
-      schemaVersion: 1,
-      configPath,
-      errors,
-      derived: null,
-      operations: [],
-    };
-
-  const organizationKey = String(config.organizationKey).trim();
-  const workspaceId = String(config.workspaceId).trim();
-  const brainKey = String(config.activeAgencyBrainKey).trim();
-  const connectionKey = String(drive?.connectionKey).trim();
-  const connectionGeneration = Number(drive?.connectionGeneration);
-  const allowlistGeneration = Number(drive?.allowlistGeneration);
-  const driveId = String(drive?.driveId).trim();
-  const retentionClass = String(drive?.retentionClass).trim();
-  const permissionPolicyDigest = String(drive?.permissionPolicyDigest);
-  const identity = {
-    connectionKey,
-    connectionGeneration,
-    driveId,
-    rootFolderIds: canonicalRootFolderIds,
-    allowlistGeneration,
-  };
-  const connectorScopeKey = `gds_${sha256Hex(stableJson(identity))}`;
-  const controllingConfigurationDigest = `sha256:${sha256Hex(
-    stableJson({
-      organizationKey,
-      workspaceId,
-      brainKey,
-      ...identity,
-      sourceSlos,
-      retentionClass,
-      permissionPolicyDigest,
-    }),
-  )}`;
-  const now = input.now ?? Date.now();
-  const authority = {
-    organizationKey,
-    workspaceId,
-    brainKey,
-    corpusKey: "documents",
-    providerKind: "google_drive",
-    connectorScopeKey,
-    connectionKey,
-    connectionGeneration,
-    allowlistGeneration,
-  } as const;
-  return {
-    ok: true,
-    schemaVersion: 1,
-    configPath,
-    errors: [],
-    derived: {
-      connectorScopeKey,
-      controllingConfigurationDigest,
-      rootFolderIds: canonicalRootFolderIds,
-    },
-    operations: [
-      {
-        order: 1,
-        functionName:
-          "integrations/providerReconciliation:activateRequiredScope",
-        functionType: "internalMutation",
-        args: {
-          ...authority,
-          providerContainerKey: driveId,
-          activationKind:
-            Number(drive?.expectedScopeGeneration) === 0
-              ? "activate"
-              : "restore",
-          expectedScopeGeneration: Number(drive?.expectedScopeGeneration),
-          expectedIntentGeneration: Number(drive?.expectedIntentGeneration),
-          controllingConfigurationDigest,
-          now,
-        },
-        successEvidence:
-          "Record the returned requiredScopeIntentKey, scopeGeneration, and intentGeneration.",
-      },
-      {
-        order: 2,
-        functionName:
-          "integrations/providerReconciliation:upsertDriveScopeConfiguration",
-        functionType: "internalMutation",
-        args: {
-          ...authority,
-          expectedConfigurationGeneration: Number(
-            drive?.expectedConfigurationGeneration,
-          ),
-          driveId,
-          rootFolderIds: canonicalRootFolderIds,
-          sharedDrive: true,
-          retentionClass,
-          permissionPolicyDigest,
-          now,
-        },
-        successEvidence:
-          "Record the returned configurationGeneration and configurationDigest.",
-      },
-      {
-        order: 3,
-        functionName:
-          "integrations/providerReconciliationWorker:startProviderReconciliation",
-        functionType: "internalAction",
-        args: { connectorScopeKey },
-        successEvidence:
-          "Record the reconciliationRunKey, runGeneration, providerHighWater, and scheduled function ID.",
-      },
-      {
-        order: 4,
-        functionName: "brain/rolloutStatus:getBrainRolloutStatus",
-        functionType: "internalQuery",
-        args: { organizationKey, workspaceId, brainKey, now },
-        successEvidence:
-          "Preserve the scope-level blockers and readiness snapshot in the exact-SHA rollout receipt.",
-      },
-    ],
-  };
 };
 
 const pass = (id: string, detail: string) => ({
@@ -557,6 +158,13 @@ const fail = (id: string, detail: string) => ({
   status: "fail" as const,
   detail,
 });
+
+const readProjectConfig = (repoRoot: string): ProjectConfig => {
+  const path = resolve(repoRoot, "project.config.json");
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as ProjectConfig;
+
+  return parsed;
+};
 
 type EnvManifestVariable = {
   readonly name: string;
@@ -583,13 +191,13 @@ const readEnvManifest = (repoRoot: string): EnvManifest | undefined => {
 
 const deployEnvGroupAliases = {
   llm: ["openrouter"],
-  email: ["mailersend"],
+  email: ["email"],
   "fake-providers": [
     "app",
     "workos",
     "posthog",
     "dodo",
-    "mailersend",
+    "email",
     "openrouter",
     "storage",
     "search",
@@ -612,63 +220,17 @@ const manifestRequiredFor = (
 ): readonly string[] =>
   environment === "production" ? ["live", "deploy"] : ["deploy"];
 
-const envNameBelongsToEnvironment = (
-  name: string,
-  environment: DeployEnvironmentName,
-): boolean => {
-  if (name.includes("_STAGING_")) return environment === "staging";
-  if (name.includes("_PRODUCTION_")) return environment === "production";
-  return true;
-};
-
-const deployConfigManagedEnvNames = (
-  selected: DeployEnvironmentConfig,
-): ReadonlySet<string> => {
-  const requiredSecrets = new Set(selected.requiredSecrets);
-  const managed = new Set([
-    "CLOUDFLARE_PAGES_BRANCH",
-    "CLOUDFLARE_PAGES_PROJECT",
-    "MAESTRO_BRAIN_RELEASE_SIGNER",
-    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID",
-    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET",
-    "TEMPLATE_HOSTED_URL",
-  ]);
-
-  if (
-    selected.convexDeployKeyEnv &&
-    requiredSecrets.has(selected.convexDeployKeyEnv)
-  ) {
-    managed.add("CONVEX_DEPLOY_KEY");
-    managed.add(selected.convexDeployKeyEnv);
-  }
-
-  for (const secretName of requiredSecrets) {
-    if (secretName.endsWith("_CLOUDFLARE_API_TOKEN")) {
-      managed.add("CLOUDFLARE_API_TOKEN");
-      managed.add(secretName);
-    }
-
-    if (secretName.endsWith("_CLOUDFLARE_ACCOUNT_ID")) {
-      managed.add("CLOUDFLARE_ACCOUNT_ID");
-      managed.add(secretName);
-    }
-  }
-
-  return managed;
-};
-
 const manifestRequiredEnvNames = (
   manifest: EnvManifest | undefined,
   groups: readonly string[],
-  selected: DeployEnvironmentConfig,
+  environment: DeployEnvironmentName,
 ): readonly string[] => {
   if (!manifest) {
     return [];
   }
 
   const expandedGroups = new Set(expandEnvGroups(groups));
-  const requiredFor = new Set(manifestRequiredFor(selected.name));
-  const configManagedNames = deployConfigManagedEnvNames(selected);
+  const requiredFor = new Set(manifestRequiredFor(environment));
 
   return [
     ...new Set(
@@ -677,9 +239,7 @@ const manifestRequiredEnvNames = (
         .filter((variable) =>
           variable.requiredFor.some((mode) => requiredFor.has(mode)),
         )
-        .map((variable) => variable.name)
-        .filter((name) => !configManagedNames.has(name))
-        .filter((name) => envNameBelongsToEnvironment(name, selected.name)),
+        .map((variable) => variable.name),
     ),
   ].sort();
 };
@@ -692,13 +252,17 @@ const deployDoctorAlert = (
   }
 
   const missingNames = [
-    ...new Set([...report.missingEnvNames, ...report.missingSecretNames]),
+    ...new Set([
+      ...report.missingEnvNames,
+      ...report.missingSecretNames,
+      ...report.invalidEnvNames,
+    ]),
   ].sort();
 
   return {
     severity: report.environment === "production" ? "critical" : "warning",
     title: `Deploy doctor failed: ${report.environment}`,
-    body: `Missing ${report.missingEnvNames.length} manifest env names and ${report.missingSecretNames.length} required deploy secrets.`,
+    body: `Missing ${report.missingEnvNames.length} manifest env names and ${report.missingSecretNames.length} required deploy secrets; ${report.invalidEnvNames.length} env names are invalid.`,
     dedupeKey: `deploy-doctor:${report.environment}:${missingNames.join("|") || "unknown"}`,
     metadata: {
       environment: report.environment,
@@ -708,6 +272,7 @@ const deployDoctorAlert = (
       requiredEnvGroups: report.requiredEnvGroups,
       missingEnvNames: report.missingEnvNames,
       missingSecretNames: report.missingSecretNames,
+      invalidEnvNames: report.invalidEnvNames,
     },
   };
 };
@@ -736,78 +301,11 @@ const productionPromoteAlert = (
   };
 };
 
-const validateIsolatedBackends = (config: ProjectConfig): void => {
-  const { staging, production } = config.environments;
-  if (
-    staging.convexDeployName === production.convexDeployName ||
-    (staging.convexUrl && staging.convexUrl === production.convexUrl)
-  ) {
-    throw new Error(
-      "SharedBackendForbidden: staging and production must use distinct Convex deployments and URLs.",
-    );
-  }
-};
-
-const validateEnvironmentCredentialScope = (config: ProjectConfig): void => {
-  const { staging, production } = config.environments;
-
-  for (const selected of [staging, production]) {
-    const opposite = selected.name === "staging" ? production : staging;
-
-    if (
-      selected.convexDeployKeyEnv &&
-      !selected.requiredSecrets.includes(selected.convexDeployKeyEnv)
-    ) {
-      throw new Error(
-        `EnvironmentCredentialMismatch: ${selected.name} deploy secrets must include ${selected.convexDeployKeyEnv}.`,
-      );
-    }
-
-    if (
-      opposite.convexDeployKeyEnv &&
-      selected.requiredSecrets.includes(opposite.convexDeployKeyEnv)
-    ) {
-      throw new Error(
-        `EnvironmentCredentialMismatch: ${selected.name} deploy secrets must not include ${opposite.convexDeployKeyEnv}.`,
-      );
-    }
-  }
-};
-
-const validateTenantDeployScripts = (repoRoot: string): void => {
-  for (const scriptPath of [
-    ".buildkite/scripts/staging-deploy.sh",
-    ".buildkite/scripts/production-promote.sh",
-  ]) {
-    const fullPath = resolve(repoRoot, scriptPath);
-
-    if (!existsSync(fullPath)) {
-      continue;
-    }
-
-    const content = readFileSync(fullPath, "utf8");
-
-    if (/demo\/showcase:seed/.test(content)) {
-      throw new Error(
-        `DemoSeedForbidden: tenant deploy path ${scriptPath} must not seed demo/showcase.`,
-      );
-    }
-  }
-};
-
-const readValidatedProjectConfig = (repoRoot: string): ProjectConfig => {
-  const config = readProjectConfigFile(repoRoot);
-  validateIsolatedBackends(config);
-  validateEnvironmentCredentialScope(config);
-  validateTenantDeployScripts(repoRoot);
-  return config;
-};
-
 const deployEnvironment = (
   repoRoot: string,
   environment: DeployEnvironmentName,
 ): DeployEnvironmentConfig => {
-  const config = readValidatedProjectConfig(repoRoot);
+  const config = readProjectConfig(repoRoot);
   const selected = config.environments[environment];
 
   if (!selected) {
@@ -826,40 +324,43 @@ export const buildDeployDoctorReport = (options: {
   const env = options.env ?? process.env;
   const selected = deployEnvironment(repoRoot, options.environment);
   const manifest = readEnvManifest(repoRoot);
-  const requiredEnvNames = [
-    ...new Set([
-      ...manifestRequiredEnvNames(
-        manifest,
-        selected.requiredEnvGroups,
-        selected,
-      ),
-      ...(selected.callbackOriginEnv ? [selected.callbackOriginEnv] : []),
-    ]),
-  ].sort();
+  const requiredEnvNames = manifestRequiredEnvNames(
+    manifest,
+    selected.requiredEnvGroups,
+    selected.name,
+  );
   const missingEnvNames = requiredEnvNames.filter((name) => !env[name]?.trim());
   const missingSecretNames = selected.requiredSecrets.filter(
     (name) => !env[name]?.trim(),
   );
+  const invalidEnvNames: string[] = [];
+  if (env.PROMOTION_AUTHORITY_ENDPOINT?.trim()) {
+    try {
+      validatePromotionAuthorityEndpoint(
+        env.PROMOTION_AUTHORITY_ENDPOINT,
+        selected.convexUrl,
+      );
+    } catch {
+      invalidEnvNames.push("PROMOTION_AUTHORITY_ENDPOINT");
+    }
+  }
 
   const report: Omit<DeployDoctorReport, "alert"> = {
-    ok: missingSecretNames.length === 0 && missingEnvNames.length === 0,
+    ok:
+      missingSecretNames.length === 0 &&
+      missingEnvNames.length === 0 &&
+      invalidEnvNames.length === 0,
     environment: selected.name,
     domain: selected.domain,
     cloudflarePagesProject: selected.cloudflarePagesProject,
     convexDeployName: selected.convexDeployName,
-    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
-    ...(selected.convexDeployKeyEnv
-      ? { convexDeployKeyEnv: selected.convexDeployKeyEnv }
-      : {}),
-    ...(selected.callbackOriginEnv
-      ? { callbackOriginEnv: selected.callbackOriginEnv }
-      : {}),
     requiredEnvGroups: selected.requiredEnvGroups,
     manifestPath: envManifestPath(repoRoot),
     requiredEnvNames,
     requiredSecretNames: selected.requiredSecrets,
     missingEnvNames,
     missingSecretNames,
+    invalidEnvNames,
   };
 
   const alert = deployDoctorAlert(report);
@@ -869,77 +370,6 @@ export const buildDeployDoctorReport = (options: {
     ...(alert ? { alert } : {}),
   };
 };
-
-const releaseFailure = (
-  code: ReleaseFailureCode,
-  message: string,
-): ReleaseFailure => ({ code, message });
-
-const packetSigningPayload = (
-  packet: Omit<ReleasePacket, "signature">,
-): string =>
-  JSON.stringify({
-    buildId: packet.buildId,
-    commitSha: packet.commitSha,
-    deploymentHash: packet.deploymentHash,
-    manifestHash: packet.manifestHash,
-    schemaHash: packet.schemaHash,
-    timestamp: packet.timestamp,
-  });
-
-const signReleasePacket = (
-  packet: Omit<ReleasePacket, "signature">,
-  signing: ReleasePacketSigningOptions,
-): ReleasePacket => ({
-  ...packet,
-  signature: {
-    algorithm: "hmac-sha256",
-    signer: signing.signer,
-    keyId: signing.keyId,
-    digest: createHmac("sha256", signing.secret)
-      .update(packetSigningPayload(packet))
-      .digest("hex"),
-  },
-});
-
-const verifyReleasePacket = (
-  packet: ReleasePacket,
-  trustedSigningKeys: Readonly<Record<string, string>>,
-): boolean => {
-  const secret = trustedSigningKeys[packet.signature.keyId];
-
-  if (!secret || packet.signature.algorithm !== "hmac-sha256") {
-    return false;
-  }
-
-  const expected = signReleasePacket(
-    {
-      commitSha: packet.commitSha,
-      deploymentHash: packet.deploymentHash,
-      schemaHash: packet.schemaHash,
-      manifestHash: packet.manifestHash,
-      buildId: packet.buildId,
-      timestamp: packet.timestamp,
-    },
-    {
-      signer: packet.signature.signer,
-      keyId: packet.signature.keyId,
-      secret,
-    },
-  ).signature.digest;
-  const expectedBuffer = Buffer.from(expected, "hex");
-  const actualBuffer = Buffer.from(packet.signature.digest, "hex");
-
-  return (
-    expectedBuffer.length === actualBuffer.length &&
-    timingSafeEqual(expectedBuffer, actualBuffer)
-  );
-};
-
-const hashRedactedValue = (value: string | undefined): string | undefined =>
-  value
-    ? `sha256:${createHash("sha256").update(value).digest("hex")}`
-    : undefined;
 
 export const buildStagingDeployPlan = (options: {
   readonly repoRoot?: string;
@@ -956,56 +386,13 @@ export const buildStagingDeployPlan = (options: {
     cloudflarePagesProject: selected.cloudflarePagesProject,
     cloudflareBranch: selected.cloudflareBranch,
     convexDeployName: selected.convexDeployName,
-    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
   };
-};
-
-export const buildStagedReleasePacket = (options: {
-  readonly repoRoot?: string;
-  readonly commitSha: string;
-  readonly deploymentHash: string;
-  readonly schemaHash: string;
-  readonly manifestHash: string;
-  readonly buildId: string;
-  readonly timestamp?: string;
-  readonly signing: ReleasePacketSigningOptions;
-}): ReleasePacket => {
-  deployEnvironment(options.repoRoot ?? process.cwd(), "staging");
-
-  return signReleasePacket(
-    {
-      commitSha: options.commitSha,
-      deploymentHash: options.deploymentHash,
-      schemaHash: options.schemaHash,
-      manifestHash: options.manifestHash,
-      buildId: options.buildId,
-      timestamp: options.timestamp ?? new Date().toISOString(),
-    },
-    options.signing,
-  );
-};
-
-const parseReleasePacket = (
-  input: string | ReleasePacket | undefined,
-): ReleasePacket | undefined => {
-  if (!input) return undefined;
-  if (typeof input !== "string") return input;
-
-  try {
-    return JSON.parse(input) as ReleasePacket;
-  } catch {
-    return undefined;
-  }
 };
 
 export const buildProductionPromotePlan = (options: {
   readonly repoRoot?: string;
   readonly stagedSha: string;
   readonly currentSha: string;
-  readonly expectedSchemaHash?: string;
-  readonly expectedManifestHash?: string;
-  readonly releasePacket?: string | ReleasePacket;
-  readonly trustedSigningKeys?: Readonly<Record<string, string>>;
 }): DeployPlan => {
   const repoRoot = options.repoRoot ?? process.cwd();
   const selected = deployEnvironment(repoRoot, "production");
@@ -1019,102 +406,7 @@ export const buildProductionPromotePlan = (options: {
       cloudflarePagesProject: selected.cloudflarePagesProject,
       cloudflareBranch: selected.cloudflareBranch,
       convexDeployName: selected.convexDeployName,
-      failure: releaseFailure(
-        "UnstagedCommit",
-        `staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}`,
-      ),
-      refusal: `UnstagedCommit: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
-    };
-    const alert = productionPromoteAlert(plan);
-
-    return {
-      ...plan,
-      ...(alert ? { alert } : {}),
-    };
-  }
-
-  const releasePacket = parseReleasePacket(options.releasePacket);
-
-  if (!releasePacket || releasePacket.commitSha !== options.currentSha) {
-    const plan: Omit<DeployPlan, "alert"> = {
-      ok: false,
-      environment: "production",
-      commitSha: options.currentSha,
-      domain: selected.domain,
-      cloudflarePagesProject: selected.cloudflarePagesProject,
-      cloudflareBranch: selected.cloudflareBranch,
-      convexDeployName: selected.convexDeployName,
-      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
-      failure: releaseFailure(
-        "UnstagedCommit",
-        "production promotion requires an exact staged release packet for the current SHA",
-      ),
-      refusal:
-        "UnstagedCommit: production promotion requires an exact staged release packet for the current SHA.",
-    };
-    const alert = productionPromoteAlert(plan);
-
-    return {
-      ...plan,
-      ...(alert ? { alert } : {}),
-    };
-  }
-
-  if (
-    (options.expectedSchemaHash &&
-      releasePacket.schemaHash !== options.expectedSchemaHash) ||
-    (options.expectedManifestHash &&
-      releasePacket.manifestHash !== options.expectedManifestHash)
-  ) {
-    const plan: Omit<DeployPlan, "alert"> = {
-      ok: false,
-      environment: "production",
-      commitSha: options.currentSha,
-      domain: selected.domain,
-      cloudflarePagesProject: selected.cloudflarePagesProject,
-      cloudflareBranch: selected.cloudflareBranch,
-      convexDeployName: selected.convexDeployName,
-      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
-      ...(options.expectedSchemaHash
-        ? { expectedSchemaHash: options.expectedSchemaHash }
-        : {}),
-      ...(options.expectedManifestHash
-        ? { expectedManifestHash: options.expectedManifestHash }
-        : {}),
-      failure: releaseFailure(
-        "UnstagedCommit",
-        "production promotion requires staged schema/manifest hashes to match the current repository contract",
-      ),
-      refusal:
-        "UnstagedCommit: production promotion requires staged schema/manifest hashes to match the current repository contract.",
-    };
-    const alert = productionPromoteAlert(plan);
-
-    return {
-      ...plan,
-      ...(alert ? { alert } : {}),
-    };
-  }
-
-  if (
-    !options.trustedSigningKeys ||
-    !verifyReleasePacket(releasePacket, options.trustedSigningKeys)
-  ) {
-    const plan: Omit<DeployPlan, "alert"> = {
-      ok: false,
-      environment: "production",
-      commitSha: options.currentSha,
-      domain: selected.domain,
-      cloudflarePagesProject: selected.cloudflarePagesProject,
-      cloudflareBranch: selected.cloudflareBranch,
-      convexDeployName: selected.convexDeployName,
-      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
-      failure: releaseFailure(
-        "UnstagedCommit",
-        "production promotion requires a signed release packet from a trusted key",
-      ),
-      refusal:
-        "UnstagedCommit: production promotion requires a signed release packet from a trusted key.",
+      refusal: `Refusing production promotion: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
     };
     const alert = productionPromoteAlert(plan);
 
@@ -1132,122 +424,6 @@ export const buildProductionPromotePlan = (options: {
     cloudflarePagesProject: selected.cloudflarePagesProject,
     cloudflareBranch: selected.cloudflareBranch,
     convexDeployName: selected.convexDeployName,
-    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
-    ...(options.expectedSchemaHash
-      ? { expectedSchemaHash: options.expectedSchemaHash }
-      : {}),
-    ...(options.expectedManifestHash
-      ? { expectedManifestHash: options.expectedManifestHash }
-      : {}),
-    releasePacket,
-  };
-};
-
-export const buildRollbackPlan = (options: {
-  readonly current: ReleasePacket;
-  readonly candidate: ReleasePacket;
-}): RollbackPlan => {
-  const candidateTime = Date.parse(options.candidate.timestamp);
-  const currentTime = Date.parse(options.current.timestamp);
-  const isPriorBinary =
-    Number.isFinite(candidateTime) &&
-    Number.isFinite(currentTime) &&
-    candidateTime < currentTime &&
-    options.candidate.commitSha !== options.current.commitSha &&
-    options.candidate.buildId !== options.current.buildId;
-  const compatible =
-    isPriorBinary &&
-    options.current.schemaHash === options.candidate.schemaHash &&
-    options.current.manifestHash === options.candidate.manifestHash;
-
-  return compatible
-    ? { ok: true, current: options.current, candidate: options.candidate }
-    : {
-        ok: false,
-        current: options.current,
-        candidate: options.candidate,
-        failure: releaseFailure(
-          "IncompatibleRollback",
-          "rollback only selects a prior binary with matching schema and manifest contracts; data down-migrations are forbidden",
-        ),
-        refusal:
-          "IncompatibleRollback: rollback only selects a prior binary with matching schema and manifest contracts; data down-migrations are forbidden.",
-      };
-};
-
-export const buildDeploymentIsolationReceipt = (options?: {
-  readonly repoRoot?: string;
-  readonly commandResults?: readonly {
-    readonly command: string;
-    readonly ok: boolean;
-    readonly detail?: string;
-  }[];
-}): DeploymentIsolationReceipt => {
-  const repoRoot = options?.repoRoot ?? process.cwd();
-  const config = readValidatedProjectConfig(repoRoot);
-  const noDemoSeedTranscript = [
-    ".buildkite/scripts/staging-deploy.sh",
-    ".buildkite/scripts/production-promote.sh",
-  ].map((scriptPath) => {
-    const fullPath = resolve(repoRoot, scriptPath);
-    const content = existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
-    const hasDemoSeed = /demo\/showcase:seed/.test(content);
-
-    return {
-      path: scriptPath,
-      status: hasDemoSeed ? ("fail" as const) : ("pass" as const),
-      detail: hasDemoSeed
-        ? "tenant deploy path invokes demo/showcase:seed"
-        : "tenant deploy path does not invoke demo/showcase:seed",
-    };
-  });
-
-  const environmentReceipt = (environment: DeployEnvironmentConfig) => {
-    const convexUrlHash = hashRedactedValue(environment.convexUrl);
-
-    return {
-      convexDeployName: environment.convexDeployName,
-      ...(convexUrlHash ? { convexUrlHash } : {}),
-      ...(environment.convexDeployKeyEnv
-        ? { deployKeyEnv: environment.convexDeployKeyEnv }
-        : {}),
-      deployKeyOwner: "Backend owner",
-      ...(environment.callbackOriginEnv
-        ? { callbackOriginEnv: environment.callbackOriginEnv }
-        : {}),
-    };
-  };
-
-  return {
-    ok: noDemoSeedTranscript.every((scan) => scan.status === "pass"),
-    environments: {
-      staging: environmentReceipt(config.environments.staging),
-      production: environmentReceipt(config.environments.production),
-    },
-    negativeCrossDeployAttempts: [
-      {
-        attemptedEnvironment: "staging",
-        providedKeyEnv:
-          config.environments.production.convexDeployKeyEnv ??
-          "production-convex-deploy-key",
-        failure: releaseFailure(
-          "EnvironmentCredentialMismatch",
-          "production deploy key cannot satisfy staging deploy doctor",
-        ),
-      },
-      {
-        attemptedEnvironment: "production",
-        providedKeyEnv:
-          config.environments.staging.convexDeployKeyEnv ??
-          "staging-convex-deploy-key",
-        failure: releaseFailure(
-          "EnvironmentCredentialMismatch",
-          "staging deploy key cannot satisfy production deploy doctor",
-        ),
-      },
-    ],
-    commandResults: options?.commandResults ?? [],
-    noDemoSeedTranscript,
   };
 };
 
@@ -1271,8 +447,8 @@ const readinessArtifacts = [
   "packages/template-core/src/index.ts",
   "tooling/workflow/src/index.ts",
   "tooling/generators/src/index.ts",
-  "tests/e2e/hosted-reference-app.spec.ts",
-  "tests/e2e/hosted-reference-app.visual.spec.ts",
+  "tests/e2e/saas-ui-golden.spec.ts",
+  "tests/e2e/saas-ui-golden.visual.spec.ts",
 ] as const;
 
 const clientReleaseHandoffArtifacts = [
@@ -1345,12 +521,12 @@ const validateClientReleaseArtifact = (
 
 const readinessClaims = [
   {
-    id: "hosted-reference-app",
+    id: "saas-ui-golden-authorities",
     evidence: [
       "apps/web/src/routes/index.tsx",
-      "apps/web/src/saas-ui/business-shell.tsx",
-      "tests/e2e/hosted-reference-app.spec.ts",
-      "tests/e2e/hosted-reference-app.visual.spec.ts",
+      "apps/web/src/features/common/layouts/app-layout.tsx",
+      "tests/e2e/saas-ui-golden.spec.ts",
+      "tests/e2e/saas-ui-golden.visual.spec.ts",
     ],
     detail:
       "Hosted app has a concrete reference surface plus browser and visual smoke coverage.",
@@ -1444,38 +620,38 @@ const completionRequirements = [
       "The repo contains a clear, useful sample app that demonstrates Brain, workflow, capability, agent, integration, and safety surfaces.",
     evidence: [
       "apps/web/src/routes/index.tsx",
-      "apps/web/src/saas-ui/business-shell.tsx",
+      "apps/web/src/features/common/layouts/app-layout.tsx",
       "apps/web/src/sample/templateData.ts",
       "apps/web/src/sample/templateData.test.ts",
       "examples/generic-ai-ops/seed/workspace.json",
       "examples/generic-ai-ops/seed/brain-pages.md",
       "examples/generic-ai-ops/seed/workflows.json",
-      "tests/e2e/hosted-reference-app.spec.ts",
-      "tests/e2e/hosted-reference-app.visual.spec.ts",
+      "tests/e2e/saas-ui-golden.spec.ts",
+      "tests/e2e/saas-ui-golden.visual.spec.ts",
     ],
     verification: [
       "pnpm --dir apps/web test src/sample/templateData.test.ts",
-      "pnpm smoke:hosted:browser",
-      "pnpm smoke:hosted:visual",
+      "pnpm smoke:golden:browser",
+      "pnpm smoke:golden:visual",
     ],
     detail:
       "Reference app data, seed fixtures, and browser/visual tests cover the investor-visible sample app.",
   },
   {
-    id: "hosted-reference",
+    id: "saas-ui-golden",
     requirement:
       "The sample app is hosted or can be immediately hosted from the static build.",
     evidence: [
       "docs/template/hosting.md",
-      "tests/e2e/hosted-reference-app.spec.ts",
-      "tests/e2e/hosted-reference-app.visual.spec.ts",
+      "tests/e2e/saas-ui-golden.spec.ts",
+      "tests/e2e/saas-ui-golden.visual.spec.ts",
     ],
     verification: [
       "pnpm build",
       "pnpm smoke:web-static",
-      "pnpm smoke:hosted",
-      "pnpm smoke:hosted:browser",
-      "pnpm smoke:hosted:visual",
+      "pnpm smoke:golden:browser",
+      "pnpm smoke:golden:a11y",
+      "pnpm smoke:golden:visual",
     ],
     detail:
       "Cloudflare Pages URL and static/hosted smoke paths are documented and testable.",
@@ -1568,7 +744,9 @@ const completionRequirements = [
     requirement:
       "Core services, provider adapters, CI/CD gates, security posture, and coding rules are documented and enforced.",
     evidence: [
-      ".buildkite/pipeline.yml",
+      ".woodpecker/firewall.yml",
+      ".woodpecker/epoch.yml",
+      ".woodpecker/deploy.yml",
       "packages/integrations/src/index.ts",
       "packages/integrations/src/index.test.ts",
       "docs/template/security.md",
@@ -1618,9 +796,9 @@ export const reviewerCommands = [
   "pnpm check:secret-canaries",
   "pnpm build",
   "pnpm smoke:web-static",
-  "pnpm smoke:hosted",
-  "pnpm smoke:hosted:browser",
-  "pnpm smoke:hosted:visual",
+  "pnpm smoke:golden:browser",
+  "pnpm smoke:golden:a11y",
+  "pnpm smoke:golden:visual",
 ] as const;
 
 const currentCommit = (repoRoot: string): string => {
@@ -1838,7 +1016,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion | company-brain-preflight [config-path] | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | promote-plan <staged-sha> <current-sha>\n",
       stderr: "",
     };
   }
@@ -1865,19 +1043,6 @@ export const runReleaseCli = (
 
   if (command === "review-completion") {
     const report = buildCompletionAuditReport({ repoRoot: cwd });
-
-    return {
-      exitCode: report.ok ? 0 : 1,
-      stdout: `${JSON.stringify(report, null, 2)}\n`,
-      stderr: "",
-    };
-  }
-
-  if (command === "company-brain-preflight") {
-    const report = buildCompanyBrainRolloutPreflight({
-      repoRoot: cwd,
-      configPath: argv[1] ?? "company-context/pilot-config.v1.json",
-    });
 
     return {
       exitCode: report.ok ? 0 : 1,
@@ -1953,78 +1118,15 @@ export const runReleaseCli = (
     };
   }
 
-  if (command === "staged-release-packet") {
-    const [
-      commitSha,
-      deploymentHash,
-      schemaHash,
-      manifestHash,
-      buildId,
-      signer,
-      keyId,
-    ] = argv.slice(1);
-    const signingSecret = process.env.MAESTRO_BRAIN_RELEASE_SIGNING_SECRET;
-
-    if (
-      !commitSha ||
-      !deploymentHash ||
-      !schemaHash ||
-      !manifestHash ||
-      !buildId ||
-      !signer ||
-      !keyId ||
-      !signingSecret
-    ) {
-      return {
-        exitCode: 1,
-        stdout: "",
-        stderr:
-          "Usage: staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> with MAESTRO_BRAIN_RELEASE_SIGNING_SECRET\n",
-      };
-    }
-
-    const report = buildStagedReleasePacket({
-      repoRoot: cwd,
-      commitSha,
-      deploymentHash,
-      schemaHash,
-      manifestHash,
-      buildId,
-      signing: { signer, keyId, secret: signingSecret },
-    });
-
-    return {
-      exitCode: 0,
-      stdout: `${JSON.stringify(report)}\n`,
-      stderr: "",
-    };
-  }
-
   if (command === "promote-plan") {
     const stagedSha = argv[1];
     const currentSha = argv[2];
-    const expectedSchemaHash = argv[3];
-    const expectedManifestHash = argv[4];
-    const releasePacket = argv[5];
-    const trustedSigningKeys = process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID
-      ? {
-          [process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID]:
-            process.env.MAESTRO_BRAIN_RELEASE_SIGNING_SECRET ?? "",
-        }
-      : undefined;
 
-    if (
-      !stagedSha ||
-      !currentSha ||
-      !expectedSchemaHash ||
-      !expectedManifestHash ||
-      !releasePacket
-    ) {
+    if (!stagedSha || !currentSha) {
       return {
         exitCode: 1,
         stdout: "",
-        stderr:
-          "Usage: promote-plan <staged-sha> <current-sha> <expected-schema-hash> <expected-manifest-hash> <release-packet-json>\n",
+        stderr: "Usage: promote-plan <staged-sha> <current-sha>\n",
       };
     }
 
@@ -2032,33 +1134,7 @@ export const runReleaseCli = (
       repoRoot: cwd,
       stagedSha,
       currentSha,
-      expectedSchemaHash,
-      expectedManifestHash,
-      releasePacket,
-      ...(trustedSigningKeys ? { trustedSigningKeys } : {}),
     });
-
-    return {
-      exitCode: report.ok ? 0 : 1,
-      stdout: `${JSON.stringify(report, null, 2)}\n`,
-      stderr: "",
-    };
-  }
-
-  if (command === "rollback-plan") {
-    const current = parseReleasePacket(argv[1]);
-    const candidate = parseReleasePacket(argv[2]);
-
-    if (!current || !candidate) {
-      return {
-        exitCode: 1,
-        stdout: "",
-        stderr:
-          "Usage: rollback-plan <current-packet-json> <candidate-packet-json>\n",
-      };
-    }
-
-    const report = buildRollbackPlan({ current, candidate });
 
     return {
       exitCode: report.ok ? 0 : 1,

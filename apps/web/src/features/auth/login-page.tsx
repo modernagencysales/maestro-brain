@@ -1,57 +1,61 @@
-"use client";
+'use client'
 
-import { useCallback } from "react";
+import { useCallback } from 'react'
 
-import { Container, HStack, Separator, Stack, Text } from "@chakra-ui/react";
-import { useLocalStorageValue } from "@react-hookz/web";
-import { useAuth } from "@saas-ui/auth-provider";
-import { toast } from "@saas-ui/react";
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Container, HStack, Separator, Stack, Text } from '@chakra-ui/react'
+import { useLocalStorageValue } from '@react-hookz/web'
+import { useAuth } from '@saas-ui/auth-provider'
+import { toast } from '@saas-ui/react'
+import { useMutation } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 
-import { Form, useAppForm } from "@workspace/ui/form";
+import { Form, useAppForm } from '@workspace/ui/form'
 
-import { Link } from "#components/link";
+import { Link } from '#components/link'
 
-import { AuthCard } from "./components/auth-card";
-import { LastUsedProvider } from "./components/last-used";
-import { Providers } from "./components/providers";
-import { LoginFormInput, loginSchema } from "./schema/login.schema";
+import { AuthCard } from './components/auth-card'
+import { LastUsedProvider } from './components/last-used'
+import { Providers } from './components/providers'
+import { LoginFormInput, loginSchema } from './schema/login.schema'
 
 export const LoginPage = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
-  const auth = useAuth();
+  const search = useSearch({
+    from: '/_auth/login',
+  })
 
-  const lastUsed = useLocalStorageValue("lastUsedProvider", {
+  const auth = useAuth()
+
+  const lastUsed = useLocalStorageValue('lastUsedProvider', {
     initializeWithValue: false,
-  });
+  })
 
   const mutation = useMutation({
     mutationFn: (params: LoginFormInput) => auth.logIn(params),
     onSuccess: () => {
-      lastUsed.set("credentials");
+      lastUsed.set('credentials')
 
       navigate({
-        to: "/clients",
-      });
+        to: search.redirectTo ?? '/',
+      })
     },
     onError: (error) => {
       toast.error({
-        title: error.message ?? "Could not log you in",
-        description: "Please try again or contact us if the problem persists.",
-      });
+        title: error.message ?? 'Could not log you in',
+        description: 'Please try again or contact us if the problem persists.',
+      })
     },
-  });
+  })
 
   const emailRef = useCallback(
     (el: HTMLInputElement | null) => {
-      if (lastUsed.value === "credentials") {
-        el?.focus();
+      if (lastUsed.value === 'credentials') {
+        el?.focus()
       }
     },
     [lastUsed.value],
-  );
+  )
 
   const form = useAppForm({
     validators: {
@@ -59,13 +63,13 @@ export const LoginPage = () => {
       onSubmit: loginSchema,
     },
     defaultValues: {
-      email: "",
-      password: "",
+      email: '',
+      password: '',
     },
     onSubmit: async ({ value }: { value: LoginFormInput }) => {
-      await mutation.mutateAsync(value);
+      await mutation.mutateAsync(value)
     },
-  });
+  })
 
   return (
     <Stack flex="1" direction="row" minH="100vh" bg="bg.muted">
@@ -82,8 +86,8 @@ export const LoginPage = () => {
             title="Log in"
             footer={
               <Text color="fg.muted">
-                Don&apos;t have an account yet?{" "}
-                <Link to="/sign-in">Sign up</Link>.
+                Don&apos;t have an account yet?{' '}
+                <Link to="/signup">Sign up</Link>.
               </Text>
             }
           >
@@ -125,7 +129,7 @@ export const LoginPage = () => {
                   )}
                 </form.AppField>
 
-                <Link to="/sign-in">Forgot your password?</Link>
+                <Link to="/forgot-password">Forgot your password?</Link>
 
                 <form.SubmitButton>Log in</form.SubmitButton>
               </form.Layout>
@@ -134,5 +138,5 @@ export const LoginPage = () => {
         </Container>
       </Stack>
     </Stack>
-  );
-};
+  )
+}

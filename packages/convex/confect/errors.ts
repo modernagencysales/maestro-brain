@@ -1,20 +1,25 @@
 import * as Schema from "effect/Schema";
 
 // Schema.Never is the runtime "no recoverable errors" schema; Confect accepts
-// AnyNoContext thunks, so keep the variance bridge in one named place.
-export const NoRecoverableError =
-  Schema.Never as unknown as Schema.Schema.AnyNoContext;
+// codec thunks, so keep the variance bridge in one named place.
+export const NoRecoverableError = Schema.Never as unknown as Schema.Codec<
+  never,
+  never
+>;
 
-export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
+export class Unauthorized extends Schema.TaggedErrorClass<Unauthorized>()(
   "Unauthorized",
   {},
 ) {}
 
-export class Forbidden extends Schema.TaggedError<Forbidden>()("Forbidden", {
-  reason: Schema.String,
-}) {}
+export class Forbidden extends Schema.TaggedErrorClass<Forbidden>()(
+  "Forbidden",
+  {
+    reason: Schema.String,
+  },
+) {}
 
-export class MemberNotInWorkspace extends Schema.TaggedError<MemberNotInWorkspace>()(
+export class MemberNotInWorkspace extends Schema.TaggedErrorClass<MemberNotInWorkspace>()(
   "MemberNotInWorkspace",
   {
     membershipId: Schema.String,
@@ -26,67 +31,47 @@ export class MemberNotInWorkspace extends Schema.TaggedError<MemberNotInWorkspac
  * or soft-deleted). Distinct from MemberNotInWorkspace — "exists here but can't
  * act" is a different client-facing case than "not a member of this workspace".
  */
-export class MembershipNotLive extends Schema.TaggedError<MembershipNotLive>()(
+export class MembershipNotLive extends Schema.TaggedErrorClass<MembershipNotLive>()(
   "MembershipNotLive",
   {
     membershipId: Schema.String,
   },
 ) {}
 
-export class LastOwnerProtected extends Schema.TaggedError<LastOwnerProtected>()(
+export class LastOwnerProtected extends Schema.TaggedErrorClass<LastOwnerProtected>()(
   "LastOwnerProtected",
   {
     workspaceId: Schema.String,
   },
 ) {}
 
-export class InvitationNotAccessible extends Schema.TaggedError<InvitationNotAccessible>()(
+export class InvitationNotAccessible extends Schema.TaggedErrorClass<InvitationNotAccessible>()(
   "InvitationNotAccessible",
   {},
 ) {}
 
-export class InvitationNotPending extends Schema.TaggedError<InvitationNotPending>()(
+export class InvitationNotPending extends Schema.TaggedErrorClass<InvitationNotPending>()(
   "InvitationNotPending",
   {
     invitationId: Schema.String,
   },
 ) {}
 
-export class InvitationExpired extends Schema.TaggedError<InvitationExpired>()(
+export class InvitationExpired extends Schema.TaggedErrorClass<InvitationExpired>()(
   "InvitationExpired",
   {
     invitationId: Schema.String,
   },
 ) {}
 
-export class WorkspaceNotFound extends Schema.TaggedError<WorkspaceNotFound>()(
+export class WorkspaceNotFound extends Schema.TaggedErrorClass<WorkspaceNotFound>()(
   "WorkspaceNotFound",
   {
     workspaceId: Schema.String,
   },
 ) {}
 
-export class OrganizationNotFound extends Schema.TaggedError<OrganizationNotFound>()(
-  "OrganizationNotFound",
-  { workosOrganizationId: Schema.String },
-) {}
-
-export class BrainAlreadyExists extends Schema.TaggedError<BrainAlreadyExists>()(
-  "BrainAlreadyExists",
-  { brainKey: Schema.String },
-) {}
-
-export class ClientBrainAlreadyExists extends Schema.TaggedError<ClientBrainAlreadyExists>()(
-  "ClientBrainAlreadyExists",
-  { clientSlug: Schema.String },
-) {}
-
-export class CapacityExceeded extends Schema.TaggedError<CapacityExceeded>()(
-  "CapacityExceeded",
-  { limit: Schema.Number },
-) {}
-
-export class ValidationFailed extends Schema.TaggedError<ValidationFailed>()(
+export class ValidationFailed extends Schema.TaggedErrorClass<ValidationFailed>()(
   "ValidationFailed",
   {
     field: Schema.String,
@@ -94,7 +79,16 @@ export class ValidationFailed extends Schema.TaggedError<ValidationFailed>()(
   },
 ) {}
 
-export class ProvisioningConflict extends Schema.TaggedError<ProvisioningConflict>()(
+export class StaleRevision extends Schema.TaggedErrorClass<StaleRevision>()(
+  "StaleRevision",
+  {
+    pageId: Schema.String,
+    expectedUpdatedAt: Schema.Number,
+    actualUpdatedAt: Schema.Number,
+  },
+) {}
+
+export class ProvisioningConflict extends Schema.TaggedErrorClass<ProvisioningConflict>()(
   "ProvisioningConflict",
   {
     resource: Schema.String,
@@ -102,19 +96,19 @@ export class ProvisioningConflict extends Schema.TaggedError<ProvisioningConflic
   },
 ) {}
 
-export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
+export class NotFound extends Schema.TaggedErrorClass<NotFound>()("NotFound", {
   resource: Schema.String,
   id: Schema.String,
 }) {}
 
-export class FeatureDisabled extends Schema.TaggedError<FeatureDisabled>()(
+export class FeatureDisabled extends Schema.TaggedErrorClass<FeatureDisabled>()(
   "FeatureDisabled",
   {
     feature: Schema.String,
   },
 ) {}
 
-export class ConfigInvalid extends Schema.TaggedError<ConfigInvalid>()(
+export class ConfigInvalid extends Schema.TaggedErrorClass<ConfigInvalid>()(
   "ConfigInvalid",
   {
     provider: Schema.String,

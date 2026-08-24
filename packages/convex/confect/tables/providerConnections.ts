@@ -1,55 +1,24 @@
 import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
+import { Id } from "../_generated/id";
+import {
+  providerConnectionStatuses,
+  providerKeys,
+} from "../integrations/connectionLifecycle";
 
-export const ProviderConnectionStatus = Schema.Literal(
-  "authorizing",
-  "verifying",
-  "active",
-  "error",
-  "reauthorizing",
-  "revoked",
-);
-
-const OptionalNullableString = Schema.optional(Schema.NullOr(Schema.String));
-const OptionalNullableNumber = Schema.optional(Schema.NullOr(Schema.Number));
-
-export const ProviderConnectionRow = Schema.Struct({
-  provider: Schema.Literal("nango"),
-  providerConfigKey: Schema.String,
-  organizationKey: Schema.String,
-  connectionKey: Schema.String,
-  connectionGeneration: Schema.Number,
-  status: ProviderConnectionStatus,
-  previousStatus: Schema.optional(Schema.NullOr(ProviderConnectionStatus)),
-  connectSessionId: Schema.String,
-  nangoConnectionId: OptionalNullableString,
-  nangoEndUserId: Schema.String,
-  nangoOrganizationId: Schema.String,
-  correlationTag: Schema.String,
-  attemptId: Schema.String,
-  attemptExpiresAt: Schema.Number,
-  completedAt: OptionalNullableNumber,
-  teamId: OptionalNullableString,
-  apiAppId: OptionalNullableString,
-  botUserId: OptionalNullableString,
-  errorReason: OptionalNullableString,
-  purgeRequestedAt: OptionalNullableNumber,
-  createdAt: Schema.Number,
-  updatedAt: Schema.Number,
-});
-
-export type ProviderConnectionRowValue = typeof ProviderConnectionRow.Type;
-
-export default Table.make(() => ProviderConnectionRow)
-  .index("by_organization", ["organizationKey"])
-  .index("by_organization_status", ["organizationKey", "status"])
-  .index("by_connection_key", ["connectionKey"])
-  .index("by_connect_session", ["connectSessionId"])
-  .index("by_attempt", ["attemptId"])
-  .index("by_nango_connection", ["nangoConnectionId"])
-  .index("by_organization_provider_status", [
-    "organizationKey",
-    "provider",
-    "providerConfigKey",
-    "status",
-  ]);
+// Workspace provider authorization and redacted connection status
+export default Table.make(() =>
+  Schema.Struct({
+    workspaceId: Id("workspaces"),
+    provider: Schema.Literals(providerKeys),
+    status: Schema.Literals(providerConnectionStatuses),
+    generation: Schema.Number,
+    connectionRef: Schema.optional(Schema.NonEmptyString),
+    errorCode: Schema.optional(Schema.NonEmptyString),
+    createdAt: Schema.Number,
+    updatedAt: Schema.Number,
+  }),
+)
+  .index("by_workspace", ["workspaceId"])
+  .index("by_workspace_and_provider", ["workspaceId", "provider"])
+  .index("by_workspace_and_status", ["workspaceId", "status"]);

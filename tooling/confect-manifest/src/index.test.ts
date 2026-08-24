@@ -1,7 +1,3 @@
-import { spawn } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 import {
@@ -14,82 +10,6 @@ import {
 } from "./index";
 
 describe("confect manifest tooling", () => {
-  it("compiles generated descriptors without admitting unrelated JSON", async () => {
-    const root = fileURLToPath(new URL("../../../", import.meta.url));
-    const probeDirectory = join(
-      root,
-      "packages/convex/confect/capabilities",
-      `manifest-json-probe-${process.pid}-${Date.now()}`,
-    );
-    const descriptor = join(probeDirectory, "probe.headless.json");
-    const unrelated = join(probeDirectory, "unrelated.json");
-
-    mkdirSync(probeDirectory, { recursive: true });
-    try {
-      writeFileSync(descriptor, '{"capability":"probe"}\n');
-      writeFileSync(unrelated, '{"unrelated":true}\n');
-      writeFileSync(
-        // Keep the compiler probe out of Vitest's Convex test discovery. The
-        // manifest tsconfig includes all generated .ts files, so a test suffix
-        // is unnecessary and races with the parallel Convex test project.
-        join(probeDirectory, "probe.ts"),
-        'import metadata from "./probe.headless.json";\nexport const capability = metadata.capability;\n',
-      );
-
-      const result = await new Promise<{
-        readonly status: number | null;
-        readonly stdout: string;
-        readonly stderr: string;
-      }>((resolveResult, reject) => {
-        const child = spawn(
-          process.execPath,
-          [
-            resolve(root, "node_modules/typescript/bin/tsc"),
-            "-p",
-            resolve(root, "tooling/confect-manifest/tsconfig.json"),
-            "--noEmit",
-            "--pretty",
-            "false",
-            "--listFiles",
-          ],
-          { cwd: root },
-        );
-        let stdout = "";
-        let stderr = "";
-        const timeout = setTimeout(() => {
-          child.kill("SIGTERM");
-          reject(new Error("TypeScript manifest probe exceeded 180 seconds."));
-        }, 180_000);
-        child.stdout.setEncoding("utf8");
-        child.stderr.setEncoding("utf8");
-        child.stdout.on("data", (chunk: string) => {
-          stdout += chunk;
-        });
-        child.stderr.on("data", (chunk: string) => {
-          stderr += chunk;
-        });
-        child.once("error", (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-        child.once("close", (status) => {
-          clearTimeout(timeout);
-          resolveResult({ status, stdout, stderr });
-        });
-      });
-      const output = `${result.stdout}${result.stderr}`;
-      const listedProbeFiles = output
-        .split(/\r?\n/u)
-        .filter((line) => line.startsWith(probeDirectory));
-
-      expect(result.status, output).toBe(0);
-      expect(listedProbeFiles).toContain(descriptor);
-      expect(listedProbeFiles).not.toContain(unrelated);
-    } finally {
-      rmSync(probeDirectory, { recursive: true, force: true });
-    }
-  }, 190_000);
-
   it("sorts operation ids for deterministic output", () => {
     const manifest = buildContractManifest([
       {
@@ -230,6 +150,7 @@ describe("confect manifest tooling", () => {
     ).toMatchObject({
       openApi31: {
         "a.run.args": {
+          $schema: "https://json-schema.org/draft/2020-12/schema",
           type: "object",
           required: ["workspaceId", "title"],
           properties: {
@@ -240,11 +161,68 @@ describe("confect manifest tooling", () => {
       },
       mcp: {
         "a.run.returns": {
+          $schema: "https://json-schema.org/draft/2020-12/schema",
           type: "object",
           required: ["ok"],
           properties: {
             ok: { type: "boolean", enum: [true] },
           },
+        },
+      },
+    });
+  });
+
+  it("preserves named definitions in both public schema targets", () => {
+    const RunArgs = Schema.Struct({
+      workspaceId: Schema.String,
+    }).annotate({ identifier: "RunArgs" });
+
+    const schemas = buildContractJsonSchemas({ RunArgs });
+    const expected = {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $ref: "#/$defs/RunArgs",
+      $defs: {
+        RunArgs: {
+          type: "object",
+          required: ["workspaceId"],
+          properties: { workspaceId: { type: "string" } },
+          additionalProperties: false,
+        },
+      },
+    };
+
+    expect(schemas.openApi31.RunArgs).toEqual(expected);
+    expect(schemas.mcp.RunArgs).toEqual(expected);
+  });
+
+  it("normalizes OpenAPI component names without changing MCP definitions", () => {
+    const RunArgs = Schema.Struct({
+      workspaceId: Schema.String,
+    }).annotate({ identifier: "Run Args" });
+
+    const schemas = buildContractJsonSchemas({ RunArgs });
+
+    expect(schemas.openApi31.RunArgs).toEqual({
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $ref: "#/$defs/Run_Args",
+      $defs: {
+        Run_Args: {
+          type: "object",
+          required: ["workspaceId"],
+          properties: { workspaceId: { type: "string" } },
+          additionalProperties: false,
+        },
+      },
+    });
+    expect(schemas.mcp.RunArgs).toEqual({
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $ref: "#/$defs/Run Args",
+      $defs: {
+        "Run Args": {
+          type: "object",
+          required: ["workspaceId"],
+          properties: { workspaceId: { type: "string" } },
+          additionalProperties: false,
         },
       },
     });

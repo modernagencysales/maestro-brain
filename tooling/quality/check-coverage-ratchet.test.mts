@@ -2,7 +2,12 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { droppedMetrics, readTotals } from "./check-coverage-ratchet.mts";
+import {
+  droppedMetrics,
+  readCoverageBaseline,
+  readTotals,
+} from "./check-coverage-ratchet.mts";
+import { CUSTOMER_COVERAGE_SCOPE } from "./customer-coverage-contract.mts";
 
 const summary = (pct: number) =>
   JSON.stringify({
@@ -60,7 +65,7 @@ describe("check:coverage-ratchet", () => {
 
   it("ignores float noise below the epsilon", () => {
     const actual = {
-      lines: 79.999,
+      lines: 79.99,
       functions: 80,
       branches: 80,
       statements: 80,
@@ -70,6 +75,18 @@ describe("check:coverage-ratchet", () => {
     expect(droppedMetrics(actual, base)).toEqual([]);
   });
 
+  it("still rejects the next two-decimal reporting quantum", () => {
+    const actual = {
+      lines: 79.98,
+      functions: 80,
+      branches: 80,
+      statements: 80,
+    };
+    const base = { lines: 80, functions: 80, branches: 80, statements: 80 };
+
+    expect(droppedMetrics(actual, base)).toEqual(["lines"]);
+  });
+
   it("throws on malformed summaries instead of passing silently", () => {
     const dir = mkdtempSync(join(tmpdir(), "ratchet-bad-"));
     const summaryPath = join(dir, "coverage-summary.json");
@@ -77,6 +94,27 @@ describe("check:coverage-ratchet", () => {
 
     expect(() => readTotals(summaryPath, true)).toThrowError(
       "coverage summary is missing a numeric pct",
+    );
+  });
+
+  it("rejects a baseline from a different coverage scope", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ratchet-scope-"));
+    const baselinePath = join(dir, "coverage-baseline.json");
+    writeFileSync(
+      baselinePath,
+      JSON.stringify({
+        schemaVersion: 2,
+        provider: "@vitest/coverage-v8@4.1.11",
+        scope: "factory-wide",
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      }),
+    );
+
+    expect(() => readCoverageBaseline(baselinePath)).toThrowError(
+      CUSTOMER_COVERAGE_SCOPE,
     );
   });
 });

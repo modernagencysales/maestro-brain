@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+'use client'
 
 import {
   Avatar,
@@ -11,26 +9,71 @@ import {
   LoadingOverlay,
   Page,
   Text,
-} from "@saas-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, linkOptions } from "@tanstack/react-router";
-import { LuSearch, LuX } from "react-icons/lu";
+} from '@saas-ui/react'
+import {
+  getFunctionReference,
+  templateConfectRefs,
+} from '@maestro-template/convex/refs'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useConvex } from 'convex/react'
+import {
+  Link,
+  linkOptions,
+  useNavigate,
+  useSearch,
+} from '@tanstack/react-router'
+import { LuSearch, LuX } from 'react-icons/lu'
 
-import type { ContactDTO } from "@workspace/api/types";
-import { SearchInput } from "@workspace/ui/search-input";
+import { SearchInput } from '@workspace/ui/search-input'
 
-import { LinkButton } from "#components/link-button";
+import { productShell } from '#config/product-shell'
+import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
+import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
+import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+
+import {
+  askMaestroPromptFixtures,
+  fakeAskMaestroResult,
+  projectGroundedAnswerToSearchResults,
+  type StarterSearchResult,
+} from './ask-maestro-adapter'
+
+const answerQuestionRef = getFunctionReference(
+  templateConfectRefs.public.agents.assistant.answerQuestion,
+)
+
 export function SearchPage() {
-  const [q, setSearch] = useState("");
+  const navigate = useNavigate()
+  const [workspace] = useCurrentWorkspace()
+  const convex = useConvex()
+
+  const { q } = useSearch({
+    from: '/_app/$workspace/_dashboard/search',
+  })
+
+  const setSearch = (q: string) => {
+    navigate({
+      from: '/$workspace/search',
+      to: '.',
+      search: {
+        q,
+      },
+    })
+  }
 
   const { data } = useQuery({
-    queryKey: ["search", q],
+    queryKey: ['search', productShell.search, workspace.id, q],
     queryFn: async () => {
-      // TODO: Implement search
-      return [];
+      if (productShell.search !== 'assistant') return []
+      if (isFixtureAuthRuntime()) return fakeAskMaestroResult(q)
+      const result = await convex.query(answerQuestionRef, {
+        workspaceId: workspace.id,
+        question: q,
+      })
+      return projectGroundedAnswerToSearchResults(result)
     },
     enabled: !!q,
-  });
+  })
 
   return (
     <Page.Root>
@@ -40,10 +83,14 @@ export function SearchPage() {
         py="1"
         title={
           <SearchInput
-            placeholder="Search your workspace..."
+            placeholder={
+              productShell.search === 'assistant'
+                ? 'Ask Maestro anything...'
+                : 'Search your workspace...'
+            }
             value={q}
             onChange={(e) => setSearch(e.target.value)}
-            onReset={() => setSearch("")}
+            onReset={() => setSearch('')}
             width="full"
             border="0"
           />
@@ -53,39 +100,50 @@ export function SearchPage() {
         {q ? <SearchResults data={data} search={q} /> : <RecentSearches />}
       </Page.Body>
     </Page.Root>
-  );
+  )
 }
 
 function RecentSearches() {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
+
+  const workspace = useWorkspaceSlug()
 
   const { data, isLoading } = useQuery({
-    queryKey: ["recent-searches"],
+    queryKey: ['recent-searches', productShell.search],
     queryFn: async () => {
-      return ["hello", "james", "kira"];
+      return productShell.search === 'assistant'
+        ? [...askMaestroPromptFixtures]
+        : ['hello', 'james', 'kira']
     },
-  });
+  })
 
   const clearRecent = useMutation({
     mutationFn: async () => {
-      queryClient.setQueryData(["recent-searches"], []);
+      queryClient.setQueryData(['recent-searches', productShell.search], [])
     },
-  });
+  })
 
   const getSearchLinkOptions = (q: string) =>
     linkOptions({
-      to: "/contacts",
-      hash: `search-${q}`,
-    });
+      to: '/$workspace/search',
+      params: {
+        workspace,
+      },
+      search: {
+        q,
+      },
+    })
 
   if (!data?.length) {
-    return null;
+    return null
   }
 
   return (
     <Box>
       <Heading as="h4" size="sm" color="fg.muted" px="5" py="2">
-        Recent searches
+        {productShell.search === 'assistant'
+          ? 'Try asking Maestro'
+          : 'Recent searches'}
       </Heading>
       {isLoading ? (
         <LoadingOverlay.Root>
@@ -105,44 +163,41 @@ function RecentSearches() {
               </Link>
             </GridList.Item>
           ))}
-          <GridList.Item
-            px="5"
-            py="2"
-            onClick={() => {
-              clearRecent.mutate();
-            }}
-          >
-            <GridList.Cell>
-              <LuX />
-            </GridList.Cell>
-            <GridList.Cell flex="1" color="fg.subtle" textStyle="sm">
-              Clear recent searches
-            </GridList.Cell>
-          </GridList.Item>
+          {productShell.search === 'workspace' ? (
+            <GridList.Item
+              px="5"
+              py="2"
+              onClick={() => {
+                clearRecent.mutate()
+              }}
+            >
+              <GridList.Cell>
+                <LuX />
+              </GridList.Cell>
+              <GridList.Cell flex="1" color="fg.subtle" textStyle="sm">
+                Clear recent searches
+              </GridList.Cell>
+            </GridList.Item>
+          ) : null}
         </GridList.Root>
       ) : null}
     </Box>
-  );
+  )
 }
 
-function SearchResults(props: { data?: ContactDTO[]; search: string }) {
-  const getLinkOptions = (id: string) =>
-    linkOptions({
-      to: "/contacts/$contactId",
-      params: {
-        contactId: id,
-      },
-    });
-
+function SearchResults(props: {
+  data?: StarterSearchResult[]
+  search: string
+}) {
   if (props.search && !props.data?.length) {
     return (
       <EmptyState
-        title="No results"
-        description={`No results for for query "${props.search}"`}
-      >
-        <LinkButton to="/contacts">Clear search</LinkButton>
-      </EmptyState>
-    );
+        title={
+          productShell.search === 'assistant' ? 'No answer yet' : 'No results'
+        }
+        description={`No results for query "${props.search}"`}
+      />
+    )
   }
 
   return (
@@ -151,23 +206,18 @@ function SearchResults(props: { data?: ContactDTO[]; search: string }) {
         Results
       </Heading>
       <GridList.Root interactive>
-        {props.data?.map((contact) => (
-          <GridList.Item key={contact.id} textStyle="sm" px="5" py="2" asChild>
-            <Link {...getLinkOptions(contact.id)}>
-              <GridList.Cell>
-                <Avatar
-                  name={contact.name ?? contact.email ?? ""}
-                  src={contact.avatar ?? undefined}
-                  size="2xs"
-                />
-              </GridList.Cell>
-              <GridList.Cell flex="1">
-                <Text>{contact.name}</Text>
-              </GridList.Cell>
-            </Link>
+        {props.data?.map((result) => (
+          <GridList.Item key={result.id} textStyle="sm" px="5" py="3">
+            <GridList.Cell>
+              <Avatar name={result.title} size="2xs" />
+            </GridList.Cell>
+            <GridList.Cell flex="1">
+              <Text fontWeight="medium">{result.title}</Text>
+              <Text color="fg.muted">{result.description}</Text>
+            </GridList.Cell>
           </GridList.Item>
         ))}
       </GridList.Root>
     </Box>
-  );
+  )
 }

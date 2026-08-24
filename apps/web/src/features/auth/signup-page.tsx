@@ -1,37 +1,40 @@
-"use client";
+'use client'
 
-import { Center, Container, Stack, Text } from "@chakra-ui/react";
-import { useAuth } from "@saas-ui/auth-provider";
-import { toast } from "@saas-ui/react";
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Center, Container, Stack, Text } from '@chakra-ui/react'
+import { useAuth } from '@saas-ui/auth-provider'
+import { toast } from '@saas-ui/react'
+import { useMutation } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 
-import { Form, useAppForm } from "@workspace/ui/form";
+import { Form, useAppForm } from '@workspace/ui/form'
 
-import { Link } from "#components/link";
+import { Link } from '#components/link'
 
-import { AuthCard } from "./components/auth-card";
-import { Testimonial } from "./components/testimonial";
-import { type SignupFormInput, signupSchema } from "./schema/signup.schema";
+import { AuthCard } from './components/auth-card'
+import { Testimonial } from './components/testimonial'
+import { type SignupFormInput, signupSchema } from './schema/signup.schema'
 
 export const SignupPage = () => {
-  const navigate = useNavigate();
-  const auth = useAuth();
+  const navigate = useNavigate()
+  const search = useSearch({
+    from: '/_auth/signup',
+  })
+  const auth = useAuth()
 
   const { mutateAsync, isPending, isSuccess } = useMutation({
     mutationFn: (params: SignupFormInput) => auth.signUp(params),
     onSuccess: () => {
       navigate({
-        to: "/clients",
-      });
+        to: search.redirectTo ?? '/',
+      })
     },
     onError: (error) => {
       toast.error({
-        title: error.message ?? "Could not sign you up",
-        description: "Please try again or contact us if the problem persists.",
-      });
+        title: error.message ?? 'Could not sign you up',
+        description: 'Please try again or contact us if the problem persists.',
+      })
     },
-  });
+  })
 
   const form = useAppForm({
     validators: {
@@ -39,16 +42,16 @@ export const SignupPage = () => {
       onSubmit: signupSchema,
     },
     defaultValues: {
-      email: "",
-      password: "",
+      email: '',
+      password: '',
     },
     onSubmit: async ({ value }: { value: SignupFormInput }) => {
       await mutateAsync({
         email: value.email,
         password: value.password,
-      });
+      })
     },
-  });
+  })
 
   return (
     <Stack flex="1" direction="row" height="100dvh" bg="bg.muted">
@@ -65,7 +68,7 @@ export const SignupPage = () => {
             title="Sign up"
             footer={
               <Text color="fg.muted">
-                Already have an account? <Link to="/sign-in">Log in</Link>.
+                Already have an account? <Link to="/login">Log in</Link>.
               </Text>
             }
           >
@@ -91,7 +94,7 @@ export const SignupPage = () => {
                   )}
                 </form.AppField>
 
-                <Link to="/sign-in" mt="-2">
+                <Link to="/forgot-password" mt="-2">
                   Forgot your password?
                 </Link>
 
@@ -106,9 +109,9 @@ export const SignupPage = () => {
           </AuthCard>
 
           <Text textAlign="center" color="fg.muted" mt="4">
-            By signing up, you agree to our{" "}
-            <Link to="/legal">Terms of Service</Link> and{" "}
-            <Link to="/legal">Privacy Policy</Link>.
+            By signing up, you agree to our{' '}
+              <a href="/terms">Terms of Service</a> and{' '}
+              <a href="/privacy">Privacy Policy</a>.
           </Text>
         </Container>
       </Stack>
@@ -118,5 +121,5 @@ export const SignupPage = () => {
         </Center>
       </Stack>
     </Stack>
-  );
-};
+  )
+}

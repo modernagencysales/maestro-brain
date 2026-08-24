@@ -7,99 +7,39 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
-import brainCorpusHealth from "./tables/brainCorpusHealth";
-import brainExportJobs from "./tables/brainExportJobs";
-import brainFeedbackReports from "./tables/brainFeedbackReports";
-import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
-import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
-import brainOperationReceipts from "./tables/brainOperationReceipts";
-import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
-import brainProjectionPopulation from "./tables/brainProjectionPopulation";
-import brainProjectionValidationReceipts from "./tables/brainProjectionValidationReceipts";
-import brainPublicationPauses from "./tables/brainPublicationPauses";
-import brainPublicationWorkerLeases from "./tables/brainPublicationWorkerLeases";
-import brainReadModes from "./tables/brainReadModes";
-import brainRequiredScopeIntents from "./tables/brainRequiredScopeIntents";
-import brainSources from "./tables/brainSources";
-import callRouteMappings from "./tables/callRouteMappings";
-import callRoutingProposals from "./tables/callRoutingProposals";
-import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
-import channelRoutingPolicies from "./tables/channelRoutingPolicies";
-import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
-import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
-import connectorAllowlistGenerations from "./tables/connectorAllowlistGenerations";
-import connectorIncrementalCursors from "./tables/connectorIncrementalCursors";
-import connectorPageChunks from "./tables/connectorPageChunks";
-import connectorPageEnvelopes from "./tables/connectorPageEnvelopes";
-import connectorReconciliationRuns from "./tables/connectorReconciliationRuns";
-import connectorReconciliationSeen from "./tables/connectorReconciliationSeen";
-import connectorScopes from "./tables/connectorScopes";
-import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
+import deployActionConsumptions from "./tables/deployActionConsumptions";
+import deployApprovals from "./tables/deployApprovals";
+import deployAuthorityAuditEvents from "./tables/deployAuthorityAuditEvents";
+import deployAuthorityIssuers from "./tables/deployAuthorityIssuers";
+import deployCensusSnapshots from "./tables/deployCensusSnapshots";
+import deployVerdicts from "./tables/deployVerdicts";
 import documentAnnotations from "./tables/documentAnnotations";
-import documentSourceMembershipEdges from "./tables/documentSourceMembershipEdges";
-import documentSourceObjects from "./tables/documentSourceObjects";
-import documentSourceObservations from "./tables/documentSourceObservations";
-import documentSourceOutcomes from "./tables/documentSourceOutcomes";
-import documentSourcePassages from "./tables/documentSourcePassages";
-import documentSourceRevisions from "./tables/documentSourceRevisions";
-import documentSourceScopePointers from "./tables/documentSourceScopePointers";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
-import driveScopeConfigurations from "./tables/driveScopeConfigurations";
 import dsarRequests from "./tables/dsarRequests";
+import emailCampaigns from "./tables/emailCampaigns";
+import emailDeliveries from "./tables/emailDeliveries";
+import emailEvents from "./tables/emailEvents";
+import emailSubscribers from "./tables/emailSubscribers";
+import emailSuppressions from "./tables/emailSuppressions";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
-import ingestionObligationRepairEffects from "./tables/ingestionObligationRepairEffects";
-import ingestionObligations from "./tables/ingestionObligations";
 import invitations from "./tables/invitations";
-import migrationReceipts from "./tables/migrationReceipts";
-import migrationRuns from "./tables/migrationRuns";
-import modelCallReceipts from "./tables/modelCallReceipts";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
-import outboundDeliveryOutbox from "./tables/outboundDeliveryOutbox";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
-import providerEventReceipts from "./tables/providerEventReceipts";
-import providerTargetResolutionIntents from "./tables/providerTargetResolutionIntents";
-import retrievalEligibilityFences from "./tables/retrievalEligibilityFences";
-import retrievalEntries from "./tables/retrievalEntries";
-import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
-import retrievalPublicationSets from "./tables/retrievalPublicationSets";
-import retrievalPublicationSubjects from "./tables/retrievalPublicationSubjects";
-import retrievalRebuildChildren from "./tables/retrievalRebuildChildren";
-import retrievalRebuildRuns from "./tables/retrievalRebuildRuns";
-import retrievalTokenCatalog from "./tables/retrievalTokenCatalog";
-import retrievalTokens from "./tables/retrievalTokens";
-import servicePrincipals from "./tables/servicePrincipals";
-import slackIdentityBindings from "./tables/slackIdentityBindings";
-import slackPublicationTargetIntents from "./tables/slackPublicationTargetIntents";
-import slackQuestionReceipts from "./tables/slackQuestionReceipts";
-import sourceArtifacts from "./tables/sourceArtifacts";
-import sourceChannels from "./tables/sourceChannels";
-import sourceProcessingJobs from "./tables/sourceProcessingJobs";
-import sourceRevisions from "./tables/sourceRevisions";
-import sourceSegments from "./tables/sourceSegments";
-import sourceUnitRevisions from "./tables/sourceUnitRevisions";
-import sourceUnits from "./tables/sourceUnits";
-import structuredQueryFieldRegistrations from "./tables/structuredQueryFieldRegistrations";
-import structuredSourceEntities from "./tables/structuredSourceEntities";
-import structuredSourceFields from "./tables/structuredSourceFields";
-import structuredSourceObservations from "./tables/structuredSourceObservations";
-import structuredSourceRevisions from "./tables/structuredSourceRevisions";
-import structuredSourceRoutes from "./tables/structuredSourceRoutes";
-import transcriptRevisionOrderMigrationItems from "./tables/transcriptRevisionOrderMigrationItems";
-import transcriptRevisionOrderMigrations from "./tables/transcriptRevisionOrderMigrations";
+import records from "./tables/records";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -108,6 +48,9 @@ import users from "./tables/users";
 import versionFreshness from "./tables/versionFreshness";
 import versionedEntries from "./tables/versionedEntries";
 import webhookEvents from "./tables/webhookEvents";
+import workflowArtifacts from "./tables/workflowArtifacts";
+import workflowEffectReservations from "./tables/workflowEffectReservations";
+import workflowEventInstances from "./tables/workflowEventInstances";
 import workflowRunContextManifests from "./tables/workflowRunContextManifests";
 import workflowRunEvents from "./tables/workflowRunEvents";
 import workflowRunEvidenceSnapshots from "./tables/workflowRunEvidenceSnapshots";
@@ -125,99 +68,39 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
-  brainCorpusHealth: brainCorpusHealth.tableDefinition,
-  brainExportJobs: brainExportJobs.tableDefinition,
-  brainFeedbackReports: brainFeedbackReports.tableDefinition,
-  brainMaintenanceProposalItems: brainMaintenanceProposalItems.tableDefinition,
-  brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
-  brainOperationReceipts: brainOperationReceipts.tableDefinition,
-  brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
-  brainProjectionPopulation: brainProjectionPopulation.tableDefinition,
-  brainProjectionValidationReceipts: brainProjectionValidationReceipts.tableDefinition,
-  brainPublicationPauses: brainPublicationPauses.tableDefinition,
-  brainPublicationWorkerLeases: brainPublicationWorkerLeases.tableDefinition,
-  brainReadModes: brainReadModes.tableDefinition,
-  brainRequiredScopeIntents: brainRequiredScopeIntents.tableDefinition,
-  brainSources: brainSources.tableDefinition,
-  callRouteMappings: callRouteMappings.tableDefinition,
-  callRoutingProposals: callRoutingProposals.tableDefinition,
-  channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
-  channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
-  channelSyncStates: channelSyncStates.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
-  classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
-  connectorAllowlistGenerations: connectorAllowlistGenerations.tableDefinition,
-  connectorIncrementalCursors: connectorIncrementalCursors.tableDefinition,
-  connectorPageChunks: connectorPageChunks.tableDefinition,
-  connectorPageEnvelopes: connectorPageEnvelopes.tableDefinition,
-  connectorReconciliationRuns: connectorReconciliationRuns.tableDefinition,
-  connectorReconciliationSeen: connectorReconciliationSeen.tableDefinition,
-  connectorScopes: connectorScopes.tableDefinition,
-  connectorSyncStates: connectorSyncStates.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
+  deployActionConsumptions: deployActionConsumptions.tableDefinition,
+  deployApprovals: deployApprovals.tableDefinition,
+  deployAuthorityAuditEvents: deployAuthorityAuditEvents.tableDefinition,
+  deployAuthorityIssuers: deployAuthorityIssuers.tableDefinition,
+  deployCensusSnapshots: deployCensusSnapshots.tableDefinition,
+  deployVerdicts: deployVerdicts.tableDefinition,
   documentAnnotations: documentAnnotations.tableDefinition,
-  documentSourceMembershipEdges: documentSourceMembershipEdges.tableDefinition,
-  documentSourceObjects: documentSourceObjects.tableDefinition,
-  documentSourceObservations: documentSourceObservations.tableDefinition,
-  documentSourceOutcomes: documentSourceOutcomes.tableDefinition,
-  documentSourcePassages: documentSourcePassages.tableDefinition,
-  documentSourceRevisions: documentSourceRevisions.tableDefinition,
-  documentSourceScopePointers: documentSourceScopePointers.tableDefinition,
   documentVersions: documentVersions.tableDefinition,
   documents: documents.tableDefinition,
-  driveScopeConfigurations: driveScopeConfigurations.tableDefinition,
   dsarRequests: dsarRequests.tableDefinition,
+  emailCampaigns: emailCampaigns.tableDefinition,
+  emailDeliveries: emailDeliveries.tableDefinition,
+  emailEvents: emailEvents.tableDefinition,
+  emailSubscribers: emailSubscribers.tableDefinition,
+  emailSuppressions: emailSuppressions.tableDefinition,
   entitlements: entitlements.tableDefinition,
   featureFlagPolicies: featureFlagPolicies.tableDefinition,
-  ingestionObligationRepairEffects: ingestionObligationRepairEffects.tableDefinition,
-  ingestionObligations: ingestionObligations.tableDefinition,
   invitations: invitations.tableDefinition,
-  migrationReceipts: migrationReceipts.tableDefinition,
-  migrationRuns: migrationRuns.tableDefinition,
-  modelCallReceipts: modelCallReceipts.tableDefinition,
   notificationPreferences: notificationPreferences.tableDefinition,
   notificationRecords: notificationRecords.tableDefinition,
   organizationMembers: organizationMembers.tableDefinition,
   organizations: organizations.tableDefinition,
-  outboundDeliveryOutbox: outboundDeliveryOutbox.tableDefinition,
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
-  providerEventReceipts: providerEventReceipts.tableDefinition,
-  providerTargetResolutionIntents: providerTargetResolutionIntents.tableDefinition,
-  retrievalEligibilityFences: retrievalEligibilityFences.tableDefinition,
-  retrievalEntries: retrievalEntries.tableDefinition,
-  retrievalPublicationJobs: retrievalPublicationJobs.tableDefinition,
-  retrievalPublicationSets: retrievalPublicationSets.tableDefinition,
-  retrievalPublicationSubjects: retrievalPublicationSubjects.tableDefinition,
-  retrievalRebuildChildren: retrievalRebuildChildren.tableDefinition,
-  retrievalRebuildRuns: retrievalRebuildRuns.tableDefinition,
-  retrievalTokenCatalog: retrievalTokenCatalog.tableDefinition,
-  retrievalTokens: retrievalTokens.tableDefinition,
-  servicePrincipals: servicePrincipals.tableDefinition,
-  slackIdentityBindings: slackIdentityBindings.tableDefinition,
-  slackPublicationTargetIntents: slackPublicationTargetIntents.tableDefinition,
-  slackQuestionReceipts: slackQuestionReceipts.tableDefinition,
-  sourceArtifacts: sourceArtifacts.tableDefinition,
-  sourceChannels: sourceChannels.tableDefinition,
-  sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
-  sourceRevisions: sourceRevisions.tableDefinition,
-  sourceSegments: sourceSegments.tableDefinition,
-  sourceUnitRevisions: sourceUnitRevisions.tableDefinition,
-  sourceUnits: sourceUnits.tableDefinition,
-  structuredQueryFieldRegistrations: structuredQueryFieldRegistrations.tableDefinition,
-  structuredSourceEntities: structuredSourceEntities.tableDefinition,
-  structuredSourceFields: structuredSourceFields.tableDefinition,
-  structuredSourceObservations: structuredSourceObservations.tableDefinition,
-  structuredSourceRevisions: structuredSourceRevisions.tableDefinition,
-  structuredSourceRoutes: structuredSourceRoutes.tableDefinition,
-  transcriptRevisionOrderMigrationItems: transcriptRevisionOrderMigrationItems.tableDefinition,
-  transcriptRevisionOrderMigrations: transcriptRevisionOrderMigrations.tableDefinition,
+  records: records.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,
@@ -226,6 +109,9 @@ export default $defineSchema({
   versionFreshness: versionFreshness.tableDefinition,
   versionedEntries: versionedEntries.tableDefinition,
   webhookEvents: webhookEvents.tableDefinition,
+  workflowArtifacts: workflowArtifacts.tableDefinition,
+  workflowEffectReservations: workflowEffectReservations.tableDefinition,
+  workflowEventInstances: workflowEventInstances.tableDefinition,
   workflowRunContextManifests: workflowRunContextManifests.tableDefinition,
   workflowRunEvents: workflowRunEvents.tableDefinition,
   workflowRunEvidenceSnapshots: workflowRunEvidenceSnapshots.tableDefinition,

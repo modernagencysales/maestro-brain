@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import * as React from "react";
+import * as React from 'react'
 
 import {
   Button,
@@ -11,89 +11,138 @@ import {
   Tabs,
   Tooltip,
   useBreakpointValue,
-} from "@saas-ui/react";
+} from '@saas-ui/react'
 import {
   LuActivity,
   LuFile,
   LuListTodo,
   LuPanelRightOpen,
-} from "react-icons/lu";
+} from 'react-icons/lu'
 
-import { Breadcrumbs } from "#components/breadcrumbs";
-import { useCurrentWorkspace } from "#features/common/hooks/use-current-workspace";
-import { useOpenState } from "#hooks/use-open-state";
-import { api } from "#lib/trpc/react";
+import { Breadcrumbs } from '#components/breadcrumbs'
+import { productShell } from '#config/product-shell'
+import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
+import { useOpenState } from '#hooks/use-open-state.ts'
 
-import { ActivitiesPanel } from "./activities-panel";
-import { ContactNotFound } from "./contact.not-found";
-import { ContactSidebar } from "./contact-sidebar";
+import { ActivitiesPanel } from './activities-panel'
+import { ContactSidebar } from './contact-sidebar'
+import { contactDetailDataHooks } from '../clients-adapter'
 
 interface ContactPageProps {
   params: {
-    workspace: string;
-    id: string;
-  };
+    workspace: string
+    id: string
+  }
 
   /**
    * Additional toolbar items when embedded in another page, eg the inbox
    */
-  toolbarItems?: React.ReactNode;
+  toolbarItems?: React.ReactNode
+  rootLabel?: string
+  rootTo?: '/$workspace/contacts' | '/$workspace/inbox'
 }
 
-export function ContactPage({ params, toolbarItems }: ContactPageProps) {
-  const [workspace] = useCurrentWorkspace();
+interface ContactPageCompositionProps extends ContactPageProps {
+  title: React.ReactNode
+  primaryLabel?: string
+  primaryIcon?: React.ReactNode
+  primaryContent: React.ReactNode
+  sidebarContent?: (props: {
+    open?: boolean
+    onOpenChange: (details: { open: boolean }) => void
+  }) => React.ReactNode
+  showContactTabs?: boolean
+}
 
-  const [data] = api.contacts.byId.useSuspenseQuery({
+export function ContactPage({
+  params,
+  toolbarItems,
+  rootLabel = productShell.labels.contacts,
+  rootTo = '/$workspace/contacts',
+}: ContactPageProps) {
+  const [workspace] = useCurrentWorkspace()
+
+  const { data } = contactDetailDataHooks[productShell.contacts]({
     id: params.id,
     workspaceId: workspace.id,
-  });
+  })
+
+  if (!data) return null
+
+  return (
+    <ContactPageComposition
+      params={params}
+      toolbarItems={toolbarItems}
+      rootLabel={rootLabel}
+      rootTo={rootTo}
+      title={data?.name}
+      primaryContent={<ActivitiesPanel contact={data} />}
+      sidebarContent={(sidebarProps) => (
+        <ContactSidebar contact={data} {...sidebarProps} />
+      )}
+      showContactTabs
+    />
+  )
+}
+
+export function ContactPageComposition({
+  params,
+  toolbarItems,
+  rootLabel = productShell.labels.contacts,
+  rootTo = '/$workspace/contacts',
+  title,
+  primaryLabel = 'Activity',
+  primaryIcon = <LuActivity />,
+  primaryContent,
+  sidebarContent,
+  showContactTabs = false,
+}: ContactPageCompositionProps) {
 
   const isMobile = useBreakpointValue(
     { base: true, lg: false },
     {
       fallback: undefined,
     },
-  );
+  )
 
   const sidebar = useOpenState({
     defaultOpen: true,
-  });
+  })
 
   React.useEffect(() => {
     if (isMobile === true) {
-      sidebar.setOpen(false);
+      sidebar.setOpen(false)
     }
-  }, [isMobile]);
-
-  if (!data) {
-    return <ContactNotFound params={{ id: params.id }} />;
-  }
+  }, [isMobile])
 
   const breadcrumbs = (
     <Breadcrumbs
       items={[
         {
-          to: "/contacts",
-          title: "Contacts",
+          to: rootTo,
+          params: { workspace: params.workspace },
+          title: rootLabel,
         },
-        { title: data?.name },
+        { title },
       ]}
     />
-  );
+  )
 
   const toolbar = (
     <ButtonGroup gridArea="actions">
       <Spacer />
       {toolbarItems}
-      <Tooltip
-        content={sidebar.open ? "Hide contact details" : "Show contact details"}
-      >
-        <Button onClick={() => sidebar.setOpen(!sidebar.open)}>
-          <LuPanelRightOpen />
-        </Button>
-      </Tooltip>
+      {sidebarContent ? (
+        <Tooltip
+          content={sidebar.open ? 'Hide details' : 'Show details'}
+        >
+          <Button onClick={() => sidebar.setOpen(!sidebar.open)}>
+            <LuPanelRightOpen />
+          </Button>
+        </Tooltip>
+      ) : null}
     </ButtonGroup>
-  );
+  )
 
   return (
     <Page.Root>
@@ -108,10 +157,10 @@ export function ContactPage({ params, toolbarItems }: ContactPageProps) {
           gap="0"
         >
           <Tabs.Root
-            variant="line"
-            size="sm"
+            variant="pills"
+            size="xs"
             colorPalette="gray"
-            defaultValue="activity"
+            defaultValue="primary"
             lazyMount
             flex="1"
             minH="0"
@@ -119,31 +168,34 @@ export function ContactPage({ params, toolbarItems }: ContactPageProps) {
             flexDirection="column"
           >
             <Tabs.List px="4" py="2" borderBottomWidth="1px">
-              <Tabs.Trigger value="activity">
-                <LuActivity /> Activity
+              <Tabs.Trigger value="primary">
+                {primaryIcon} {primaryLabel}
               </Tabs.Trigger>
-              <Tabs.Trigger value="tasks">
-                <LuListTodo /> Tasks
-              </Tabs.Trigger>
-              <Tabs.Trigger value="files">
-                <LuFile />
-                Files
-              </Tabs.Trigger>
+              {showContactTabs ? (
+                <>
+                  <Tabs.Trigger value="tasks">
+                    <LuListTodo /> Tasks
+                  </Tabs.Trigger>
+                  <Tabs.Trigger value="files">
+                    <LuFile />
+                    Files
+                  </Tabs.Trigger>
+                </>
+              ) : null}
             </Tabs.List>
             <Tabs.ContentGroup overflowY="auto" flex="1">
-              <Tabs.Content value="activity" p="8">
-                <ActivitiesPanel contact={data} />
+              <Tabs.Content value="primary" p="8">
+                {primaryContent}
               </Tabs.Content>
             </Tabs.ContentGroup>
           </Tabs.Root>
 
-          <ContactSidebar
-            contact={data}
-            open={sidebar.open}
-            onOpenChange={sidebar.onOpenChange}
-          />
+          {sidebarContent?.({
+            open: sidebar.open,
+            onOpenChange: sidebar.onOpenChange,
+          })}
         </HStack>
       </Page.Body>
     </Page.Root>
-  );
+  )
 }

@@ -1,7 +1,5 @@
 export const packageName = "@maestro-template/convex";
 
-export { api } from "../convex/_generated/api";
-
 export { templateConfectRefs, type TemplateConfectRefs } from "./refs";
 
 export {

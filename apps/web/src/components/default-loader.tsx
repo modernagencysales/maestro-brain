@@ -1,9 +1,9 @@
-import { LoadingOverlay as LoadingOverlayBase } from "@saas-ui/react";
+import { LoadingOverlay as LoadingOverlayBase } from '#components/ui/loading-overlay'
 
 export function DefaultLoader() {
   return (
-    <LoadingOverlayBase.Root>
+    <LoadingOverlayBase.Root variant="fullscreen">
       <LoadingOverlayBase.Spinner />
     </LoadingOverlayBase.Root>
-  );
+  )
 }

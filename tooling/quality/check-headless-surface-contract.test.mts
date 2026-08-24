@@ -3,9 +3,7 @@ import { expectDescriptorPassesAndFails } from "./src/check-test-helpers.mts";
 import {
   cannedRegistryImport,
   cannedRegistryImportFailures,
-  cannedRuntimeSuccess,
   descriptor,
-  httpGeneratedRefMappings,
   missingExternalValidationError,
   missingCliGeneratedRefUsage,
   missingGeneratedRefMapping,
@@ -15,11 +13,19 @@ import {
   missingMcpGeneratedRefUsage,
   missingRuntimeAdapterDispatch,
   missingTypedErrors,
+  mcpProjectionPath,
+  optionalRuntimeSource,
 } from "./check-headless-surface-contract.mts";
 
 describe("check:headless-surface-contract", () => {
   it("passes and fails on its declared requirements", async () => {
     await expectDescriptorPassesAndFails(descriptor);
+  });
+
+  it("does not pin the removed canned runtime source proof", () => {
+    expect(
+      descriptor.requirements.flatMap(({ includes }) => includes),
+    ).not.toContain("cannedRuntimeSuccess");
   });
 
   it("reports exposed manifest operations without typed errors", () => {
@@ -124,16 +130,26 @@ describe("check:headless-surface-contract", () => {
     ]);
   });
 
-  it("reports canned runtime success markers", () => {
+  it("omits workflow-only runtime sources from neutral customer checks", () => {
+    expect(mcpProjectionPath(false)).toBe("apps/cli/src/headlessRegistry.ts");
+    expect(mcpProjectionPath(true)).toBe("tooling/workflow/src/index.ts");
     expect(
-      cannedRuntimeSuccess("return { ok: true, result: { accepted: true } };"),
-    ).toContain("accepted");
-
-    expect(
-      cannedRuntimeSuccess(
-        "return executeHeadlessOperation(adapter, request);",
+      optionalRuntimeSource(
+        "tooling/workflow/src/workflow-compat.ts",
+        undefined,
       ),
     ).toEqual([]);
+    expect(
+      optionalRuntimeSource(
+        "tooling/workflow/src/workflow-compat.ts",
+        "export const workflowCompatibility = true;",
+      ),
+    ).toEqual([
+      {
+        path: "tooling/workflow/src/workflow-compat.ts",
+        source: "export const workflowCompatibility = true;",
+      },
+    ]);
   });
 
   it("reports missing generated ref mappings", () => {
@@ -184,47 +200,16 @@ describe("check:headless-surface-contract", () => {
     expect(missingHttpExecutorDispatch(source)).toBe(false);
   });
 
-  it("accepts generated API refs when the public operation ID differs", () => {
+  it("accepts API operation IDs mapped to a differently named generated ref", () => {
     const source = `
       const operationRefs = {
-        "brain.context.get": api.brain.readApi.contextGet,
+        "changesignal.overview.get": api.capabilities.changeFeed.getOverview,
       };
     `;
 
     expect(
-      missingHttpGeneratedRefMapping(["brain.context.get"], source, {
-        "brain.context.get": "api.brain.readApi.contextGet",
-      }),
+      missingHttpGeneratedRefMapping(["changesignal.overview.get"], source),
     ).toEqual([]);
-    expect(
-      missingHttpGeneratedRefMapping(["brain.context.get"], source, {
-        "brain.context.get": "api.brain.context.get",
-      }),
-    ).toEqual(["brain.context.get"]);
-  });
-
-  it("requires service-principal Brain reads to use their generated internal refs", () => {
-    expect(
-      httpGeneratedRefMappings([
-        {
-          namespace: "brain.readApi",
-          name: "sourcesSearch",
-          operationId: "brain.sources.search",
-          surfaces: ["api"],
-          typedErrors: ["ValidationFailed"],
-        },
-        {
-          namespace: "brain.pages",
-          name: "list",
-          operationId: "brain.pages.list",
-          surfaces: ["api"],
-          typedErrors: ["ValidationFailed"],
-        },
-      ]),
-    ).toEqual({
-      "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
-      "brain.pages.list": "api.brain.pages.list",
-    });
   });
 
   it("requires CLI and MCP projections to use a runtime adapter seam", () => {
@@ -289,18 +274,18 @@ describe("check:headless-surface-contract", () => {
     ).toEqual([]);
   });
 
-  it("accepts remote CLI mappings only when HTTP dispatch resolves through them", () => {
+  it("accepts a shared CLI ref helper with different operation and ref names", () => {
     const source = `
-      export const remoteCliOperationRefs = {
-        "brain.rollout.status": "brain.rollout.status",
+      export const staticCliOperationRefs = {
+        "changesignal.overview.get": "capabilities.changeFeed.getOverview",
       };
 
-      const operationId = remoteCliOperationRefs[maybeId];
-      return fetch(\`${"${origin}"}/api/${"${operationId}"}\`, {});
+      const operationRef = refFor(staticCliOperationRefs, maybeId);
+      return runTemplateApiOperation(operationRef, {});
     `;
 
     expect(
-      missingCliGeneratedRefUsage(["brain.rollout.status"], source),
+      missingCliGeneratedRefUsage(["changesignal.overview.get"], source),
     ).toEqual([]);
   });
 
@@ -357,6 +342,30 @@ describe("check:headless-surface-contract", () => {
 
     expect(
       missingMcpGeneratedRefUsage(["brain.pages.createMarkdown"], source),
+    ).toEqual([]);
+  });
+
+  it("accepts one shared MCP naming helper for explicit and fallback refs", () => {
+    const source = `
+      export const generatedMcpOperationRefs = {
+        "brain.pages.createMarkdown": "template.brain.pages.createMarkdown",
+      };
+      const mcpToolNameFor = (operationId) =>
+        generatedMcpOperationRefs[operationId] ?? \`template.\${operationId}\`;
+
+      const tools = entries.map((entry) => ({
+        name: mcpToolNameFor(entry.operationId),
+      }));
+      const operation = entries.find(
+        (candidate) => mcpToolNameFor(candidate.operationId) === toolName,
+      );
+    `;
+
+    expect(
+      missingMcpGeneratedRefUsage(
+        ["brain.pages.createMarkdown", "changesignal.overview.get"],
+        source,
+      ),
     ).toEqual([]);
   });
 

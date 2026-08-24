@@ -1,15 +1,14 @@
+import type { AgentPackExitCode } from "@maestro-template/agent-pack";
 import type { CliNamedArgs } from "./namedArgs";
 
 export type CliResult = {
-  readonly exitCode: 0 | 1;
+  readonly exitCode: AgentPackExitCode;
   readonly stdout: string;
   readonly stderr: string;
 };
 
 export type CliRuntimeConfig = {
   readonly providerEnv: Record<string, string | undefined>;
-  readonly brainSiteUrl?: string;
-  readonly brainApiKey?: string;
 };
 
 export type CliCommandContext = {

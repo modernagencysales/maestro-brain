@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "versions": {
+    "pack": "0.1.0-alpha.1",
+    "cli": "0.1.0-alpha.1",
+    "template": "0.2.0-alpha.9",
+    "workflowSchema": 2,
+    "compatibilitySet": 1
+  },
+  "release": {
+    "version": "0.2.0-alpha.9",
+    "tag": "maestro-template-v0.2.0-alpha.9",
+    "sourceCommit": "a7988397b74eb56a2ad8ec0cffb19b98107f303a",
+    "sourceChecksum": "sha256:f785af3db774ae6f3ec3763e68684a064ec9774dd83d34b659b194c33e8aaef7"
+  },
+  "compatibility": {
+    "current": {
+      "templateVersion": "0.2.0-alpha.9",
+      "templateTag": "maestro-template-v0.2.0-alpha.9",
+      "packRange": ">=0.1.0-alpha.1 <0.2.0",
+      "cliRange": ">=0.1.0-alpha.1 <0.2.0",
+      "supportState": "supported",
+      "deprecationDate": null,
+      "releaseAvailability": "unavailable",
+      "releaseEvidence": "workspace-only"
+    },
+    "previous": {
+      "templateVersion": "0.2.0-alpha.1",
+      "templateTag": "maestro-template-v0.2.0-alpha.1",
+      "packRange": ">=0.1.0-alpha.1 <0.2.0",
+      "cliRange": ">=0.1.0-alpha.1 <0.2.0",
+      "supportState": "planned",
+      "deprecationDate": null,
+      "releaseAvailability": "unavailable",
+      "releaseEvidence": "fixture-only"
+    }
+  },
+  "support": {
+    "state": "supported",
+    "deprecationDate": null,
+    "releaseAvailability": "unavailable",
+    "releaseEvidence": "workspace-only"
+  },
+  "provenance": {
+    "owner": "@maestro-template/template-core/templateInstance",
+    "schemaVersion": 2,
+    "compatibilitySet": 1
+  },
+  "ownership": {
+    "manifest": "releases/v0.2.0-alpha.9/manifest.json",
+    "manifestChecksum": "sha256:511c2ced41685c780e2992704d74e7111d3f571e6cfa72dc08d8ae75a0c274b7",
+    "extensionSeams": [
+      ".env.example",
+      "README.md",
+      "project.config.json",
+      "docs/template/client-intake-questionnaire.md"
+    ]
+  },
+  "blueprint": {
+    "id": "saas-application",
+    "digest": "sha256:619e1a8d7dfe290c0400ab1e7430befbdaa3f9e65f4dfa3e72a268d54c786ec9",
+    "provenance": "@maestro-template/generators/saas-application@1",
+    "workflowPosture": "optional-unavailable"
+  },
+  "personalization": {
+    "name": "Maestro Brain",
+    "firstOutcome": "Make company knowledge easy for people and agents to find, trust, and improve",
+    "demoOnly": false
+  },
+  "customerExtension": {
+    "privacy": {
+      "schemaVersion": 1,
+      "displayBefore": [
+        "first-create",
+        "mcp-opt-in",
+        "external-provider-operation"
+      ],
+      "maestro": {
+        "productTelemetry": "none",
+        "automaticUpload": false,
+        "processing": "repository-local-by-default",
+        "evidenceRetention": "Local receipts remain in the repository until the user removes them."
+      },
+      "host": {
+        "kind": "unknown",
+        "policyApplies": true,
+        "disclosure": "The selected Claude Code, Codex, or other model host may receive prompts and context under its own terms."
+      },
+      "convex": {
+        "fakeMcp": "disabled",
+        "productionMcp": "unsupported",
+        "devIsOffline": false,
+        "disclosure": "A selected Convex MCP or dev deployment may receive inspected or application data; dev does not mean offline or private."
+      },
+      "providers": {
+        "selected": [],
+        "explicitOptInRequired": true,
+        "disclosure": "An explicitly configured provider may receive data under its own terms only for the operation the user selected."
+      },
+      "support": {
+        "previewBeforeExport": true,
+        "automaticUpload": false
+      },
+      "privacyDocument": "docs/template/agent-pack-privacy.md"
+    }
+  }
+}

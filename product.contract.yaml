@@ -1,0 +1,147 @@
+schemaVersion: 1
+product:
+  id: maestro-brain
+  name: Maestro Brain
+  summary:
+    Workspace members maintain and query one cited company Brain through the
+    canonical web shell, CLI, and public HTTP surfaces.
+behaviors:
+  - id: BHV-REC-001
+    revision: 1
+    title: A web-created record appears in the CLI
+    actor: workspace member
+    surfaces:
+      - web-ui
+      - cli-process
+    preconditions:
+      - The member has an active workspace.
+    action: The member saves a uniquely named record from the web form.
+    outcomes:
+      - Listing records from the CLI includes the saved title.
+    status: required
+  - id: BHV-REC-002
+    revision: 1
+    title: A CLI-created record appears in the web app
+    actor: workspace member with an API key
+    surfaces:
+      - cli-process
+      - web-ui
+    preconditions:
+      - The API key is bound to the member's workspace.
+    action: The member creates a uniquely named record from the CLI.
+    outcomes:
+      - The web record list includes the created title.
+    status: required
+  - id: BHV-REC-003
+    revision: 1
+    title: A missing API key cannot create a record
+    actor: CLI caller without an API key
+    surfaces:
+      - cli-process
+      - web-ui
+    preconditions:
+      - The workspace does not contain the proposed title.
+    action: The caller requests record creation without an API key.
+    outcomes:
+      - The CLI reports that an API key is required.
+      - Independent authorized reads show that the proposed title was not
+        created.
+    status: required
+  - id: BHV-REC-004
+    revision: 1
+    title: A workspace-bound key cannot write to another workspace
+    actor: CLI caller with an API key bound to a different workspace
+    surfaces:
+      - cli-process
+    preconditions:
+      - The destination workspace does not contain the proposed title.
+    action: The caller requests record creation in the destination workspace.
+    outcomes:
+      - The CLI reports that the key is bound to a different workspace.
+      - Authorized CLI reads of both workspaces exclude the proposed title.
+    status: required
+  - id: BHV-BRAIN-001
+    revision: 1
+    title: A member reads the Brain through the complete Inbox screen
+    actor: workspace member
+    surfaces:
+      - web-ui
+    preconditions:
+      - The member has access to an active workspace.
+      - The workspace contains at least one Brain page.
+    action: The member opens the Brain from the application sidebar.
+    outcomes:
+      - The literal Starter Inbox route lists workspace-scoped Brain pages.
+      - Selecting a page opens the complete Starter detail composition.
+    status: draft
+  - id: BHV-BRAIN-002
+    revision: 1
+    title: A revision-fenced Brain edit persists across surfaces
+    actor: workspace editor
+    surfaces:
+      - web-ui
+      - cli-process
+      - public-http
+    preconditions:
+      - The editor has access to an existing Brain page and its current
+        revision.
+    action:
+      The editor changes the page markdown in the complete Starter detail
+      composition.
+    outcomes:
+      - The update succeeds only against the expected current revision.
+      - Web, CLI, and public HTTP reads return the saved revision and markdown.
+      - A stale concurrent update returns a typed conflict and does not
+        overwrite the current revision.
+    status: draft
+  - id: BHV-BRAIN-003
+    revision: 1
+    title: Ask Maestro returns the same cited company context everywhere
+    actor: workspace member
+    surfaces:
+      - web-ui
+      - cli-process
+      - public-http
+    preconditions:
+      - The member can read the workspace Brain.
+      - Current eligible evidence exists for the question.
+    action:
+      The member asks the same company-context question through each surface.
+    outcomes:
+      - Every surface uses the canonical ContextPack and grounded assistant
+        contract.
+      - The answer exposes resolvable citations and freshness instead of uncited
+        fixture text.
+      - The evidence revisions agree across all three surfaces.
+    status: draft
+  - id: BHV-BRAIN-004
+    revision: 1
+    title: A member manages sources through complete connection cards
+    actor: workspace administrator
+    surfaces:
+      - web-ui
+    preconditions:
+      - The administrator has access to the workspace connection settings.
+    action: The administrator connects or disconnects an approved source.
+    outcomes:
+      - The installed Saas UI Pro IntegrationCard composition shows the durable
+        lifecycle state.
+      - The action uses the existing provider connection contract and does not
+        invent a parallel credential store.
+    status: draft
+  - id: BHV-BRAIN-005
+    revision: 1
+    title: Agency and client Brains remain visibly separated
+    actor: workspace member
+    surfaces:
+      - web-ui
+    preconditions:
+      - The member can access the agency and at least one client workspace.
+    action: The member opens Clients and selects a client.
+    outcomes:
+      - The complete Starter Contacts screens present the authorized client
+        workspaces.
+      - Selecting a client changes the active workspace boundary before Brain
+        data is read or mutated.
+      - An unauthorized client is not listed and cannot be selected by URL.
+    status: draft

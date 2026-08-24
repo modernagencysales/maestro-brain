@@ -1,8 +1,7 @@
 # Client Intake Wizard
 
-`pnpm template:intake -- --name "Client Brain" --write` creates
-`docs/template/generated/client-intake.md` and updates `template-instance.json`
-with an `intake` block.
+The factory records reviewed intake before generating a customer target.
+Generated targets retain that accepted intake in `template-instance.json`.
 
 Use it before custom business logic work. The wizard keeps discovery focused on
 the reusable app-factory primitives: Brain sources, workflows, capabilities,
@@ -47,9 +46,9 @@ and the operations that require approval before publish, send, spend, or delete.
 
 ### Provider Posture
 
-Keep WorkOS, PostHog, Dodo, MailerSend, LLM, storage, search, notifications, and
-payments in fake/test mode until ownership, data handling, and secret names are
-approved.
+Keep WorkOS, PostHog, Dodo, provider-neutral email, LLM, storage, search,
+notifications, and payments in fake/test mode until ownership, data handling,
+and secret names are approved.
 
 ### Handoff Risks
 
@@ -61,7 +60,6 @@ truth model.
 
 ```bash
 pnpm template:quickstart -- --name "Client Brain" --write
-pnpm template:intake -- --name "Client Brain" --write
 pnpm template:doctor -- --mode fake
 pnpm template:handoff -- --mode fake --write
 ```

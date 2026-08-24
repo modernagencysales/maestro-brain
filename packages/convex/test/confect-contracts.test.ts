@@ -20,10 +20,10 @@ describe("Confect backend contracts", () => {
         functionVisibility: "public",
       },
     });
-    expect(refs.public.brain.pages.create).toMatchObject({
+    expect(refs.public.brain.pages.createMarkdown).toMatchObject({
       functionNamespace: "brain/pages",
       functionSpec: {
-        name: "create",
+        name: "createMarkdown",
         functionVisibility: "public",
       },
     });
@@ -80,12 +80,12 @@ describe("Confect backend contracts", () => {
   });
 
   it("declares public-safe typed errors with exact tags and fields", () => {
-    const errorSchema = Schema.Union(
+    const errorSchema = Schema.Union([
       Unauthorized,
       Forbidden,
       WorkspaceNotFound,
       ValidationFailed,
-    );
+    ]);
     const errors = [
       new Unauthorized(),
       new Forbidden({ reason: "missing capability grant" }),

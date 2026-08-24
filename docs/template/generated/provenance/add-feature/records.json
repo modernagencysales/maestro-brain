@@ -1,0 +1,28 @@
+{
+  "generator": "add-feature",
+  "commandFamily": "template:add-feature",
+  "name": "$workspace/records",
+  "ownership": {
+    "system": "record-management",
+    "disposition": "extend"
+  },
+  "generatedPaths": [
+    "packages/convex/confect/tables/records.ts",
+    "packages/convex/confect/records/records.spec.ts",
+    "packages/convex/confect/records/records.impl.ts",
+    "apps/web/src/adapters/records/contract.ts",
+    "apps/web/src/adapters/records/fake.ts",
+    "apps/web/src/adapters/records/http.ts",
+    "apps/web/src/features/records/model.ts",
+    "apps/web/src/features/records/records-surface.tsx",
+    "apps/web/src/screens/records-screen.tsx",
+    "apps/web/src/routes/_app/$workspace/_dashboard/records.tsx",
+    "product.contract.yaml",
+    "product.contract.schema.json",
+    "docs/template/generated/product-contract.md",
+    "playwright.acceptance.config.ts",
+    "tests/acceptance/records.spec.ts",
+    "tests/acceptance/support/fixtures.ts",
+    "tests/acceptance/support/runtime.ts"
+  ]
+}

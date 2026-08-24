@@ -101,14 +101,47 @@ describe("check:provider-boundary", () => {
 
   it("allows explicit runtime/auth boundary files", async () => {
     const result = await evaluateFixture({
-      "apps/web/src/auth/workos-client-runtime.tsx": `
+      "apps/web/src/lib/auth/route-auth.ts": `
+        import { getAuthKitContext } from "@workos/authkit-tanstack-react-start";
+      `,
+      "apps/web/src/lib/auth/workos-auth-catch-all.ts": `
+        import { getAuthKitContext } from "@workos/authkit-tanstack-react-start";
+      `,
+      "apps/web/src/lib/auth/workos-auth-entry.ts": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
+      "apps/web/src/lib/auth/workos-auth-loader.ts": `
+        import { getAuthKitContext } from "@workos/authkit-tanstack-react-start";
+      `,
+      "apps/web/src/lib/auth/workos-auth.ts": `
         import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
       `,
-      "apps/web/src/auth/workos-server-adapter.ts": `
-        import { getAuth } from "@workos/authkit-tanstack-react-start/server";
+      "apps/web/src/lib/auth/workos-cookie-session-storage.ts": `
+        import { CookieSessionStorage } from "@workos/authkit-session";
+      `,
+      "apps/web/src/lib/auth/workos-logout.ts": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
+      "apps/web/src/routes/__root.tsx": `
+        import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
+      `,
+      "apps/web/src/routes/api/auth/callback.tsx": `
+        import { handleCallbackRoute } from "@workos/authkit-tanstack-react-start";
+      `,
+      "apps/web/src/routes/api/auth/sign-in.tsx": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
+      "apps/web/src/routes/api/auth/sign-up.tsx": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
+      "apps/web/src/start.ts": `
+        import { authkitMiddleware } from "@workos/authkit-tanstack-react-start";
       `,
       "packages/convex/convex/convex.config.ts": `
         import posthog from "@posthog/convex/convex.config.js";
+      `,
+      "packages/convex/confect/agents/assistantModel.ts": `
+        import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
       `,
       "packages/convex/confect/observability/posthog.ts": `
         import { PostHog } from "@posthog/convex";
@@ -118,36 +151,21 @@ describe("check:provider-boundary", () => {
     expect(result).toEqual({ ok: true, findings: [] });
   });
 
-  it("rejects WorkOS SDK imports in route and start files", async () => {
-    const result = await evaluateFixture({
-      "apps/web/src/routes/__root.tsx": `
-        import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
-      `,
-      "apps/web/src/start.ts": `
-        import { authkitMiddleware } from "@workos/authkit-tanstack-react-start";
-      `,
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.findings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          file: "apps/web/src/routes/__root.tsx",
-          module: "@workos/authkit-tanstack-react-start/client",
-        }),
-        expect.objectContaining({
-          file: "apps/web/src/start.ts",
-          module: "@workos/authkit-tanstack-react-start",
-        }),
-      ]),
-    );
-  });
-
   it("ignores tests while scanning product roots", async () => {
     const result = await evaluateFixture({
       "apps/web/src/provider.test.ts": `
         import { OpenAI } from "openai";
         export const fixture = OpenAI;
+      `,
+    });
+
+    expect(result).toEqual({ ok: true, findings: [] });
+  });
+
+  it("ignores generated build output", async () => {
+    const result = await evaluateFixture({
+      "apps/web/.output/server/index.js": `
+        import { createAuthService } from "@workos/authkit-session";
       `,
     });
 
