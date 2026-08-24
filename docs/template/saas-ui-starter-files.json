@@ -1287,7 +1287,7 @@
       "source": "packages/ui/package.json",
       "destination": "packages/ui/package.json",
       "sourceSha256": "84253fa63cbb92a01f255a2c7077e9379bbde42af7f85724b3f9f59afa34ecf8",
-      "sha256": "246a0e3e73c4810d5da3ca2f24ec3e11d5fb2d389d82aa9010898ee23e104169",
+      "sha256": "1d9b4ae7cc926d4b6bbfb3f8704f49a9b61214fabb1aa4fef93c0cf870553fd0",
       "adapted": true
     },
     {
@@ -1455,8 +1455,8 @@
       "source": "packages/ui/src/editor/editor.tsx",
       "destination": "packages/ui/src/editor/editor.tsx",
       "sourceSha256": "53cf6dfbc5d633a08608c9a07ea798f447d7cba76cd560448773149164c2fa02",
-      "sha256": "53cf6dfbc5d633a08608c9a07ea798f447d7cba76cd560448773149164c2fa02",
-      "adapted": false
+      "sha256": "659cbe7bfd8cea66cb793ca2f583c19536708f18ddc9122bd51e1d93f2c0a86d",
+      "adapted": true
     },
     {
       "source": "packages/ui/src/editor/index.ts",

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedFrom": "sha256:8c259e0808b3327edff9f65c3aa7d092189f61419c530f7c73e9a7d1466b5b54",
+  "generatedFrom": "sha256:d31c7b9fababa3326017346a1083757a3fe7f15d93a924cdc51b9dd9e8fad206",
   "artifacts": [
     {
       "package": "@cloudflare/kv-asset-handler@0.5.0",
@@ -2766,6 +2766,11 @@
       "package": "@tiptap/extensions@3.30.1",
       "url": "https://registry.npmjs.org/@tiptap/extensions/-/extensions-3.30.1.tgz",
       "integrity": "sha512-prNrvF1oMj+tngCLmZgXzQfuUuvYMbCe2sEPXXKJPqJNNffHd2wAuUZ0h6UQS5aRILaxB2kN1/yfwpxnhRpwYA=="
+    },
+    {
+      "package": "@tiptap/markdown@3.30.1",
+      "url": "https://registry.npmjs.org/@tiptap/markdown/-/markdown-3.30.1.tgz",
+      "integrity": "sha512-IIZJTnf+lPfcMzqXxKS7RMHMVUFVHdE5vWPU6oqkAsTcQyVwvlQVaUZcdNpC5J1qXFgoleNwoMKC4mtYrErNXg=="
     },
     {
       "package": "@tiptap/pm@3.30.1",
@@ -6181,6 +6186,11 @@
       "package": "map-or-similar@1.5.0",
       "url": "https://registry.npmjs.org/map-or-similar/-/map-or-similar-1.5.0.tgz",
       "integrity": "sha512-0aF7ZmVon1igznGI4VS30yugpduQW3y3GkcgGJOp7d8x8QrizhigUxjI/m2UojsXXto+jLAH3KSz+xOJTiORjg=="
+    },
+    {
+      "package": "marked@17.0.6",
+      "url": "https://registry.npmjs.org/marked/-/marked-17.0.6.tgz",
+      "integrity": "sha512-gB0gkNafnonOw0obSTEGZTT86IuhILt2Wfx0mWH/1Au83kybTayroZ/V6nS25mN7u8ASy+5fMhgB3XPNrOZdmA=="
     },
     {
       "package": "math-intrinsics@1.1.0",

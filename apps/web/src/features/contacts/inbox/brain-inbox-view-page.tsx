@@ -426,7 +426,10 @@ export function BrainInboxViewPage({
             aria-label="Agency Brain page editor"
             value={markdown}
             onChange={setMarkdown}
-            minH="60vh"
+            format="markdown"
+            toolbar
+            minHeight="60vh"
+            placeholder="Write the company context your team and agents should know…"
           />
         ) : (
           <Skeleton aria-label="Loading Agency Brain page" height="60vh" />
