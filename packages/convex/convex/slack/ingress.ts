@@ -1,7 +1,7 @@
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseWriter, MutationCtx } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 import { admitSlackSignedEvent } from "../../confect/slack/admission";
@@ -126,6 +126,51 @@ const liveSlackParentAuthority = (input: {
   };
 };
 
+const slackChildPopulationProgress = (input: {
+  readonly children: readonly Doc<"ingestionObligations">[];
+  readonly expectedChildKeys: readonly string[];
+  readonly providerIntentId: Id<"providerTargetResolutionIntents">;
+  readonly targetCount: number;
+}) => {
+  const { children, expectedChildKeys, providerIntentId, targetCount } = input;
+  const exactPopulation =
+    [
+      children.length <= 100,
+      targetCount > 0,
+      expectedChildKeys.length === targetCount,
+      new Set(expectedChildKeys).size === targetCount,
+      children.length === targetCount,
+    ].every(Boolean) &&
+    children.every(
+      (child) =>
+        child.authorityKind === "live_capture" &&
+        child.targetResolutionIntentId === providerIntentId &&
+        expectedChildKeys.includes(child.ingestionObligationKey),
+    );
+  let state: "drain_pending" | "complete" | "failed";
+  let errorTag: string | null = null;
+  if (children.length > 100) {
+    state = "failed";
+    errorTag = "SlackLiveChildPopulationCapacityExceeded";
+  } else if (!exactPopulation) state = "drain_pending";
+  else if (
+    children.some(
+      (child) => child.state === "failed" || child.state === "quarantined",
+    )
+  ) {
+    state = "failed";
+    errorTag = "SlackLiveChildFailed";
+  } else if (
+    children.every(
+      (child) =>
+        child.state === "complete" || child.state === "policy_excluded",
+    )
+  )
+    state = "complete";
+  else state = "drain_pending";
+  return { state, errorTag };
+};
+
 const progressSlackLiveParentObligation = async (
   ctx: MutationCtx,
   providerIntentId: Id<"providerTargetResolutionIntents">,
@@ -198,43 +243,14 @@ const progressSlackLiveParentObligation = async (
         query.eq("parentIngestionObligationKey", intent.ingestionObligationKey),
       )
       .take(101);
-    const exactChildPopulation =
-      children.length <= 100 &&
-      intent.targetCount > 0 &&
-      expectedChildKeys.length === intent.targetCount &&
-      new Set(expectedChildKeys).size === intent.targetCount &&
-      children.length === intent.targetCount &&
-      children.every(
-        (child) =>
-          child.authorityKind === "live_capture" &&
-          child.targetResolutionIntentId === intent._id &&
-          expectedChildKeys.includes(child.ingestionObligationKey),
-      );
-    if (!exactChildPopulation) {
-      state = children.length > 100 ? "failed" : "drain_pending";
-      errorTag =
-        children.length > 100
-          ? "SlackLiveChildPopulationCapacityExceeded"
-          : null;
-    } else if (
-      children.some(
-        (child) => child.state === "failed" || child.state === "quarantined",
-      )
-    ) {
-      state = "failed";
-      errorTag = "SlackLiveChildFailed";
-    } else if (
-      children.every(
-        (child) =>
-          child.state === "complete" || child.state === "policy_excluded",
-      )
-    ) {
-      state = "complete";
-      errorTag = null;
-    } else {
-      state = "drain_pending";
-      errorTag = null;
-    }
+    const childProgress = slackChildPopulationProgress({
+      children,
+      expectedChildKeys,
+      providerIntentId: intent._id,
+      targetCount: intent.targetCount,
+    });
+    state = childProgress.state;
+    errorTag = childProgress.errorTag;
   }
   const terminal =
     state === "complete" || state === "policy_excluded" || state === "failed";
