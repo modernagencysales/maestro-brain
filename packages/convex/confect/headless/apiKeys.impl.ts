@@ -191,6 +191,51 @@ const seedLocalContracts = FunctionImpl.make(
 
       const primary = yield* seedActor("primary", primaryKeyHash);
       const observer = yield* seedActor("observer", observerKeyHash);
+      const observerPageTitle = `Other Brain ${namespace}`;
+      const observerPages = yield* reader
+        .table("brainPages")
+        .index("by_workspace", (query) =>
+          query.eq("workspaceId", observer.workspaceId),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      if (!observerPages.some(({ title }) => title === observerPageTitle)) {
+        const pageId = yield* writer
+          .table("brainPages")
+          .insert({
+            workspaceId: observer.workspaceId,
+            slug: `other-brain-${namespace}`,
+            title: observerPageTitle,
+            markdown: `# ${observerPageTitle}\n\nObserver-only company context.`,
+            sourceKind: "markdown",
+            parentPageId: null,
+            sortKey: `other-brain-${namespace}`,
+            favorite: false,
+            status: "active",
+            createdAt: now,
+            updatedAt: now,
+          })
+          .pipe(Effect.orDie);
+        yield* writer
+          .table("pageRevisions")
+          .insert({
+            workspaceId: observer.workspaceId,
+            pageId,
+            priorUpdatedAt: null,
+            updatedAt: now,
+            title: observerPageTitle,
+            markdown: `# ${observerPageTitle}\n\nObserver-only company context.`,
+            sourceKind: "markdown",
+            causation: "create",
+            parentPageId: null,
+            sortKey: `other-brain-${namespace}`,
+            favorite: false,
+            status: "active",
+            actorUserId: observer.userId,
+            createdAt: now,
+          })
+          .pipe(Effect.orDie);
+      }
       return { primary, observer };
     }),
 );

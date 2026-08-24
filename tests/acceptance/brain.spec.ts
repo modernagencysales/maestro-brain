@@ -78,7 +78,12 @@ const getPage = async (
   cliResult<BrainPage>(
     await runtime.runCli(
       scenario,
-      commandArgs("brain.pages.get", scenario.workspaceSlug, { pageId }),
+      commandArgs(
+        "brain.pages.get",
+        scenario.workspaceSlug,
+        { pageId },
+        `${scenario.namespace}-get-${pageId}`,
+      ),
     ),
   );
 
@@ -89,8 +94,6 @@ test(
     const title = `Primary Brain ${scenario.namespace}`;
     const otherTitle = `Other Brain ${scenario.namespace}`;
     const pageId = await createPage(runtime, scenario, title);
-    await createPage(runtime, scenario, otherTitle, "observer");
-
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/inbox`);
     await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
     await expect(page.getByText(otherTitle, { exact: true })).toHaveCount(0);
