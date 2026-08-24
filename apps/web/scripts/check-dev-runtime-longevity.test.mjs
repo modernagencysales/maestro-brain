@@ -6,7 +6,10 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 
-import { checkDevRuntimeLongevity } from "./check-dev-runtime-longevity.mjs";
+import {
+  checkDevRuntimeLongevity,
+  isCleanDevRuntimeExit,
+} from "./check-dev-runtime-longevity.mjs";
 
 const repositoryRoot = fileURLToPath(
   new globalThis.URL("../../..", import.meta.url),
@@ -31,6 +34,10 @@ const allocateLoopbackPort = async () => {
   );
   return port;
 };
+
+test("recognizes pnpm's conventional SIGINT exit code", () => {
+  assert.equal(isCleanDevRuntimeExit({ code: 130, signal: null }), true);
+});
 
 test("browser navigation leaves the supervised dev runtime healthy", async () => {
   const webPort = await allocateLoopbackPort();
