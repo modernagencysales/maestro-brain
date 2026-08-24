@@ -17,6 +17,10 @@ import {
   schemaRegistry as assistantSchemaRegistry,
 } from "../../../packages/convex/confect/agents/assistant.spec";
 import {
+  manifest as workspacesManifest,
+  schemaRegistry as workspacesSchemaRegistry,
+} from "../../../packages/convex/confect/auth/workspaces.spec";
+import {
   manifest as brainPagesManifest,
   schemaRegistry as brainPagesSchemaRegistry,
 } from "../../../packages/convex/confect/brain/pages.spec";
@@ -35,6 +39,7 @@ import {
 
 const functions = [
   ...assistantManifest,
+  ...workspacesManifest,
   ...brainPagesManifest,
   ...connectionsManifest,
   ...sourceGroundedBriefManifest,
@@ -43,6 +48,7 @@ const functions = [
 ];
 const schemaRegistry = mergeContractSchemaRegistries(
   assistantSchemaRegistry,
+  workspacesSchemaRegistry,
   brainPagesSchemaRegistry,
   connectionsSchemaRegistry,
   sourceGroundedBriefSchemaRegistry,
@@ -82,6 +88,7 @@ if (missingSchemas.length > 0) {
 
 const generatedRefModules: Readonly<Record<string, string>> = {
   "agents.assistant": "packages/convex/convex/agents/assistant.ts",
+  "auth.workspaces": "packages/convex/convex/auth/workspaces.ts",
   "brain.pages": "packages/convex/convex/brain/pages.ts",
   "integrations.connections":
     "packages/convex/convex/integrations/connections.ts",

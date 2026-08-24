@@ -4,8 +4,14 @@ import {
   templateConfectRefs,
 } from '@maestro-template/convex/refs'
 import type { ContactDTO, ContactType } from '@workspace/api/types'
+import { useQuery } from '@tanstack/react-query'
 
-import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
+import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 import { api } from '#lib/trpc/react'
 
 export type ClientWorkspace = Readonly<{
@@ -50,10 +56,13 @@ export const projectClientWorkspaceToContact = (
 
 export const projectClientWorkspacesToContacts = (
   workspaces: readonly ClientWorkspace[],
-  currentWorkspaceId?: string,
+  currentWorkspaceIdentity?: string,
 ): { contacts: ContactDTO[] } => ({
   contacts: workspaces
-    .filter(({ _id }) => _id !== currentWorkspaceId)
+    .filter(
+      ({ _id, slug }) =>
+        _id !== currentWorkspaceIdentity && slug !== currentWorkspaceIdentity,
+    )
     .map(projectClientWorkspaceToContact),
 })
 
@@ -95,22 +104,51 @@ const clientWorkspacesListRef = getFunctionReference(
   templateConfectRefs.public.auth.workspaces.list,
 )
 
+const useAuthorizedClientWorkspaces = (): {
+  workspaces: readonly ClientWorkspace[]
+  isLoading: boolean
+} => {
+  const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
+  const convexResult = useConvexQuery(
+    clientWorkspacesListRef,
+    fixtureRuntime || isolatedContracts ? 'skip' : {},
+  )
+  const contractResult = useQuery({
+    queryKey: ['authorized-workspaces', 'isolated-contracts'],
+    queryFn: () =>
+      runIsolatedHeadlessOperation<readonly ClientWorkspace[]>({
+        operationId: 'auth.workspaces.list',
+      }),
+    enabled: isolatedContracts,
+  })
+  return {
+    workspaces: fixtureRuntime
+      ? clientWorkspaceFixtures
+      : isolatedContracts
+        ? (contractResult.data ?? [])
+        : (convexResult.data ?? []),
+    isLoading: isolatedContracts
+      ? contractResult.isLoading
+      : fixtureRuntime
+        ? false
+        : convexResult.isLoading,
+  }
+}
+
 const useClientsList = ({
   workspaceId,
   type,
 }: ContactsListInput): ContactsListDataResult => {
   void type
-  const fixtureRuntime = isFixtureAuthRuntime()
-  const result = useConvexQuery(
-    clientWorkspacesListRef,
-    fixtureRuntime ? 'skip' : {},
-  )
+  const workspaceSlug = useWorkspaceSlug()
+  const result = useAuthorizedClientWorkspaces()
   return {
     data: projectClientWorkspacesToContacts(
-      fixtureRuntime ? clientWorkspaceFixtures : (result.data ?? []),
-      workspaceId,
+      result.workspaces,
+      workspaceSlug || workspaceId,
     ),
-    isLoading: fixtureRuntime ? false : result.isLoading,
+    isLoading: result.isLoading,
   }
 }
 
@@ -131,18 +169,11 @@ const useClientDetail = ({
   id: string
   workspaceId: string
 }): ContactDetailDataResult => {
-  const fixtureRuntime = isFixtureAuthRuntime()
-  const result = useConvexQuery(
-    clientWorkspacesListRef,
-    fixtureRuntime ? 'skip' : {},
-  )
-  const workspaces: readonly ClientWorkspace[] = fixtureRuntime
-    ? clientWorkspaceFixtures
-    : (result.data ?? [])
-  const workspace = workspaces.find((candidate) => candidate._id === id)
+  const result = useAuthorizedClientWorkspaces()
+  const workspace = result.workspaces.find((candidate) => candidate._id === id)
   return {
     data: workspace ? projectClientWorkspaceToContact(workspace) : undefined,
-    isLoading: fixtureRuntime ? false : result.isLoading,
+    isLoading: result.isLoading,
   }
 }
 

@@ -28,7 +28,7 @@ const seedLocalContracts = (args: {
     const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
     return yield* confect.mutation(
       refs.internal.headless.apiKeys.seedLocalContracts,
-      args,
+      { ...args, clientKeyHash: sha256("client-key") },
     );
   }).pipe(Effect.provide(testConfectLayer()));
 
@@ -290,9 +290,10 @@ describe("headless API-key auth", () => {
     ).rejects.toThrow();
   });
 
-  it("seeds two scoped actors and returns identifiers without key material", async () => {
+  it("seeds agency, client, and observer scopes without key material", async () => {
     vi.stubEnv("MAESTRO_CONTRACT_TEST", "1");
     const primaryKeyHash = sha256("primary-key");
+    const clientKeyHash = sha256("client-key");
     const observerKeyHash = sha256("observer-key");
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
@@ -301,6 +302,7 @@ describe("headless API-key auth", () => {
         {
           namespace: "contracts-scope-check",
           primaryKeyHash,
+          clientKeyHash,
           observerKeyHash,
         },
       );
@@ -321,6 +323,11 @@ describe("headless API-key auth", () => {
             )
             .first()
             .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          const client = yield* reader
+            .table("apiKeys")
+            .index("by_key_hash", (query) => query.eq("keyHash", clientKeyHash))
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
           return {
             primary: primary && {
               workspaceId: String(primary.workspaceId),
@@ -329,6 +336,10 @@ describe("headless API-key auth", () => {
             observer: observer && {
               workspaceId: String(observer.workspaceId),
               scopes: [...observer.scopes],
+            },
+            client: client && {
+              workspaceId: String(client.workspaceId),
+              scopes: [...client.scopes],
             },
           };
         }),
@@ -340,6 +351,12 @@ describe("headless API-key auth", () => {
             }),
           ),
           observer: Schema.NullOr(
+            Schema.Struct({
+              workspaceId: Schema.String,
+              scopes: Schema.mutable(Schema.Array(Schema.String)),
+            }),
+          ),
+          client: Schema.NullOr(
             Schema.Struct({
               workspaceId: Schema.String,
               scopes: Schema.mutable(Schema.Array(Schema.String)),
@@ -363,7 +380,13 @@ describe("headless API-key auth", () => {
       workspaceId: result.seeded.observer.workspaceId,
       scopes: ["workspace:read"],
     });
+    expect(result.rows.client).toEqual({
+      workspaceId: result.seeded.client.workspaceId,
+      scopes: ["workspace:read", "workspace:write"],
+    });
+    expect(result.seeded.client.userId).toBe(result.seeded.primary.userId);
     expect(JSON.stringify(result.seeded)).not.toContain(primaryKeyHash);
+    expect(JSON.stringify(result.seeded)).not.toContain(clientKeyHash);
     expect(JSON.stringify(result.seeded)).not.toContain(observerKeyHash);
   });
 });

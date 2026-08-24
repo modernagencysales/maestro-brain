@@ -122,6 +122,21 @@ const frontendWorkspace = (row: {
   name: row.name,
 });
 
+const workspaceRowsForUser = (reader: Reader, userId: GenericId<"users">) =>
+  Effect.gen(function* () {
+    const memberships = yield* liveMemberships(reader, userId);
+    const rows = yield* Effect.forEach(memberships, (membership) =>
+      reader
+        .table("workspaces")
+        .get(asGenericId<"workspaces">(membership.workspaceId))
+        .pipe(Effect.orDie),
+    );
+    return rows.filter(
+      (row): row is NonNullable<typeof row> =>
+        row !== null && row.status === "active",
+    );
+  });
+
 const me = FunctionImpl.make(databaseSchema, workspaces, "me", () =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
@@ -185,18 +200,21 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const user = yield* loadCurrentUser(reader);
-    const memberships = yield* liveMemberships(reader, user._id);
-    const rows = yield* Effect.forEach(memberships, (membership) =>
-      reader
-        .table("workspaces")
-        .get(asGenericId<"workspaces">(membership.workspaceId))
-        .pipe(Effect.orDie),
-    );
-    return rows.filter(
-      (row): row is NonNullable<typeof row> =>
-        row !== null && row.status === "active",
-    );
+    return yield* workspaceRowsForUser(reader, user._id);
   }),
+);
+
+const listForActor = FunctionImpl.make(
+  databaseSchema,
+  workspaces,
+  "listForActor",
+  ({ userId }) =>
+    Effect.gen(function* () {
+      const reader = yield* DatabaseReader;
+      const user = yield* reader.table("users").get(userId).pipe(Effect.orDie);
+      if (user === null || user.status !== "active") return [];
+      return yield* workspaceRowsForUser(reader, userId);
+    }),
 );
 
 const slugAvailable = FunctionImpl.make(
@@ -290,6 +308,7 @@ export default GroupImpl.make(databaseSchema, workspaces).pipe(
   Layer.provide(me),
   Layer.provide(bySlug),
   Layer.provide(list),
+  Layer.provide(listForActor),
   Layer.provide(slugAvailable),
   Layer.provide(create),
   Layer.provide(update),

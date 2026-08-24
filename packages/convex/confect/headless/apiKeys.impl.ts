@@ -20,7 +20,7 @@ const seedLocalContracts = FunctionImpl.make(
   databaseSchema,
   apiKeys,
   "seedLocalContracts",
-  ({ namespace, primaryKeyHash, observerKeyHash }) =>
+  ({ namespace, primaryKeyHash, clientKeyHash, observerKeyHash }) =>
     Effect.gen(function* () {
       if (env.MAESTRO_CONTRACT_TEST !== "1") {
         return yield* Effect.die(
@@ -190,6 +190,108 @@ const seedLocalContracts = FunctionImpl.make(
         });
 
       const primary = yield* seedActor("primary", primaryKeyHash);
+      const primaryWorkspace = yield* reader
+        .table("workspaces")
+        .get(primary.workspaceId)
+        .pipe(Effect.orDie);
+      if (primaryWorkspace === null) {
+        return yield* Effect.die(
+          new Error("seedLocalContracts primary workspace was not persisted."),
+        );
+      }
+      const clientSlug = `${namespace}-client`;
+      const existingClientWorkspace = yield* reader
+        .table("workspaces")
+        .index("by_slug", (query) => query.eq("slug", clientSlug))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const clientWorkspaceId: GenericId<"workspaces"> =
+        existingClientWorkspace?._id ??
+        (yield* writer
+          .table("workspaces")
+          .insert({
+            organizationId: primaryWorkspace.organizationId,
+            ownerUserId: primary.userId,
+            slug: clientSlug,
+            name: `Client ${namespace}`,
+            status: "active",
+            dataClassification: "confidential",
+            createdAt: now,
+            updatedAt: now,
+          })
+          .pipe(Effect.orDie));
+      const clientMembership = yield* reader
+        .table("workspaceMembers")
+        .index("by_workspace_user", (query) =>
+          query
+            .eq("workspaceId", clientWorkspaceId)
+            .eq("userId", primary.userId),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (clientMembership === null) {
+        yield* writer
+          .table("workspaceMembers")
+          .insert({
+            workspaceId: clientWorkspaceId,
+            userId: primary.userId,
+            role: "owner",
+            status: "active",
+            acceptedAt: now,
+            revokedAt: null,
+            deletedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .pipe(Effect.orDie);
+      }
+      const clientKeyId = `api_key_${namespace}_client`;
+      const existingClientKey = yield* reader
+        .table("apiKeys")
+        .index("by_workspace", (query) =>
+          query.eq("workspaceId", clientWorkspaceId),
+        )
+        .take(100)
+        .pipe(
+          Effect.map((keys) => keys.find(({ id }) => id === clientKeyId)),
+          Effect.orDie,
+        );
+      if (existingClientKey) {
+        yield* writer
+          .table("apiKeys")
+          .patch(existingClientKey._id, {
+            keyHash: clientKeyHash,
+            scopes: ["workspace:read", "workspace:write"],
+            status: "active",
+            createdByUserId: primary.userId,
+            expiresAt: null,
+            revokedAt: null,
+          })
+          .pipe(Effect.orDie);
+      } else {
+        yield* writer
+          .table("apiKeys")
+          .insert({
+            id: clientKeyId,
+            workspaceId: clientWorkspaceId,
+            name: "Local contracts client",
+            keyHash: clientKeyHash,
+            displayPrefix: "contracts",
+            scopes: ["workspace:read", "workspace:write"],
+            status: "active",
+            createdByUserId: primary.userId,
+            createdAt: now,
+            expiresAt: null,
+            revokedAt: null,
+            lastUsedAt: null,
+          })
+          .pipe(Effect.orDie);
+      }
+      const client = {
+        keyId: clientKeyId,
+        workspaceId: clientWorkspaceId,
+        userId: primary.userId,
+      };
       const observer = yield* seedActor("observer", observerKeyHash);
       const observerPageTitle = `Other Brain ${namespace}`;
       const observerPages = yield* reader
@@ -236,7 +338,7 @@ const seedLocalContracts = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
-      return { primary, observer };
+      return { primary, client, observer };
     }),
 );
 

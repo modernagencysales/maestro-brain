@@ -10,6 +10,11 @@ import {
   ValidationFailed,
   WorkspaceNotFound,
 } from "../errors";
+import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+} from "../capabilities/_kit/capability";
 
 const frontendWorkspace = Schema.Struct({
   id: Id("workspaces"),
@@ -38,11 +43,35 @@ const bySlug = FunctionSpec.publicQuery({
   error: () => Schema.Union([Unauthorized, MemberNotInWorkspace]),
 });
 
-const list = FunctionSpec.publicQuery({
-  name: "list",
-  args: () => Schema.Struct({}),
-  returns: () => Schema.Array(workspaces.Doc),
-  error: () => Schema.Union([Unauthorized, NoRecoverableError]),
+const WorkspaceList = Schema.Array(workspaces.Doc);
+const list = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "list",
+    args: () => Schema.Struct({}),
+    returns: () => WorkspaceList,
+    error: () =>
+      Schema.Union([Unauthorized, NoRecoverableError, ValidationFailed]),
+  }),
+  {
+    namespace: "auth.workspaces",
+    name: "list",
+    operationId: "auth.workspaces.list",
+    kind: "query",
+    surfaces: ["web", "api"],
+    typedErrors: ["Unauthorized", "ValidationFailed"],
+    idempotent: true,
+    argsSchemaName: "auth.workspaces.list.args",
+    returnsSchemaName: "auth.workspaces.list.returns",
+    argsSchema: Schema.Struct({}),
+    returnsSchema: WorkspaceList,
+  },
+);
+
+const listForActor = FunctionSpec.internalQuery({
+  name: "listForActor",
+  args: () => Schema.Struct({ userId: Id("users") }),
+  returns: () => WorkspaceList,
+  error: () => Schema.Union([NoRecoverableError, ValidationFailed]),
 });
 
 const WorkspaceName = Schema.String;
@@ -85,10 +114,15 @@ const update = FunctionSpec.publicMutation({
   error: () => WorkspaceMutationError,
 });
 
+const contractFunctions = [list] as const;
+export const manifest = collectContractManifest(contractFunctions);
+export const schemaRegistry = collectContractSchemas(contractFunctions);
+
 export default GroupSpec.make()
   .addFunction(me)
   .addFunction(bySlug)
-  .addFunction(list)
+  .addFunction(list.spec)
+  .addFunction(listForActor)
   .addFunction(slugAvailable)
   .addFunction(create)
   .addFunction(update);

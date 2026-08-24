@@ -99,6 +99,7 @@ const isBrainPageOperation = (
   brainPageOperationIds.some((candidate) => candidate === operationId);
 
 const assistantAnswerOperationId = "agents.assistant.answerQuestion" as const;
+const workspaceListOperationId = "auth.workspaces.list" as const;
 
 const connectionOperationIds = [
   "integrations.connections.list",
@@ -114,6 +115,7 @@ const isConnectionOperation = (
 
 const operationRefs = {
   "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
+  "auth.workspaces.list": api.auth.workspaces.list,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
   "brain.pages.get": api.brain.pages.get,
   "brain.pages.history": api.brain.pages.history,
@@ -549,13 +551,15 @@ const executeTemplateApiRoute = async (
               operationId,
               parsedBody.body,
             )
-          : operationId === assistantAnswerOperationId
-            ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
-            : await responseForParsedTemplateApiBody(
-                ctx,
-                operationId,
-                parsedBody.body,
-              )
+          : operationId === workspaceListOperationId
+            ? await workspaceListApiResponse(ctx, request, parsedBody.body)
+            : operationId === assistantAnswerOperationId
+              ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
+              : await responseForParsedTemplateApiBody(
+                  ctx,
+                  operationId,
+                  parsedBody.body,
+                )
     : jsonResponse(parsedBody);
 
   return response;
@@ -615,6 +619,9 @@ const brainPageActorRefs = {
 
 const assistantAnswerForActorRef = makeFunctionReference<"query">(
   "agents/assistant:answerQuestionForActor",
+);
+const workspaceListForActorRef = makeFunctionReference<"query">(
+  "auth/workspaces:listForActor",
 );
 
 const connectionActorRefs = {
@@ -811,6 +818,30 @@ const assistantAnswerApiResponse = async (
   return jsonResponse({
     ok: true,
     operationId: assistantAnswerOperationId,
+    result,
+  });
+};
+
+const workspaceListApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitAssistantApiRequest(request, body);
+  if (!admission.ok) return admission.response;
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: "workspace:read",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+  const result = await ctx.runQuery(workspaceListForActorRef, {
+    userId: actor.userId,
+  });
+  return jsonResponse({
+    ok: true,
+    operationId: workspaceListOperationId,
     result,
   });
 };

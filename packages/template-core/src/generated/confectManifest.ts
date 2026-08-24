@@ -16,6 +16,17 @@ export const confectManifest = {
       returnsSchemaName: "agents.assistant.answerQuestion.returns",
     },
     {
+      namespace: "auth.workspaces",
+      name: "list",
+      operationId: "auth.workspaces.list",
+      kind: "query",
+      surfaces: ["web", "api"],
+      typedErrors: ["Unauthorized", "ValidationFailed"],
+      idempotent: true,
+      argsSchemaName: "auth.workspaces.list.args",
+      returnsSchemaName: "auth.workspaces.list.returns",
+    },
+    {
       namespace: "brain.pages",
       name: "archive",
       operationId: "brain.pages.archive",
@@ -942,6 +953,95 @@ const sharedConfectJsonSchemas = {
         ],
         additionalProperties: false,
       },
+    },
+  },
+  "auth.workspaces.list.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    anyOf: [
+      {
+        type: "object",
+      },
+      {
+        type: "array",
+      },
+    ],
+  },
+  "auth.workspaces.list.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        organizationId: {
+          type: "string",
+        },
+        ownerUserId: {
+          type: "string",
+        },
+        slug: {
+          type: "string",
+        },
+        name: {
+          type: "string",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        dataClassification: {
+          type: "string",
+          enum: ["public", "internal", "confidential"],
+        },
+        createdAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+      },
+      required: [
+        "organizationId",
+        "ownerUserId",
+        "slug",
+        "name",
+        "status",
+        "dataClassification",
+        "createdAt",
+        "updatedAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
     },
   },
   "brain.pages.archive.args": {

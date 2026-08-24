@@ -378,6 +378,13 @@ const runtimeFixture = (
   }
   if (path !== "workspaces.bySlug") return undefined;
   if (typeof input?.slug !== "string") return undefined;
+  if (
+    isolatedContracts &&
+    !input.slug.endsWith("-primary") &&
+    !input.slug.endsWith("-client")
+  ) {
+    return null;
+  }
   return workspaceFixture(input.slug, isolatedContracts);
 };
 const inputString = (

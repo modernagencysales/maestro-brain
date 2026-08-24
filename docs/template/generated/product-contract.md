@@ -55,7 +55,7 @@ The links below are structural coverage only. Causal strength and declared-surfa
 | Surfaces | `web-ui` |
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/contacts/`, `route:$workspace/contacts/view/$id`, `system:access-and-tenancy`, `table:workspaces` |
-| Acceptance file paths | — |
+| Acceptance file paths | `brain.spec.ts` |
 ## @BHV-REC-001-R1 A web-created record appears in the CLI
 
 | Field | Value |

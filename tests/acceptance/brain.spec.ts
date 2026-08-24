@@ -46,13 +46,15 @@ const createPage = async (
   runtime: ContractsRuntime,
   scenario: ContractsScenario,
   title: string,
-  actor: "primary" | "observer" = "primary",
+  actor: "primary" | "client" | "observer" = "primary",
   markdown = `# ${title}\n\nInitial company context.`,
 ) => {
   const workspace =
     actor === "primary"
       ? scenario.workspaceSlug
-      : scenario.observerWorkspaceSlug;
+      : actor === "client"
+        ? scenario.clientWorkspaceSlug
+        : scenario.observerWorkspaceSlug;
   return cliResult<string>(
     await runtime.runCli(
       scenario,
@@ -277,5 +279,33 @@ test(
     expect(revoked.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "revoked" }),
     );
+  },
+);
+
+test(
+  "the complete Contacts screens switch into an authorized client Brain",
+  { tag: "@BHV-BRAIN-005-R1" },
+  async ({ acceptancePage: page, runtime, scenario }) => {
+    const agencyTitle = `Agency boundary ${scenario.namespace}`;
+    const clientTitle = `Client boundary ${scenario.namespace}`;
+    await createPage(runtime, scenario, agencyTitle);
+    await createPage(runtime, scenario, clientTitle, "client");
+
+    await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/contacts`);
+    const clientName = `Client ${scenario.namespace}`;
+    await expect(page.getByText(clientName, { exact: true })).toBeVisible();
+    await expect(page.getByText(`Contracts observer`)).toHaveCount(0);
+
+    await page.getByText(clientName, { exact: true }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/${scenario.clientWorkspaceSlug}/inbox$`, "u"),
+    );
+    await expect(
+      page.getByText(clientTitle, { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.getByText(agencyTitle, { exact: true })).toHaveCount(0);
+
+    await page.goto(`${runtime.webUrl}/unauthorized-workspace/inbox`);
+    await expect(page.getByText("This workspace does not exist")).toBeVisible();
   },
 );
