@@ -10,6 +10,7 @@ import {
   WorkspaceMemberRow,
 } from "../confect/access/tenancySchemas";
 import tenancyTables from "../confect/access/tenancyTables";
+import { WorkspaceRow } from "../confect/tables/workspaces";
 
 describe("tenancy table contracts", () => {
   it("exports the required tenancy tables", () => {
@@ -78,6 +79,22 @@ describe("tenancy table contracts", () => {
     expect(Schema.decodeUnknownSync(MembershipStatus)("revoked")).toBe(
       "revoked",
     );
+    expect(
+      Schema.decodeUnknownSync(WorkspaceRow)({
+        organizationId: "organization_123",
+        ownerUserId: "user_123",
+        brainKey: "brain_123",
+        slug: "brain-acceptance",
+        name: "Brain Acceptance Workspace",
+        kind: "agency",
+        status: "active",
+        dataClassification: "internal",
+        lifecycleGeneration: 0,
+        revocationGeneration: 0,
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    ).toMatchObject({ brainKey: "brain_123", kind: "agency" });
   });
 
   it.each([
