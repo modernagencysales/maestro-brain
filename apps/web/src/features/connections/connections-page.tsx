@@ -41,6 +41,69 @@ const completeSlackConnectRef = makeFunctionReference<
   unknown
 >('integrations/slackConnections:completeSlackConnect')
 
+const cardType = (status: ConnectionStatus) => {
+  if (status === 'connected') return 'Connected'
+  if (status === 'connecting') return 'Connecting'
+  if (status === 'error') return 'Connection needs attention'
+  return 'Available integration'
+}
+
+const transition = async (input: {
+  id: ConnectionCardModel['id']
+  event: 'connect' | 'disconnect'
+  fixtureRuntime: boolean
+  setStatuses: React.Dispatch<
+    React.SetStateAction<Record<string, ConnectionStatus>>
+  >
+  beginSlackConnect: (args: Record<string, never>) => Promise<{
+    connectSessionId: string
+    connectSessionToken: string
+    expiresAt: number
+  }>
+  completeSlackConnect: (args: {
+    connectionId: string
+    connectSessionId: string
+  }) => Promise<unknown>
+}) => {
+  if (input.fixtureRuntime) {
+    input.setStatuses((current) => ({
+      ...current,
+      [input.id]: transitionConnectionStatus(
+        current[input.id] ?? 'available',
+        input.event,
+      ),
+    }))
+    return
+  }
+  if (input.id === 'slack' && input.event === 'connect') {
+    await runSlackConnect({
+      begin: () => input.beginSlackConnect({}),
+      open: openNangoConnect,
+      complete: input.completeSlackConnect,
+    })
+    return
+  }
+  input.setStatuses((current) => ({
+    ...current,
+    [input.id]: input.event === 'connect' ? 'connected' : 'available',
+  }))
+}
+
+const ConnectionCard = (props: {
+  integration: ConnectionCardModel
+  status: ConnectionStatus
+  onTransition: (event: 'connect' | 'disconnect') => Promise<void>
+}) => (
+  <IntegrationCard
+    {...props.integration}
+    type={cardType(props.status)}
+    isConnected={props.status === 'connected'}
+    onConnect={() => props.onTransition('connect')}
+    onDisconnect={() => props.onTransition('disconnect')}
+    onDocs={() => window.open(props.integration.docs, '_blank', 'noopener')}
+  />
+)
+
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
 export const ConnectionsPage = () => {
   const fixtureRuntime = isFixtureAuthRuntime()
@@ -57,65 +120,31 @@ export const ConnectionsPage = () => {
     ),
   )
 
-  const transition = async (
-    id: ConnectionCardModel['id'],
-    event: 'connect' | 'disconnect',
-  ) => {
-    if (!fixtureRuntime) {
-      if (event === 'connect') {
-        if (id === 'slack') {
-          await runSlackConnect({
-            begin: () => beginSlackConnect({}),
-            open: openNangoConnect,
-            complete: ({ connectionId, connectSessionId }) =>
-              completeSlackConnect({
-                connectionId,
-                connectSessionId,
-              }),
-          })
-          return
-        }
-        setStatuses((current) => ({ ...current, [id]: 'connected' }))
-        return
-      }
-      setStatuses((current) => ({ ...current, [id]: 'available' }))
-      return
-    }
-    setStatuses((current) => ({
-      ...current,
-      [id]: transitionConnectionStatus(current[id] ?? 'available', event),
-    }))
-  }
-
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-      {connectionFixtures.map((integration) => (
-        (() => {
-          const status =
+      {connectionFixtures.map((integration) => {
+        const status =
             !fixtureRuntime && integration.id === 'slack'
               ? projectLegacySlackStatus(slackStatus?.status)
               : (statuses[integration.id] ?? 'available')
-          return (
-        <IntegrationCard
+        return (
+          <ConnectionCard
           key={integration.id}
-          {...integration}
-          type={
-            status === 'connected'
-              ? 'Connected'
-              : status === 'connecting'
-                ? 'Connecting'
-                : status === 'error'
-                  ? 'Connection needs attention'
-                  : 'Available integration'
-          }
-          isConnected={status === 'connected'}
-          onConnect={() => transition(integration.id, 'connect')}
-          onDisconnect={() => transition(integration.id, 'disconnect')}
-          onDocs={() => window.open(integration.docs, '_blank', 'noopener')}
-        />
-          )
-        })()
-      ))}
+            integration={integration}
+            status={status}
+            onTransition={(event) =>
+              transition({
+                id: integration.id,
+                event,
+                fixtureRuntime,
+                setStatuses,
+                beginSlackConnect,
+                completeSlackConnect,
+              })
+            }
+          />
+        )
+      })}
     </SimpleGrid>
   )
 }
