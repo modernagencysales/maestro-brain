@@ -56,17 +56,18 @@ export const nangoSlackConnectSessionBody = (
   };
 };
 
-const nangoWebhookUrl = (siteUrl: string | undefined): string => {
+export const resolveNangoWebhookUrl = (
+  siteUrl: string | undefined,
+): string | undefined => {
   const trimmed = siteUrl?.trim();
-  if (!trimmed) throw new ProviderUnavailable();
+  if (!trimmed) return undefined;
   try {
     const url = new URL("/webhooks/nango", trimmed);
     if (url.protocol !== "https:" || url.username || url.password)
-      throw new ProviderUnavailable();
+      return undefined;
     return url.toString();
-  } catch (error) {
-    if (error instanceof ProviderUnavailable) throw error;
-    throw new ProviderUnavailable();
+  } catch {
+    return undefined;
   }
 };
 
@@ -101,8 +102,8 @@ const nango = (now: number) => {
     };
   const secretKey = env.NANGO_SECRET_KEY?.trim();
   const providerConfigKey = env.NANGO_CONNECT_INTEGRATION_ID?.trim();
-  const siteUrl = env.CONVEX_SITE_URL?.trim();
-  if (!secretKey || !providerConfigKey || !siteUrl)
+  const webhookUrl = resolveNangoWebhookUrl(env.CONVEX_SITE_URL);
+  if (!secretKey || !providerConfigKey || !webhookUrl)
     return {
       createConnectSession: async () => {
         throw new ProviderUnavailable();
@@ -111,7 +112,6 @@ const nango = (now: number) => {
         throw new ProviderUnavailable();
       },
     };
-  const webhookUrl = nangoWebhookUrl(siteUrl);
   const request = async (path: string, init?: RequestInit) => {
     const response = await fetch(`https://api.nango.dev${path}`, {
       ...init,

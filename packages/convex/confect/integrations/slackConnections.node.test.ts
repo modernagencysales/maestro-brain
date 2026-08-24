@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   nangoSlackConnectSessionBody,
+  resolveNangoWebhookUrl,
   slackConnectBotScopes,
 } from "./slackConnections.node";
 
@@ -40,5 +41,19 @@ describe("live Nango Slack Connect session", () => {
     expect(scopeSet.has("channels:join")).toBe(false);
     expect(scopeSet.has("chat:write.public")).toBe(false);
     expect(scopeSet.has("users:read.email")).toBe(false);
+  });
+
+  it.each([
+    [undefined, undefined],
+    ["", undefined],
+    ["not a URL", undefined],
+    ["http://brain.example.test", undefined],
+    ["https://user:password@brain.example.test", undefined],
+    [
+      "https://brain.example.test/base/path",
+      "https://brain.example.test/webhooks/nango",
+    ],
+  ])("resolves a safe webhook URL from %j", (siteUrl, expected) => {
+    expect(resolveNangoWebhookUrl(siteUrl)).toBe(expected);
   });
 });
