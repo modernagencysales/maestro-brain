@@ -12,6 +12,8 @@ export const ApiKeyScope = Schema.Literals([
   "capability:run",
   "workflow:run",
   "admin",
+  "brain:read",
+  "brain:ask",
 ]);
 
 export type ApiKeyScope = Schema.Schema.Type<typeof ApiKeyScope>;
@@ -29,7 +31,10 @@ export const NullableNumber = Schema.NullOr(Schema.Number);
 
 export const ApiKeyRow = Schema.Struct({
   id: Schema.String,
+  principalId: Schema.optional(Schema.String),
+  organizationId: Schema.optional(Schema.String),
   workspaceId: Schema.String,
+  brainKey: Schema.optional(Schema.String),
   name: Schema.String,
   keyHash: Schema.String,
   displayPrefix: Schema.String,
