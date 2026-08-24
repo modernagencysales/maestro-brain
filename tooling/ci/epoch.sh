@@ -22,5 +22,6 @@ if ! bash tooling/ci/install-qlty.sh; then
   echo "epoch: Qlty install unavailable; advisory check will continue" >&2
 fi
 pnpm check:qlty -- --all
+pnpm exec playwright install --with-deps chromium
 pnpm verify
 outcome="success"

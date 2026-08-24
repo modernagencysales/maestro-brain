@@ -105,6 +105,7 @@ const checkDescriptorDefinitions = {
           "FACTORY_EPOCH_SHA",
           "if ! bash tooling/ci/install-qlty.sh",
           "pnpm check:qlty -- --all",
+          "pnpm exec playwright install --with-deps chromium",
           "pnpm verify",
         ],
         absent: ["pnpm acceptance:"],

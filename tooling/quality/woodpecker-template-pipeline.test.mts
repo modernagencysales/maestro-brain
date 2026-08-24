@@ -19,10 +19,14 @@ describe("Woodpecker firewall and epoch pipelines", () => {
 
   it("keeps full verification out of the firewall and in the epoch", () => {
     const firewall = read("tooling/ci/firewall.sh");
+    const epoch = read("tooling/ci/epoch.sh");
     expect(firewall).not.toContain("pnpm verify");
     expect(firewall).toContain("source tooling/ci/setup.sh");
     expect(firewall).not.toContain("pnpm install --frozen-lockfile");
-    expect(read("tooling/ci/epoch.sh")).toContain("pnpm verify");
+    expect(epoch).toContain("pnpm verify");
+    expect(epoch).toContain(
+      "pnpm exec playwright install --with-deps chromium",
+    );
     expect(read("tooling/ci/firewall.sh")).not.toContain("pnpm review:bounded");
     expect(read("tooling/ci/firewall.sh")).toContain(
       "pnpm check:qlty -- --diff",
