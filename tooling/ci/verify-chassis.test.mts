@@ -115,7 +115,7 @@ describe("customer chassis Woodpecker admission", () => {
     };
 
     expect(packageJson.scripts["test:acceptance-tooling"]).toBe(
-      "vitest run tooling/acceptance/product-contract.test.mts tooling/acceptance/playwright-report.test.mts tooling/acceptance/run-acceptance.test.mts --maxWorkers=1 --no-file-parallelism",
+      "vitest run tooling/acceptance/product-contract.test.mts tooling/acceptance/playwright-report.test.mts tooling/acceptance/run-acceptance.test.mts tooling/acceptance/contracts-runtime.test.mts --maxWorkers=1 --no-file-parallelism",
     );
     expect(
       packageJson.scripts["test:verify-uncovered"].match(

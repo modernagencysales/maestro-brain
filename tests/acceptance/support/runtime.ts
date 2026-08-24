@@ -168,6 +168,7 @@ export const redactContractsDiagnostic = (
 
 export const CONTRACTS_RUNTIME_STARTUP_TIMEOUT_MS = 120_000;
 export const CONTRACTS_HOOK_TIMEOUT_MS = 150_000;
+const CONTRACTS_SEED_ATTEMPT_TIMEOUT_MS = 15_000;
 
 const allowedEnvironmentNames = new Set([
   "CI",
@@ -565,7 +566,11 @@ async function bootContractsRuntime(
           seedOutput = await runCommand(
             seedArgs,
             localEnvironment,
-            Math.min(commandTimeoutMs, remaining),
+            boundedSeedAttemptTimeout(
+              remaining,
+              commandTimeoutMs,
+              CONTRACTS_SEED_ATTEMPT_TIMEOUT_MS,
+            ),
           );
           break;
         } catch (error) {
@@ -626,6 +631,13 @@ async function bootContractsRuntime(
     throw new Error(redact(error));
   }
 }
+
+export const boundedSeedAttemptTimeout = (
+  remainingMs: number,
+  commandTimeoutMs: number,
+  seedAttemptTimeoutMs: number,
+): number =>
+  Math.max(1, Math.min(remainingMs, commandTimeoutMs, seedAttemptTimeoutMs));
 
 function cleanupResources(resources: RuntimeResources): Promise<void> {
   if (resources.cleanup !== undefined) return resources.cleanup;

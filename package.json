@@ -24,7 +24,7 @@
     "test:chassis-ci": "vitest run tooling/ci/verify-chassis.test.mts tooling/ci/verify-aggregate.test.mts --maxWorkers=1 --no-file-parallelism",
     "test:mutation": "bash tooling/ci/mutation.sh",
     "test:bootstrap": "node --test scripts/maestro-bootstrap.test.mjs",
-    "test:acceptance-tooling": "vitest run tooling/acceptance/product-contract.test.mts tooling/acceptance/playwright-report.test.mts tooling/acceptance/run-acceptance.test.mts --maxWorkers=1 --no-file-parallelism",
+    "test:acceptance-tooling": "vitest run tooling/acceptance/product-contract.test.mts tooling/acceptance/playwright-report.test.mts tooling/acceptance/run-acceptance.test.mts tooling/acceptance/contracts-runtime.test.mts --maxWorkers=1 --no-file-parallelism",
     "test:tooling": "pnpm test:bootstrap && pnpm --dir tooling/generators exec vitest run src/customer-runtime.test.ts --maxWorkers=1 --no-file-parallelism",
     "test:app-map": "pnpm --dir tooling/app-map test",
     "test:workflow": "pnpm --dir tooling/workflow test",
