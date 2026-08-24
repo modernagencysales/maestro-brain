@@ -23,6 +23,7 @@ import {
   rotateIssuer as rotateIssuerRecord,
 } from "../deployAuthority/admin";
 import { createRuntimeSigningKeyProofSignature } from "../deployAuthority/http";
+import { issueDeploymentEvidence as issueDeploymentEvidenceRecord } from "../deployAuthority/issuance";
 import {
   canonical,
   consumeDeployAuthority,
@@ -93,6 +94,29 @@ const verdictArgs = {
   expiresAt: v.number(),
   sourceReceiptHash: v.string(),
 };
+const deploymentEvidenceArgs = {
+  environment,
+  targetId: v.string(),
+  commitSha: v.string(),
+  capturedAt: v.number(),
+  pageCount: v.number(),
+  totalCount: v.number(),
+  nextCursor: v.union(v.string(), v.null()),
+  runsJson: v.string(),
+  immutableBindingsJson: v.string(),
+  sourceReceiptHash: v.string(),
+  ttlMs: v.number(),
+};
+const deploymentEvidenceResult = v.union(
+  v.object({
+    kind: v.literal("ok"),
+    approvalHash: v.string(),
+    censusSnapshotId: v.string(),
+    verdictHash: v.string(),
+    expiresAt: v.number(),
+  }),
+  v.object({ kind: v.literal("blocked"), code: adminCode }),
+);
 
 const authenticate = async (context: {
   readonly auth: { readonly getUserIdentity: () => Promise<unknown> };
@@ -191,6 +215,25 @@ export const provisionVerdict = mutationGeneric({
           input,
           Date.now(),
         );
+  },
+});
+
+export const issueDeploymentEvidence = mutationGeneric({
+  args: deploymentEvidenceArgs,
+  returns: deploymentEvidenceResult,
+  handler: async (context, input) => {
+    const authenticated = await authenticateMutation(context);
+    if (authenticated.kind === "blocked") return authenticated;
+    return issueDeploymentEvidenceRecord({
+      context,
+      operator: authenticated.operator,
+      input,
+      runtime: {
+        now: Date.now(),
+        privateKeyPkcs8Base64Url:
+          readPromotionAuthorityPrivateKeyPkcs8Base64Url(),
+      },
+    });
   },
 });
 

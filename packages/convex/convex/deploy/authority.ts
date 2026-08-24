@@ -2,6 +2,8 @@ import registeredFunctions from "../../confect/_generated/registeredFunctions/de
 
 export const auditExport = registeredFunctions.auditExport;
 export const consume = registeredFunctions.consume;
+export const issueDeploymentEvidence =
+  registeredFunctions.issueDeploymentEvidence;
 export const provisionApproval = registeredFunctions.provisionApproval;
 export const provisionCensus = registeredFunctions.provisionCensus;
 export const provisionIssuer = registeredFunctions.provisionIssuer;

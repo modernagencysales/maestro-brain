@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import convexSchema from "../confect/_generated/convexSchema";
 import { handleDeployAuthorityHttpRequest } from "../confect/deployAuthority/http";
 import {
@@ -52,6 +52,9 @@ const provisionCensusRef = makeFunctionReference<"mutation">(
 );
 const provisionVerdictRef = makeFunctionReference<"mutation">(
   "deploy/authority:provisionVerdict",
+);
+const issueDeploymentEvidenceRef = makeFunctionReference<"mutation">(
+  "deploy/authority:issueDeploymentEvidence",
 );
 const statusRef = makeFunctionReference<"query">("deploy/authority:status");
 const readinessRef = makeFunctionReference<"query">(
@@ -131,6 +134,11 @@ const makeProvisioningInputs = async (
     completionBindingHash: run.completionBindingHash,
   };
   const snapshotPayload = {
+    environment: scope.environment,
+    targetId: scope.targetId,
+    commitSha: scope.commitSha,
+    capturedAt: clock - 1,
+    expiresAt: clock + 120_000,
     pageCount: 1,
     totalCount: 1,
     nextCursor: null,
@@ -218,6 +226,26 @@ const makeProvisioningInputs = async (
   } as const;
 };
 
+const makeIssuanceInput = async (
+  signing: ReturnType<typeof keys>,
+  clock: number,
+) => {
+  const inputs = await makeProvisioningInputs(signing, clock);
+  return {
+    environment: inputs.census.environment,
+    targetId: inputs.census.targetId,
+    commitSha: inputs.census.commitSha,
+    capturedAt: inputs.census.capturedAt,
+    pageCount: inputs.census.pageCount,
+    totalCount: inputs.census.totalCount,
+    nextCursor: inputs.census.nextCursor,
+    runsJson: inputs.census.runsJson,
+    immutableBindingsJson: inputs.census.immutableBindingsJson,
+    sourceReceiptHash: inputs.census.sourceReceiptHash,
+    ttlMs: 120_000,
+  } as const;
+};
+
 const seedAuthority = async (
   context: AuthorityContext,
   signing: ReturnType<typeof keys>,
@@ -254,6 +282,11 @@ const seedAuthority = async (
     completionBindingHash: run.completionBindingHash,
   };
   const snapshotPayload = {
+    environment: scope.environment,
+    targetId: scope.targetId,
+    commitSha: scope.commitSha,
+    capturedAt: clock - 1,
+    expiresAt: clock + 120_000,
     pageCount: 1,
     totalCount: 1,
     nextCursor: null,
@@ -359,6 +392,7 @@ const seedAuthority = async (
 
 describe("repo-owned durable deploy authority", () => {
   afterEach(() => {
+    vi.useRealTimers();
     if (initialPromotionAuthorityMode === undefined) {
       delete process.env.PROMOTION_AUTHORITY_MODE;
     } else {
@@ -736,6 +770,190 @@ describe("repo-owned durable deploy authority", () => {
       "issuer-provisioned",
       "verdict-provisioned",
     ]);
+  });
+
+  it("issues one atomic evidence set inside the authority and authorizes all three actions", async () => {
+    process.env.PROMOTION_AUTHORITY_MODE = "authority";
+    const t = convexTest(convexSchema, modules);
+    const signing = keys();
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      signing.privateKeyPkcs8;
+    const actor = t.withIdentity(operatorIdentity);
+    const sourceReceiptHash = "sha256:" + "9".repeat(64);
+    await actor.mutation(provisionIssuerRef, {
+      issuerId: "maestro-promotion-authority-v1",
+      publicKeyHash: signing.publicKeyHash,
+      publicKeySpki: signing.publicKeySpki,
+      sourceReceiptHash,
+    });
+    const issued = await actor.mutation(
+      issueDeploymentEvidenceRef,
+      await makeIssuanceInput(signing, Date.now()),
+    );
+    expect(issued).toMatchObject({
+      kind: "ok",
+      approvalHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      censusSnapshotId: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      verdictHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      expiresAt: expect.any(Number),
+    });
+    expect(JSON.stringify(issued)).not.toContain("signature");
+    expect(JSON.stringify(issued)).not.toContain(signing.privateKeyPkcs8);
+
+    for (const action of ["preflight", "convex", "cloudflare"] as const) {
+      await expect(
+        t.run((context) =>
+          consumeDeployAuthority(
+            context,
+            { ...scope, action },
+            storeDependencies(signing, Date.now()),
+          ),
+        ),
+      ).resolves.toMatchObject({ kind: "authorized" });
+    }
+    const audit = await actor.query(auditExportRef, {
+      limit: 10,
+      cursor: null,
+    });
+    expect(JSON.stringify(audit)).not.toContain("signature");
+    expect(JSON.stringify(audit)).not.toContain(signing.privateKeyPkcs8);
+  });
+
+  it("issues truthful evidence for an empty workflow census", async () => {
+    process.env.PROMOTION_AUTHORITY_MODE = "authority";
+    const t = convexTest(convexSchema, modules);
+    const signing = keys();
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      signing.privateKeyPkcs8;
+    const actor = t.withIdentity(operatorIdentity);
+    const input = {
+      ...(await makeIssuanceInput(signing, Date.now())),
+      totalCount: 0,
+      runsJson: "[]",
+      immutableBindingsJson: "[]",
+    } as const;
+    await actor.mutation(provisionIssuerRef, {
+      issuerId: "maestro-promotion-authority-v1",
+      publicKeyHash: signing.publicKeyHash,
+      publicKeySpki: signing.publicKeySpki,
+      sourceReceiptHash: input.sourceReceiptHash,
+    });
+    const first = await actor.mutation(issueDeploymentEvidenceRef, input);
+    const second = await actor.mutation(issueDeploymentEvidenceRef, {
+      ...input,
+      commitSha: "b".repeat(40),
+    });
+    expect(first).toMatchObject({ kind: "ok" });
+    expect(second).toMatchObject({ kind: "ok" });
+    if (first.kind !== "ok" || second.kind !== "ok") {
+      throw new Error("empty census issuance was blocked");
+    }
+    expect(second.censusSnapshotId).not.toBe(first.censusSnapshotId);
+  });
+
+  it("issues nothing when the runtime key is missing, mismatched, or the operator origin differs", async () => {
+    process.env.PROMOTION_AUTHORITY_MODE = "authority";
+    const t = convexTest(convexSchema, modules);
+    const signing = keys();
+    const actor = t.withIdentity(operatorIdentity);
+    const input = await makeIssuanceInput(signing, Date.now());
+    await actor.mutation(provisionIssuerRef, {
+      issuerId: "maestro-promotion-authority-v1",
+      publicKeyHash: signing.publicKeyHash,
+      publicKeySpki: signing.publicKeySpki,
+      sourceReceiptHash: input.sourceReceiptHash,
+    });
+
+    delete process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL;
+    await expect(
+      actor.mutation(issueDeploymentEvidenceRef, input),
+    ).resolves.toEqual({ kind: "blocked", code: "invalid-input" });
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      keys().privateKeyPkcs8;
+    await expect(
+      actor.mutation(issueDeploymentEvidenceRef, input),
+    ).resolves.toEqual({ kind: "blocked", code: "signature-invalid" });
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      signing.privateKeyPkcs8;
+    await expect(
+      t
+        .withIdentity({
+          ...operatorIdentity,
+          issuer: "https://other-authority.example",
+          tokenIdentifier: "https://other-authority.example|release-operator",
+        })
+        .mutation(issueDeploymentEvidenceRef, input),
+    ).resolves.toEqual({ kind: "blocked", code: "mixed-origin" });
+
+    await expect(
+      t.run(async (context) => ({
+        approvals: await context.db.query("deployApprovals").collect(),
+        census: await context.db.query("deployCensusSnapshots").collect(),
+        verdicts: await context.db.query("deployVerdicts").collect(),
+      })),
+    ).resolves.toEqual({ approvals: [], census: [], verdicts: [] });
+  });
+
+  it("rejects incomplete census input before any evidence write", async () => {
+    process.env.PROMOTION_AUTHORITY_MODE = "authority";
+    const t = convexTest(convexSchema, modules);
+    const signing = keys();
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      signing.privateKeyPkcs8;
+    const actor = t.withIdentity(operatorIdentity);
+    const input = await makeIssuanceInput(signing, Date.now());
+    await actor.mutation(provisionIssuerRef, {
+      issuerId: "maestro-promotion-authority-v1",
+      publicKeyHash: signing.publicKeyHash,
+      publicKeySpki: signing.publicKeySpki,
+      sourceReceiptHash: input.sourceReceiptHash,
+    });
+    await expect(
+      actor.mutation(issueDeploymentEvidenceRef, {
+        ...input,
+        nextCursor: "still-paginating",
+      }),
+    ).resolves.toEqual({ kind: "blocked", code: "invalid-input" });
+    await expect(
+      t.run((context) => context.db.query("deployApprovals").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("preflights every issuance phase so a census conflict cannot leave partial evidence", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_800_000_000_000);
+    process.env.PROMOTION_AUTHORITY_MODE = "authority";
+    const t = convexTest(convexSchema, modules);
+    const signing = keys();
+    process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL =
+      signing.privateKeyPkcs8;
+    const actor = t.withIdentity(operatorIdentity);
+    const input = await makeIssuanceInput(signing, Date.now());
+    await actor.mutation(provisionIssuerRef, {
+      issuerId: "maestro-promotion-authority-v1",
+      publicKeyHash: signing.publicKeyHash,
+      publicKeySpki: signing.publicKeySpki,
+      sourceReceiptHash: input.sourceReceiptHash,
+    });
+    const first = await actor.mutation(issueDeploymentEvidenceRef, input);
+    if (first.kind !== "ok") throw new Error("first issuance was blocked");
+    await t.run(async (context) => {
+      const approvals = await context.db.query("deployApprovals").collect();
+      const verdicts = await context.db.query("deployVerdicts").collect();
+      for (const row of [...approvals, ...verdicts]) {
+        await context.db.delete(row._id);
+      }
+    });
+
+    await expect(
+      actor.mutation(issueDeploymentEvidenceRef, input),
+    ).resolves.toEqual({ kind: "blocked", code: "duplicate-record" });
+    await expect(
+      t.run(async (context) => ({
+        approvals: await context.db.query("deployApprovals").collect(),
+        verdicts: await context.db.query("deployVerdicts").collect(),
+      })),
+    ).resolves.toEqual({ approvals: [], verdicts: [] });
   });
 
   it("revokes by appending a retirement transition and leaves no active issuer", async () => {
