@@ -20,6 +20,7 @@ import {
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
+import { readNangoConnectConfig } from "../shared/env";
 import {
   beginConnection,
   completeConnection,
@@ -239,15 +240,6 @@ const providerFailure = () =>
     message: "Slack authorization is temporarily unavailable. Try again.",
   });
 
-const nangoConfig = () => {
-  const secretKey = process.env.NANGO_SECRET_KEY?.trim();
-  const providerConfigKey =
-    process.env.NANGO_CONNECT_INTEGRATION_ID?.trim() || "slack";
-  return secretKey === undefined || secretKey.length === 0
-    ? undefined
-    : { secretKey, providerConfigKey };
-};
-
 const beginSlackOauth = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -259,7 +251,7 @@ const beginSlackOauth = FunctionImpl.make(
         refs.public.integrations.connections.begin,
         { workspaceId, provider: "slack" },
       ).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const config = nangoConfig();
+      const config = readNangoConnectConfig();
       if (config === undefined) {
         yield* runMutation(refs.public.integrations.connections.complete, {
           workspaceId,
@@ -299,7 +291,7 @@ const completeSlackOauth = FunctionImpl.make(
   "completeSlackOauth",
   ({ workspaceId, generation, connectionId }) =>
     Effect.gen(function* () {
-      const config = nangoConfig();
+      const config = readNangoConnectConfig();
       if (config === undefined) return yield* providerFailure();
       const runMutation = yield* MutationRunner;
       yield* Effect.tryPromise({

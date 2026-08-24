@@ -8,6 +8,7 @@ import {
   EnvConfigError,
   killSwitchOn,
   loadTemplateRuntimeConfig,
+  readNangoConnectConfig,
   readOptionalEnv,
   readRequiredEnv,
   requireLiveEnv,
@@ -61,6 +62,19 @@ describe("shared typed env access", () => {
     expect(
       readRequiredEnv("REQUIRED_URL", { REQUIRED_URL: "https://x.test" }),
     ).toBe("https://x.test");
+  });
+
+  it("reads an optional Nango Connect configuration", () => {
+    expect(readNangoConnectConfig({})).toBeUndefined();
+    expect(
+      readNangoConnectConfig({
+        NANGO_SECRET_KEY: "fixture-key",
+        NANGO_CONNECT_INTEGRATION_ID: "slack-company-brain",
+      }),
+    ).toEqual({
+      secretKey: "fixture-key",
+      providerConfigKey: "slack-company-brain",
+    });
   });
 
   it("requires live secrets outside fake mode", () => {
