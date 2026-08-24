@@ -144,4 +144,4 @@ behaviors:
       - Selecting a client changes the active workspace boundary before Brain
         data is read or mutated.
       - An unauthorized client is not listed and cannot be selected by URL.
-    status: draft
+    status: required
