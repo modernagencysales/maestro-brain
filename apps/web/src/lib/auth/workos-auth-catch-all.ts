@@ -1,5 +1,6 @@
 import { getAuthKitContext } from "@workos/authkit-tanstack-react-start";
 
+import { isFixtureAuthRuntime } from "../../env";
 import { isRecoverableAuthError } from "./workos-auth-loader";
 import { handleWorkosLogout, isLogoutRequest } from "./workos-logout";
 
@@ -10,6 +11,7 @@ export const workosAuthCatchAllRouteOptions = {
         const pathname = new URL(request.url).pathname;
         if (!pathname.endsWith("/session"))
           return new Response("Not found", { status: 404 });
+        if (isFixtureAuthRuntime()) return Response.json({ data: null });
         try {
           const auth = getAuthKitContext().auth();
           if (!auth.user) return Response.json({ data: null });
