@@ -228,13 +228,8 @@ test(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
     await page.getByRole("button", { name: "Connect" }).first().click();
-    await expect(page.getByText("Connected", { exact: true })).toBeVisible();
 
-    const connected = (await runtime.runApi(
-      scenario,
-      "integrations.connections.list",
-      {},
-    )) as {
+    type ConnectionListResponse = {
       ok: true;
       result: readonly {
         provider: string;
@@ -242,10 +237,22 @@ test(
         generation: number;
       }[];
     };
-    expect(connected.ok).toBe(true);
+    let connected: ConnectionListResponse = { ok: true, result: [] };
+    await expect
+      .poll(async () => {
+        connected = (await runtime.runApi(
+          scenario,
+          "integrations.connections.list",
+          {},
+        )) as ConnectionListResponse;
+        return connected.result.find(({ provider }) => provider === "slack")
+          ?.status;
+      })
+      .toBe("active");
     expect(connected.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "active" }),
     );
+    await expect(page.getByText("Connected", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Disconnect" }).click();
     await expect(
@@ -256,7 +263,7 @@ test(
       scenario,
       "integrations.connections.list",
       {},
-    )) as typeof connected;
+    )) as ConnectionListResponse;
     expect(revoked.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "revoked" }),
     );
