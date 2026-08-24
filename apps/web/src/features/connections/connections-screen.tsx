@@ -301,14 +301,18 @@ function ConnectionActivity({
   );
 }
 
+const connectionTypeByStatus = {
+  disconnected: "Available integration",
+  authorizing: "Connecting",
+  syncing: "Connecting",
+  ready: "Connected",
+  error: "Connection needs attention",
+  reauthorizing: "Connecting",
+  revoked: "Available integration",
+} as const satisfies Record<ConnectionRow["status"], string>;
+
 const connectionType = (connection: ConnectionRow): string =>
-  connection.status === "ready"
-    ? "Connected"
-    : connection.status === "disconnected" || connection.status === "revoked"
-      ? "Available integration"
-      : connection.status === "error"
-        ? "Connection needs attention"
-        : "Connecting";
+  connectionTypeByStatus[connection.status];
 
 const connectionDescription = (connection: ConnectionRow): string =>
   connection.category === "slack"
@@ -335,11 +339,15 @@ const connectionDocs = (key: string): string =>
     granola: "https://www.granola.ai/",
   })[key] ?? "https://docs.nango.dev/";
 
+const connectStatusByConnectionStatus = {
+  disconnected: "not_connected",
+  authorizing: "authorizing",
+  syncing: "verifying",
+  ready: "active",
+  error: "error",
+  reauthorizing: "reauthorizing",
+  revoked: "not_connected",
+} as const satisfies Record<ConnectionRow["status"], SlackConnectStatus>;
+
 const connectStatus = (status: ConnectionRow["status"]): SlackConnectStatus =>
-  status === "ready"
-    ? "active"
-    : status === "syncing"
-      ? "verifying"
-      : status === "disconnected" || status === "revoked"
-        ? "not_connected"
-        : status;
+  connectStatusByConnectionStatus[status];
