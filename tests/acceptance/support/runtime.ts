@@ -6,7 +6,9 @@ import {
 } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
+import { join } from "node:path";
 
 type SeededActor = {
   readonly keyId: string;
@@ -79,6 +81,7 @@ export type ContractsRuntimeDependencies = {
   readonly environment: () => NodeJS.ProcessEnv;
   readonly freePort: () => Promise<number>;
   readonly launchBrowser: (environment: NodeJS.ProcessEnv) => Promise<Browser>;
+  readonly loadLocalAdminKey: (cloudPort: number) => Promise<string>;
   readonly randomBytes: (size: number) => Uint8Array;
   readonly runCommand: (
     args: readonly string[],
@@ -246,6 +249,38 @@ const delay = (milliseconds: number) =>
 
 const hashKey = (key: string) =>
   createHash("sha256").update(key).digest("base64url");
+
+export const readLocalAdminKeyForPort = async (
+  cwd: string,
+  cloudPort: number,
+): Promise<string> => {
+  const deploymentsRoot = join(cwd, ".convex", "local");
+  const entries = await readdir(deploymentsRoot, { withFileTypes: true });
+  for (const entry of entries.sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    if (!entry.isDirectory()) continue;
+    const configPath = join(deploymentsRoot, entry.name, "config.json");
+    let config: unknown;
+    try {
+      config = JSON.parse(await readFile(configPath, "utf8"));
+    } catch {
+      continue;
+    }
+    if (
+      isObject(config) &&
+      isObject(config.ports) &&
+      config.ports.cloud === cloudPort &&
+      typeof config.adminKey === "string" &&
+      config.adminKey !== ""
+    ) {
+      return config.adminKey;
+    }
+  }
+  throw new Error(
+    `No local Convex deployment credentials matched cloud port ${cloudPort}.`,
+  );
+};
 
 const parseSeedResult = (
   raw: string,
@@ -506,13 +541,30 @@ async function bootContractsRuntime(
         `maestro start announced an unexpected URL\n${safeOutput()}`,
       );
     }
+    const localAdminKey = await dependencies.loadLocalAdminKey(convexPort);
+    secrets.add(localAdminKey);
+    const explicitLocalDeployment = [
+      "--url",
+      `http://127.0.0.1:${convexPort}`,
+      "--admin-key",
+      localAdminKey,
+    ] as const;
     for (const [name, value] of [
       ["MAESTRO_CONTRACT_TEST", "1"],
       ["POSTHOG_PROJECT_TOKEN", "phc_test_placeholder"],
       ["WORKOS_CLIENT_ID", "client_test_contracts_runtime"],
     ] as const) {
       await executeCommand(
-        ["--silent", "exec", "convex", "env", "set", name, value],
+        [
+          "--silent",
+          "exec",
+          "convex",
+          "env",
+          "set",
+          name,
+          value,
+          ...explicitLocalDeployment,
+        ],
         localEnvironment,
         commandTimeoutMs,
       );
@@ -557,6 +609,7 @@ async function bootContractsRuntime(
         "run",
         "headless/apiKeys:seedLocalContracts",
         JSON.stringify({ namespace, primaryKeyHash, observerKeyHash }),
+        ...explicitLocalDeployment,
       ];
       const deadline = Date.now() + seedTimeoutMs;
       let seedOutput = "";
@@ -751,6 +804,7 @@ function nodeDependencies(): ContractsRuntimeDependencies {
       }),
     launchBrowser: (environment) =>
       chromium.launch({ headless: true, env: stringEnvironment(environment) }),
+    loadLocalAdminKey: (cloudPort) => readLocalAdminKeyForPort(cwd, cloudPort),
     randomBytes: (size) => randomBytes(size),
     runCommand: (args, environment) =>
       spawnManagedCommand({
