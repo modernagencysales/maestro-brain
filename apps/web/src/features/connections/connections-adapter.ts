@@ -23,6 +23,32 @@ export type ConnectionCardModel = Readonly<{
   status: ConnectionStatus
 }>
 
+export type ConnectionRuntimeMode = 'isolated' | 'live' | 'fixture'
+
+export type ConnectionTransitionPorts = Readonly<{
+  beginIsolated: (
+    provider: ConnectionCardModel['id'],
+  ) => Promise<DurableConnection>
+  completeIsolated: (
+    provider: ConnectionCardModel['id'],
+    generation: number,
+  ) => Promise<unknown>
+  revokeIsolated: (
+    provider: ConnectionCardModel['id'],
+    generation: number,
+  ) => Promise<unknown>
+  invalidateIsolated: () => Promise<unknown>
+  beginLive: (provider: ConnectionCardModel['id']) => Promise<unknown>
+  revokeLive: (
+    provider: ConnectionCardModel['id'],
+    generation: number,
+  ) => Promise<unknown>
+  updateFixture: (
+    provider: ConnectionCardModel['id'],
+    event: 'connect' | 'disconnect',
+  ) => void
+}>
+
 export const connectionFixtures: readonly ConnectionCardModel[] = [
   {
     id: 'slack',
@@ -57,6 +83,76 @@ export const transitionConnectionStatus = (
   status: ConnectionStatus,
   event: 'connect' | 'disconnect',
 ): ConnectionStatus => (event === 'connect' ? 'connected' : 'available')
+
+export const connectionRuntimeMode = (
+  isolatedContracts: boolean,
+  fixtureRuntime: boolean,
+): ConnectionRuntimeMode =>
+  isolatedContracts ? 'isolated' : fixtureRuntime ? 'fixture' : 'live'
+
+export const connectionCardType = (status: ConnectionStatus): string => {
+  if (status === 'connected') return 'Connected'
+  if (status === 'connecting') return 'Connecting'
+  if (status === 'error') return 'Connection needs attention'
+  return 'Available integration'
+}
+
+export const connectionStatusForCard = (input: {
+  readonly fixtureRuntime: boolean
+  readonly fixtureStatuses: Readonly<Record<string, ConnectionStatus>>
+  readonly provider: ConnectionCardModel['id']
+  readonly liveConnections: readonly DurableConnection[]
+}): ConnectionStatus =>
+  input.fixtureRuntime
+    ? (input.fixtureStatuses[input.provider] ?? 'available')
+    : projectDurableConnectionStatus(
+        input.liveConnections.find(
+          (connection) => connection.provider === input.provider,
+        ),
+      )
+
+export const executeConnectionTransition = async (input: {
+  readonly mode: ConnectionRuntimeMode
+  readonly provider: ConnectionCardModel['id']
+  readonly event: 'connect' | 'disconnect'
+  readonly liveConnections: readonly DurableConnection[]
+  readonly ports: ConnectionTransitionPorts
+}): Promise<void> => {
+  if (input.mode === 'isolated') {
+    if (input.event === 'connect') {
+      const begun = await input.ports.beginIsolated(input.provider)
+      await input.ports.completeIsolated(input.provider, begun.generation)
+    } else {
+      const current = input.liveConnections.find(
+        (connection) => connection.provider === input.provider,
+      )
+      if (current !== undefined) {
+        await input.ports.revokeIsolated(
+          input.provider,
+          current.generation,
+        )
+      }
+    }
+    await input.ports.invalidateIsolated()
+    return
+  }
+
+  if (input.mode === 'live') {
+    if (input.event === 'connect') {
+      await input.ports.beginLive(input.provider)
+      return
+    }
+    const current = input.liveConnections.find(
+      (connection) => connection.provider === input.provider,
+    )
+    if (current !== undefined) {
+      await input.ports.revokeLive(input.provider, current.generation)
+    }
+    return
+  }
+
+  input.ports.updateFixture(input.provider, input.event)
+}
 
 export const projectDurableConnectionStatus = (
   connection: DurableConnection | undefined,

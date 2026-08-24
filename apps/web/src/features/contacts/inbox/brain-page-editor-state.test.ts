@@ -10,6 +10,7 @@ describe('Brain page editor persistence decision', () => {
     expect(
       shouldPersistBrainMarkdown({
         fixtureRuntime: false,
+        pageLoaded: true,
         loadedMarkdown: '# current',
         draftMarkdown: '# changed',
       }),
@@ -17,6 +18,7 @@ describe('Brain page editor persistence decision', () => {
     expect(
       shouldPersistBrainMarkdown({
         fixtureRuntime: true,
+        pageLoaded: true,
         loadedMarkdown: '# current',
         draftMarkdown: '# changed',
       }),
@@ -24,8 +26,17 @@ describe('Brain page editor persistence decision', () => {
     expect(
       shouldPersistBrainMarkdown({
         fixtureRuntime: false,
+        pageLoaded: true,
         loadedMarkdown: '# current',
         draftMarkdown: '# current',
+      }),
+    ).toBe(false)
+    expect(
+      shouldPersistBrainMarkdown({
+        fixtureRuntime: false,
+        pageLoaded: false,
+        loadedMarkdown: '',
+        draftMarkdown: '# typed before the page loaded',
       }),
     ).toBe(false)
   })

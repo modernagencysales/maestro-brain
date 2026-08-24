@@ -4,7 +4,7 @@ export type StarterSearchResult = Readonly<{
   description: string
 }>
 
-type AnswerCitation = Readonly<{
+export type AnswerCitation = Readonly<{
   citationKey: string
   sourceRevisionId: string
   title: string

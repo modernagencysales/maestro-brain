@@ -1,9 +1,11 @@
 export const shouldPersistBrainMarkdown = (input: {
   fixtureRuntime: boolean
+  pageLoaded: boolean
   loadedMarkdown: string | undefined
   draftMarkdown: string
 }): boolean =>
   !input.fixtureRuntime &&
+  input.pageLoaded &&
   input.loadedMarkdown !== undefined &&
   input.draftMarkdown !== input.loadedMarkdown
 

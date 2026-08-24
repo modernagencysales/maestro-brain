@@ -16,6 +16,17 @@ export const confectManifest = {
       returnsSchemaName: "agents.assistant.answerQuestion.returns",
     },
     {
+      namespace: "auth.workspaces",
+      name: "list",
+      operationId: "auth.workspaces.list",
+      kind: "query",
+      surfaces: ["web", "api"],
+      typedErrors: ["Unauthorized", "ValidationFailed"],
+      idempotent: true,
+      argsSchemaName: "auth.workspaces.list.args",
+      returnsSchemaName: "auth.workspaces.list.returns",
+    },
+    {
       namespace: "brain.pages",
       name: "archive",
       operationId: "brain.pages.archive",
@@ -72,7 +83,7 @@ export const confectManifest = {
       name: "get",
       operationId: "brain.pages.get",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
         "MemberNotInWorkspace",
@@ -106,11 +117,12 @@ export const confectManifest = {
       name: "list",
       operationId: "brain.pages.list",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
         "MemberNotInWorkspace",
         "WorkspaceNotFound",
+        "ValidationFailed",
       ],
       idempotent: true,
       argsSchemaName: "brain.pages.list.args",
@@ -221,6 +233,73 @@ export const confectManifest = {
       idempotent: false,
       argsSchemaName: "capabilities.sourceGroundedBrief.runInternal.args",
       returnsSchemaName: "capabilities.sourceGroundedBrief.runInternal.returns",
+    },
+    {
+      namespace: "integrations.connections",
+      name: "begin",
+      operationId: "integrations.connections.begin",
+      kind: "mutation",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+      ],
+      idempotent: false,
+      argsSchemaName: "integrations.connections.begin.args",
+      returnsSchemaName: "integrations.connections.begin.returns",
+    },
+    {
+      namespace: "integrations.connections",
+      name: "complete",
+      operationId: "integrations.connections.complete",
+      kind: "mutation",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+      ],
+      idempotent: false,
+      argsSchemaName: "integrations.connections.complete.args",
+      returnsSchemaName: "integrations.connections.complete.returns",
+    },
+    {
+      namespace: "integrations.connections",
+      name: "list",
+      operationId: "integrations.connections.list",
+      kind: "query",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "integrations.connections.list.args",
+      returnsSchemaName: "integrations.connections.list.returns",
+    },
+    {
+      namespace: "integrations.connections",
+      name: "revoke",
+      operationId: "integrations.connections.revoke",
+      kind: "mutation",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "NotFound",
+        "ValidationFailed",
+      ],
+      idempotent: false,
+      argsSchemaName: "integrations.connections.revoke.args",
+      returnsSchemaName: "integrations.connections.revoke.returns",
     },
     {
       namespace: "ops.dataLifecycle",
@@ -523,6 +602,112 @@ const sharedConfectJsonSchemasValue4 = {
     workspaceId: {
       type: "string",
     },
+    provider: {
+      type: "string",
+      enum: ["slack", "google-drive", "hubspot"],
+    },
+    status: {
+      type: "string",
+      enum: ["authorizing", "verifying", "active", "error", "revoked"],
+    },
+    generation: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+    connectionRef: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    errorCode: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    createdAt: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+    updatedAt: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+    _id: {
+      type: "string",
+    },
+    _creationTime: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+  },
+  required: [
+    "workspaceId",
+    "provider",
+    "status",
+    "generation",
+    "createdAt",
+    "updatedAt",
+    "_id",
+    "_creationTime",
+  ],
+  additionalProperties: false,
+} as const;
+
+const sharedConfectJsonSchemasValue5 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties: {
+    workspaceId: {
+      type: "string",
+    },
   },
   required: ["workspaceId"],
   additionalProperties: false,
@@ -768,6 +953,95 @@ const sharedConfectJsonSchemas = {
         ],
         additionalProperties: false,
       },
+    },
+  },
+  "auth.workspaces.list.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    anyOf: [
+      {
+        type: "object",
+      },
+      {
+        type: "array",
+      },
+    ],
+  },
+  "auth.workspaces.list.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        organizationId: {
+          type: "string",
+        },
+        ownerUserId: {
+          type: "string",
+        },
+        slug: {
+          type: "string",
+        },
+        name: {
+          type: "string",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "archived"],
+        },
+        dataClassification: {
+          type: "string",
+          enum: ["public", "internal", "confidential"],
+        },
+        createdAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+      },
+      required: [
+        "organizationId",
+        "ownerUserId",
+        "slug",
+        "name",
+        "status",
+        "dataClassification",
+        "createdAt",
+        "updatedAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
     },
   },
   "brain.pages.archive.args": {
@@ -1384,6 +1658,227 @@ const sharedConfectJsonSchemas = {
     sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.runInternal.returns":
     sharedConfectJsonSchemasValue3,
+  "integrations.connections.begin.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      provider: {
+        type: "string",
+        enum: ["slack", "google-drive", "hubspot"],
+      },
+    },
+    required: ["workspaceId", "provider"],
+    additionalProperties: false,
+  },
+  "integrations.connections.begin.returns": sharedConfectJsonSchemasValue4,
+  "integrations.connections.complete.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      provider: {
+        type: "string",
+        enum: ["slack", "google-drive", "hubspot"],
+      },
+      generation: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      completion: {
+        anyOf: [
+          {
+            type: "object",
+            properties: {
+              status: {
+                type: "string",
+                enum: ["active"],
+              },
+              connectionRef: {
+                type: "string",
+                allOf: [
+                  {
+                    minLength: 1,
+                  },
+                ],
+              },
+            },
+            required: ["status", "connectionRef"],
+            additionalProperties: false,
+          },
+          {
+            type: "object",
+            properties: {
+              status: {
+                type: "string",
+                enum: ["error"],
+              },
+              errorCode: {
+                type: "string",
+                allOf: [
+                  {
+                    minLength: 1,
+                  },
+                ],
+              },
+            },
+            required: ["status", "errorCode"],
+            additionalProperties: false,
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "provider", "generation", "completion"],
+    additionalProperties: false,
+  },
+  "integrations.connections.complete.returns": sharedConfectJsonSchemasValue4,
+  "integrations.connections.list.args": sharedConfectJsonSchemasValue5,
+  "integrations.connections.list.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        workspaceId: {
+          type: "string",
+        },
+        provider: {
+          type: "string",
+          enum: ["slack", "google-drive", "hubspot"],
+        },
+        status: {
+          type: "string",
+          enum: ["authorizing", "verifying", "active", "error", "revoked"],
+        },
+        generation: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        connectionRef: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        errorCode: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        createdAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        updatedAt: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        _id: {
+          type: "string",
+        },
+        _creationTime: {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+      },
+      required: [
+        "workspaceId",
+        "provider",
+        "status",
+        "generation",
+        "createdAt",
+        "updatedAt",
+        "_id",
+        "_creationTime",
+      ],
+      additionalProperties: false,
+    },
+  },
+  "integrations.connections.revoke.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      provider: {
+        type: "string",
+        enum: ["slack", "google-drive", "hubspot"],
+      },
+      generation: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "provider", "generation"],
+    additionalProperties: false,
+  },
+  "integrations.connections.revoke.returns": sharedConfectJsonSchemasValue4,
   "ops.dataLifecycle.createDsarRequest.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1752,7 +2247,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue4,
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue5,
   "ops.dataLifecycle.listDsarRequests.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2156,7 +2651,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue4,
+  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue5,
   "ops.email.previewBroadcast.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",

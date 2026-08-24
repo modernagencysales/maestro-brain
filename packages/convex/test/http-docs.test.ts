@@ -330,12 +330,24 @@ describe("template HTTP docs routes", () => {
     expect(html).toContain('data-url="/api/openapi.json"');
   });
 
-  it("executes a generated API operation through the Convex adapter runner", async () => {
-    const calls: unknown[] = [];
+  it("resolves a Brain actor before dispatching a generated mutation", async () => {
+    const calls: Array<{
+      readonly kind: "query" | "mutation";
+      readonly input: Record<string, unknown>;
+    }> = [];
     const ctx: HeadlessHttpCtx = {
       ...noopCtx,
-      runMutation: async (ref, input) => {
-        calls.push([ref, input]);
+      runQuery: async (_ref, input) => {
+        calls.push({ kind: "query", input });
+        return {
+          ok: true,
+          keyId: "api_key_contracts",
+          workspaceId: "workspace_contracts",
+          userId: "user_contracts",
+        };
+      },
+      runMutation: async (_ref, input) => {
+        calls.push({ kind: "mutation", input });
         return { id: "brainPage_123", source: "adapter-runner" };
       },
     };
@@ -343,9 +355,12 @@ describe("template HTTP docs routes", () => {
       ctx,
       new Request("https://template.local/api/brain.pages.createMarkdown", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
-          workspaceSlug: "acme-demo",
+          workspaceSlug: "contracts-primary",
           input: { slug: "a-note", title: "A note", markdown: "# A note" },
           idempotencyKey: "brain-page-example-001",
         }),
@@ -361,17 +376,115 @@ describe("template HTTP docs routes", () => {
         source: "adapter-runner",
       },
     });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject([
-      expect.anything(),
+    expect(calls).toEqual([
       {
-        workspaceId: "workspace_123",
-        slug: "a-note",
-        title: "A note",
-        markdown: "# A note",
-        idempotencyKey: "brain-page-example-001",
+        kind: "query",
+        input: {
+          keyHash: expect.any(String),
+          workspaceSlug: "contracts-primary",
+          requiredScope: "workspace:write",
+          nowMs: expect.any(Number),
+        },
+      },
+      {
+        kind: "mutation",
+        input: {
+          workspaceId: "workspace_contracts",
+          userId: "user_contracts",
+          slug: "a-note",
+          title: "A note",
+          markdown: "# A note",
+        },
       },
     ]);
+    expect(JSON.stringify(calls)).not.toContain("mtk_live_contracts");
+  });
+
+  it("requires a bearer API key for Brain operations", async () => {
+    const response = await handleTemplateHttpRequest(
+      noopCtx,
+      new Request("https://template.local/api/brain.pages.history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceSlug: "contracts-primary",
+          input: { pageId: "brain_page_contracts" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await readJson(response)).toEqual({
+      ok: false,
+      error: {
+        _tag: "Unauthorized",
+        code: "API_KEY_MISSING",
+        message: "Missing bearer API key.",
+      },
+    });
+  });
+
+  it("resolves an assistant actor before returning cited context", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          calls.push(input);
+          return "keyHash" in input
+            ? {
+                ok: true,
+                keyId: "api_key_contracts",
+                workspaceId: "workspace_contracts",
+                userId: "user_contracts",
+              }
+            : {
+                status: "answered",
+                answerMarkdown: "Launches Friday. [1]",
+                contextPack: {
+                  citations: [{ sourceRevisionId: "revision_1" }],
+                },
+              };
+        },
+      },
+      new Request(
+        "https://template.local/api/agents.assistant.answerQuestion",
+        {
+          method: "POST",
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            workspaceSlug: "contracts-primary",
+            input: { question: "When is launch?" },
+          }),
+        },
+      ),
+    );
+
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "agents.assistant.answerQuestion",
+      result: {
+        answerMarkdown: "Launches Friday. [1]",
+        contextPack: { citations: [{ sourceRevisionId: "revision_1" }] },
+      },
+    });
+    expect(calls).toEqual([
+      {
+        keyHash: expect.any(String),
+        workspaceSlug: "contracts-primary",
+        requiredScope: "workspace:read",
+        nowMs: expect.any(Number),
+      },
+      {
+        workspaceId: "workspace_contracts",
+        userId: "user_contracts",
+        question: "When is launch?",
+      },
+    ]);
+    expect(JSON.stringify(calls)).not.toContain("mtk_live_contracts");
   });
 
   it("requires a bearer API key for records operations", async () => {
@@ -500,6 +613,12 @@ describe("template HTTP docs routes", () => {
     const calls: unknown[] = [];
     const ctx: HeadlessHttpCtx = {
       ...noopCtx,
+      runQuery: async () => ({
+        ok: true,
+        keyId: "api_key_openapi",
+        workspaceId: "workspace_openapi",
+        userId: "user_openapi",
+      }),
       runMutation: async (ref, input) => {
         calls.push([ref, input]);
         return { id: "brainPage_456", source: "openapi-envelope" };
@@ -509,10 +628,13 @@ describe("template HTTP docs routes", () => {
       ctx,
       new Request("https://template.local/api/brain.pages.createMarkdown", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer mtk_live_openapi",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
+          workspaceSlug: "openapi-workspace",
           input: {
-            workspaceId: "workspace_openapi",
             slug: "openapi-note",
             title: "OpenAPI note",
             markdown: "# OpenAPI note",
@@ -534,15 +656,15 @@ describe("template HTTP docs routes", () => {
       expect.anything(),
       {
         workspaceId: "workspace_openapi",
+        userId: "user_openapi",
         slug: "openapi-note",
         title: "OpenAPI note",
         markdown: "# OpenAPI note",
-        idempotencyKey: "openapi-envelope-001",
       },
     ]);
   });
 
-  it("fails closed when generated API request fields cannot be mapped", async () => {
+  it("fails closed before dispatch when a Brain API key is missing", async () => {
     const body = await readJson(
       await handleTemplateHttpRequest(
         noopCtx,
@@ -561,9 +683,9 @@ describe("template HTTP docs routes", () => {
     expect(body).toEqual({
       ok: false,
       error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
+        _tag: "Unauthorized",
+        code: "API_KEY_MISSING",
+        message: "Missing bearer API key.",
       },
     });
   });
@@ -574,7 +696,10 @@ describe("template HTTP docs routes", () => {
         noopCtx,
         new Request("https://template.local/api/brain.pages.createMarkdown", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
           body: "{",
         }),
       ),
@@ -595,7 +720,10 @@ describe("template HTTP docs routes", () => {
         noopCtx,
         new Request("https://template.local/api/brain.pages.createMarkdown", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
             workspaceSlug: "acme-demo",
             input: {},
@@ -620,7 +748,10 @@ describe("template HTTP docs routes", () => {
         noopCtx,
         new Request("https://template.local/api/brain.pages.createMarkdown", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
             workspaceSlug: "acme-demo",
             input: { slug: "a-note", title: "A note", markdown: "# A note" },
@@ -634,7 +765,10 @@ describe("template HTTP docs routes", () => {
         noopCtx,
         new Request("https://template.local/api/brain.pages.createMarkdown", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
             workspaceSlug: true,
             input: { slug: "a-note", title: "A note", markdown: "# A note" },
@@ -656,8 +790,7 @@ describe("template HTTP docs routes", () => {
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
+        message: "Brain operations require workspaceSlug.",
       },
     });
   });

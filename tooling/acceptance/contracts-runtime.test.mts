@@ -99,7 +99,23 @@ describe("local Convex seed transport", () => {
         response.end(
           JSON.stringify({
             status: "success",
-            value: { primary: { keyId: "primary" }, observer: {} },
+            value: {
+              primary: {
+                keyId: "primary",
+                workspaceId: "primary",
+                userId: "primary",
+              },
+              client: {
+                keyId: "client",
+                workspaceId: "client",
+                userId: "primary",
+              },
+              observer: {
+                keyId: "observer",
+                workspaceId: "observer",
+                userId: "observer",
+              },
+            },
           }),
         );
       });
@@ -117,6 +133,7 @@ describe("local Convex seed transport", () => {
       args: {
         namespace: "contracts-fixture",
         primaryKeyHash: "a".repeat(43),
+        clientKeyHash: "c".repeat(43),
         observerKeyHash: "b".repeat(43),
       },
       timeoutMs: 1_000,
@@ -154,6 +171,7 @@ describe("local Convex seed transport", () => {
         args: {
           namespace: "contracts-fixture",
           primaryKeyHash: "a".repeat(43),
+          clientKeyHash: "c".repeat(43),
           observerKeyHash: "b".repeat(43),
         },
         timeoutMs: 5,

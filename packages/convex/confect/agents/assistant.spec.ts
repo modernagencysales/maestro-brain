@@ -36,6 +36,11 @@ export const AnswerQuestionArgs = S.Struct({
   ),
 });
 
+const AnswerQuestionForActorArgs = S.Struct({
+  ...AnswerQuestionArgs.fields,
+  userId: Id("users"),
+});
+
 export const AnswerCitation = S.Struct({
   citationKey: S.String,
   sourceId: S.String,
@@ -229,6 +234,13 @@ const answerQuestion = defineContractFunction(
   },
 );
 
+const answerQuestionForActor = FunctionSpec.internalQuery({
+  name: "answerQuestionForActor",
+  args: () => AnswerQuestionForActorArgs,
+  returns: () => AnswerQuestionReturn,
+  error: () => AssistantError.Schema,
+});
+
 const resolveAccess = FunctionSpec.internalQuery({
   name: "resolveAccess",
   args: () => S.Struct({ workspaceId: Id("workspaces") }),
@@ -238,6 +250,7 @@ const resolveAccess = FunctionSpec.internalQuery({
 
 export default GroupSpec.make()
   .addFunction(answerQuestion.spec)
+  .addFunction(answerQuestionForActor)
   .addFunction(startThread)
   .addFunction(continueThread)
   .addFunction(listThreadMessages)

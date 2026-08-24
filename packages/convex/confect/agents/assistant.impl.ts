@@ -19,7 +19,10 @@ import {
   QueryCtx,
   QueryRunner,
 } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import {
+  requireWorkspaceAccess,
+  requireWorkspaceActorAccess,
+} from "../capabilities/_kit/workspaceAccess";
 import {
   MemberNotInWorkspace,
   Unauthorized,
@@ -56,6 +59,24 @@ const assistantAccess = (
         });
       }
       return new AssistantError.Unauthenticated();
+    }),
+  );
+
+const assistantActorAccess = (
+  workspaceId: Parameters<typeof requireWorkspaceActorAccess>[0],
+  userId: Parameters<typeof requireWorkspaceActorAccess>[1],
+) =>
+  withConfectClock(
+    requireWorkspaceActorAccess(workspaceId, userId, "viewer"),
+  ).pipe(
+    Effect.mapError((error) => {
+      if (error instanceof Unauthorized) {
+        return new AssistantError.Unauthenticated();
+      }
+      return new AssistantError.NoWorkspaceAccess({
+        workspaceId,
+        userId,
+      });
     }),
   );
 
@@ -130,81 +151,103 @@ const resolveAccess = FunctionImpl.make(
     assistantAccess(workspaceId).pipe(Effect.map(({ userId }) => ({ userId }))),
 );
 
+const answerGroundedQuestion = (input: {
+  readonly workspaceId: Parameters<typeof assistantAccess>[0];
+  readonly question: string;
+  readonly maxCitations?: number | undefined;
+}) =>
+  Effect.gen(function* () {
+    const normalizedQuestion = input.question.trim();
+    if (normalizedQuestion.length === 0)
+      return yield* new AssistantError.ValidationFailed({
+        field: "question",
+        message: "Question must not be blank.",
+      });
+    const reader = yield* DatabaseReader;
+    const now = yield* withConfectClock(Clock.currentTimeMillis);
+    const pages = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", input.workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    const revisions = yield* reader
+      .table("pageRevisions")
+      .index("by_workspace", (q) => q.eq("workspaceId", input.workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    const grounded = buildGroundedAnswer({
+      workspaceId: input.workspaceId,
+      question: normalizedQuestion,
+      pages: pages.map((page) => ({
+        id: page._id,
+        workspaceId: page.workspaceId,
+        title: page.title,
+        markdown: page.markdown,
+        updatedAt: page.updatedAt,
+        status: page.status ?? "active",
+      })),
+      revisions: revisions.map((revision) => ({
+        workspaceId: revision.workspaceId,
+        pageId: revision.pageId,
+        title: revision.title,
+        markdown: revision.markdown,
+        updatedAt: revision.updatedAt,
+        status: revision.status,
+      })),
+      now,
+      ...(input.maxCitations === undefined
+        ? {}
+        : { maxCitations: input.maxCitations }),
+    });
+    const contextPack = {
+      schemaVersion: "3" as const,
+      candidateManifest: {
+        schemaVersion: "2" as const,
+        candidateKeys: grounded.citations.map(
+          ({ sourceRevisionId }) => sourceRevisionId,
+        ),
+      },
+      workspaceId: input.workspaceId,
+      question: normalizedQuestion,
+      asOf: grounded.asOf,
+      freshness: grounded.freshness,
+      citations: grounded.citations,
+      omissions: grounded.omissions,
+    };
+
+    return grounded.status === "answered"
+      ? {
+          status: "answered" as const,
+          answerMarkdown: grounded.answerMarkdown ?? "",
+          contextPack,
+        }
+      : {
+          status: "insufficient-context" as const,
+          reason: "no-eligible-evidence" as const,
+          answerMarkdown: null,
+          contextPack,
+        };
+  });
+
 const answerQuestion = FunctionImpl.make(
   databaseSchema,
   assistant,
   "answerQuestion",
-  ({ workspaceId, question, maxCitations }) =>
+  (args) =>
     Effect.gen(function* () {
-      const normalizedQuestion = question.trim();
-      if (normalizedQuestion.length === 0)
-        return yield* new AssistantError.ValidationFailed({
-          field: "question",
-          message: "Question must not be blank.",
-        });
-      yield* assistantAccess(workspaceId);
-      const reader = yield* DatabaseReader;
-      const now = yield* withConfectClock(Clock.currentTimeMillis);
-      const pages = yield* reader
-        .table("brainPages")
-        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-        .collect()
-        .pipe(Effect.orDie);
-      const revisions = yield* reader
-        .table("pageRevisions")
-        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-        .collect()
-        .pipe(Effect.orDie);
-      const grounded = buildGroundedAnswer({
-        workspaceId,
-        question: normalizedQuestion,
-        pages: pages.map((page) => ({
-          id: page._id,
-          workspaceId: page.workspaceId,
-          title: page.title,
-          markdown: page.markdown,
-          updatedAt: page.updatedAt,
-          status: page.status ?? "active",
-        })),
-        revisions: revisions.map((revision) => ({
-          workspaceId: revision.workspaceId,
-          pageId: revision.pageId,
-          title: revision.title,
-          markdown: revision.markdown,
-          updatedAt: revision.updatedAt,
-          status: revision.status,
-        })),
-        now,
-        ...(maxCitations === undefined ? {} : { maxCitations }),
-      });
-      const contextPack = {
-        schemaVersion: "3" as const,
-        candidateManifest: {
-          schemaVersion: "2" as const,
-          candidateKeys: grounded.citations.map(
-            ({ sourceRevisionId }) => sourceRevisionId,
-          ),
-        },
-        workspaceId,
-        question: normalizedQuestion,
-        asOf: grounded.asOf,
-        freshness: grounded.freshness,
-        citations: grounded.citations,
-        omissions: grounded.omissions,
-      };
+      yield* assistantAccess(args.workspaceId);
+      return yield* answerGroundedQuestion(args);
+    }),
+);
 
-      return grounded.status === "answered"
-        ? {
-            status: "answered" as const,
-            answerMarkdown: grounded.answerMarkdown ?? "",
-            contextPack,
-          }
-        : {
-            status: "insufficient-context" as const,
-            reason: "no-eligible-evidence" as const,
-            answerMarkdown: null,
-            contextPack,
-          };
+const answerQuestionForActor = FunctionImpl.make(
+  databaseSchema,
+  assistant,
+  "answerQuestionForActor",
+  ({ userId, ...args }) =>
+    Effect.gen(function* () {
+      yield* assistantActorAccess(args.workspaceId, userId);
+      return yield* answerGroundedQuestion(args);
     }),
 );
 
@@ -330,6 +373,7 @@ const listThreadMessages = FunctionImpl.make(
 
 export default GroupImpl.make(databaseSchema, assistant).pipe(
   Layer.provide(answerQuestion),
+  Layer.provide(answerQuestionForActor),
   Layer.provide(startThread),
   Layer.provide(continueThread),
   Layer.provide(listThreadMessages),

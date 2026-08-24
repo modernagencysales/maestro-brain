@@ -44,11 +44,13 @@ const seedLocalContracts = FunctionSpec.internalMutation({
     Schema.Struct({
       namespace: ContractsNamespace,
       primaryKeyHash: Sha256Base64Url,
+      clientKeyHash: Sha256Base64Url,
       observerKeyHash: Sha256Base64Url,
     }),
   returns: () =>
     Schema.Struct({
       primary: SeededContractsActor,
+      client: SeededContractsActor,
       observer: SeededContractsActor,
     }),
 });

@@ -69,6 +69,31 @@ const HistoryArgs = Schema.Struct({
 
 const HistoryReturns = Schema.Array(pageRevisions.Doc);
 
+const ActorListArgs = Schema.Struct({
+  ...ListArgs.fields,
+  userId: Id("users"),
+});
+
+const ActorPageDetailArgs = Schema.Struct({
+  ...PageDetailArgs.fields,
+  userId: Id("users"),
+});
+
+const ActorCreateMarkdownArgs = Schema.Struct({
+  ...CreateMarkdownArgs.fields,
+  userId: Id("users"),
+});
+
+const ActorUpdateMarkdownArgs = Schema.Struct({
+  ...UpdateMarkdownArgs.fields,
+  userId: Id("users"),
+});
+
+const ActorHistoryArgs = Schema.Struct({
+  ...HistoryArgs.fields,
+  userId: Id("users"),
+});
+
 const PageRevisionArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   pageId: Id("brainPages"),
@@ -119,8 +144,13 @@ const list = defineContractFunction(
     name: "list",
     operationId: "brain.pages.list",
     kind: "query",
-    surfaces: ["web"],
-    typedErrors: ["Unauthorized", "MemberNotInWorkspace", "WorkspaceNotFound"],
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
     idempotent: true,
     argsSchemaName: "brain.pages.list.args",
     returnsSchemaName: "brain.pages.list.returns",
@@ -141,7 +171,7 @@ const get = defineContractFunction(
     name: "get",
     operationId: "brain.pages.get",
     kind: "query",
-    surfaces: ["web"],
+    surfaces: ["web", "api", "cli", "mcp"],
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -241,6 +271,41 @@ const history = defineContractFunction(
   },
 );
 
+const listForActor = FunctionSpec.internalQuery({
+  name: "listForActor",
+  args: () => ActorListArgs,
+  returns: () => ListReturns,
+  error: () => BrainPageError,
+});
+
+const getForActor = FunctionSpec.internalQuery({
+  name: "getForActor",
+  args: () => ActorPageDetailArgs,
+  returns: () => brainPages.Doc,
+  error: () => BrainPageError,
+});
+
+const createMarkdownForActor = FunctionSpec.internalMutation({
+  name: "createMarkdownForActor",
+  args: () => ActorCreateMarkdownArgs,
+  returns: () => CreateMarkdownReturns,
+  error: () => BrainPageWriteError,
+});
+
+const updateMarkdownForActor = FunctionSpec.internalMutation({
+  name: "updateMarkdownForActor",
+  args: () => ActorUpdateMarkdownArgs,
+  returns: () => brainPages.Doc,
+  error: () => BrainPageWriteError,
+});
+
+const historyForActor = FunctionSpec.internalQuery({
+  name: "historyForActor",
+  args: () => ActorHistoryArgs,
+  returns: () => HistoryReturns,
+  error: () => BrainPageError,
+});
+
 const pageWriteErrors = [
   "Unauthorized",
   "MemberNotInWorkspace",
@@ -314,6 +379,11 @@ export default GroupSpec.make()
   .addFunction(history.spec)
   .addFunction(createMarkdown.spec)
   .addFunction(updateMarkdown.spec)
+  .addFunction(listForActor)
+  .addFunction(getForActor)
+  .addFunction(createMarkdownForActor)
+  .addFunction(updateMarkdownForActor)
+  .addFunction(historyForActor)
   .addFunction(rename.spec)
   .addFunction(move.spec)
   .addFunction(favorite.spec)

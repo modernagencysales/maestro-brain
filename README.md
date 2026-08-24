@@ -51,6 +51,19 @@ git commit -m "feat: add reviewed Maestro change"
 pnpm maestro -- start --mode fake
 ```
 
+In this Brain repository, `start` also enforces `canonical-launch.json` before
+spawning the web app. That contract pins the real GitHub repository, alpha.9
+Saas UI shell ancestry and template instance, Starter route tree, upstream
+screen provenance, empty deviation ledger, and requested port ownership. The
+guard exists so an old checkout cannot silently launch a familiar but obsolete
+interface.
+
+Use the reviewed local command:
+
+```bash
+rtk pnpm maestro -- start --mode fake --web-port 15173 --readiness-port 14174
+```
+
 For the copy/paste CRUD walkthrough, use
 [Template Quickstart](./docs/template/quickstart.md). The broader method is in
 [App Factory Guide](./docs/template/app-factory-guide.md), and recipe safety is

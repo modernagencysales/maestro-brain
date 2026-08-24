@@ -23,6 +23,7 @@ type SeedLocalContractsInput = {
   readonly args: {
     readonly namespace: string;
     readonly primaryKeyHash: string;
+    readonly clientKeyHash: string;
     readonly observerKeyHash: string;
   };
   readonly timeoutMs: number;
@@ -31,8 +32,10 @@ type SeedLocalContractsInput = {
 export type ContractsScenario = {
   readonly namespace: string;
   readonly workspaceSlug: string;
+  readonly clientWorkspaceSlug: string;
   readonly observerWorkspaceSlug: string;
   readonly primary: SeededActor;
+  readonly client: SeededActor;
   readonly observer: SeededActor;
 };
 
@@ -48,8 +51,15 @@ export type ContractsRuntime = {
   readonly runCli: (
     scenario: ContractsScenario,
     args: readonly string[],
-    actor?: "primary" | "observer" | "none",
+    actor?: "primary" | "client" | "observer" | "none",
   ) => Promise<string>;
+  readonly runApi: (
+    scenario: ContractsScenario,
+    operationId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    actor?: "primary" | "client" | "observer",
+  ) => Promise<unknown>;
 };
 
 type AppSpec = {
@@ -118,6 +128,7 @@ type ProxyInput = {
   readonly apiBaseUrl: string;
   readonly apiKey: string;
   readonly workspaceSlug: string;
+  readonly credentialsByWorkspace?: Readonly<Record<string, string>>;
 };
 
 export const proxyContractsRequest = async ({
@@ -125,6 +136,7 @@ export const proxyContractsRequest = async ({
   apiBaseUrl,
   apiKey,
   workspaceSlug,
+  credentialsByWorkspace,
 }: ProxyInput): Promise<void> => {
   try {
     const request = route.request();
@@ -132,6 +144,12 @@ export const proxyContractsRequest = async ({
     const body: unknown = rawBody ? JSON.parse(rawBody) : {};
     if (!isObject(body)) throw new Error("Invalid contracts request.");
     const sourceUrl = new URL(request.url());
+    const frameUrl = new URL(request.frame().url());
+    const activeWorkspaceSlug = frameUrl.pathname.split("/").filter(Boolean)[0];
+    const activeApiKey =
+      (activeWorkspaceSlug === undefined
+        ? undefined
+        : credentialsByWorkspace?.[activeWorkspaceSlug]) ?? apiKey;
     const targetUrl = `${apiBaseUrl}${sourceUrl.pathname.replace(
       /^\/__contracts/u,
       "",
@@ -139,10 +157,13 @@ export const proxyContractsRequest = async ({
     const response = await route.fetch({
       method: request.method(),
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${activeApiKey}`,
         "content-type": "application/json",
       },
-      postData: JSON.stringify({ ...body, workspaceSlug }),
+      postData: JSON.stringify({
+        ...body,
+        workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
+      }),
       url: targetUrl,
     });
     await route.fulfill({ response });
@@ -355,6 +376,7 @@ export const runLocalSeedMutation = async (
             const detail = seedFailureDetail(payload, [
               input.adminKey,
               input.args.primaryKeyHash,
+              input.args.clientKeyHash,
               input.args.observerKeyHash,
             ]);
             reject(
@@ -386,19 +408,25 @@ const parseSeedResult = (
   raw: string,
 ): {
   readonly primary: SeededActor;
+  readonly client: SeededActor;
   readonly observer: SeededActor;
 } => {
   const value: unknown = JSON.parse(raw);
   if (
     !isObject(value) ||
     !isSeededActor(value.primary) ||
+    !isSeededActor(value.client) ||
     !isSeededActor(value.observer)
   ) {
     throw new Error(
       "The local contracts fixture returned invalid identifiers.",
     );
   }
-  return { primary: value.primary, observer: value.observer };
+  return {
+    primary: value.primary,
+    client: value.client,
+    observer: value.observer,
+  };
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -693,7 +721,11 @@ async function bootContractsRuntime(
     );
     const credentials = new WeakMap<
       ContractsScenario,
-      { readonly primary: string; readonly observer: string }
+      {
+        readonly primary: string;
+        readonly client: string;
+        readonly observer: string;
+      }
     >();
     const runCommand = async (
       args: readonly string[],
@@ -715,12 +747,18 @@ async function bootContractsRuntime(
       const observerKey = `mtk_live_${Buffer.from(
         dependencies.randomBytes(32),
       ).toString("base64url")}`;
+      const clientKey = `mtk_live_${Buffer.from(
+        dependencies.randomBytes(32),
+      ).toString("base64url")}`;
       const primaryKeyHash = hashKey(primaryKey);
+      const clientKeyHash = hashKey(clientKey);
       const observerKeyHash = hashKey(observerKey);
       for (const value of [
         primaryKey,
+        clientKey,
         observerKey,
         primaryKeyHash,
+        clientKeyHash,
         observerKeyHash,
       ])
         secrets.add(value);
@@ -732,7 +770,12 @@ async function bootContractsRuntime(
           seedOutput = await dependencies.seedLocalContracts({
             deploymentUrl: `http://127.0.0.1:${convexPort}`,
             adminKey: localAdminKey,
-            args: { namespace, primaryKeyHash, observerKeyHash },
+            args: {
+              namespace,
+              primaryKeyHash,
+              clientKeyHash,
+              observerKeyHash,
+            },
             timeoutMs: boundedSeedAttemptTimeout(
               remaining,
               commandTimeoutMs,
@@ -756,11 +799,17 @@ async function bootContractsRuntime(
       const scenario: ContractsScenario = Object.freeze({
         namespace,
         workspaceSlug: `${namespace}-primary`,
+        clientWorkspaceSlug: `${namespace}-client`,
         observerWorkspaceSlug: `${namespace}-observer`,
         primary: Object.freeze(seeded.primary),
+        client: Object.freeze(seeded.client),
         observer: Object.freeze(seeded.observer),
       });
-      credentials.set(scenario, { primary: primaryKey, observer: observerKey });
+      credentials.set(scenario, {
+        primary: primaryKey,
+        client: clientKey,
+        observer: observerKey,
+      });
       return scenario;
     };
     const requireCredentials = (scenario: ContractsScenario) => {
@@ -774,13 +823,18 @@ async function bootContractsRuntime(
       apiBaseUrl,
       provisionScenario,
       authorizeBrowserContext: async (scenario, context) => {
-        const key = requireCredentials(scenario).primary;
+        const scenarioCredentials = requireCredentials(scenario);
+        const key = scenarioCredentials.primary;
         await context.route("**/__contracts/api/**", (route) =>
           proxyContractsRequest({
             requestRoute: route,
             apiBaseUrl,
             apiKey: key,
             workspaceSlug: scenario.workspaceSlug,
+            credentialsByWorkspace: {
+              [scenario.workspaceSlug]: scenarioCredentials.primary,
+              [scenario.clientWorkspaceSlug]: scenarioCredentials.client,
+            },
           }),
         );
       },
@@ -791,6 +845,36 @@ async function bootContractsRuntime(
           MAESTRO_API_BASE_URL: apiBaseUrl,
           MAESTRO_API_KEY: actor === "none" ? "" : scenarioCredentials[actor],
         });
+      },
+      runApi: async (
+        scenario,
+        operationId,
+        input,
+        idempotencyKey,
+        actor = "primary",
+      ) => {
+        const scenarioCredentials = requireCredentials(scenario);
+        const response = await fetch(
+          new URL(`/api/${encodeURIComponent(operationId)}`, `${apiBaseUrl}/`),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${scenarioCredentials[actor]}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              workspaceSlug:
+                actor === "primary"
+                  ? scenario.workspaceSlug
+                  : actor === "client"
+                    ? scenario.clientWorkspaceSlug
+                    : scenario.observerWorkspaceSlug,
+              input,
+              ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+            }),
+          },
+        );
+        return await response.json();
       },
     };
     return Object.freeze(runtime);

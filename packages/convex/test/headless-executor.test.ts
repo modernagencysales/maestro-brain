@@ -46,8 +46,12 @@ const createAdapter = (
 });
 
 describe("headless executor", () => {
-  it("does not expose web-only operations on headless API surfaces", () => {
-    expect(findHeadlessOperation("brain.pages.list", "api")).toBeUndefined();
+  it("exposes Brain reads on headless API surfaces", () => {
+    expect(findHeadlessOperation("brain.pages.list", "api")).toMatchObject({
+      operationId: "brain.pages.list",
+      kind: "query",
+      idempotent: true,
+    });
   });
 
   it("requires idempotency keys for non-idempotent headless writes", async () => {

@@ -22,6 +22,20 @@ pnpm maestro -- start --mode local
 pnpm maestro -- start --mode dev
 ```
 
+This customer repository also owns `canonical-launch.json`. Before any process
+starts, the launcher verifies the exact GitHub repository, `origin/main`
+ancestry, immutable alpha.9 template release, literal Starter route tree, screen
+provenance markers, and the empty Saas UI deviation ledger. It also identifies
+the process and checkout that already own the requested web port. This prevents
+an old worktree or hand-built replacement shell from looking like the current
+product merely because it starts successfully.
+
+The reviewed Brain launch command on this workstation is:
+
+```bash
+rtk pnpm maestro -- start --mode fake --web-port 15173 --readiness-port 14174
+```
+
 If a reviewed default conflicts with another service, keep that service running
 and choose explicit replacement ports:
 
@@ -51,6 +65,12 @@ owner. A missing executable, immediate exit, unsolicited child signal, readiness
 error, or readiness timeout is an unavailable dependency. Commands use argv
 arrays with the customer target as their exact working directory. Logs are
 prefixed by process group and redact bearer tokens and secret-like assignments.
+
+The repository-owned launch contract is an additional admission gate, not a
+second source of product code. Keep it aligned when intentionally adopting a new
+immutable template release or replacing an upstream screen. Missing Git metadata
+or unreadable provenance fails closed with a concrete launcher diagnostic
+instead of an unhandled exception.
 
 Fake and local children receive fresh environments projected from the injected
 base. Fake neutralizes Convex selectors so the documented disconnected fallback
