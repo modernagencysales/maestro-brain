@@ -8,6 +8,15 @@ type OpenNangoConnect = (input: {
   readonly connectSessionToken: string
 }) => Promise<{ readonly connectionId: string }>
 
+export const isLiveSlackOauthTransition = (input: {
+  readonly mode: 'isolated' | 'live' | 'fixture'
+  readonly provider: 'slack' | 'google-drive' | 'hubspot'
+  readonly event: 'connect' | 'disconnect'
+}): boolean =>
+  input.mode === 'live' &&
+  input.provider === 'slack' &&
+  input.event === 'connect'
+
 export const runSlackConnect = async (input: {
   readonly begin: () => Promise<BeginResult>
   readonly open: OpenNangoConnect

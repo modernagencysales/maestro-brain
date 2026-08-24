@@ -1,8 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { runSlackConnect } from './slack-connect'
+import {
+  isLiveSlackOauthTransition,
+  runSlackConnect,
+} from './slack-connect'
 
 describe('runSlackConnect', () => {
+  it('selects OAuth only for a live Slack connect', () => {
+    expect(
+      isLiveSlackOauthTransition({
+        mode: 'live',
+        provider: 'slack',
+        event: 'connect',
+      }),
+    ).toBe(true)
+    expect(
+      isLiveSlackOauthTransition({
+        mode: 'fixture',
+        provider: 'slack',
+        event: 'connect',
+      }),
+    ).toBe(false)
+  })
+
   it('runs begin, browser OAuth, and completion in order', async () => {
     const begin = vi.fn().mockResolvedValue({
       connectSessionToken: 'connect_token',

@@ -31,7 +31,10 @@ import {
   type ConnectionStatus,
   type DurableConnection,
 } from './connections-adapter'
-import { runSlackConnect } from './slack-connect'
+import {
+  isLiveSlackOauthTransition,
+  runSlackConnect,
+} from './slack-connect'
 
 const listConnectionsRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.list,
@@ -90,7 +93,8 @@ export const ConnectionsPage = () => {
     id: ConnectionCardModel['id'],
     event: 'connect' | 'disconnect',
   ) => {
-    if (!isolatedContracts && !fixtureRuntime && id === 'slack' && event === 'connect') {
+    const mode = connectionRuntimeMode(isolatedContracts, fixtureRuntime)
+    if (isLiveSlackOauthTransition({ mode, provider: id, event })) {
       await runSlackConnect({
         begin: () => beginSlackOauth({ workspaceId: workspace.id }),
         open: openNangoConnect,
@@ -104,7 +108,7 @@ export const ConnectionsPage = () => {
       return
     }
     await executeConnectionTransition({
-      mode: connectionRuntimeMode(isolatedContracts, fixtureRuntime),
+      mode,
       provider: id,
       event,
       liveConnections,
