@@ -227,10 +227,6 @@ test(
     await expect(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
-    const responseUrls: string[] = [];
-    const pageErrors: string[] = [];
-    page.on("response", (response) => responseUrls.push(response.url()));
-    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page
       .getByRole("button", { name: "Connect", exact: true })
       .first()
@@ -245,23 +241,17 @@ test(
       }[];
     };
     let connected: ConnectionListResponse = { ok: true, result: [] };
-    try {
-      await expect
-        .poll(async () => {
-          connected = (await runtime.runApi(
-            scenario,
-            "integrations.connections.list",
-            {},
-          )) as ConnectionListResponse;
-          return connected.result.find(({ provider }) => provider === "slack")
-            ?.status;
-        })
-        .toBe("active");
-    } catch (error) {
-      throw new Error(
-        JSON.stringify({ error: String(error), pageErrors, responseUrls }),
-      );
-    }
+    await expect
+      .poll(async () => {
+        connected = (await runtime.runApi(
+          scenario,
+          "integrations.connections.list",
+          {},
+        )) as ConnectionListResponse;
+        return connected.result.find(({ provider }) => provider === "slack")
+          ?.status;
+      })
+      .toBe("active");
     expect(connected.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "active" }),
     );
@@ -272,11 +262,18 @@ test(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
 
-    const revoked = (await runtime.runApi(
-      scenario,
-      "integrations.connections.list",
-      {},
-    )) as ConnectionListResponse;
+    let revoked: ConnectionListResponse = { ok: true, result: [] };
+    await expect
+      .poll(async () => {
+        revoked = (await runtime.runApi(
+          scenario,
+          "integrations.connections.list",
+          {},
+        )) as ConnectionListResponse;
+        return revoked.result.find(({ provider }) => provider === "slack")
+          ?.status;
+      })
+      .toBe("revoked");
     expect(revoked.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "revoked" }),
     );
