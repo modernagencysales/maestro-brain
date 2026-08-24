@@ -939,8 +939,10 @@ export const buildClientReleaseReport = (options: {
 
 export const smokeWebStaticBuild = (options?: {
   readonly repoRoot?: string;
+  readonly deploymentKind?: "pages" | "worker";
 }): WebStaticSmokeReport => {
   const repoRoot = options?.repoRoot ?? process.cwd();
+  const deploymentKind = options?.deploymentKind ?? "pages";
   const distPath = resolve(repoRoot, "apps/web/dist");
   const indexPath = join(distPath, "index.html");
   const startShellPath = join(distPath, "client/_shell.html");
@@ -948,6 +950,40 @@ export const smokeWebStaticBuild = (options?: {
   const startAssetsPath = join(distPath, "client/assets");
   const checks = [];
   const htmlPath = existsSync(indexPath) ? indexPath : startShellPath;
+
+  if (deploymentKind === "worker") {
+    const workerEntryPath = join(distPath, "server/index.js");
+    const workerConfigPath = join(distPath, "server/wrangler.json");
+    const assets = existsSync(startAssetsPath)
+      ? readdirSync(startAssetsPath)
+      : [];
+
+    checks.push(
+      existsSync(workerEntryPath)
+        ? pass("web:worker-entry", `Found ${workerEntryPath}`)
+        : fail(
+            "web:worker-entry",
+            `Missing ${workerEntryPath}. Run pnpm build.`,
+          ),
+      existsSync(workerConfigPath)
+        ? pass("web:worker-config", `Found ${workerConfigPath}`)
+        : fail(
+            "web:worker-config",
+            `Missing ${workerConfigPath}. Run pnpm build.`,
+          ),
+      assets.length > 0
+        ? pass("web:assets", `Found ${assets.length} built assets`)
+        : fail("web:assets", `Missing built assets under ${startAssetsPath}`),
+    );
+
+    return {
+      ok: checks.every((check) => check.status === "pass"),
+      distPath,
+      indexHtmlBytes: 0,
+      assetCount: assets.length,
+      checks,
+    };
+  }
 
   if (!existsSync(htmlPath)) {
     checks.push(
@@ -1022,7 +1058,18 @@ export const runReleaseCli = (
   }
 
   if (command === "smoke-web-static") {
-    const report = smokeWebStaticBuild({ repoRoot: cwd });
+    const deploymentKind = argv[1] ?? "pages";
+    if (deploymentKind !== "pages" && deploymentKind !== "worker") {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: "Usage: smoke-web-static <pages|worker>\n",
+      };
+    }
+    const report = smokeWebStaticBuild({
+      repoRoot: cwd,
+      deploymentKind,
+    });
 
     return {
       exitCode: report.ok ? 0 : 1,

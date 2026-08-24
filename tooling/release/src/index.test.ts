@@ -49,6 +49,23 @@ const makeStartRepo = (): string => {
   return repoRoot;
 };
 
+const makeWorkerRepo = (): string => {
+  const repoRoot = join(
+    tmpdir(),
+    `maestro-template-worker-release-${Math.random().toString(16).slice(2)}`,
+  );
+  const server = join(repoRoot, "apps/web/dist/server");
+  const assets = join(repoRoot, "apps/web/dist/client/assets");
+
+  mkdirSync(server, { recursive: true });
+  mkdirSync(assets, { recursive: true });
+  writeFileSync(join(server, "index.js"), "export default {};");
+  writeFileSync(join(server, "wrangler.json"), "{}\n");
+  writeFileSync(join(assets, "index.js"), "console.log('ok');");
+
+  return repoRoot;
+};
+
 const makeReviewerRepo = (): string => {
   const repoRoot = join(
     tmpdir(),
@@ -173,6 +190,32 @@ describe("release tooling", () => {
             id: "web:assets-linked",
             status: "pass",
           }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("passes for a TanStack Start Cloudflare Worker build", () => {
+    const repoRoot = makeWorkerRepo();
+
+    try {
+      expect(
+        smokeWebStaticBuild({ repoRoot, deploymentKind: "worker" }),
+      ).toMatchObject({
+        ok: true,
+        assetCount: 1,
+        checks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "web:worker-entry",
+            status: "pass",
+          }),
+          expect.objectContaining({
+            id: "web:worker-config",
+            status: "pass",
+          }),
+          expect.objectContaining({ id: "web:assets", status: "pass" }),
         ]),
       });
     } finally {

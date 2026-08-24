@@ -109,6 +109,26 @@ describe("customer chassis Woodpecker admission", () => {
     expect(packageJson.scripts.verify).toContain("pnpm acceptance:required");
   });
 
+  it("keeps the static web smoke callable from every deploy path", () => {
+    const packageJson = JSON.parse(read("package.json")) as {
+      readonly scripts: Readonly<Record<string, string>>;
+    };
+
+    expect(packageJson.scripts["smoke:web-static"]).toBe(
+      "tsx tooling/release/src/index.ts smoke-web-static ${CLOUDFLARE_DEPLOYMENT_KIND:-pages}",
+    );
+    expect(packageJson.scripts["deploy:cloudflare"]).toContain(
+      "pnpm smoke:web-static",
+    );
+    for (const path of [
+      "tooling/ci/staging-deploy.sh",
+      "tooling/ci/production-promote.sh",
+      "tooling/ci/rollback-promote.sh",
+    ]) {
+      expect(read(path)).toContain("pnpm smoke:web-static");
+    }
+  });
+
   it("runs fast acceptance tooling from the root test command", () => {
     const packageJson = JSON.parse(read("package.json")) as {
       readonly scripts: Readonly<Record<string, string>>;
