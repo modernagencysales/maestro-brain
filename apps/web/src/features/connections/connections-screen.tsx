@@ -1,15 +1,14 @@
+import { Button, Page, Stack, Text } from "@saas-ui/react";
+import { SimpleGrid } from "@chakra-ui/react";
+import { FaSlack } from "react-icons/fa6";
 import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Flex,
-  Heading,
-  Page,
-  Stack,
-  Table,
-  Text,
-} from "@saas-ui/react";
+  LuAudioLines,
+  LuExternalLink,
+  LuNotebookTabs,
+  LuRadio,
+} from "react-icons/lu";
+import type { IconType } from "react-icons";
+import { IntegrationCard } from "../../components/integration-card/integration-card";
 import {
   NangoConnectButton,
   type SlackConnectStatus,
@@ -162,77 +161,27 @@ function ConnectionsStateCard({
     return <StateCard {...connectionPlaceholders[state.status]} />;
 
   return (
-    <Card.Root borderRadius="md">
-      <Card.Header>
-        <Flex align="center" justify="space-between" gap="3">
-          <Box>
-            <Heading size="md">Workspace connections</Heading>
-            <Text color="gray.600" fontSize="sm">
-              Nango manages provider authorization while Brain owns ingestion
-              and routing.
-            </Text>
-          </Box>
-          <Badge colorPalette="green">Ready</Badge>
-        </Flex>
-      </Card.Header>
-      <Card.Body pt="0">
-        <Box aria-label="Connections table" overflowX="auto" tabIndex={0}>
-          <Table.Root minW="640px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Provider</Table.ColumnHeader>
-                <Table.ColumnHeader>Status</Table.ColumnHeader>
-                <Table.ColumnHeader>Calls</Table.ColumnHeader>
-                <Table.ColumnHeader>Last sync</Table.ColumnHeader>
-                <Table.ColumnHeader>Action</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {state.connections.map((connection) => (
-                <Table.Row key={connection.key}>
-                  <Table.Cell>
-                    <Stack gap="0">
-                      <Text fontWeight="medium">{connection.provider}</Text>
-                      <Text color="gray.600" fontSize="xs">
-                        {connection.authMethod}
-                      </Text>
-                    </Stack>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Stack gap="1">
-                      <Badge
-                        alignSelf="flex-start"
-                        colorPalette={statusTone(connection.status)}
-                      >
-                        {connection.status}
-                      </Badge>
-                      {connection.lastError ? (
-                        <Text color="red.600" fontSize="xs">
-                          {connection.lastError}
-                        </Text>
-                      ) : null}
-                    </Stack>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <ConnectionActivity connection={connection} />
-                  </Table.Cell>
-                  <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
-                  <Table.Cell>
-                    <ConnectionActions
-                      canManage={canManage}
-                      connection={connection}
-                      onConnect={onConnect}
-                      onDisconnect={onDisconnect}
-                      onPurge={onPurge}
-                    />
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </Box>
-      </Card.Body>
-    </Card.Root>
+    <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+      {state.connections.map((connection) => (
+        <IntegrationCard
+          key={connection.key}
+          name={connection.provider}
+          type={connectionType(connection)}
+          icon={connectionIcon(connection.key)}
+          description={connectionDescription(connection)}
+          details={<ConnectionActivity connection={connection} />}
+          actions={
+            <ConnectionActions
+              canManage={canManage}
+              connection={connection}
+              onConnect={onConnect}
+              onDisconnect={onDisconnect}
+              onPurge={onPurge}
+            />
+          }
+        />
+      ))}
+    </SimpleGrid>
   );
 }
 
@@ -255,7 +204,7 @@ function ConnectionActions({
     connection.disconnectAvailable !== false;
   const revoked = connection.status === "revoked";
   return (
-    <Flex gap="2" wrap="wrap">
+    <>
       <NangoConnectButton
         enabled={canManage && !connection.cleanupPending}
         providerName={connection.provider}
@@ -297,7 +246,16 @@ function ConnectionActions({
           Request purge of {connection.provider} data
         </Button>
       ) : null}
-    </Flex>
+      <Button asChild type="button" variant="ghost">
+        <a
+          href={connectionDocs(connection.key)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <LuExternalLink /> Docs
+        </a>
+      </Button>
+    </>
   );
 }
 
@@ -307,7 +265,18 @@ function ConnectionActivity({
   readonly connection: ConnectionRow;
 }) {
   if (connection.category === "slack")
-    return <Text fontSize="sm">Messages and Ask Apero</Text>;
+    return (
+      <Stack gap="1">
+        <Text color="gray.600" fontSize="xs">
+          {connection.authMethod} · Messages and Ask Apero
+        </Text>
+        {connection.lastError ? (
+          <Text color="red.600" fontSize="xs">
+            {connection.lastError}
+          </Text>
+        ) : null}
+      </Stack>
+    );
   const backfillStatus = connection.backfillComplete
     ? "Backfill complete"
     : connection.status === "disconnected"
@@ -320,20 +289,51 @@ function ConnectionActivity({
         routed · {connection.callsAwaitingRouting} awaiting routing
       </Text>
       <Text color="gray.600" fontSize="xs">
-        {backfillStatus}
+        {connection.authMethod} · {backfillStatus} · Last sync:{" "}
+        {connection.lastSync ?? "Never"}
       </Text>
+      {connection.lastError ? (
+        <Text color="red.600" fontSize="xs">
+          {connection.lastError}
+        </Text>
+      ) : null}
     </Stack>
   );
 }
 
-const statusTone = (status: ConnectionRow["status"]) =>
-  status === "ready"
-    ? "green"
-    : status === "error" || status === "revoked"
-      ? "red"
-      : status === "disconnected"
-        ? "gray"
-        : "yellow";
+const connectionType = (connection: ConnectionRow): string =>
+  connection.status === "ready"
+    ? "Connected"
+    : connection.status === "disconnected" || connection.status === "revoked"
+      ? "Available integration"
+      : connection.status === "error"
+        ? "Connection needs attention"
+        : "Connecting";
+
+const connectionDescription = (connection: ConnectionRow): string =>
+  connection.category === "slack"
+    ? "Bring company conversations and channel context into the Agency Brain."
+    : `Import and route ${connection.provider} call transcripts into the right company or client Brain.`;
+
+const connectionIcons: Readonly<Record<string, IconType>> = {
+  slack: FaSlack,
+  fireflies: LuRadio,
+  gong: LuAudioLines,
+  fathom: LuAudioLines,
+  granola: LuNotebookTabs,
+};
+
+const connectionIcon = (key: string): IconType =>
+  connectionIcons[key] ?? LuRadio;
+
+const connectionDocs = (key: string): string =>
+  ({
+    slack: "https://api.slack.com/docs",
+    fireflies: "https://docs.fireflies.ai/",
+    gong: "https://gong.app.gong.io/settings/api/documentation",
+    fathom: "https://developers.fathom.ai/",
+    granola: "https://www.granola.ai/",
+  })[key] ?? "https://docs.nango.dev/";
 
 const connectStatus = (status: ConnectionRow["status"]): SlackConnectStatus =>
   status === "ready"

@@ -31,7 +31,7 @@ describe("ConnectionsScreen", () => {
     expect(render({ status })).toContain(text);
   });
 
-  it("renders ready connection rows without requiring a live provider", () => {
+  it("renders ready connections with the canonical integration-card composition", () => {
     const html = render({
       status: "ready",
       connections: [
@@ -52,6 +52,8 @@ describe("ConnectionsScreen", () => {
 
     expect(html).toContain("Connections");
     expect(html).toContain("Fireflies");
+    expect(html).toContain("Connected");
+    expect(html).toContain("Docs");
     expect(html).toContain("12 discovered");
     expect(html).toContain("8 routed");
     expect(html).toContain("4 awaiting routing");
@@ -59,6 +61,7 @@ describe("ConnectionsScreen", () => {
     expect(html).toContain("Backfill complete");
     expect(html).toContain("Disconnect Fireflies");
     expect(html).not.toContain("Purge Fireflies data");
+    expect(html).not.toContain("Connections table");
   });
 
   it("shows typed provider errors and permits purge only after revocation", () => {

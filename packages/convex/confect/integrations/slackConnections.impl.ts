@@ -318,15 +318,22 @@ export const reconcileSlackConnectSessionExpiryPlan = (input: {
   }
   if (
     !Number.isFinite(input.providerExpiresAt) ||
+    !Number.isFinite(input.localMaxExpiresAt) ||
     input.providerExpiresAt <= input.now ||
-    input.providerExpiresAt > input.localMaxExpiresAt
+    input.localMaxExpiresAt <= input.now
   ) {
     return Either.left(new ProviderUnavailable());
   }
   return Either.right({
     rowId: row._id,
     connectionKey: row.connectionKey,
-    attemptExpiresAt: input.providerExpiresAt,
+    // Nango calculates this timestamp after our local five-minute ceiling was
+    // captured. Clamp harmless request/clock skew instead of rejecting a valid
+    // Connect session before the OAuth window can open.
+    attemptExpiresAt: Math.min(
+      input.providerExpiresAt,
+      input.localMaxExpiresAt,
+    ),
   });
 };
 

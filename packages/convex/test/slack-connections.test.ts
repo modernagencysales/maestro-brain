@@ -797,7 +797,19 @@ describe("Slack connection capability contract", () => {
         }),
       ),
     ).toMatchObject({ attemptExpiresAt: 1_200 });
-    for (const providerExpiresAt of [999, 1_301, Number.NaN]) {
+    expect(
+      Either.getOrThrow(
+        reconcileSlackConnectSessionExpiryPlan({
+          row,
+          attemptId: "attempt_expiry",
+          expectedConnectionGeneration: 2,
+          providerExpiresAt: 1_301,
+          localMaxExpiresAt: 1_300,
+          now: 1_000,
+        }),
+      ),
+    ).toMatchObject({ attemptExpiresAt: 1_300 });
+    for (const providerExpiresAt of [999, Number.NaN]) {
       const invalid = reconcileSlackConnectSessionExpiryPlan({
         row,
         attemptId: "attempt_expiry",
@@ -810,6 +822,20 @@ describe("Slack connection capability contract", () => {
       if (Either.isLeft(invalid)) {
         expect(invalid.left).toMatchObject({ _tag: "ProviderUnavailable" });
       }
+    }
+    const invalidLocalCeiling = reconcileSlackConnectSessionExpiryPlan({
+      row,
+      attemptId: "attempt_expiry",
+      expectedConnectionGeneration: 2,
+      providerExpiresAt: 1_200,
+      localMaxExpiresAt: 1_000,
+      now: 1_000,
+    });
+    expect(Either.isLeft(invalidLocalCeiling)).toBe(true);
+    if (Either.isLeft(invalidLocalCeiling)) {
+      expect(invalidLocalCeiling.left).toMatchObject({
+        _tag: "ProviderUnavailable",
+      });
     }
     const stale = reconcileSlackConnectSessionExpiryPlan({
       row,
