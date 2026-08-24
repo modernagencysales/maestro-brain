@@ -128,7 +128,7 @@ behaviors:
         lifecycle state.
       - The action uses the existing provider connection contract and does not
         invent a parallel credential store.
-    status: draft
+    status: required
   - id: BHV-BRAIN-005
     revision: 1
     title: Agency and client Brains remain visibly separated

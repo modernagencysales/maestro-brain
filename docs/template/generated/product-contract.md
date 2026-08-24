@@ -41,7 +41,7 @@ The links below are structural coverage only. Causal strength and declared-surfa
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Lifecycle | draft |
+| Lifecycle | required |
 | Surfaces | `web-ui` |
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/settings`, `system:provider-integrations` |
