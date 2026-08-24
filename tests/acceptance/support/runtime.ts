@@ -9,7 +9,6 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 type SeededActor = {
@@ -671,7 +670,7 @@ async function bootContractsRuntime(
       );
     }
     const pushEnvironmentRoot = await mkdtemp(
-      join(tmpdir(), "maestro-contracts-convex-"),
+      join(dependencies.cwd, ".convex", "local", ".contracts-push-"),
     );
     const pushEnvironmentPath = join(pushEnvironmentRoot, ".env.local");
     try {
