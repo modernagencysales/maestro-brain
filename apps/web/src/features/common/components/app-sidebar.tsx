@@ -23,13 +23,11 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import {
-  LuBrainCircuit,
-  LuBuilding2,
-  LuCable,
-  LuPanelLeftClose,
+  LuHouse,
+  LuInbox,
   LuPlus,
   LuSearch,
-  LuSettings,
+  LuSquareUser,
 } from "react-icons/lu";
 
 import { useModals } from "@workspace/ui/modals";
@@ -70,19 +68,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
           <IconButton
             variant="ghost"
             size="xs"
-            aria-label="Collapse sidebar"
-            onClick={() => setOpen(!open)}
-          >
-            <LuPanelLeftClose size="1.1em" />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            size="xs"
             rounded="full"
             aria-label="Search"
             asChild
           >
-            <Link to="/clients">
+            <Link to="/brain">
               <LuSearch size="1.1em" />
             </Link>
           </IconButton>
@@ -94,12 +84,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
         <Sidebar.Body>
           <Sidebar.Group>
             <AppSidebarLink
-              to="/clients"
+              to="/connections"
               activeOptions={{
-                exact: false,
+                exact: true,
               }}
-              label="Clients"
-              icon={<LuBuilding2 />}
+              label="Connections"
+              icon={<LuHouse />}
               hotkey="navigation.dashboard"
             />
             <AppSidebarLink
@@ -107,25 +97,18 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
               activeOptions={{
                 exact: false,
               }}
-              label="Agency Brain"
-              icon={<LuBrainCircuit />}
+              label="Brain"
+              icon={<LuInbox />}
               hotkey="navigation.inbox"
             />
             <AppSidebarLink
-              to="/connections"
+              to="/clients"
               activeOptions={{
                 exact: false,
               }}
-              label="Connections"
-              icon={<LuCable />}
+              label="Clients"
+              icon={<LuSquareUser />}
               hotkey="navigation.contacts"
-            />
-            <AppSidebarLink
-              to="/settings"
-              activeOptions={{ exact: false }}
-              label="Settings"
-              icon={<LuSettings />}
-              hotkey="navigation.settings"
             />
           </Sidebar.Group>
 
@@ -150,7 +133,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
               <Menu.Trigger asChild>
                 <IconButton
                   variant="surface"
-                  size="sm"
+                  size="xs"
                   rounded="full"
                   aria-label="Search"
                 >
@@ -186,7 +169,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
             }
           }}
         >
-          <ResizeHandle aria-label="Collapse sidebar" />
+          <ResizeHandle />
         </Sidebar.Track>
       </Sidebar.Root>
     </Resizer>

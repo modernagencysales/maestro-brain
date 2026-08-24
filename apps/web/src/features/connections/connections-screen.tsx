@@ -1,29 +1,18 @@
-import { Button, Page, Stack, Text } from "@saas-ui/react";
 import { SimpleGrid } from "@chakra-ui/react";
-import { FaSlack } from "react-icons/fa6";
-import {
-  LuAudioLines,
-  LuExternalLink,
-  LuNotebookTabs,
-  LuRadio,
-} from "react-icons/lu";
 import type { IconType } from "react-icons";
+import { FaSlack } from "react-icons/fa6";
+import { LuAudioLines, LuNotebookTabs, LuRadio } from "react-icons/lu";
+
 import { IntegrationCard } from "../../components/integration-card/integration-card";
-import {
-  NangoConnectButton,
-  type SlackConnectStatus,
-} from "./nango-connect-button";
-import {
-  CallRoutingQueue,
-  type CallRoutingQueueState,
-  type CallRoutingReview,
-} from "./call-routing-queue";
-import {
-  TranscriptImport,
-  type TranscriptImportRequest,
-  type TranscriptImportState,
-} from "./transcript-import";
 import { StateCard } from "../common/state-card";
+import type {
+  CallRoutingQueueState,
+  CallRoutingReview,
+} from "./call-routing-queue";
+import type {
+  TranscriptImportRequest,
+  TranscriptImportState,
+} from "./transcript-import";
 
 export type ConnectionsScreenState =
   | { readonly status: "loading" }
@@ -66,7 +55,7 @@ const connectionPlaceholders = {
   },
   empty: {
     title: "No connections yet",
-    description: "No live transcript providers are connected yet.",
+    description: "No live providers are connected yet.",
   },
   typed_failure: {
     title: "Connection setup unavailable",
@@ -80,18 +69,7 @@ const connectionPlaceholders = {
   },
 } as const;
 
-export function ConnectionsScreen({
-  onRoutingReview,
-  onConnect,
-  onDisconnect,
-  onPurge,
-  onTranscriptImport,
-  role = "viewer",
-  routingQueue,
-  state,
-  transcriptImportState = { status: "idle" },
-  transcriptTargets = [],
-}: {
+type ConnectionsScreenProps = {
   readonly onRoutingReview?: (
     review: CallRoutingReview,
   ) => void | Promise<void>;
@@ -109,56 +87,20 @@ export function ConnectionsScreen({
     readonly brainKey: string;
     readonly name: string;
   }[];
-}) {
-  return (
-    <>
-      <Page.Header
-        title="Connections"
-        description="Connect Slack and transcript sources so company context stays current."
-      />
-      <Page.Body px={{ base: "4", md: "6" }} pb="8">
-        <Stack gap="6">
-          <ConnectionsStateCard
-            state={state}
-            canManage={role === "admin" || role === "owner"}
-            {...(onConnect ? { onConnect } : {})}
-            {...(onDisconnect ? { onDisconnect } : {})}
-            {...(onPurge ? { onPurge } : {})}
-          />
-          <TranscriptImport
-            role={role}
-            state={transcriptImportState}
-            targets={transcriptTargets}
-            onImport={(input) => onTranscriptImport?.(input)}
-          />
-          {routingQueue ? (
-            <CallRoutingQueue
-              role={role}
-              state={routingQueue}
-              onReview={(review) => onRoutingReview?.(review)}
-            />
-          ) : null}
-        </Stack>
-      </Page.Body>
-    </>
-  );
-}
+};
 
-function ConnectionsStateCard({
-  canManage,
+/** Exact Pro IntegrationCard screen; product operations stay behind callbacks. */
+export function ConnectionsScreen({
   onConnect,
   onDisconnect,
-  onPurge,
+  role = "viewer",
   state,
-}: {
-  readonly canManage: boolean;
-  readonly onConnect?: (providerKey: string) => void | Promise<void>;
-  readonly onDisconnect?: (providerKey: string) => void | Promise<void>;
-  readonly onPurge?: (providerKey: string) => void | Promise<void>;
-  readonly state: ConnectionsScreenState;
-}) {
-  if (state.status !== "ready")
+}: ConnectionsScreenProps) {
+  if (state.status !== "ready") {
     return <StateCard {...connectionPlaceholders[state.status]} />;
+  }
+
+  const canManage = role === "admin" || role === "owner";
 
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
@@ -166,138 +108,21 @@ function ConnectionsStateCard({
         <IntegrationCard
           key={connection.key}
           name={connection.provider}
-          type={connectionType(connection)}
+          type={connectionType(connection.status)}
           icon={connectionIcon(connection.key)}
           description={connectionDescription(connection)}
-          details={<ConnectionActivity connection={connection} />}
-          actions={
-            <ConnectionActions
-              canManage={canManage}
-              connection={connection}
-              onConnect={onConnect}
-              onDisconnect={onDisconnect}
-              onPurge={onPurge}
-            />
+          docs={connectionDocs(connection.key)}
+          isConnected={connection.status === "ready"}
+          onConnect={canManage ? () => onConnect?.(connection.key) : undefined}
+          onDisconnect={
+            canManage ? () => onDisconnect?.(connection.key) : undefined
+          }
+          onDocs={() =>
+            window.open(connectionDocs(connection.key), "_blank", "noopener")
           }
         />
       ))}
     </SimpleGrid>
-  );
-}
-
-function ConnectionActions({
-  canManage,
-  connection,
-  onConnect,
-  onDisconnect,
-  onPurge,
-}: {
-  readonly canManage: boolean;
-  readonly connection: ConnectionRow;
-  readonly onConnect?: (providerKey: string) => void | Promise<void>;
-  readonly onDisconnect?: (providerKey: string) => void | Promise<void>;
-  readonly onPurge?: (providerKey: string) => void | Promise<void>;
-}) {
-  const canDisconnect =
-    connection.status !== "disconnected" &&
-    connection.status !== "revoked" &&
-    connection.disconnectAvailable !== false;
-  const revoked = connection.status === "revoked";
-  return (
-    <>
-      <NangoConnectButton
-        enabled={canManage && !connection.cleanupPending}
-        providerName={connection.provider}
-        status={connectStatus(connection.status)}
-        onConnect={() => onConnect?.(connection.key)}
-      />
-      {canDisconnect ? (
-        <Button
-          disabled={!canManage}
-          onClick={() => onDisconnect?.(connection.key)}
-          type="button"
-          variant="outline"
-        >
-          Disconnect {connection.provider}
-        </Button>
-      ) : null}
-      {revoked && connection.cleanupPending ? (
-        <Button
-          disabled={!canManage}
-          onClick={() => onDisconnect?.(connection.key)}
-          type="button"
-          variant="outline"
-        >
-          Retry disconnect {connection.provider}
-        </Button>
-      ) : null}
-      {revoked && !connection.cleanupPending && connection.purgeRequested ? (
-        <Text color="yellow.700" fontSize="sm">
-          Purge request pending review
-        </Text>
-      ) : null}
-      {revoked && !connection.cleanupPending && !connection.purgeRequested ? (
-        <Button
-          disabled={!canManage}
-          onClick={() => onPurge?.(connection.key)}
-          type="button"
-          variant="outline"
-        >
-          Request purge of {connection.provider} data
-        </Button>
-      ) : null}
-      <Button asChild type="button" variant="ghost">
-        <a
-          href={connectionDocs(connection.key)}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <LuExternalLink /> Docs
-        </a>
-      </Button>
-    </>
-  );
-}
-
-function ConnectionActivity({
-  connection,
-}: {
-  readonly connection: ConnectionRow;
-}) {
-  if (connection.category === "slack")
-    return (
-      <Stack gap="1">
-        <Text color="gray.600" fontSize="xs">
-          {connection.authMethod} · Messages and Ask Apero
-        </Text>
-        {connection.lastError ? (
-          <Text color="red.600" fontSize="xs">
-            {connection.lastError}
-          </Text>
-        ) : null}
-      </Stack>
-    );
-  const backfillStatus = connection.backfillComplete
-    ? "Backfill complete"
-    : connection.status === "disconnected"
-      ? "Backfill not started"
-      : "Backfill in progress";
-  return (
-    <Stack gap="1">
-      <Text fontSize="sm">
-        {connection.callsDiscovered} discovered · {connection.callsRouted}{" "}
-        routed · {connection.callsAwaitingRouting} awaiting routing
-      </Text>
-      <Text color="gray.600" fontSize="xs">
-        {connection.authMethod} · {backfillStatus} · Last sync:{" "}
-        {connection.lastSync ?? "Never"}
-      </Text>
-      {connection.lastError ? (
-        <Text color="red.600" fontSize="xs">
-          {connection.lastError}
-        </Text>
-      ) : null}
-    </Stack>
   );
 }
 
@@ -311,8 +136,8 @@ const connectionTypeByStatus = {
   revoked: "Available integration",
 } as const satisfies Record<ConnectionRow["status"], string>;
 
-const connectionType = (connection: ConnectionRow): string =>
-  connectionTypeByStatus[connection.status];
+const connectionType = (status: ConnectionRow["status"]): string =>
+  connectionTypeByStatus[status];
 
 const connectionDescription = (connection: ConnectionRow): string =>
   connection.category === "slack"
@@ -338,16 +163,3 @@ const connectionDocs = (key: string): string =>
     fathom: "https://developers.fathom.ai/",
     granola: "https://www.granola.ai/",
   })[key] ?? "https://docs.nango.dev/";
-
-const connectStatusByConnectionStatus = {
-  disconnected: "not_connected",
-  authorizing: "authorizing",
-  syncing: "verifying",
-  ready: "active",
-  error: "error",
-  reauthorizing: "reauthorizing",
-  revoked: "not_connected",
-} as const satisfies Record<ConnectionRow["status"], SlackConnectStatus>;
-
-const connectStatus = (status: ConnectionRow["status"]): SlackConnectStatus =>
-  connectStatusByConnectionStatus[status];

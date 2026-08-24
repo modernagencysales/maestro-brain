@@ -1,7 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import type { ComponentProps } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Page } from "@saas-ui/react";
 
 import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
@@ -15,9 +14,7 @@ const render = (
 ) =>
   renderToStaticMarkup(
     <MaestroSaasUiProvider>
-      <Page.Root>
-        <ConnectionsScreen state={state} {...props} />
-      </Page.Root>
+      <ConnectionsScreen state={state} {...props} />
     </MaestroSaasUiProvider>,
   );
 
@@ -31,198 +28,76 @@ describe("ConnectionsScreen", () => {
     expect(render({ status })).toContain(text);
   });
 
-  it("renders ready connections with the canonical integration-card composition", () => {
+  it("uses the canonical integration-card screen without legacy page chrome", () => {
     const html = render({
       status: "ready",
       connections: [
+        {
+          key: "slack",
+          provider: "Slack",
+          category: "slack",
+          authMethod: "OAuth",
+          status: "ready",
+          lastSync: "5 minutes ago",
+          callsDiscovered: 0,
+          callsRouted: 0,
+          callsAwaitingRouting: 0,
+          backfillComplete: true,
+          lastError: null,
+        },
         {
           key: "fireflies",
           provider: "Fireflies",
-          authMethod: "API key",
-          status: "ready",
-          lastSync: "5 minutes ago",
-          callsDiscovered: 12,
-          callsRouted: 8,
-          callsAwaitingRouting: 4,
-          backfillComplete: true,
+          authMethod: "OAuth",
+          status: "disconnected",
+          lastSync: null,
+          callsDiscovered: 0,
+          callsRouted: 0,
+          callsAwaitingRouting: 0,
+          backfillComplete: false,
           lastError: null,
         },
       ],
     });
 
-    expect(html).toContain("Connections");
-    expect(html).toContain("Fireflies");
+    expect(html).toContain("Slack");
     expect(html).toContain("Connected");
+    expect(html).toContain("Fireflies");
+    expect(html).toContain("Available integration");
+    expect(html).toContain("Disconnect");
+    expect(html).toContain("Connect");
     expect(html).toContain("Docs");
-    expect(html).toContain("12 discovered");
-    expect(html).toContain("8 routed");
-    expect(html).toContain("4 awaiting routing");
-    expect(html).toContain("API key");
-    expect(html).toContain("Backfill complete");
-    expect(html).toContain("Disconnect Fireflies");
-    expect(html).not.toContain("Purge Fireflies data");
+    expect(html).not.toContain("Connect Slack and transcript sources");
+    expect(html).not.toContain("Import a transcript");
+    expect(html).not.toContain("Calls to route");
     expect(html).not.toContain("Connections table");
   });
 
-  it("shows typed provider errors and permits purge only after revocation", () => {
-    const html = render({
-      status: "ready",
-      connections: [
-        {
-          key: "gong",
-          provider: "Gong",
-          authMethod: "Access key + secret",
-          status: "error",
-          lastSync: null,
-          callsDiscovered: 2,
-          callsRouted: 0,
-          callsAwaitingRouting: 2,
-          backfillComplete: false,
-          lastError: "Provider unavailable",
-        },
-        {
-          key: "fathom",
-          provider: "Fathom",
-          authMethod: "API key",
-          status: "revoked",
-          lastSync: null,
-          callsDiscovered: 3,
-          callsRouted: 3,
-          callsAwaitingRouting: 0,
-          backfillComplete: true,
-          lastError: null,
-        },
-      ],
-    });
-
-    expect(html).toContain("Access key + secret");
-    expect(html).toContain("Provider unavailable");
-    expect(html).toContain("Backfill in progress");
-    expect(html).toContain("Request purge of Fathom data");
-    expect(html).not.toContain("Purge Gong data");
-  });
-
-  it("offers provider cleanup retry before purge", () => {
-    const html = render(
-      {
-        status: "ready",
-        connections: [
-          {
-            key: "fireflies",
-            provider: "Fireflies",
-            authMethod: "API key",
-            status: "revoked",
-            lastSync: null,
-            callsDiscovered: 2,
-            callsRouted: 1,
-            callsAwaitingRouting: 1,
-            backfillComplete: false,
-            lastError: "Provider cleanup pending",
-            cleanupPending: true,
-          },
-        ],
-      },
-      { role: "admin" },
-    );
-
-    expect(html).toContain("Provider cleanup pending");
-    expect(html).toContain("Retry disconnect Fireflies");
-    expect(html).not.toContain("Purge Fireflies data");
-    expect(html).toMatch(
-      /<button[^>]*disabled=""[^>]*>Connect Fireflies<\/button>/,
-    );
-  });
-
-  it("shows an audited purge request as pending review", () => {
-    const html = render({
-      status: "ready",
-      connections: [
-        {
-          key: "fathom",
-          provider: "Fathom",
-          authMethod: "API key",
-          status: "revoked",
-          lastSync: null,
-          callsDiscovered: 3,
-          callsRouted: 3,
-          callsAwaitingRouting: 0,
-          backfillComplete: true,
-          lastError: null,
-          purgeRequested: true,
-        },
-      ],
-    });
-
-    expect(html).toContain("Purge request pending review");
-    expect(html).not.toContain("Request purge of Fathom data");
-  });
-
-  it("renders every transcript connection lifecycle state", () => {
+  it("projects provider lifecycle state into canonical card labels", () => {
     const statuses = [
-      "disconnected",
-      "authorizing",
-      "syncing",
-      "ready",
-      "error",
-      "reauthorizing",
-      "revoked",
+      ["authorizing", "Connecting"],
+      ["syncing", "Connecting"],
+      ["reauthorizing", "Connecting"],
+      ["error", "Connection needs attention"],
+      ["revoked", "Available integration"],
     ] as const;
     const html = render({
       status: "ready",
-      connections: statuses.map((status) => ({
+      connections: statuses.map(([status]) => ({
         key: status,
         provider: status,
-        authMethod: "API key",
+        authMethod: "OAuth",
         status,
         lastSync: null,
         callsDiscovered: 0,
         callsRouted: 0,
         callsAwaitingRouting: 0,
         backfillComplete: false,
-        lastError: null,
+        lastError: "internal provider detail",
       })),
     });
 
-    for (const status of statuses) expect(html).toContain(status);
-  });
-
-  it("hides disconnect when authorization has no provider connection yet", () => {
-    const html = render(
-      {
-        status: "ready",
-        connections: [
-          {
-            key: "fireflies",
-            provider: "Fireflies",
-            authMethod: "API key",
-            status: "authorizing",
-            lastSync: null,
-            callsDiscovered: 0,
-            callsRouted: 0,
-            callsAwaitingRouting: 0,
-            backfillComplete: false,
-            lastError: null,
-            disconnectAvailable: false,
-          },
-        ],
-      },
-      { role: "admin" },
-    );
-
-    expect(html).not.toContain("Disconnect Fireflies");
-  });
-
-  it("renders the live call routing adapter below connection status", () => {
-    const html = render(
-      { status: "empty" },
-      {
-        role: "admin",
-        routingQueue: { status: "empty" },
-        onRoutingReview: () => undefined,
-      },
-    );
-
-    expect(html).toContain("Calls to route");
-    expect(html).toContain("No calls need routing");
+    for (const [, label] of statuses) expect(html).toContain(label);
+    expect(html).not.toContain("internal provider detail");
   });
 });

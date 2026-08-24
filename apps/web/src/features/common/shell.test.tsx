@@ -12,17 +12,10 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 
-import { AppLayout } from "./layouts/app-layout";
 import { DashboardLayout } from "./layouts/dashboard-layout";
 import { GoldenAdapterProvider } from "../golden/adapters";
 import { goldenFixtures } from "../golden/fixtures";
 import { system } from "../../theme/preset";
-
-vi.mock("./components/global-search-input", () => ({
-  GlobalSearchInput: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} />
-  ),
-}));
 
 vi.mock("./components/app-sidebar", () => ({
   AppSidebar: () => (
@@ -67,12 +60,9 @@ describe("transplanted application shell", () => {
 
     render(<RouterProvider router={router} />);
 
-    expect(
-      screen.getByRole("button", { name: /collapse sidebar/i }),
-    ).toBeTruthy();
     expect(screen.getByRole("button", { name: /workspace/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /user menu/i })).toBeTruthy();
-    expect(screen.getByRole("searchbox", { name: /search/i })).toBeTruthy();
+    expect(screen.queryByRole("searchbox", { name: /search/i })).toBeNull();
     expect(screen.getByText(goldenFixtures.currentWorkspace.name)).toBeTruthy();
   });
 });

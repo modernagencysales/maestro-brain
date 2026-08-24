@@ -3,7 +3,6 @@
 import { AppShell, AppShellProps, Sidebar } from "@saas-ui/react";
 
 import { PaymentOverdueBanner } from "#features/billing/components/payment-overdue-banner";
-import { GlobalSearchInput } from "../components/global-search-input";
 
 export type AppLayoutProps = AppShellProps;
 
@@ -21,12 +20,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
       <AppShell
         sidebar={sidebar}
-        header={
-          <>
-            <PaymentOverdueBanner />
-            <GlobalSearchInput aria-label="Search" role="searchbox" />
-          </>
-        }
+        header={<PaymentOverdueBanner />}
         bg="sidebar.bg"
         {...rest}
       >
