@@ -24,6 +24,7 @@ import slackConnections, {
   completeSlackConnect,
   ConnectionAlreadyExists,
   finalizeSlackConnectAttempt,
+  getSlackConnectionStatus,
   markSlackConnectAttemptFailed,
   prepareSlackConnectAttempt,
   reconcileSlackConnectSessionExpiry,
@@ -79,6 +80,7 @@ export type AuthorizeAndFinalizeArgsDiffer = Assert<
 >;
 
 const slackRefs = {
+  status: Ref.make("integrations/slackConnections", getSlackConnectionStatus),
   begin: Ref.make("integrations/slackConnections", beginSlackConnect),
   complete: Ref.make("integrations/slackConnections", completeSlackConnect),
   prepare: Ref.make(
@@ -144,6 +146,10 @@ describe("Slack connection capability contract", () => {
     expect(slackConnections.functions.completeSlackConnect).toMatchObject({
       functionVisibility: "public",
       name: "completeSlackConnect",
+    });
+    expect(slackConnections.functions.getSlackConnectionStatus).toMatchObject({
+      functionVisibility: "public",
+      name: "getSlackConnectionStatus",
     });
     expect(slackConnections.functions.prepareSlackConnectAttempt).toMatchObject(
       {
@@ -339,6 +345,10 @@ describe("Slack connection capability contract", () => {
         now: 1_230,
       });
       expect(finalized).toMatchObject({ status: "verifying" });
+      expect(yield* authed.query(slackRefs.status, {})).toMatchObject({
+        connectionKey: "slack_agency_acme",
+        status: "verifying",
+      });
       const completed = yield* authed.mutation(slackRefs.authorize, {
         connectSessionId: retry.connectSessionId,
         connectionId: "provider-conn-retry",

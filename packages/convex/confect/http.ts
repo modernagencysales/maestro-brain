@@ -1,11 +1,22 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import { httpActionGeneric, httpRouter } from "convex/server";
+import {
+  type NangoSlackWebhook,
+  parseNangoSlackWebhook,
+  verifyNangoWebhookSignature,
+} from "@maestro-template/integrations/nango/webhook";
+import {
+  httpActionGeneric,
+  httpRouter,
+  makeFunctionReference,
+} from "convex/server";
 import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
 import { reviewedHeadlessPolicyFor } from "./headless/authorizeOperation";
 import { mcpRouteResponse } from "./httpMcp";
 import { executeTemplateApiRoute } from "./httpOperations";
 import { htmlResponse, jsonResponse } from "./httpResponses";
 import type { HeadlessHttpCtx, TemplateHttpRoute } from "./httpTypes";
+import { readProcessEnv } from "./shared/env";
+import { sha256Hex } from "./shared/sha256";
 
 export { securityHeaders } from "./httpResponses";
 export type {
@@ -23,6 +34,7 @@ type TemplateRouteMatch =
   | { readonly kind: "openapi" }
   | { readonly kind: "docs" }
   | { readonly kind: "mcp" }
+  | { readonly kind: "nangoWebhook" }
   | { readonly kind: "operation"; readonly operationId: string }
   | { readonly kind: "notFound"; readonly pathname: string };
 
@@ -30,6 +42,7 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/openapi.json": { kind: "openapi" },
   "/api/docs": { kind: "docs" },
   "/mcp": { kind: "mcp" },
+  "/webhooks/nango": { kind: "nangoWebhook" },
   "/api/brain.feedback.reportWrongOrStale": {
     kind: "operation",
     operationId: "brain.feedback.reportWrongOrStale",
@@ -68,6 +81,11 @@ export const templateHttpRoutes = [
     path: "/mcp",
     method: "POST",
     description: "Serves the stateless MCP tool transport.",
+  },
+  {
+    path: "/webhooks/nango",
+    method: "POST",
+    description: "Receives verified provider webhooks forwarded by Nango.",
   },
   {
     path: "/api/*",
@@ -157,6 +175,9 @@ const templateRouteResponse = async (
     case "mcp":
       response = await mcpRouteResponse(ctx, request, executeTemplateApiRoute);
       break;
+    case "nangoWebhook":
+      response = await nangoWebhookRouteResponse(ctx, request);
+      break;
     case "operation":
       response = await operationRouteResponse(ctx, request, route.operationId);
       break;
@@ -206,6 +227,122 @@ const docsRouteResponse = (request: Request): Response =>
           message: "Only GET is supported for Scalar docs.",
         },
       });
+
+const receiveNangoSlackWebhookRef = makeFunctionReference<
+  "mutation",
+  {
+    connectionId: string;
+    providerConfigKey: string;
+    payload: unknown;
+    deliveryDigest: string;
+    signature: string;
+    receivedAt: number;
+  },
+  unknown
+>("slack/nangoWebhook:receiveNangoSlackWebhook");
+
+type SignedNangoBody =
+  Readonly<{ rawBody: string; signature: string }> | Response;
+
+const signedNangoBody = async (request: Request): Promise<SignedNangoBody> => {
+  const rawBody = await request.text();
+  if (rawBody.length > 1_000_000)
+    return jsonResponse(
+      { ok: false, error: { _tag: "PayloadTooLarge" } },
+      { status: 413 },
+    );
+  const signature = request.headers.get("x-nango-hmac-sha256") ?? "";
+  const signingKey = readProcessEnv().NANGO_WEBHOOK_SIGNING_KEY?.trim() ?? "";
+  const verified = await verifyNangoWebhookSignature({
+    rawBody,
+    signingKey,
+    signature,
+  });
+  return verified
+    ? { rawBody, signature }
+    : jsonResponse(
+        { ok: false, error: { _tag: "Unauthorized" } },
+        { status: 401 },
+      );
+};
+
+const parseNangoBody = (rawBody: string): unknown | Response => {
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    return jsonResponse(
+      { ok: false, error: { _tag: "ValidationFailed" } },
+      { status: 400 },
+    );
+  }
+};
+
+const nangoWebhookKindResponse = (
+  webhook: NangoSlackWebhook,
+): Response | null => {
+  switch (webhook.kind) {
+    case "slack_forward":
+      return null;
+    case "ignored":
+      return jsonResponse({ ok: true, outcome: "ignored" }, { status: 202 });
+    case "unattributed_slack":
+      return jsonResponse(
+        { ok: false, error: { _tag: "ConnectionAttributionRequired" } },
+        { status: 422 },
+      );
+    case "malformed":
+      return jsonResponse(
+        { ok: false, error: { _tag: "ValidationFailed" } },
+        { status: 400 },
+      );
+  }
+};
+
+const nangoWebhookPostResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  const signedBody = await signedNangoBody(request);
+  if (signedBody instanceof Response) return signedBody;
+  const parsed = parseNangoBody(signedBody.rawBody);
+  if (parsed instanceof Response) return parsed;
+  const webhook = parseNangoSlackWebhook(parsed);
+  const kindResponse = nangoWebhookKindResponse(webhook);
+  if (kindResponse !== null) return kindResponse;
+  const forward = (
+    webhook as Extract<NangoSlackWebhook, { readonly kind: "slack_forward" }>
+  ).forward;
+  let response: Response;
+  try {
+    const result = await ctx.runMutation(receiveNangoSlackWebhookRef, {
+      ...forward,
+      deliveryDigest: sha256Hex(signedBody.rawBody),
+      signature: signedBody.signature,
+      receivedAt: Date.now(),
+    });
+    response = jsonResponse({ ok: true, result }, { status: 202 });
+  } catch {
+    response = jsonResponse(
+      { ok: false, error: { _tag: "WebhookProcessingUnavailable" } },
+      { status: 503 },
+    );
+  }
+  return response;
+};
+
+const nangoWebhookRouteResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  const response =
+    request.method === "POST"
+      ? await nangoWebhookPostResponse(ctx, request)
+      : jsonResponse(
+          { ok: false, error: { _tag: "MethodNotAllowed" } },
+          { status: 405 },
+        );
+  return response;
+};
 
 const operationRouteResponse = async (
   ctx: HeadlessHttpCtx,

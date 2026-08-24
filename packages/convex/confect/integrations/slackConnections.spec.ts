@@ -111,6 +111,26 @@ export const completeSlackConnect = FunctionSpec.publicAction({
   error: () => slackConnectError(),
 });
 
+export const getSlackConnectionStatus = FunctionSpec.publicQuery({
+  name: "getSlackConnectionStatus",
+  args: () => Schema.Struct({}),
+  returns: () =>
+    Schema.Struct({
+      connectionKey: Schema.NullOr(Schema.String),
+      status: Schema.Literal(
+        "not_connected",
+        "authorizing",
+        "verifying",
+        "active",
+        "error",
+        "reauthorizing",
+        "revoked",
+      ),
+      teamId: Schema.NullOr(Schema.String),
+    }),
+  error: () => Schema.Union(Unauthorized, Forbidden),
+});
+
 export const prepareSlackConnectAttempt = FunctionSpec.internalMutation({
   name: "prepareSlackConnectAttempt",
   args: () => PrepareSlackConnectAttemptArgs,
@@ -188,6 +208,7 @@ export const finalizeSlackConnectAttempt = FunctionSpec.internalMutation({
 export default GroupSpec.make()
   .addFunction(beginSlackConnect)
   .addFunction(completeSlackConnect)
+  .addFunction(getSlackConnectionStatus)
   .addFunction(prepareSlackConnectAttempt)
   .addFunction(claimSlackConnectAttempt)
   .addFunction(authorizeSlackConnectCompletion)

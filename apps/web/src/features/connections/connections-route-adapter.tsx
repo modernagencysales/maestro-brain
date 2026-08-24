@@ -16,10 +16,12 @@ import {
   type CallRoutingQueueState,
   type CallRoutingReview,
 } from "./call-routing-queue";
+import { ConnectionsScreen } from "./connections-screen";
 import {
-  ConnectionsScreen,
-  type ConnectionsScreenState,
-} from "./connections-screen";
+  type ConnectionHealthData,
+  type SlackConnectionData,
+  toConnectionsState,
+} from "./connections-catalog";
 import type {
   TranscriptImportRequest,
   TranscriptImportState,
@@ -31,22 +33,21 @@ import { Page } from "@saas-ui/react";
 const callReviewRefs = templateConfectRefs.public.brain.callReview;
 const transcriptConnectionRefs =
   templateConfectRefs.public.integrations.transcriptConnections;
+const slackConnectionRefs =
+  templateConfectRefs.public.integrations.slackConnections;
 const transcriptSyncRefs =
   templateConfectRefs.public.integrations.transcriptSync;
 const importTranscriptRef =
   templateConfectRefs.public.capabilities.importTranscript.importTranscript;
 type RoutingQueueData = Ref.Returns<typeof callReviewRefs.listCallRoutingQueue>;
-type ConnectionHealthData = Ref.Returns<
-  typeof transcriptSyncRefs.listTranscriptConnectionHealth
->;
 type TranscriptProvider = "fireflies" | "gong" | "fathom" | "granola";
 
-const transcriptCatalog = [
-  { key: "fireflies", name: "Fireflies", authMethod: "API key" },
-  { key: "gong", name: "Gong", authMethod: "Access key + secret" },
-  { key: "fathom", name: "Fathom", authMethod: "API key" },
-  { key: "granola", name: "Granola", authMethod: "API token" },
-] as const;
+const transcriptProviders = new Set<TranscriptProvider>([
+  "fireflies",
+  "gong",
+  "fathom",
+  "granola",
+]);
 const routingRoles = new Set(["admin", "owner"]);
 const routedActions = new Set<CallRoutingReview["action"]>([
   "confirm",
@@ -66,6 +67,11 @@ export function ConnectionsRouteAdapter() {
     workspaceView.canReview ? {} : "skip",
     { isEmpty: () => false },
   ) as TemplateDataState<ConnectionHealthData, unknown>;
+  const slack = useTemplateQuery(
+    slackConnectionRefs.getSlackConnectionStatus,
+    workspaceView.canReview ? {} : "skip",
+    { isEmpty: () => false },
+  ) as TemplateDataState<SlackConnectionData, unknown>;
   const queue = useTemplateQuery(
     callReviewRefs.listCallRoutingQueue,
     workspaceView.brainKey === null || !workspaceView.canReview
@@ -90,6 +96,12 @@ export function ConnectionsRouteAdapter() {
   const disconnectTranscriptConnection = useTemplateAction(
     transcriptConnectionRefs.disconnectTranscriptConnection,
   );
+  const beginSlackConnect = useTemplateAction(
+    slackConnectionRefs.beginSlackConnect,
+  );
+  const completeSlackConnect = useTemplateAction(
+    slackConnectionRefs.completeSlackConnect,
+  );
   const routingQueue = workspaceView.ready
     ? toRoutingQueueState(
         queue,
@@ -104,13 +116,15 @@ export function ConnectionsRouteAdapter() {
       <ConnectionsScreen
         role={workspaceView.role}
         routingQueue={routingQueue}
-        state={toConnectionsState(health, workspaceView.canReview)}
+        state={toConnectionsState(health, slack, workspaceView.canReview)}
         onConnect={(provider) =>
-          connectTranscriptProvider(provider, {
-            beginTranscriptConnect,
-            cancelTranscriptConnect,
-            completeTranscriptConnect,
-          })
+          provider === "slack"
+            ? connectSlack({ beginSlackConnect, completeSlackConnect })
+            : connectTranscriptProvider(provider, {
+                beginTranscriptConnect,
+                cancelTranscriptConnect,
+                completeTranscriptConnect,
+              })
         }
         onDisconnect={(provider) =>
           runTranscriptProviderOperation(
@@ -241,7 +255,9 @@ const routingReviewSuccessMessage = (
 const asTranscriptProvider = (
   provider: string,
 ): TranscriptProvider | undefined =>
-  transcriptCatalog.find(({ key }) => key === provider)?.key;
+  transcriptProviders.has(provider as TranscriptProvider)
+    ? (provider as TranscriptProvider)
+    : undefined;
 
 const connectTranscriptProvider = async (
   provider: string,
@@ -291,6 +307,26 @@ const connectTranscriptProvider = async (
   });
 };
 
+const connectSlack = async (actions: {
+  readonly beginSlackConnect: ReturnType<
+    typeof useTemplateAction<typeof slackConnectionRefs.beginSlackConnect>
+  >;
+  readonly completeSlackConnect: ReturnType<
+    typeof useTemplateAction<typeof slackConnectionRefs.completeSlackConnect>
+  >;
+}) => {
+  await startNangoConnect({
+    begin: async () => unwrapActionResult(await actions.beginSlackConnect({})),
+    open: ({ token }) =>
+      openNangoConnectWithSdk({ connectSessionToken: token }),
+    complete: async ({ connectionId, connectSessionId }) =>
+      unwrapActionResult(
+        await actions.completeSlackConnect({ connectionId, connectSessionId }),
+      ),
+    cancel: async () => undefined,
+  });
+};
+
 const importTranscriptFile = async ({
   brainKey,
   importTranscript,
@@ -328,81 +364,11 @@ const runTranscriptProviderOperation = async (
   await unwrapActionResult(await operation({ provider: transcriptProvider }));
 };
 
-const toConnectionsState = (
-  health: TemplateDataState<ConnectionHealthData, unknown>,
-  canReview: boolean,
-): ConnectionsScreenState => {
-  const state =
-    health.status === "ready" || health.status === "empty"
-      ? catalogState(health.data)
-      : connectionStateByStatus[health.status];
-  return canReview ? state : catalogState([]);
-};
-
-const connectionStateByStatus = {
-  loading: { status: "loading" },
-  skipped: { status: "loading" },
-  typed_failure: { status: "typed_failure" },
-  parse_failure: { status: "transport_failure" },
-  transport_failure: { status: "transport_failure" },
-  defect: { status: "transport_failure" },
-} as const satisfies Record<
-  Exclude<TemplateDataState<unknown, unknown>["status"], "ready" | "empty">,
-  ConnectionsScreenState
->;
-
 const unwrapActionResult = <A, E>(result: A | Either.Either<A, E>): A => {
   if (!Either.isEither(result)) return result;
   if (Either.isLeft(result)) throw result.left;
   return result.right;
 };
-
-const catalogState = (
-  health: ConnectionHealthData,
-): ConnectionsScreenState => ({
-  status: "ready",
-  connections: transcriptCatalog.map((provider) => {
-    const connected = health.find((item) => item.provider === provider.key);
-    return {
-      key: provider.key,
-      provider: provider.name,
-      authMethod: provider.authMethod,
-      status: connected?.state ?? "disconnected",
-      lastSync:
-        connected?.lastSuccessAt == null
-          ? null
-          : new Date(connected.lastSuccessAt).toLocaleString(),
-      callsDiscovered: connected?.callsDiscovered ?? 0,
-      callsRouted: connected?.callsRouted ?? 0,
-      callsAwaitingRouting: connected?.callsAwaitingRouting ?? 0,
-      backfillComplete: connected?.backfillComplete ?? false,
-      cleanupPending: connected?.cleanupPending ?? false,
-      disconnectAvailable: connected?.disconnectAvailable ?? false,
-      purgeRequested: connected?.purgeRequested ?? false,
-      lastError: connected?.cleanupPending
-        ? "Provider cleanup pending"
-        : lastErrorLabel(connected?.lastErrorTag ?? null),
-    };
-  }),
-});
-
-const lastErrorLabel = (
-  error:
-    | "ProviderRateLimited"
-    | "ProviderUnavailable"
-    | "PermanentDecodeFailure"
-    | "RevisionOrderConflict"
-    | null,
-): string | null => {
-  return error === null ? null : transcriptErrorLabels[error];
-};
-
-const transcriptErrorLabels = {
-  ProviderRateLimited: "Provider rate limit reached",
-  ProviderUnavailable: "Provider unavailable",
-  PermanentDecodeFailure: "Transcript response could not be decoded",
-  RevisionOrderConflict: "Transcript revision order conflict",
-} as const;
 
 const toRoutingQueueState = (
   state: TemplateDataState<RoutingQueueData, unknown>,
