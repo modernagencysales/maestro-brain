@@ -126,18 +126,19 @@ export const inventoryRemoteBranches = (input: {
   const namespace = `refs/branch-hygiene/${process.pid}`;
   const prefix = `${namespace}/`;
 
-  gitLines(
-    [
-      "fetch",
-      "--quiet",
-      "--no-tags",
-      input.remote,
-      `+refs/heads/*:${namespace}/*`,
-    ],
-    input.cwd,
-  );
-
   try {
+    gitLines(
+      [
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        "--prune",
+        input.remote,
+        `+refs/heads/*:${namespace}/*`,
+      ],
+      input.cwd,
+    );
+
     const baseRef = `${namespace}/${input.base}`;
     if (gitLines(["show-ref", "--verify", baseRef], input.cwd).length === 0) {
       throw new Error(

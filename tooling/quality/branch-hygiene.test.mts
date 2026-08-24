@@ -46,6 +46,12 @@ describe("branch hygiene manifest", () => {
         "refs/remotes/origin/ghost-deleted",
         mainSha,
       ]);
+      const temporaryNamespace = `refs/branch-hygiene/${process.pid}`;
+      git(checkout, [
+        "update-ref",
+        `${temporaryNamespace}/ghost-crashed`,
+        mainSha,
+      ]);
 
       expect(
         git(checkout, ["config", "--get-all", "remote.origin.fetch"]),
@@ -64,6 +70,45 @@ describe("branch hygiene manifest", () => {
       expect(branches.some((branch) => branch.name === "ghost-deleted")).toBe(
         false,
       );
+      expect(branches.some((branch) => branch.name === "ghost-crashed")).toBe(
+        false,
+      );
+      expect(
+        git(checkout, [
+          "for-each-ref",
+          "--format=%(refname)",
+          temporaryNamespace,
+        ]),
+      ).toBe("");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans the temporary namespace when the remote fetch fails", () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-branch-hygiene-failure-"));
+    const git = (args: readonly string[]): string =>
+      execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+    const temporaryNamespace = `refs/branch-hygiene/${process.pid}`;
+
+    try {
+      git(["init", "-b", "main"]);
+      git(["config", "user.name", "Branch Hygiene Test"]);
+      git(["config", "user.email", "branch-hygiene@example.test"]);
+      git(["commit", "--allow-empty", "-m", "seed main"]);
+      const mainSha = git(["rev-parse", "HEAD"]);
+      git(["update-ref", `${temporaryNamespace}/partial-fetch`, mainSha]);
+
+      expect(() =>
+        inventoryRemoteBranches({
+          remote: "missing-remote",
+          base: "main",
+          cwd: root,
+        }),
+      ).toThrow();
+      expect(
+        git(["for-each-ref", "--format=%(refname)", temporaryNamespace]),
+      ).toBe("");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
