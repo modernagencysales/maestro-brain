@@ -1,8 +1,33 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+const clientAdapterMocks = vi.hoisted(() => ({
+  headless: vi.fn(async () => []),
+}))
+
+vi.mock('@convex-dev/react-query', () => ({
+  useConvexQuery: () => ({ data: [], isLoading: false }),
+}))
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: (options: { queryFn: () => unknown }) => {
+    void options.queryFn()
+    return { data: [], isLoading: false }
+  },
+}))
+vi.mock('#features/common/hooks/use-workspace-slug', () => ({
+  useWorkspaceSlug: () => 'agency',
+}))
+vi.mock('#lib/auth/route-auth', () => ({
+  isFixtureAuthRuntime: () => true,
+  isIsolatedContractsRuntime: () => false,
+}))
+vi.mock('#lib/headless-api', () => ({
+  runIsolatedHeadlessOperation: clientAdapterMocks.headless,
+}))
 
 import {
   clientWorkspaceFixtures,
   contactNavigationFor,
+  contactDetailDataHooks,
   contactsListDataHooks,
   projectClientWorkspaceToContact,
   projectClientWorkspacesToContacts,
@@ -46,6 +71,16 @@ describe('client workspaces to Starter Contacts adapter', () => {
       to: '/$workspace/inbox',
       params: { workspace: 'northstar' },
     })
+    expect(
+      contactNavigationFor(
+        'contacts',
+        { id: 'workspace-northstar', workspaceId: 'northstar' },
+        'agency',
+      ),
+    ).toEqual({
+      to: '/$workspace/contacts/view/$id',
+      params: { workspace: 'agency', id: 'workspace-northstar' },
+    })
   })
 
   it('excludes the active agency workspace from its client list', () => {
@@ -53,6 +88,21 @@ describe('client workspaces to Starter Contacts adapter', () => {
       projectClientWorkspacesToContacts(clientWorkspaceFixtures, 'client-northstar')
         .contacts.map(({ name }) => name),
     ).toEqual(['Juniper Works'])
+    expect(
+      projectClientWorkspacesToContacts(clientWorkspaceFixtures, 'northstar')
+        .contacts.map(({ name }) => name),
+    ).toEqual(['Juniper Works'])
+  })
+
+  it('projects archived client workspaces as inactive Starter contacts', () => {
+    const workspace = clientWorkspaceFixtures[0]
+    if (workspace === undefined) throw new Error('missing client fixture')
+    expect(
+      projectClientWorkspaceToContact({
+        ...workspace,
+        status: 'archived',
+      }),
+    ).toMatchObject({ status: 'inactive' })
   })
 
   it('ships populated fake-safe Clients data', () => {
@@ -63,6 +113,19 @@ describe('client workspaces to Starter Contacts adapter', () => {
           expect.objectContaining({ name: 'Juniper Works' }),
         ]),
       )
+  })
+
+  it('adapts authorized fixture workspaces through the complete Starter hooks', () => {
+    expect(
+      contactsListDataHooks.clients({ workspaceId: 'agency' }).data.contacts,
+    ).toHaveLength(2)
+    expect(
+      contactDetailDataHooks.clients({
+        workspaceId: 'agency',
+        id: 'client-northstar',
+      }).data,
+    ).toMatchObject({ name: 'Northstar Labs', workspaceId: 'northstar' })
+    expect(clientAdapterMocks.headless).toHaveBeenCalled()
   })
 
   it('preserves the selected Starter contact type at the query adapter', () => {
@@ -81,5 +144,11 @@ describe('client workspaces to Starter Contacts adapter', () => {
         type: 'lead',
       }).data,
     ).toEqual({ contacts: [] })
+    expect(
+      contactDetailDataHooks.contacts({
+        workspaceId: 'workspace-northstar',
+        id: 'contact-1',
+      }).data,
+    ).toEqual([])
   })
 })

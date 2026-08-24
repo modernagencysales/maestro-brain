@@ -17,8 +17,11 @@ import {
 import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
 import {
+  connectionCardType,
   connectionFixtures,
-  projectDurableConnectionStatus,
+  connectionRuntimeMode,
+  connectionStatusForCard,
+  executeConnectionTransition,
   transitionConnectionStatus,
   type ConnectionCardModel,
   type ConnectionStatus,
@@ -73,90 +76,76 @@ export const ConnectionsPage = () => {
   const transition = async (
     id: ConnectionCardModel['id'],
     event: 'connect' | 'disconnect',
-  ) => {
-    if (isolatedContracts) {
-      if (event === 'connect') {
-        const begun = await runIsolatedHeadlessOperation<DurableConnection>({
+  ) =>
+    executeConnectionTransition({
+      mode: connectionRuntimeMode(isolatedContracts, fixtureRuntime),
+      provider: id,
+      event,
+      liveConnections,
+      ports: {
+        beginIsolated: (provider) =>
+          runIsolatedHeadlessOperation<DurableConnection>({
           operationId: 'integrations.connections.begin',
-          operationInput: { provider: id },
-          idempotencyKey: `connect-${id}-${Date.now()}`,
-        })
-        await runIsolatedHeadlessOperation<DurableConnection>({
+            operationInput: { provider },
+            idempotencyKey: `connect-${provider}-${Date.now()}`,
+          }),
+        completeIsolated: (provider, generation) =>
+          runIsolatedHeadlessOperation<DurableConnection>({
           operationId: 'integrations.connections.complete',
           operationInput: {
-            provider: id,
-            generation: begun.generation,
+              provider,
+              generation,
             completion: {
               status: 'active',
-              connectionRef: `contract-${id}-${begun.generation}`,
+                connectionRef: `contract-${provider}-${generation}`,
             },
           },
-          idempotencyKey: `complete-${id}-${begun.generation}`,
-        })
-      } else {
-        const current = liveConnections.find(
-          (connection) => connection.provider === id,
-        )
-        if (current !== undefined) {
-          await runIsolatedHeadlessOperation<DurableConnection>({
+            idempotencyKey: `complete-${provider}-${generation}`,
+          }),
+        revokeIsolated: (provider, generation) =>
+          runIsolatedHeadlessOperation<DurableConnection>({
             operationId: 'integrations.connections.revoke',
-            operationInput: { provider: id, generation: current.generation },
-            idempotencyKey: `revoke-${id}-${current.generation}`,
-          })
-        }
-      }
-      await queryClient.invalidateQueries({
-        queryKey: ['provider-connections', 'isolated-contracts', workspace.id],
-      })
-      return
-    }
-    if (!fixtureRuntime) {
-      if (event === 'connect') {
-        await beginConnection({ workspaceId: workspace.id, provider: id })
-        return
-      }
-      const current = liveConnections.find(
-        (connection) => connection.provider === id,
-      )
-      if (current !== undefined) {
-        await revokeConnection({
-          workspaceId: workspace.id,
-          provider: id,
-          generation: current.generation,
-        })
-      }
-      return
-    }
-    setStatuses((current) => ({
-      ...current,
-      [id]: transitionConnectionStatus(current[id] ?? 'available', event),
-    }))
-  }
+            operationInput: { provider, generation },
+            idempotencyKey: `revoke-${provider}-${generation}`,
+          }),
+        invalidateIsolated: () =>
+          queryClient.invalidateQueries({
+            queryKey: [
+              'provider-connections',
+              'isolated-contracts',
+              workspace.id,
+            ],
+          }),
+        beginLive: (provider) =>
+          beginConnection({ workspaceId: workspace.id, provider }),
+        revokeLive: (provider, generation) =>
+          revokeConnection({ workspaceId: workspace.id, provider, generation }),
+        updateFixture: (provider, transitionEvent) =>
+          setStatuses((current) => ({
+            ...current,
+            [provider]: transitionConnectionStatus(
+              current[provider] ?? 'available',
+              transitionEvent,
+            ),
+          })),
+      },
+    })
 
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
       {connectionFixtures.map((integration) => (
         (() => {
-          const status = fixtureRuntime
-            ? (statuses[integration.id] ?? 'available')
-            : projectDurableConnectionStatus(
-                liveConnections.find(
-                  (connection) => connection.provider === integration.id,
-                ),
-              )
+          const status = connectionStatusForCard({
+            fixtureRuntime,
+            fixtureStatuses: statuses,
+            provider: integration.id,
+            liveConnections,
+          })
           return (
         <IntegrationCard
           key={integration.id}
           {...integration}
-          type={
-            status === 'connected'
-              ? 'Connected'
-              : status === 'connecting'
-                ? 'Connecting'
-                : status === 'error'
-                  ? 'Connection needs attention'
-                  : 'Available integration'
-          }
+          type={connectionCardType(status)}
           isConnected={status === 'connected'}
           onConnect={() => transition(integration.id, 'connect')}
           onDisconnect={() => transition(integration.id, 'disconnect')}
