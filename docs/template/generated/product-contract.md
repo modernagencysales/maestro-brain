@@ -11,21 +11,21 @@ The links below are structural coverage only. Causal strength and declared-surfa
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Lifecycle | draft |
+| Lifecycle | required |
 | Surfaces | `web-ui` |
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/inbox`, `route:$workspace/inbox/$id`, `system:knowledge-brain`, `table:brainPages` |
-| Acceptance file paths | — |
+| Acceptance file paths | `brain.spec.ts` |
 ## @BHV-BRAIN-002-R1 A revision-fenced Brain edit persists across surfaces
 
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Lifecycle | draft |
+| Lifecycle | required |
 | Surfaces | `cli-process`, `public-http`, `web-ui` |
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/inbox/$id`, `system:knowledge-brain`, `table:brainPages` |
-| Acceptance file paths | — |
+| Acceptance file paths | `brain.spec.ts` |
 ## @BHV-BRAIN-003-R1 Ask Maestro returns the same cited company context everywhere
 
 | Field | Value |

@@ -73,7 +73,7 @@ behaviors:
     outcomes:
       - The literal Starter Inbox route lists workspace-scoped Brain pages.
       - Selecting a page opens the complete Starter detail composition.
-    status: draft
+    status: required
   - id: BHV-BRAIN-002
     revision: 1
     title: A revision-fenced Brain edit persists across surfaces
@@ -93,7 +93,7 @@ behaviors:
       - Web, CLI, and public HTTP reads return the saved revision and markdown.
       - A stale concurrent update returns a typed conflict and does not
         overwrite the current revision.
-    status: draft
+    status: required
   - id: BHV-BRAIN-003
     revision: 1
     title: Ask Maestro returns the same cited company context everywhere
