@@ -216,3 +216,45 @@ test(
     expect(afterStale.updatedAt).toBe(current.updatedAt);
   },
 );
+
+test(
+  "the complete connection cards manage the durable provider lifecycle",
+  { tag: "@BHV-BRAIN-004-R1" },
+  async ({ acceptancePage: page, runtime, scenario }) => {
+    await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/connections`);
+
+    const slackCard = page.getByText("Slack", { exact: true }).locator("../..");
+    await expect(slackCard.getByText("Available integration")).toBeVisible();
+    await slackCard.getByRole("button", { name: "Connect" }).click();
+    await expect(slackCard.getByText("Connected")).toBeVisible();
+
+    const connected = (await runtime.runApi(
+      scenario,
+      "integrations.connections.list",
+      {},
+    )) as {
+      ok: true;
+      result: readonly {
+        provider: string;
+        status: string;
+        generation: number;
+      }[];
+    };
+    expect(connected.ok).toBe(true);
+    expect(connected.result).toContainEqual(
+      expect.objectContaining({ provider: "slack", status: "active" }),
+    );
+
+    await slackCard.getByRole("button", { name: "Disconnect" }).click();
+    await expect(slackCard.getByText("Available integration")).toBeVisible();
+
+    const revoked = (await runtime.runApi(
+      scenario,
+      "integrations.connections.list",
+      {},
+    )) as typeof connected;
+    expect(revoked.result).toContainEqual(
+      expect.objectContaining({ provider: "slack", status: "revoked" }),
+    );
+  },
+);

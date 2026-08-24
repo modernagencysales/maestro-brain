@@ -7,9 +7,14 @@ import {
   templateConfectRefs,
 } from '@maestro-template/convex/refs'
 import { useMutation as useConvexMutation } from 'convex/react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { IntegrationCard } from '#components/integration-card/integration-card'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
-import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
+import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
 import {
   connectionFixtures,
@@ -33,14 +38,30 @@ const revokeConnectionRef = getFunctionReference(
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
 export const ConnectionsPage = () => {
   const [workspace] = useCurrentWorkspace()
-  const fixtureRuntime = isFixtureAuthRuntime()
+  const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
+  const queryClient = useQueryClient()
   const durableConnections = useConvexQuery(
     listConnectionsRef,
-    fixtureRuntime ? 'skip' : { workspaceId: workspace.id },
+    fixtureRuntime || isolatedContracts
+      ? 'skip'
+      : { workspaceId: workspace.id },
   )
+  const isolatedConnections = useQuery({
+    queryKey: ['provider-connections', 'isolated-contracts', workspace.id],
+    queryFn: () =>
+      runIsolatedHeadlessOperation<readonly DurableConnection[]>({
+        operationId: 'integrations.connections.list',
+      }),
+    enabled: isolatedContracts,
+  })
   const beginConnection = useConvexMutation(beginConnectionRef)
   const revokeConnection = useConvexMutation(revokeConnectionRef)
-  const liveConnections = (durableConnections?.data ?? []) as readonly DurableConnection[]
+  const liveConnections = (
+    isolatedContracts
+      ? (isolatedConnections.data ?? [])
+      : (durableConnections?.data ?? [])
+  ) as readonly DurableConnection[]
   const [statuses, setStatuses] = React.useState<
     Record<string, ConnectionStatus>
   >(() =>
@@ -53,6 +74,42 @@ export const ConnectionsPage = () => {
     id: ConnectionCardModel['id'],
     event: 'connect' | 'disconnect',
   ) => {
+    if (isolatedContracts) {
+      if (event === 'connect') {
+        const begun = await runIsolatedHeadlessOperation<DurableConnection>({
+          operationId: 'integrations.connections.begin',
+          operationInput: { provider: id },
+          idempotencyKey: `connect-${id}-${Date.now()}`,
+        })
+        await runIsolatedHeadlessOperation<DurableConnection>({
+          operationId: 'integrations.connections.complete',
+          operationInput: {
+            provider: id,
+            generation: begun.generation,
+            completion: {
+              status: 'active',
+              connectionRef: `contract-${id}-${begun.generation}`,
+            },
+          },
+          idempotencyKey: `complete-${id}-${begun.generation}`,
+        })
+      } else {
+        const current = liveConnections.find(
+          (connection) => connection.provider === id,
+        )
+        if (current !== undefined) {
+          await runIsolatedHeadlessOperation<DurableConnection>({
+            operationId: 'integrations.connections.revoke',
+            operationInput: { provider: id, generation: current.generation },
+            idempotencyKey: `revoke-${id}-${current.generation}`,
+          })
+        }
+      }
+      await queryClient.invalidateQueries({
+        queryKey: ['provider-connections', 'isolated-contracts', workspace.id],
+      })
+      return
+    }
     if (!fixtureRuntime) {
       if (event === 'connect') {
         await beginConnection({ workspaceId: workspace.id, provider: id })

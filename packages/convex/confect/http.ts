@@ -100,6 +100,18 @@ const isBrainPageOperation = (
 
 const assistantAnswerOperationId = "agents.assistant.answerQuestion" as const;
 
+const connectionOperationIds = [
+  "integrations.connections.list",
+  "integrations.connections.begin",
+  "integrations.connections.complete",
+  "integrations.connections.revoke",
+] as const;
+type ConnectionOperationId = (typeof connectionOperationIds)[number];
+const isConnectionOperation = (
+  operationId: string,
+): operationId is ConnectionOperationId =>
+  connectionOperationIds.some((candidate) => candidate === operationId);
+
 const operationRefs = {
   "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
@@ -107,6 +119,10 @@ const operationRefs = {
   "brain.pages.history": api.brain.pages.history,
   "brain.pages.list": api.brain.pages.list,
   "brain.pages.updateMarkdown": api.brain.pages.updateMarkdown,
+  "integrations.connections.begin": api.integrations.connections.begin,
+  "integrations.connections.complete": api.integrations.connections.complete,
+  "integrations.connections.list": api.integrations.connections.list,
+  "integrations.connections.revoke": api.integrations.connections.revoke,
   "ops.email.previewBroadcast": (
     api as unknown as {
       readonly ops: {
@@ -526,13 +542,20 @@ const executeTemplateApiRoute = async (
             operationId,
             parsedBody.body,
           )
-        : operationId === assistantAnswerOperationId
-          ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
-          : await responseForParsedTemplateApiBody(
+        : isConnectionOperation(operationId)
+          ? await connectionsApiResponse(
               ctx,
+              request,
               operationId,
               parsedBody.body,
             )
+          : operationId === assistantAnswerOperationId
+            ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
+            : await responseForParsedTemplateApiBody(
+                ctx,
+                operationId,
+                parsedBody.body,
+              )
     : jsonResponse(parsedBody);
 
   return response;
@@ -593,6 +616,27 @@ const brainPageActorRefs = {
 const assistantAnswerForActorRef = makeFunctionReference<"query">(
   "agents/assistant:answerQuestionForActor",
 );
+
+const connectionActorRefs = {
+  "integrations.connections.list": makeFunctionReference<"query">(
+    "integrations/connections:listForActor",
+  ),
+  "integrations.connections.begin": makeFunctionReference<"mutation">(
+    "integrations/connections:beginForActor",
+  ),
+  "integrations.connections.complete": makeFunctionReference<"mutation">(
+    "integrations/connections:completeForActor",
+  ),
+  "integrations.connections.revoke": makeFunctionReference<"mutation">(
+    "integrations/connections:revokeForActor",
+  ),
+} satisfies Record<ConnectionOperationId, unknown>;
+
+const connectionWriteOperations = new Set<ConnectionOperationId>([
+  "integrations.connections.begin",
+  "integrations.connections.complete",
+  "integrations.connections.revoke",
+]);
 
 const brainPageWriteOperations = new Set<BrainPageOperationId>([
   "brain.pages.createMarkdown",
@@ -769,6 +813,84 @@ const assistantAnswerApiResponse = async (
     operationId: assistantAnswerOperationId,
     result,
   });
+};
+
+const admitConnectionsApiRequest = (
+  request: Request,
+  operationId: ConnectionOperationId,
+  body: TemplateApiRequestBody,
+):
+  | {
+      readonly ok: true;
+      readonly presentedKey: string;
+      readonly workspaceSlug: string;
+    }
+  | { readonly ok: false; readonly response: Response } => {
+  const presentedKey = parseBearerApiKey(
+    request.headers.get("authorization") ?? undefined,
+  );
+  if (typeof presentedKey !== "string") {
+    return {
+      ok: false,
+      response: recordsAuthFailure(
+        presentedKey.code,
+        presentedKey.message,
+        401,
+      ),
+    };
+  }
+  const workspaceSlug = body.workspaceSlug?.trim() ?? "";
+  const workspaceFailure = brainWorkspaceFailure(workspaceSlug);
+  if (workspaceFailure) return { ok: false, response: workspaceFailure };
+  if (
+    connectionWriteOperations.has(operationId) &&
+    !body.idempotencyKey?.trim()
+  ) {
+    return {
+      ok: false,
+      response: jsonResponse(
+        {
+          ok: false,
+          error: {
+            _tag: "ValidationFailed",
+            message: `Operation ${operationId} requires a nonblank idempotencyKey.`,
+          },
+        },
+        400,
+      ),
+    };
+  }
+  return { ok: true, presentedKey, workspaceSlug };
+};
+
+const connectionsApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  operationId: ConnectionOperationId,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitConnectionsApiRequest(request, operationId, body);
+  if (!admission.ok) return admission.response;
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: connectionWriteOperations.has(operationId)
+      ? "workspace:write"
+      : "workspace:read",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+
+  const ref = connectionActorRefs[operationId];
+  const input = {
+    ...body.input,
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+  };
+  const result = connectionWriteOperations.has(operationId)
+    ? await ctx.runMutation(ref, input)
+    : await ctx.runQuery(ref, input);
+  return jsonResponse({ ok: true, operationId, result });
 };
 
 const recordsApiResponse = async (

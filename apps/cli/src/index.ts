@@ -24,6 +24,10 @@ export const staticCliOperationRefs: Readonly<Record<string, string>> = {
   "brain.pages.history": "brain.pages.history",
   "brain.pages.list": "brain.pages.list",
   "brain.pages.updateMarkdown": "brain.pages.updateMarkdown",
+  "integrations.connections.begin": "integrations.connections.begin",
+  "integrations.connections.complete": "integrations.connections.complete",
+  "integrations.connections.list": "integrations.connections.list",
+  "integrations.connections.revoke": "integrations.connections.revoke",
   "ops.email.previewBroadcast": "ops.email.previewBroadcast",
   "ops.email.dispatchBroadcast": "ops.email.dispatchBroadcast",
 };

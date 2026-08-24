@@ -45,7 +45,7 @@ The links below are structural coverage only. Causal strength and declared-surfa
 | Surfaces | `web-ui` |
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/settings`, `system:provider-integrations` |
-| Acceptance file paths | — |
+| Acceptance file paths | `brain.spec.ts` |
 ## @BHV-BRAIN-005-R1 Agency and client Brains remain visibly separated
 
 | Field | Value |

@@ -21,6 +21,10 @@ import {
   schemaRegistry as brainPagesSchemaRegistry,
 } from "../../../packages/convex/confect/brain/pages.spec";
 import {
+  manifest as connectionsManifest,
+  schemaRegistry as connectionsSchemaRegistry,
+} from "../../../packages/convex/confect/integrations/connections.spec";
+import {
   manifest as dataLifecycleManifest,
   schemaRegistry as dataLifecycleSchemaRegistry,
 } from "../../../packages/convex/confect/ops/dataLifecycle.spec";
@@ -32,6 +36,7 @@ import {
 const functions = [
   ...assistantManifest,
   ...brainPagesManifest,
+  ...connectionsManifest,
   ...sourceGroundedBriefManifest,
   ...dataLifecycleManifest,
   ...emailManifest,
@@ -39,6 +44,7 @@ const functions = [
 const schemaRegistry = mergeContractSchemaRegistries(
   assistantSchemaRegistry,
   brainPagesSchemaRegistry,
+  connectionsSchemaRegistry,
   sourceGroundedBriefSchemaRegistry,
   dataLifecycleSchemaRegistry,
   emailSchemaRegistry,
@@ -77,6 +83,8 @@ if (missingSchemas.length > 0) {
 const generatedRefModules: Readonly<Record<string, string>> = {
   "agents.assistant": "packages/convex/convex/agents/assistant.ts",
   "brain.pages": "packages/convex/convex/brain/pages.ts",
+  "integrations.connections":
+    "packages/convex/convex/integrations/connections.ts",
   "capabilities.sourceGroundedBrief":
     "packages/convex/convex/capabilities/sourceGroundedBrief.ts",
   "ops.dataLifecycle": "packages/convex/convex/ops/dataLifecycle.ts",
