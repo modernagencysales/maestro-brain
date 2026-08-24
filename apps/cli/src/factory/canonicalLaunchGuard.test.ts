@@ -107,7 +107,7 @@ describe("canonical customer launch guard", () => {
     ).resolves.toContain("Web port 15173 is already owned by pid 43.");
   });
 
-  it("fails closed with a useful diagnostic when verification cannot complete", async () => {
+  it("accepts CI clones that omit the optional origin HEAD symbolic ref", async () => {
     const base = dependencies();
     await expect(
       canonicalLaunchFindings(
@@ -121,8 +121,39 @@ describe("canonical customer launch guard", () => {
           },
         }),
       ),
+    ).resolves.toEqual([]);
+  });
+
+  it("rejects an available origin HEAD that points away from the contract branch", async () => {
+    const base = dependencies();
+    await expect(
+      canonicalLaunchFindings(
+        "/repo",
+        ["start"],
+        dependencies({
+          git: async (cwd, args) => {
+            if (args.join(" ") === "symbolic-ref refs/remotes/origin/HEAD")
+              return "refs/remotes/origin/legacy";
+            return base.git(cwd, args);
+          },
+        }),
+      ),
+    ).resolves.toContain("origin/HEAD must point to main.");
+  });
+
+  it("fails closed with a useful diagnostic when repository verification cannot complete", async () => {
+    await expect(
+      canonicalLaunchFindings(
+        "/repo",
+        ["start"],
+        dependencies({
+          git: async () => {
+            throw new Error("repository metadata is unavailable");
+          },
+        }),
+      ),
     ).resolves.toEqual([
-      "Canonical launch verification failed: origin/HEAD is unavailable",
+      "Canonical launch verification failed: repository metadata is unavailable",
     ]);
   });
 });

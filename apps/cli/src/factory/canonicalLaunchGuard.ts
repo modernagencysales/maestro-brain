@@ -162,6 +162,18 @@ const gitSucceeds = async (
   }
 };
 
+const optionalGitOutput = async (
+  dependencies: CanonicalLaunchGuardDependencies,
+  cwd: string,
+  args: readonly string[],
+): Promise<string | undefined> => {
+  try {
+    return await dependencies.git(cwd, args);
+  } catch {
+    return undefined;
+  }
+};
+
 const repositoryFindings = async (
   cwd: string,
   contract: CanonicalLaunchContract,
@@ -182,11 +194,14 @@ const repositoryFindings = async (
       `origin must be ${contract.repository}; received ${remote || "missing"}`,
     );
 
-  const remoteHead = await dependencies.git(cwd, [
+  const remoteHead = await optionalGitOutput(dependencies, cwd, [
     "symbolic-ref",
     "refs/remotes/origin/HEAD",
   ]);
-  if (remoteHead !== `refs/remotes/origin/${contract.defaultBranch}`)
+  if (
+    remoteHead !== undefined &&
+    remoteHead !== `refs/remotes/origin/${contract.defaultBranch}`
+  )
     findings.push(`origin/HEAD must point to ${contract.defaultBranch}.`);
 
   if (
