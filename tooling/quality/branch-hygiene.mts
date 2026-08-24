@@ -112,37 +112,63 @@ const csvValues = (
         .filter(Boolean)
     : [...fallback];
 
-const gitLines = (args: readonly string[]): string[] =>
-  execFileSync("git", args, { encoding: "utf8" })
+const gitLines = (args: readonly string[], cwd?: string): string[] =>
+  execFileSync("git", args, { cwd, encoding: "utf8" })
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-const inventoryRemoteBranches = (input: {
+export const inventoryRemoteBranches = (input: {
   readonly remote: string;
   readonly base: string;
+  readonly cwd?: string;
 }): BranchInventoryItem[] => {
-  const prefix = `${input.remote}/`;
-  const merged = new Set(
-    gitLines([
-      "for-each-ref",
-      `--merged=${input.remote}/${input.base}`,
-      "--format=%(refname:short)",
-      `refs/remotes/${input.remote}`,
-    ]),
+  const namespace = `refs/branch-hygiene/${process.pid}`;
+  const prefix = `${namespace}/`;
+
+  gitLines(
+    [
+      "fetch",
+      "--quiet",
+      "--no-tags",
+      input.remote,
+      `+refs/heads/*:${namespace}/*`,
+    ],
+    input.cwd,
   );
 
-  return gitLines([
-    "for-each-ref",
-    "--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-    `refs/remotes/${input.remote}`,
-  ])
-    .map((line) => line.split("\t"))
-    .filter(([ref]) => ref !== input.remote && ref !== `${input.remote}/HEAD`)
-    .map(([ref, sha, committedAt]) => {
+  try {
+    const baseRef = `${namespace}/${input.base}`;
+    if (gitLines(["show-ref", "--verify", baseRef], input.cwd).length === 0) {
+      throw new Error(
+        `Remote ${input.remote} does not contain base branch ${input.base}`,
+      );
+    }
+
+    const merged = new Set(
+      gitLines(
+        [
+          "for-each-ref",
+          `--merged=${baseRef}`,
+          "--format=%(refname)",
+          namespace,
+        ],
+        input.cwd,
+      ),
+    );
+
+    return gitLines(
+      [
+        "for-each-ref",
+        "--format=%(refname)%09%(objectname)%09%(committerdate:iso-strict)",
+        namespace,
+      ],
+      input.cwd,
+    ).map((line) => {
+      const [ref, sha, committedAt] = line.split("\t");
       if (!ref?.startsWith(prefix) || !sha || !committedAt) {
         throw new Error(
-          `Unable to parse remote branch inventory line: ${ref ?? ""}`,
+          `Unable to parse live remote branch inventory line: ${ref ?? ""}`,
         );
       }
       return {
@@ -152,6 +178,14 @@ const inventoryRemoteBranches = (input: {
         mergedIntoBase: merged.has(ref),
       };
     });
+  } finally {
+    for (const ref of gitLines(
+      ["for-each-ref", "--format=%(refname)", namespace],
+      input.cwd,
+    )) {
+      gitLines(["update-ref", "-d", ref], input.cwd);
+    }
+  }
 };
 
 const run = (): void => {

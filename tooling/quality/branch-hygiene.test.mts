@@ -1,10 +1,74 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { buildBranchHygieneManifest } from "./branch-hygiene.mts";
+import {
+  buildBranchHygieneManifest,
+  inventoryRemoteBranches,
+} from "./branch-hygiene.mts";
 
 const generatedAt = "2026-08-22T12:00:00.000Z";
 
 describe("branch hygiene manifest", () => {
+  it("inventories live remote heads when the checkout fetches only main", () => {
+    const root = mkdtempSync(join(tmpdir(), "maestro-branch-hygiene-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const checkout = join(root, "checkout");
+    const git = (cwd: string, args: readonly string[]): string =>
+      execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+
+    try {
+      git(root, ["init", "--bare", remote]);
+      git(root, ["init", "-b", "main", seed]);
+      git(seed, ["config", "user.name", "Branch Hygiene Test"]);
+      git(seed, ["config", "user.email", "branch-hygiene@example.test"]);
+      git(seed, ["commit", "--allow-empty", "-m", "seed main"]);
+      git(seed, ["remote", "add", "origin", remote]);
+      git(seed, ["push", "origin", "main"]);
+      git(seed, ["switch", "-c", "topic/live"]);
+      git(seed, ["commit", "--allow-empty", "-m", "topic"]);
+      git(seed, ["push", "origin", "topic/live"]);
+      git(root, [
+        "clone",
+        "--single-branch",
+        "--branch",
+        "main",
+        remote,
+        checkout,
+      ]);
+      const mainSha = git(checkout, ["rev-parse", "HEAD"]);
+      git(checkout, [
+        "update-ref",
+        "refs/remotes/origin/ghost-deleted",
+        mainSha,
+      ]);
+
+      expect(
+        git(checkout, ["config", "--get-all", "remote.origin.fetch"]),
+      ).toBe("+refs/heads/main:refs/remotes/origin/main");
+
+      const branches = inventoryRemoteBranches({
+        remote: "origin",
+        base: "main",
+        cwd: checkout,
+      });
+
+      expect(branches.map((branch) => branch.name)).toEqual([
+        "main",
+        "topic/live",
+      ]);
+      expect(branches.some((branch) => branch.name === "ghost-deleted")).toBe(
+        false,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("keeps canonical and unmerged branches", () => {
     const manifest = buildBranchHygieneManifest({
       baseRef: "origin/main",
