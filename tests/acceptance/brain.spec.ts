@@ -231,7 +231,10 @@ test(
     const pageErrors: string[] = [];
     page.on("response", (response) => responseUrls.push(response.url()));
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    await page.getByRole("button", { name: "Connect" }).first().click();
+    await page
+      .getByRole("button", { name: "Connect", exact: true })
+      .first()
+      .click();
 
     type ConnectionListResponse = {
       ok: true;
