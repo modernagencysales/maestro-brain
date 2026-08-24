@@ -6,11 +6,13 @@ import { fileURLToPath, URL } from "node:url";
 
 import {
   assertProductionAuthConfiguration,
+  fixtureAuthWorkerVariables,
   resolveWebAuthMode,
 } from "./src/lib/auth/runtime-auth";
 
 process.env.VITE_MAESTRO_AUTH_MODE = resolveWebAuthMode(process.env);
 assertProductionAuthConfiguration(process.env);
+const runtimeWorkerVars = fixtureAuthWorkerVariables(process.env);
 
 const contractWorkerVars =
   process.env.MAESTRO_CONTRACT_TEST === "1"
@@ -43,7 +45,11 @@ export default defineConfig(({ mode }) => ({
       : cloudflare({
           viteEnvironment: { name: "ssr" },
           config: (config) => ({
-            vars: { ...config.vars, ...contractWorkerVars },
+            vars: {
+              ...config.vars,
+              ...runtimeWorkerVars,
+              ...contractWorkerVars,
+            },
           }),
         }),
     tanstackStart({
