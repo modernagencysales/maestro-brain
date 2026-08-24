@@ -29,12 +29,17 @@ import { SearchInput } from '@workspace/ui/search-input'
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
-import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
+import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
 import {
   askMaestroPromptFixtures,
   fakeAskMaestroResult,
   projectGroundedAnswerToSearchResults,
+  type GroundedAnswerResult,
   type StarterSearchResult,
 } from './ask-maestro-adapter'
 
@@ -65,6 +70,13 @@ export function SearchPage() {
     queryKey: ['search', productShell.search, workspace.id, q],
     queryFn: async () => {
       if (productShell.search !== 'assistant') return []
+      if (isIsolatedContractsRuntime()) {
+        const result = await runIsolatedHeadlessOperation<GroundedAnswerResult>({
+          operationId: 'agents.assistant.answerQuestion',
+          operationInput: { question: q },
+        })
+        return projectGroundedAnswerToSearchResults(result)
+      }
       if (isFixtureAuthRuntime()) return fakeAskMaestroResult(q)
       const result = await convex.query(answerQuestionRef, {
         workspaceId: workspace.id,

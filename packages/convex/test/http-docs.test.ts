@@ -424,6 +424,69 @@ describe("template HTTP docs routes", () => {
     });
   });
 
+  it("resolves an assistant actor before returning cited context", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          calls.push(input);
+          return "keyHash" in input
+            ? {
+                ok: true,
+                keyId: "api_key_contracts",
+                workspaceId: "workspace_contracts",
+                userId: "user_contracts",
+              }
+            : {
+                status: "answered",
+                answerMarkdown: "Launches Friday. [1]",
+                contextPack: {
+                  citations: [{ sourceRevisionId: "revision_1" }],
+                },
+              };
+        },
+      },
+      new Request(
+        "https://template.local/api/agents.assistant.answerQuestion",
+        {
+          method: "POST",
+          headers: {
+            authorization: "Bearer mtk_live_contracts",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            workspaceSlug: "contracts-primary",
+            input: { question: "When is launch?" },
+          }),
+        },
+      ),
+    );
+
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "agents.assistant.answerQuestion",
+      result: {
+        answerMarkdown: "Launches Friday. [1]",
+        contextPack: { citations: [{ sourceRevisionId: "revision_1" }] },
+      },
+    });
+    expect(calls).toEqual([
+      {
+        keyHash: expect.any(String),
+        workspaceSlug: "contracts-primary",
+        requiredScope: "workspace:read",
+        nowMs: expect.any(Number),
+      },
+      {
+        workspaceId: "workspace_contracts",
+        userId: "user_contracts",
+        question: "When is launch?",
+      },
+    ]);
+    expect(JSON.stringify(calls)).not.toContain("mtk_live_contracts");
+  });
+
   it("requires a bearer API key for records operations", async () => {
     const response = await handleTemplateHttpRequest(
       noopCtx,

@@ -98,6 +98,8 @@ const isBrainPageOperation = (
 ): operationId is BrainPageOperationId =>
   brainPageOperationIds.some((candidate) => candidate === operationId);
 
+const assistantAnswerOperationId = "agents.assistant.answerQuestion" as const;
+
 const operationRefs = {
   "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
@@ -524,11 +526,13 @@ const executeTemplateApiRoute = async (
             operationId,
             parsedBody.body,
           )
-        : await responseForParsedTemplateApiBody(
-            ctx,
-            operationId,
-            parsedBody.body,
-          )
+        : operationId === assistantAnswerOperationId
+          ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
+          : await responseForParsedTemplateApiBody(
+              ctx,
+              operationId,
+              parsedBody.body,
+            )
     : jsonResponse(parsedBody);
 
   return response;
@@ -585,6 +589,10 @@ const brainPageActorRefs = {
     "brain/pages:historyForActor",
   ),
 } satisfies Record<BrainPageOperationId, unknown>;
+
+const assistantAnswerForActorRef = makeFunctionReference<"query">(
+  "agents/assistant:answerQuestionForActor",
+);
 
 const brainPageWriteOperations = new Set<BrainPageOperationId>([
   "brain.pages.createMarkdown",
@@ -666,6 +674,47 @@ const admitBrainApiRequest = (
     : { ok: true, presentedKey, workspaceSlug };
 };
 
+const admitAssistantApiRequest = (
+  request: Request,
+  body: TemplateApiRequestBody,
+):
+  | {
+      readonly ok: true;
+      readonly presentedKey: string;
+      readonly workspaceSlug: string;
+    }
+  | { readonly ok: false; readonly response: Response } => {
+  const presentedKey = parseBearerApiKey(
+    request.headers.get("authorization") ?? undefined,
+  );
+  if (typeof presentedKey !== "string") {
+    return {
+      ok: false,
+      response: recordsAuthFailure(
+        presentedKey.code,
+        presentedKey.message,
+        401,
+      ),
+    };
+  }
+  const workspaceSlug = body.workspaceSlug?.trim() ?? "";
+  return workspaceSlug
+    ? { ok: true, presentedKey, workspaceSlug }
+    : {
+        ok: false,
+        response: jsonResponse(
+          {
+            ok: false,
+            error: {
+              _tag: "ValidationFailed",
+              message: "Assistant operations require workspaceSlug.",
+            },
+          },
+          400,
+        ),
+      };
+};
+
 const brainPagesApiResponse = async (
   ctx: HeadlessHttpCtx,
   request: Request,
@@ -694,6 +743,32 @@ const brainPagesApiResponse = async (
     ? await ctx.runMutation(ref, input)
     : await ctx.runQuery(ref, input);
   return jsonResponse({ ok: true, operationId, result });
+};
+
+const assistantAnswerApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitAssistantApiRequest(request, body);
+  if (!admission.ok) return admission.response;
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: "workspace:read",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+  const result = await ctx.runQuery(assistantAnswerForActorRef, {
+    ...body.input,
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+  });
+  return jsonResponse({
+    ok: true,
+    operationId: assistantAnswerOperationId,
+    result,
+  });
 };
 
 const recordsApiResponse = async (
