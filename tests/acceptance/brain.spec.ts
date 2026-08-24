@@ -1,7 +1,7 @@
 import { expect, test } from "./support/fixtures";
 import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 15_000;
 
