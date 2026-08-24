@@ -113,7 +113,7 @@ behaviors:
       - The answer exposes resolvable citations and freshness instead of uncited
         fixture text.
       - The evidence revisions agree across all three surfaces.
-    status: draft
+    status: required
   - id: BHV-BRAIN-004
     revision: 1
     title: A member manages sources through complete connection cards
