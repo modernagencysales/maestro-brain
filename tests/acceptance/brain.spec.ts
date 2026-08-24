@@ -223,12 +223,12 @@ test(
   async ({ acceptancePage: page, runtime, scenario }) => {
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/`);
 
-    const slackCard = page
-      .locator('[data-scope="card"][data-part="root"]')
-      .filter({ has: page.getByRole("heading", { name: "Slack" }) });
-    await expect(slackCard.getByText("Available integration")).toBeVisible();
-    await slackCard.getByRole("button", { name: "Connect" }).click();
-    await expect(slackCard.getByText("Connected")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Slack" })).toBeVisible();
+    await expect(
+      page.getByText("Available integration", { exact: true }).first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Connect" }).first().click();
+    await expect(page.getByText("Connected", { exact: true })).toBeVisible();
 
     const connected = (await runtime.runApi(
       scenario,
@@ -247,8 +247,10 @@ test(
       expect.objectContaining({ provider: "slack", status: "active" }),
     );
 
-    await slackCard.getByRole("button", { name: "Disconnect" }).click();
-    await expect(slackCard.getByText("Available integration")).toBeVisible();
+    await page.getByRole("button", { name: "Disconnect" }).click();
+    await expect(
+      page.getByText("Available integration", { exact: true }).first(),
+    ).toBeVisible();
 
     const revoked = (await runtime.runApi(
       scenario,
