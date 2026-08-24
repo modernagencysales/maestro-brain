@@ -7,7 +7,10 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import {
+  requireWorkspaceAccess,
+  requireWorkspaceActorAccess,
+} from "../capabilities/_kit/workspaceAccess";
 import { NotFound, StaleRevision, ValidationFailed } from "../errors";
 import { withMutationErrorCapture } from "../observability/errorCapture";
 import pages from "./pages.spec";
@@ -104,21 +107,49 @@ const writeRevision = (input: {
       .pipe(Effect.orDie);
   });
 
+const listPages = (
+  workspaceId: GenericId<"workspaces">,
+  includeArchived?: boolean,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    return rows.filter(
+      (page) =>
+        includeArchived === true || currentState(page).status === "active",
+    );
+  });
+
+const pageHistory = (args: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly pageId: GenericId<"brainPages">;
+  readonly limit?: number | undefined;
+}) =>
+  Effect.gen(function* () {
+    yield* requirePage(args.workspaceId, args.pageId);
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("pageRevisions")
+      .index("by_workspace_page_updated", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("pageId", args.pageId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    return [...rows]
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100));
+  });
+
 const list = FunctionImpl.make(databaseSchema, pages, "list", (args) =>
   Effect.gen(function* () {
     yield* unsafeAssumeClockProvided(
       requireWorkspaceAccess(args.workspaceId, "viewer"),
     );
-    const reader = yield* DatabaseReader;
-    const rows = yield* reader
-      .table("brainPages")
-      .index("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect()
-      .pipe(Effect.orDie);
-    return rows.filter(
-      (page) =>
-        args.includeArchived === true || currentState(page).status === "active",
-    );
+    return yield* listPages(args.workspaceId, args.includeArchived);
   }),
 );
 
@@ -136,20 +167,69 @@ const history = FunctionImpl.make(databaseSchema, pages, "history", (args) =>
     yield* unsafeAssumeClockProvided(
       requireWorkspaceAccess(args.workspaceId, "viewer"),
     );
-    yield* requirePage(args.workspaceId, args.pageId);
-    const reader = yield* DatabaseReader;
-    const rows = yield* reader
-      .table("pageRevisions")
-      .index("by_workspace_page_updated", (q) =>
-        q.eq("workspaceId", args.workspaceId).eq("pageId", args.pageId),
-      )
-      .collect()
-      .pipe(Effect.orDie);
-    return [...rows]
-      .sort((left, right) => right.updatedAt - left.updatedAt)
-      .slice(0, Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100));
+    return yield* pageHistory(args);
   }),
 );
+
+const createMarkdownPage = (args: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly slug: string;
+  readonly title: string;
+  readonly markdown: string;
+  readonly parentPageId?: GenericId<"brainPages"> | null | undefined;
+  readonly sortKey?: string | undefined;
+  readonly actorUserId: GenericId<"users">;
+}) =>
+  Effect.gen(function* () {
+    const title = args.title.trim();
+    if (title.length === 0 || title.length > 160)
+      return yield* new ValidationFailed({
+        field: "title",
+        message: "Title must contain between 1 and 160 characters.",
+      });
+    if (args.parentPageId !== undefined && args.parentPageId !== null) {
+      const parent = yield* requirePage(args.workspaceId, args.parentPageId);
+      if (currentState(parent).status !== "active")
+        return yield* new ValidationFailed({
+          field: "parentPageId",
+          message: "Parent page must be active.",
+        });
+    }
+    const updatedAt = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+    const state = {
+      parentPageId: args.parentPageId ?? null,
+      sortKey: args.sortKey ?? args.slug,
+      favorite: false,
+      status: "active" as const,
+    };
+    const writer = yield* DatabaseWriter;
+    const pageId = yield* writer
+      .table("brainPages")
+      .insert({
+        workspaceId: args.workspaceId,
+        slug: args.slug,
+        title,
+        markdown: args.markdown,
+        sourceKind: "markdown",
+        ...state,
+        createdAt: updatedAt,
+        updatedAt,
+      })
+      .pipe(Effect.orDie);
+    yield* writeRevision({
+      workspaceId: args.workspaceId,
+      pageId,
+      priorUpdatedAt: null,
+      updatedAt,
+      title,
+      markdown: args.markdown,
+      sourceKind: "markdown",
+      causation: "create",
+      state,
+      actorUserId: args.actorUserId,
+    });
+    return pageId;
+  });
 
 const createMarkdown = FunctionImpl.make(
   databaseSchema,
@@ -162,59 +242,10 @@ const createMarkdown = FunctionImpl.make(
         const access = yield* unsafeAssumeClockProvided(
           requireWorkspaceAccess(args.workspaceId, "editor"),
         );
-        const title = args.title.trim();
-        if (title.length === 0 || title.length > 160)
-          return yield* new ValidationFailed({
-            field: "title",
-            message: "Title must contain between 1 and 160 characters.",
-          });
-        if (args.parentPageId !== undefined && args.parentPageId !== null) {
-          const parent = yield* requirePage(
-            args.workspaceId,
-            args.parentPageId,
-          );
-          if (currentState(parent).status !== "active")
-            return yield* new ValidationFailed({
-              field: "parentPageId",
-              message: "Parent page must be active.",
-            });
-        }
-        const updatedAt = yield* unsafeAssumeClockProvided(
-          Clock.currentTimeMillis,
-        );
-        const state = {
-          parentPageId: args.parentPageId ?? null,
-          sortKey: args.sortKey ?? args.slug,
-          favorite: false,
-          status: "active" as const,
-        };
-        const writer = yield* DatabaseWriter;
-        const pageId = yield* writer
-          .table("brainPages")
-          .insert({
-            workspaceId: args.workspaceId,
-            slug: args.slug,
-            title,
-            markdown: args.markdown,
-            sourceKind: "markdown",
-            ...state,
-            createdAt: updatedAt,
-            updatedAt,
-          })
-          .pipe(Effect.orDie);
-        yield* writeRevision({
-          workspaceId: args.workspaceId,
-          pageId,
-          priorUpdatedAt: null,
-          updatedAt,
-          title,
-          markdown: args.markdown,
-          sourceKind: "markdown",
-          causation: "create",
-          state,
+        return yield* createMarkdownPage({
+          ...args,
           actorUserId: access.userId,
         });
-        return pageId;
       }),
     ),
 );
@@ -225,11 +256,9 @@ const patchPage = (input: {
   readonly expectedUpdatedAt: number;
   readonly causation: Exclude<RevisionCausation, "create" | "restore">;
   readonly patch: Record<string, unknown>;
+  readonly actorUserId: GenericId<"users">;
 }) =>
   Effect.gen(function* () {
-    const access = yield* unsafeAssumeClockProvided(
-      requireWorkspaceAccess(input.workspaceId, "editor"),
-    );
     const page = yield* requirePage(input.workspaceId, input.pageId);
     yield* requireCurrentRevision(page, input.expectedUpdatedAt);
     const updatedAt = nextPageUpdatedAt(
@@ -252,7 +281,7 @@ const patchPage = (input: {
       sourceKind: patchedPage.sourceKind,
       causation: input.causation,
       state: currentState(patchedPage),
-      actorUserId: access.userId,
+      actorUserId: input.actorUserId,
     });
     return patchedPage;
   });
@@ -264,10 +293,16 @@ const updateMarkdown = FunctionImpl.make(
   (args) =>
     withMutationErrorCapture(
       "brain/pages.updateMarkdown",
-      patchPage({
-        ...args,
-        causation: "update",
-        patch: { markdown: args.markdown },
+      Effect.gen(function* () {
+        const access = yield* unsafeAssumeClockProvided(
+          requireWorkspaceAccess(args.workspaceId, "editor"),
+        );
+        return yield* patchPage({
+          ...args,
+          causation: "update",
+          patch: { markdown: args.markdown },
+          actorUserId: access.userId,
+        });
       }),
     ),
 );
@@ -283,7 +318,17 @@ const rename = FunctionImpl.make(databaseSchema, pages, "rename", (args) => {
       )
     : withMutationErrorCapture(
         "brain/pages.rename",
-        patchPage({ ...args, causation: "rename", patch: { title } }),
+        Effect.gen(function* () {
+          const access = yield* unsafeAssumeClockProvided(
+            requireWorkspaceAccess(args.workspaceId, "editor"),
+          );
+          return yield* patchPage({
+            ...args,
+            causation: "rename",
+            patch: { title },
+            actorUserId: access.userId,
+          });
+        }),
       );
 });
 
@@ -291,6 +336,9 @@ const move = FunctionImpl.make(databaseSchema, pages, "move", (args) =>
   withMutationErrorCapture(
     "brain/pages.move",
     Effect.gen(function* () {
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(args.workspaceId, "editor"),
+      );
       const page = yield* requirePage(args.workspaceId, args.pageId);
       yield* requireCurrentRevision(page, args.expectedUpdatedAt);
       if (args.parentPageId === args.pageId)
@@ -317,6 +365,7 @@ const move = FunctionImpl.make(databaseSchema, pages, "move", (args) =>
         ...args,
         causation: "move",
         patch: { parentPageId: args.parentPageId, sortKey: args.sortKey },
+        actorUserId: access.userId,
       });
     }),
   ),
@@ -325,10 +374,16 @@ const move = FunctionImpl.make(databaseSchema, pages, "move", (args) =>
 const favorite = FunctionImpl.make(databaseSchema, pages, "favorite", (args) =>
   withMutationErrorCapture(
     "brain/pages.favorite",
-    patchPage({
-      ...args,
-      causation: "favorite",
-      patch: { favorite: args.favorite },
+    Effect.gen(function* () {
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(args.workspaceId, "editor"),
+      );
+      return yield* patchPage({
+        ...args,
+        causation: "favorite",
+        patch: { favorite: args.favorite },
+        actorUserId: access.userId,
+      });
     }),
   ),
 );
@@ -336,7 +391,17 @@ const favorite = FunctionImpl.make(databaseSchema, pages, "favorite", (args) =>
 const archive = FunctionImpl.make(databaseSchema, pages, "archive", (args) =>
   withMutationErrorCapture(
     "brain/pages.archive",
-    patchPage({ ...args, causation: "archive", patch: { status: "archived" } }),
+    Effect.gen(function* () {
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(args.workspaceId, "editor"),
+      );
+      return yield* patchPage({
+        ...args,
+        causation: "archive",
+        patch: { status: "archived" },
+        actorUserId: access.userId,
+      });
+    }),
   ),
 );
 
@@ -402,6 +467,82 @@ const restore = FunctionImpl.make(databaseSchema, pages, "restore", (args) =>
   ),
 );
 
+const listForActor = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "listForActor",
+  ({ workspaceId, userId, includeArchived }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceActorAccess(workspaceId, userId, "viewer"),
+      );
+      return yield* listPages(workspaceId, includeArchived);
+    }),
+);
+
+const getForActor = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "getForActor",
+  ({ workspaceId, userId, pageId }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceActorAccess(workspaceId, userId, "viewer"),
+      );
+      return yield* requirePage(workspaceId, pageId);
+    }),
+);
+
+const historyForActor = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "historyForActor",
+  ({ workspaceId, userId, pageId, limit }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceActorAccess(workspaceId, userId, "viewer"),
+      );
+      return yield* pageHistory({ workspaceId, pageId, limit });
+    }),
+);
+
+const createMarkdownForActor = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "createMarkdownForActor",
+  ({ userId, ...args }) =>
+    withMutationErrorCapture(
+      "brain/pages.createMarkdownForActor",
+      Effect.gen(function* () {
+        yield* unsafeAssumeClockProvided(
+          requireWorkspaceActorAccess(args.workspaceId, userId, "editor"),
+        );
+        return yield* createMarkdownPage({ ...args, actorUserId: userId });
+      }),
+    ),
+);
+
+const updateMarkdownForActor = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "updateMarkdownForActor",
+  ({ userId, ...args }) =>
+    withMutationErrorCapture(
+      "brain/pages.updateMarkdownForActor",
+      Effect.gen(function* () {
+        yield* unsafeAssumeClockProvided(
+          requireWorkspaceActorAccess(args.workspaceId, userId, "editor"),
+        );
+        return yield* patchPage({
+          ...args,
+          causation: "update",
+          patch: { markdown: args.markdown },
+          actorUserId: userId,
+        });
+      }),
+    ),
+);
+
 const recordSnapshotInternal = FunctionImpl.make(
   databaseSchema,
   pages,
@@ -432,6 +573,11 @@ export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(history),
   Layer.provide(createMarkdown),
   Layer.provide(updateMarkdown),
+  Layer.provide(listForActor),
+  Layer.provide(getForActor),
+  Layer.provide(createMarkdownForActor),
+  Layer.provide(updateMarkdownForActor),
+  Layer.provide(historyForActor),
   Layer.provide(rename),
   Layer.provide(move),
   Layer.provide(favorite),

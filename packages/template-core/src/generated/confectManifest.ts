@@ -72,7 +72,7 @@ export const confectManifest = {
       name: "get",
       operationId: "brain.pages.get",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
         "MemberNotInWorkspace",
@@ -106,11 +106,12 @@ export const confectManifest = {
       name: "list",
       operationId: "brain.pages.list",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "cli", "mcp"],
       typedErrors: [
         "Unauthorized",
         "MemberNotInWorkspace",
         "WorkspaceNotFound",
+        "ValidationFailed",
       ],
       idempotent: true,
       argsSchemaName: "brain.pages.list.args",

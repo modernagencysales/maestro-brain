@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
 import {
   getFunctionReference,
@@ -30,7 +31,11 @@ import { useModals } from '@workspace/ui/modals'
 
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
-import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
+import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
 import { brainInboxFixtures } from './brain-inbox-adapter'
 import { BrainPageOrganizeDialog } from './brain-page-organize-dialog'
@@ -95,34 +100,43 @@ const showBrainSaveFailure = (error: unknown) => {
 
 const pageMarkdown = (page: BrainEditorPage | undefined) => page?.markdown ?? ''
 const pageUpdatedAt = (page: BrainEditorPage | undefined) => page?.updatedAt ?? 0
-const hasPendingBrainChanges = (
-  page: BrainEditorPage | undefined,
-  markdown: string,
-) => page !== undefined && markdown !== page.markdown
-
 const useBrainPage = (input: {
   fixtureRuntime: boolean
+  isolatedContracts: boolean
   pageId: string
   workspaceId: string
 }): BrainEditorPage | undefined => {
-  const query = useConvexQuery(
+  const convexQuery = useConvexQuery(
     getPageRef,
     input.fixtureRuntime
       ? 'skip'
       : { workspaceId: input.workspaceId, pageId: input.pageId as never },
   )
-  return input.fixtureRuntime
-    ? fixturePage(input.pageId)
-    : (query.data as BrainEditorPage | undefined)
+  const contractQuery = useQuery({
+    queryKey: ['brain-page', 'isolated-contracts', input.pageId],
+    queryFn: () =>
+      runIsolatedHeadlessOperation<BrainEditorPage>({
+        operationId: 'brain.pages.get',
+        operationInput: { pageId: input.pageId },
+      }),
+    enabled: input.isolatedContracts,
+  })
+  return input.isolatedContracts
+    ? contractQuery.data
+    : input.fixtureRuntime
+      ? fixturePage(input.pageId)
+      : (convexQuery.data as BrainEditorPage | undefined)
 }
 
 const useBrainMarkdown = (input: {
   fixtureRuntime: boolean
+  isolatedContracts: boolean
   page: BrainEditorPage | undefined
   workspaceId: string
 }) => {
   const updateMarkdown = useConvexMutation(updatePageRef)
   const [markdown, setMarkdown] = React.useState(pageMarkdown(input.page))
+  const loadedMarkdownRef = React.useRef(pageMarkdown(input.page))
   const revisionRef = React.useRef(pageUpdatedAt(input.page))
   const failedSaveRef = React.useRef('')
   const [saveState, setSaveState] = React.useState<BrainSaveState>('idle')
@@ -132,6 +146,7 @@ const useBrainMarkdown = (input: {
 
   React.useEffect(() => {
     setMarkdown(pageMarkdown(input.page))
+    loadedMarkdownRef.current = pageMarkdown(input.page)
     revisionRef.current = pageUpdatedAt(input.page)
     setSavedUpdatedAt(pageUpdatedAt(input.page))
     failedSaveRef.current = ''
@@ -141,8 +156,8 @@ const useBrainMarkdown = (input: {
   React.useEffect(() => {
     if (
       !shouldPersistBrainMarkdown({
-        fixtureRuntime: input.fixtureRuntime,
-        loadedMarkdown: input.page?.markdown,
+        fixtureRuntime: input.fixtureRuntime && !input.isolatedContracts,
+        loadedMarkdown: loadedMarkdownRef.current,
         draftMarkdown: markdown,
       })
     )
@@ -153,13 +168,26 @@ const useBrainMarkdown = (input: {
     if (failedSaveRef.current === saveKey) return
     const timeout = window.setTimeout(() => {
       setSaveState('saving')
-      void updateMarkdown({
-        workspaceId: input.workspaceId,
-        pageId: page._id,
-        markdown,
-        expectedUpdatedAt: revisionRef.current,
-      }).then((updated) => {
+      const expectedUpdatedAt = revisionRef.current
+      const update = input.isolatedContracts
+        ? runIsolatedHeadlessOperation<BrainEditorPage>({
+            operationId: 'brain.pages.updateMarkdown',
+            operationInput: {
+              pageId: page._id,
+              markdown,
+              expectedUpdatedAt,
+            },
+            idempotencyKey: `brain-page-update-${page._id}-${expectedUpdatedAt}`,
+          })
+        : updateMarkdown({
+            workspaceId: input.workspaceId,
+            pageId: page._id,
+            markdown,
+            expectedUpdatedAt,
+          })
+      void update.then((updated) => {
         revisionRef.current = updated.updatedAt
+        loadedMarkdownRef.current = markdown
         setSavedUpdatedAt(updated.updatedAt)
         failedSaveRef.current = ''
         setSaveState('saved')
@@ -169,7 +197,14 @@ const useBrainMarkdown = (input: {
       })
     }, 500)
     return () => window.clearTimeout(timeout)
-  }, [input.fixtureRuntime, input.page, input.workspaceId, markdown, updateMarkdown])
+  }, [
+    input.fixtureRuntime,
+    input.isolatedContracts,
+    input.page,
+    input.workspaceId,
+    markdown,
+    updateMarkdown,
+  ])
 
   const updateDraft = React.useCallback((value: string) => {
     failedSaveRef.current = ''
@@ -187,7 +222,8 @@ const useBrainMarkdown = (input: {
     saveState,
     savedUpdatedAt,
     acceptMutation,
-    hasPendingChanges: hasPendingBrainChanges(input.page, markdown),
+    hasPendingChanges:
+      input.page !== undefined && markdown !== loadedMarkdownRef.current,
   } as const
 }
 
@@ -273,8 +309,10 @@ export function BrainInboxViewPage({
   const navigate = useNavigate()
   const modals = useModals()
   const fixtureRuntime = isFixtureAuthRuntime()
+  const isolatedContracts = isIsolatedContractsRuntime()
   const page = useBrainPage({
     fixtureRuntime,
+    isolatedContracts,
     pageId: params.id,
     workspaceId: workspace.id,
   })
@@ -285,7 +323,12 @@ export function BrainInboxViewPage({
     savedUpdatedAt,
     acceptMutation,
     hasPendingChanges,
-  } = useBrainMarkdown({ fixtureRuntime, page, workspaceId: workspace.id })
+  } = useBrainMarkdown({
+    fixtureRuntime,
+    isolatedContracts,
+    page,
+    workspaceId: workspace.id,
+  })
   const favoritePage = useConvexMutation(favoritePageRef)
   const archivePage = useConvexMutation(archivePageRef)
   const [actionPending, setActionPending] = React.useState(false)

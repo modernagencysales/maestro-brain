@@ -4,9 +4,14 @@ import {
   templateConfectRefs,
 } from '@maestro-template/convex/refs'
 import type { NotificationDTO } from '@workspace/api/types'
+import { useQuery } from '@tanstack/react-query'
 
 import { api } from '#lib/trpc/react'
-import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
+import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
 export type BrainInboxPage = Readonly<{
   _id: string
@@ -51,16 +56,32 @@ export const brainInboxFixtures: readonly BrainInboxPage[] = [
 
 const useBrainInbox = ({ workspaceId }: { workspaceId: string }) => {
   const fixtureRuntime = isFixtureAuthRuntime()
-  const result = useConvexQuery(
+  const isolatedContracts = isIsolatedContractsRuntime()
+  const convexResult = useConvexQuery(
     brainPagesListRef,
     fixtureRuntime ? 'skip' : { workspaceId },
   )
+  const contractResult = useQuery({
+    queryKey: ['brain-pages', 'isolated-contracts', workspaceId],
+    queryFn: () =>
+      runIsolatedHeadlessOperation<readonly BrainInboxPage[]>({
+        operationId: 'brain.pages.list',
+      }),
+    enabled: isolatedContracts,
+  })
+  const pages = isolatedContracts
+    ? contractResult.data
+    : fixtureRuntime
+      ? brainInboxFixtures
+      : convexResult.data
   return {
-    ...result,
-    data: projectBrainPagesToInbox(
-      fixtureRuntime ? brainInboxFixtures : (result.data ?? []),
-    ),
-    isLoading: fixtureRuntime ? false : result.isLoading,
+    ...(isolatedContracts ? contractResult : convexResult),
+    data: projectBrainPagesToInbox(pages ?? []),
+    isLoading: isolatedContracts
+      ? contractResult.isLoading
+      : fixtureRuntime
+        ? false
+        : convexResult.isLoading,
   }
 }
 

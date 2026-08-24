@@ -50,6 +50,13 @@ export type ContractsRuntime = {
     args: readonly string[],
     actor?: "primary" | "observer" | "none",
   ) => Promise<string>;
+  readonly runApi: (
+    scenario: ContractsScenario,
+    operationId: string,
+    input: Record<string, unknown>,
+    idempotencyKey?: string,
+    actor?: "primary" | "observer",
+  ) => Promise<unknown>;
 };
 
 type AppSpec = {
@@ -791,6 +798,34 @@ async function bootContractsRuntime(
           MAESTRO_API_BASE_URL: apiBaseUrl,
           MAESTRO_API_KEY: actor === "none" ? "" : scenarioCredentials[actor],
         });
+      },
+      runApi: async (
+        scenario,
+        operationId,
+        input,
+        idempotencyKey,
+        actor = "primary",
+      ) => {
+        const scenarioCredentials = requireCredentials(scenario);
+        const response = await fetch(
+          new URL(`/api/${encodeURIComponent(operationId)}`, `${apiBaseUrl}/`),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${scenarioCredentials[actor]}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              workspaceSlug:
+                actor === "primary"
+                  ? scenario.workspaceSlug
+                  : scenario.observerWorkspaceSlug,
+              input,
+              ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+            }),
+          },
+        );
+        return await response.json();
       },
     };
     return Object.freeze(runtime);

@@ -85,10 +85,25 @@ const isRecordOperation = (
 ): operationId is RecordOperationId =>
   recordOperationIds.some((candidate) => candidate === operationId);
 
+const brainPageOperationIds = [
+  "brain.pages.list",
+  "brain.pages.get",
+  "brain.pages.createMarkdown",
+  "brain.pages.updateMarkdown",
+  "brain.pages.history",
+] as const;
+type BrainPageOperationId = (typeof brainPageOperationIds)[number];
+const isBrainPageOperation = (
+  operationId: string,
+): operationId is BrainPageOperationId =>
+  brainPageOperationIds.some((candidate) => candidate === operationId);
+
 const operationRefs = {
   "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
+  "brain.pages.get": api.brain.pages.get,
   "brain.pages.history": api.brain.pages.history,
+  "brain.pages.list": api.brain.pages.list,
   "brain.pages.updateMarkdown": api.brain.pages.updateMarkdown,
   "ops.email.previewBroadcast": (
     api as unknown as {
@@ -502,11 +517,18 @@ const executeTemplateApiRoute = async (
   const response = parsedBody.ok
     ? isRecordOperation(operationId)
       ? await recordsApiResponse(ctx, request, operationId, parsedBody.body)
-      : await responseForParsedTemplateApiBody(
-          ctx,
-          operationId,
-          parsedBody.body,
-        )
+      : isBrainPageOperation(operationId)
+        ? await brainPagesApiResponse(
+            ctx,
+            request,
+            operationId,
+            parsedBody.body,
+          )
+        : await responseForParsedTemplateApiBody(
+            ctx,
+            operationId,
+            parsedBody.body,
+          )
     : jsonResponse(parsedBody);
 
   return response;
@@ -547,6 +569,132 @@ const recordActorRefs = {
     "records/records:createForActor",
   ),
 } satisfies Record<RecordOperationId, unknown>;
+
+const brainPageActorRefs = {
+  "brain.pages.list": makeFunctionReference<"query">(
+    "brain/pages:listForActor",
+  ),
+  "brain.pages.get": makeFunctionReference<"query">("brain/pages:getForActor"),
+  "brain.pages.createMarkdown": makeFunctionReference<"mutation">(
+    "brain/pages:createMarkdownForActor",
+  ),
+  "brain.pages.updateMarkdown": makeFunctionReference<"mutation">(
+    "brain/pages:updateMarkdownForActor",
+  ),
+  "brain.pages.history": makeFunctionReference<"query">(
+    "brain/pages:historyForActor",
+  ),
+} satisfies Record<BrainPageOperationId, unknown>;
+
+const brainPageWriteOperations = new Set<BrainPageOperationId>([
+  "brain.pages.createMarkdown",
+  "brain.pages.updateMarkdown",
+]);
+
+const brainWorkspaceFailure = (
+  workspaceSlug: string | undefined,
+): Response | undefined =>
+  workspaceSlug
+    ? undefined
+    : jsonResponse(
+        {
+          ok: false,
+          error: {
+            _tag: "ValidationFailed",
+            message: "Brain operations require workspaceSlug.",
+          },
+        },
+        400,
+      );
+
+const brainIdempotencyFailure = (
+  operationId: BrainPageOperationId,
+  idempotencyKey: string | undefined,
+): Response | undefined =>
+  brainPageWriteOperations.has(operationId) && !idempotencyKey
+    ? jsonResponse(
+        {
+          ok: false,
+          error: {
+            _tag: "ValidationFailed",
+            message: `Operation ${operationId} requires a nonblank idempotencyKey.`,
+          },
+        },
+        400,
+      )
+    : undefined;
+
+const brainActorFailure = (
+  actor: Exclude<RecordsActorResolution, { readonly ok: true }>,
+) => {
+  const forbidden =
+    actor.code === "API_KEY_FORBIDDEN" ||
+    actor.code === "API_KEY_WORKSPACE_MISMATCH";
+  return recordsAuthFailure(actor.code, actor.message, forbidden ? 403 : 401);
+};
+
+const admitBrainApiRequest = (
+  request: Request,
+  operationId: BrainPageOperationId,
+  body: TemplateApiRequestBody,
+):
+  | {
+      readonly ok: true;
+      readonly presentedKey: string;
+      readonly workspaceSlug: string;
+    }
+  | { readonly ok: false; readonly response: Response } => {
+  const presentedKey = parseBearerApiKey(
+    request.headers.get("authorization") ?? undefined,
+  );
+  if (typeof presentedKey !== "string") {
+    return {
+      ok: false,
+      response: recordsAuthFailure(
+        presentedKey.code,
+        presentedKey.message,
+        401,
+      ),
+    };
+  }
+  const workspaceSlug = body.workspaceSlug?.trim() ?? "";
+  const failure =
+    brainWorkspaceFailure(workspaceSlug) ??
+    brainIdempotencyFailure(operationId, body.idempotencyKey?.trim());
+  return failure
+    ? { ok: false, response: failure }
+    : { ok: true, presentedKey, workspaceSlug };
+};
+
+const brainPagesApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  operationId: BrainPageOperationId,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitBrainApiRequest(request, operationId, body);
+  if (!admission.ok) return admission.response;
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: brainPageWriteOperations.has(operationId)
+      ? "workspace:write"
+      : "workspace:read",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+
+  const input = {
+    ...body.input,
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+  };
+  const ref = brainPageActorRefs[operationId];
+  const result = brainPageWriteOperations.has(operationId)
+    ? await ctx.runMutation(ref, input)
+    : await ctx.runQuery(ref, input);
+  return jsonResponse({ ok: true, operationId, result });
+};
 
 const recordsApiResponse = async (
   ctx: HeadlessHttpCtx,
