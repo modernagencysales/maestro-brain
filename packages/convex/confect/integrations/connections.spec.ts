@@ -37,6 +37,30 @@ const begin = FunctionSpec.publicMutation({
   error: () => MutationError,
 });
 
+const beginSlackOauth = FunctionSpec.publicAction({
+  name: "beginSlackOauth",
+  args: () => Schema.Struct({ workspaceId: Id("workspaces") }),
+  returns: () =>
+    Schema.Struct({
+      connectSessionToken: Schema.NonEmptyString,
+      expiresAt: Schema.Number,
+      generation: Schema.Number,
+    }),
+  error: () => MutationError,
+});
+
+const completeSlackOauth = FunctionSpec.publicAction({
+  name: "completeSlackOauth",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      generation: Schema.Number,
+      connectionId: Schema.NonEmptyString,
+    }),
+  returns: () => providerConnections.Doc,
+  error: () => MutationError,
+});
+
 const complete = FunctionSpec.publicMutation({
   name: "complete",
   args: () =>
@@ -74,5 +98,7 @@ const revoke = FunctionSpec.publicMutation({
 export default GroupSpec.make()
   .addFunction(list)
   .addFunction(begin)
+  .addFunction(beginSlackOauth)
+  .addFunction(completeSlackOauth)
   .addFunction(complete)
   .addFunction(revoke);
