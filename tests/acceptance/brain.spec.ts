@@ -99,7 +99,12 @@ test(
     await expect(page.getByText(otherTitle, { exact: true })).toHaveCount(0);
     await page.getByText(title, { exact: true }).first().click();
     await expect(page.getByLabel("Agency Brain page editor")).toBeVisible();
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "breadcrumb" })
+        .getByText(title, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Page" })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(pageId));
   },
 );
