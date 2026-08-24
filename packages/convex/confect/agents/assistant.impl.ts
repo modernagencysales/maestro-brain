@@ -186,14 +186,16 @@ const answerGroundedQuestion = (input: {
         updatedAt: page.updatedAt,
         status: page.status ?? "active",
       })),
-      revisions: revisions.map((revision) => ({
-        workspaceId: revision.workspaceId,
-        pageId: revision.pageId,
-        title: revision.title,
-        markdown: revision.markdown,
-        updatedAt: revision.updatedAt,
-        status: revision.status,
-      })),
+      revisions: revisions
+        .filter((revision) => "pageId" in revision)
+        .map((revision) => ({
+          workspaceId: revision.workspaceId,
+          pageId: revision.pageId,
+          title: revision.title,
+          markdown: revision.markdown,
+          updatedAt: revision.updatedAt,
+          status: revision.status,
+        })),
       now,
       ...(input.maxCitations === undefined
         ? {}
