@@ -1,14 +1,30 @@
-# Generated Maestro App
+# Maestro Brain
 
-This is a customer application generated from an immutable Maestro release. Its
-release, blueprint, and personalization facts live in `template-instance.json`.
-Build the product in this repository. Do not run `maestro create` here and do
-not copy files from a newer factory checkout.
+This is the canonical standalone repository for Maestro Brain: company knowledge
+that people and agents can find, trust, and improve. It is a customer
+application generated from an immutable Maestro release, with the complete
+pinned Saas UI Starter shell and Saas UI Pro screens as its frontend authority.
+
+Release, blueprint, and personalization facts live in `template-instance.json`.
+Build the product in this repository. Do not run `maestro create` here, copy UI
+from a factory branch, or rebuild an available upstream screen. The inherited
+`@maestro-template/*` package namespace is intentionally retained for release
+and factory compatibility; it is not the product or repository identity.
 
 ## Start here
 
 Requirements: Git and Node 22. The bootstrap check chooses a pinned Corepack or
 npx pnpm command for the available host.
+
+For the normal local review loop, use the one-command launcher:
+
+```bash
+pnpm brain
+```
+
+It preflights the canonical repository and launches the fake-safe Brain shell at
+the printed URL. Use `pnpm brain:preflight` when you only want the authority and
+environment checks.
 
 ```bash
 node scripts/maestro-bootstrap.mjs
@@ -58,7 +74,7 @@ screen provenance, empty deviation ledger, and requested port ownership. The
 guard exists so an old checkout cannot silently launch a familiar but obsolete
 interface.
 
-Use the reviewed local command:
+The one-command script expands to the reviewed local command:
 
 ```bash
 rtk pnpm maestro -- start --mode fake --web-port 15173 --readiness-port 14174

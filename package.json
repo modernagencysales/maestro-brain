@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "pnpm@10.12.1",
   "scripts": {
+    "brain": "pnpm maestro -- start --mode fake --web-port 15173 --readiness-port 14174",
+    "brain:preflight": "pnpm maestro -- preflight --mode fake",
     "check:saas-ui-foundation": "tsx tooling/quality/check-saas-ui-foundation.mts && tsx tooling/saas-ui/screen-catalog.mts --check",
     "check:saas-ui-artifact-safety": "tsx tooling/quality/check-saas-ui-artifact-safety.mts",
     "maestro": "tsx apps/cli/src/index.ts",

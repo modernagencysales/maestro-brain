@@ -11,13 +11,15 @@
     "apps/web/src/routes/_app/$workspace/_dashboard/contacts/index.tsx",
     "apps/web/src/features/connections/connections-page.tsx",
     "apps/web/src/features/contacts/clients-adapter.ts",
+    "docs/product/saas-ui-alpha9-adoption-review.md",
     "docs/template/saas-ui-starter-files.json",
     "docs/template/saas-ui-deviations.json"
   ],
   "requiredText": {
     "apps/web/src/routes/_app/$workspace/_dashboard/index.tsx": "ConnectionsPage",
     "apps/web/src/routes/_app/$workspace/_dashboard/inbox.tsx": "InboxLayout",
-    "apps/web/src/routes/_app/$workspace/_dashboard/contacts/index.tsx": "ContactsListPage"
+    "apps/web/src/routes/_app/$workspace/_dashboard/contacts/index.tsx": "ContactsListPage",
+    "docs/product/saas-ui-alpha9-adoption-review.md": "Review decision: adopted."
   },
   "requiredEmptyArrays": ["docs/template/saas-ui-deviations.json"]
 }

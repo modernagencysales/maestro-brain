@@ -3,6 +3,7 @@ dist/
 coverage/
 .stryker-tmp/
 .turbo/
+*.tsbuildinfo
 .env
 .env.*
 !.env.example
