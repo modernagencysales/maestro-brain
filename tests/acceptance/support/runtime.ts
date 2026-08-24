@@ -138,39 +138,33 @@ export const proxyContractsRequest = async ({
   workspaceSlug,
   credentialsByWorkspace,
 }: ProxyInput): Promise<void> => {
-  let response: Awaited<ReturnType<typeof route.fetch>>;
-  try {
-    const request = route.request();
-    const rawBody = request.postData();
-    const body: unknown = rawBody ? JSON.parse(rawBody) : {};
-    if (!isObject(body)) throw new Error("Invalid contracts request.");
-    const sourceUrl = new URL(request.url());
-    const frameUrl = new URL(request.frame().url());
-    const activeWorkspaceSlug = frameUrl.pathname.split("/").filter(Boolean)[0];
-    const activeApiKey =
-      (activeWorkspaceSlug === undefined
-        ? undefined
-        : credentialsByWorkspace?.[activeWorkspaceSlug]) ?? apiKey;
-    const targetUrl = `${apiBaseUrl}${sourceUrl.pathname.replace(
-      /^\/__contracts/u,
-      "",
-    )}${sourceUrl.search}`;
-    response = await route.fetch({
-      method: request.method(),
-      headers: {
-        authorization: `Bearer ${activeApiKey}`,
-        "content-type": "application/json",
-      },
-      postData: JSON.stringify({
-        ...body,
-        workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
-      }),
-      url: targetUrl,
-    });
-  } catch {
-    await route.fulfill({ status: 502 });
-    return;
-  }
+  const request = route.request();
+  const rawBody = request.postData();
+  const body: unknown = rawBody ? JSON.parse(rawBody) : {};
+  if (!isObject(body)) throw new Error("Invalid contracts request.");
+  const sourceUrl = new URL(request.url());
+  const frameUrl = new URL(request.frame().url());
+  const activeWorkspaceSlug = frameUrl.pathname.split("/").filter(Boolean)[0];
+  const activeApiKey =
+    (activeWorkspaceSlug === undefined
+      ? undefined
+      : credentialsByWorkspace?.[activeWorkspaceSlug]) ?? apiKey;
+  const targetUrl = `${apiBaseUrl}${sourceUrl.pathname.replace(
+    /^\/__contracts/u,
+    "",
+  )}${sourceUrl.search}`;
+  const response = await route.fetch({
+    method: request.method(),
+    headers: {
+      authorization: `Bearer ${activeApiKey}`,
+      "content-type": "application/json",
+    },
+    postData: JSON.stringify({
+      ...body,
+      workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
+    }),
+    url: targetUrl,
+  });
   await route.fulfill({ response });
 };
 
