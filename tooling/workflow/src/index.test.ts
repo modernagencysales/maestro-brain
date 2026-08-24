@@ -18,7 +18,7 @@ describe("workflow headless registry", () => {
     const operations = buildHeadlessOperations();
     const ids = operations.map((operation) => operation.id);
 
-    expect(operations).toHaveLength(38);
+    expect(operations).toHaveLength(62);
     expect(ids).toContain("api:agents.assistant.answerQuestion");
     expect(ids).toContain("api:brain.pages.createMarkdown");
     expect(ids).toContain("cli:brain.pages.createMarkdown");
@@ -46,9 +46,9 @@ describe("workflow headless registry", () => {
       validationErrors: [],
       nodeCount: 5,
       edgeCount: 4,
-      capabilityCount: 17,
+      capabilityCount: 22,
       agentCount: 3,
-      headlessOperationCount: 38,
+      headlessOperationCount: 62,
     });
   });
 
@@ -77,6 +77,13 @@ describe("workflow headless registry", () => {
         ],
       },
       {
+        operationId: "auth.workspaces.list",
+        method: "POST",
+        path: "/api/auth.workspaces.list",
+        authScope: "workspace member",
+        typedErrors: ["Unauthorized", "ValidationFailed"],
+      },
+      {
         operationId: "brain.pages.createMarkdown",
         method: "POST",
         path: "/api/brain.pages.createMarkdown",
@@ -85,6 +92,19 @@ describe("workflow headless registry", () => {
           "Unauthorized",
           "MemberNotInWorkspace",
           "WorkspaceNotFound",
+          "ValidationFailed",
+        ],
+      },
+      {
+        operationId: "brain.pages.get",
+        method: "POST",
+        path: "/api/brain.pages.get",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "NotFound",
           "ValidationFailed",
         ],
       },
@@ -102,6 +122,18 @@ describe("workflow headless registry", () => {
         ],
       },
       {
+        operationId: "brain.pages.list",
+        method: "POST",
+        path: "/api/brain.pages.list",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "ValidationFailed",
+        ],
+      },
+      {
         operationId: "brain.pages.updateMarkdown",
         method: "POST",
         path: "/api/brain.pages.updateMarkdown",
@@ -113,6 +145,57 @@ describe("workflow headless registry", () => {
           "NotFound",
           "ValidationFailed",
           "StaleRevision",
+        ],
+      },
+      {
+        operationId: "integrations.connections.begin",
+        method: "POST",
+        path: "/api/integrations.connections.begin",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "NotFound",
+          "ValidationFailed",
+        ],
+      },
+      {
+        operationId: "integrations.connections.complete",
+        method: "POST",
+        path: "/api/integrations.connections.complete",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "NotFound",
+          "ValidationFailed",
+        ],
+      },
+      {
+        operationId: "integrations.connections.list",
+        method: "POST",
+        path: "/api/integrations.connections.list",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "ValidationFailed",
+        ],
+      },
+      {
+        operationId: "integrations.connections.revoke",
+        method: "POST",
+        path: "/api/integrations.connections.revoke",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "NotFound",
+          "ValidationFailed",
         ],
       },
       {
@@ -197,9 +280,16 @@ describe("workflow headless registry", () => {
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths)).toEqual([
       "/api/agents.assistant.answerQuestion",
+      "/api/auth.workspaces.list",
       "/api/brain.pages.createMarkdown",
+      "/api/brain.pages.get",
       "/api/brain.pages.history",
+      "/api/brain.pages.list",
       "/api/brain.pages.updateMarkdown",
+      "/api/integrations.connections.begin",
+      "/api/integrations.connections.complete",
+      "/api/integrations.connections.list",
+      "/api/integrations.connections.revoke",
       "/api/ops.email.dispatchBroadcast",
       "/api/ops.email.previewBroadcast",
     ]);
