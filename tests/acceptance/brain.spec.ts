@@ -221,9 +221,11 @@ test(
   "the complete connection cards manage the durable provider lifecycle",
   { tag: "@BHV-BRAIN-004-R1" },
   async ({ acceptancePage: page, runtime, scenario }) => {
-    await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/connections`);
+    await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/`);
 
-    const slackCard = page.getByText("Slack", { exact: true }).locator("../..");
+    const slackCard = page
+      .locator('[data-scope="card"][data-part="root"]')
+      .filter({ has: page.getByRole("heading", { name: "Slack" }) });
     await expect(slackCard.getByText("Available integration")).toBeVisible();
     await slackCard.getByRole("button", { name: "Connect" }).click();
     await expect(slackCard.getByText("Connected")).toBeVisible();
