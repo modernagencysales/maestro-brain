@@ -86,7 +86,9 @@ describe("local Convex seed transport", () => {
   it("calls the owned backend directly with admin auth", async () => {
     let observedAuthorization = "";
     let observedBody = "";
+    let observedUrl = "";
     const server = createServer((request, response) => {
+      observedUrl = request.url ?? "";
       observedAuthorization = request.headers.authorization ?? "";
       request.setEncoding("utf8");
       request.on("data", (chunk: string) => {
@@ -121,8 +123,10 @@ describe("local Convex seed transport", () => {
     });
 
     expect(observedAuthorization).toBe("Convex local-admin-key");
+    expect(observedUrl).toBe("/api/function");
     expect(JSON.parse(observedBody)).toMatchObject({
       path: "headless/apiKeys:seedLocalContracts",
+      args: { namespace: "contracts-fixture" },
     });
     expect(JSON.parse(output)).toMatchObject({
       primary: { keyId: "primary" },

@@ -297,17 +297,36 @@ export const readLocalAdminKeyForPort = async (
   );
 };
 
+const isSuccessfulSeedResponse = (
+  statusCode: number | undefined,
+  payload: unknown,
+): payload is { readonly status: "success"; readonly value: unknown } =>
+  statusCode !== undefined &&
+  statusCode >= 200 &&
+  statusCode < 300 &&
+  isObject(payload) &&
+  payload.status === "success" &&
+  "value" in payload;
+
+const seedFailureDetail = (
+  payload: unknown,
+  secrets: readonly string[],
+): string =>
+  isObject(payload) && typeof payload.errorMessage === "string"
+    ? `: ${redactContractsDiagnostic(payload.errorMessage, secrets)}`
+    : "";
+
 export const runLocalSeedMutation = async (
   input: SeedLocalContractsInput,
 ): Promise<string> => {
   const body = JSON.stringify({
     path: "headless/apiKeys:seedLocalContracts",
     format: "convex_encoded_json",
-    args: [input.args],
+    args: input.args,
   });
   const signal = AbortSignal.timeout(input.timeoutMs);
   const mutation = new Promise<string>((resolve, reject) => {
-    const target = new URL("/api/mutation", input.deploymentUrl);
+    const target = new URL("/api/function", input.deploymentUrl);
     const outgoing = request(
       target,
       {
@@ -328,18 +347,21 @@ export const runLocalSeedMutation = async (
         response.on("end", () => {
           try {
             const payload: unknown = JSON.parse(responseBody);
-            if (
-              response.statusCode !== undefined &&
-              response.statusCode >= 200 &&
-              response.statusCode < 300 &&
-              isObject(payload) &&
-              payload.status === "success" &&
-              "value" in payload
-            ) {
+            if (isSuccessfulSeedResponse(response.statusCode, payload)) {
               resolve(JSON.stringify(payload.value));
               return;
             }
-            reject(new Error("Local Convex seed mutation failed."));
+            const status = response.statusCode ?? "unknown";
+            const detail = seedFailureDetail(payload, [
+              input.adminKey,
+              input.args.primaryKeyHash,
+              input.args.observerKeyHash,
+            ]);
+            reject(
+              new Error(
+                `Local Convex seed mutation failed (${status})${detail}`,
+              ),
+            );
           } catch {
             reject(
               new Error("Local Convex seed mutation returned invalid JSON."),
