@@ -270,6 +270,16 @@ in the immutable route tree but are hidden from product navigation until their
 real providers are bound. Brain page lifecycle and grounded Ask operations use
 the same generated contracts across web, API, CLI, and MCP projections.
 
+## Concurrent Product Delta
+
+`origin/main` added the legacy Nango-backed Slack event flow in `d97664a4` while
+this alpha.9 customer migration was under review. That implementation depends on
+the removed legacy Brain schema and legacy Connections screen. The merge records
+its ancestry but deliberately does not restore those parallel systems. A later
+product port must extend the alpha.9 `providerConnections` contract and keep the
+installed Pro `IntegrationCard` composition; it must not copy the deleted legacy
+screen or its backend wholesale.
+
 ## Execution Order
 
 1. Freeze alpha.9 shell and route parity; do not change upstream composition.
