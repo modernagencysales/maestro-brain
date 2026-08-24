@@ -47,6 +47,7 @@ const createPage = async (
   scenario: ContractsScenario,
   title: string,
   actor: "primary" | "observer" = "primary",
+  markdown = `# ${title}\n\nInitial company context.`,
 ) => {
   const workspace =
     actor === "primary"
@@ -61,7 +62,7 @@ const createPage = async (
         {
           slug: title.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-"),
           title,
-          markdown: `# ${title}\n\nInitial company context.`,
+          markdown,
         },
         `${scenario.namespace}-create-${actor}-${title}`,
       ),
@@ -106,6 +107,60 @@ test(
     ).toBeVisible();
     await expect(page.getByRole("tab", { name: "Page" })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(pageId));
+  },
+);
+
+test(
+  "Ask Maestro returns the same cited evidence through Search CLI and HTTP",
+  { tag: "@BHV-BRAIN-003-R1" },
+  async ({ acceptancePage: page, runtime, scenario }) => {
+    const title = `Launch evidence ${scenario.namespace}`;
+    const fact = `Project ${scenario.namespace} launches on Friday.`;
+    const question = `When does project ${scenario.namespace} launch?`;
+    await createPage(runtime, scenario, title, "primary", fact);
+
+    const cliAnswer = cliResult<{
+      answerMarkdown: string;
+      contextPack: {
+        citations: readonly { sourceRevisionId: string; title: string }[];
+      };
+    }>(
+      await runtime.runCli(
+        scenario,
+        commandArgs(
+          "agents.assistant.answerQuestion",
+          scenario.workspaceSlug,
+          { question },
+          `${scenario.namespace}-ask-cli`,
+        ),
+      ),
+    );
+    const httpAnswer = (await runtime.runApi(
+      scenario,
+      "agents.assistant.answerQuestion",
+      { question },
+    )) as {
+      ok: true;
+      result: typeof cliAnswer;
+    };
+
+    expect(httpAnswer.ok).toBe(true);
+    expect(httpAnswer.result.answerMarkdown).toBe(cliAnswer.answerMarkdown);
+    expect(
+      httpAnswer.result.contextPack.citations.map(
+        ({ sourceRevisionId }) => sourceRevisionId,
+      ),
+    ).toEqual(
+      cliAnswer.contextPack.citations.map(
+        ({ sourceRevisionId }) => sourceRevisionId,
+      ),
+    );
+    expect(cliAnswer.answerMarkdown).toContain("Friday");
+
+    await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/search`);
+    await page.getByPlaceholder("Ask Maestro anything...").fill(question);
+    await expect(page.getByText(/Friday/u).first()).toBeVisible();
+    await expect(page.getByText(new RegExp(title, "u")).first()).toBeVisible();
   },
 );
 
