@@ -31,13 +31,14 @@ const currentConnection = (
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const row = yield* reader
       .table("providerConnections")
       .index("by_workspace_and_provider", (q) =>
         q.eq("workspaceId", workspaceId).eq("provider", provider),
       )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    return row !== null && "workspaceId" in row ? row : null;
   });
 
 const toState = (row: {
@@ -65,11 +66,12 @@ const transitionFailure = () =>
 const listConnectionRows = (workspaceId: GenericId<"workspaces">) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const rows = yield* reader
       .table("providerConnections")
       .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .collect()
       .pipe(Effect.orDie);
+    return rows.filter((row) => "workspaceId" in row);
   });
 
 const beginConnectionRow = (
@@ -94,7 +96,7 @@ const beginConnectionRow = (
         .table("providerConnections")
         .get(id)
         .pipe(Effect.orDie);
-      if (inserted !== null) return inserted;
+      if (inserted !== null && "workspaceId" in inserted) return inserted;
     } else {
       yield* writer
         .table("providerConnections")
@@ -111,7 +113,7 @@ const beginConnectionRow = (
         .table("providerConnections")
         .get(existing._id)
         .pipe(Effect.orDie);
-      if (updated !== null) return updated;
+      if (updated !== null && "workspaceId" in updated) return updated;
     }
     return yield* new NotFound({
       resource: "providerConnections",
@@ -161,7 +163,7 @@ const completeConnectionRow = (args: {
       .table("providerConnections")
       .get(existing._id)
       .pipe(Effect.orDie);
-    return updated ?? existing;
+    return updated !== null && "workspaceId" in updated ? updated : existing;
   });
 
 const revokeConnectionRow = (args: {
@@ -199,7 +201,7 @@ const revokeConnectionRow = (args: {
       .table("providerConnections")
       .get(existing._id)
       .pipe(Effect.orDie);
-    return updated ?? existing;
+    return updated !== null && "workspaceId" in updated ? updated : existing;
   });
 
 const list = FunctionImpl.make(
