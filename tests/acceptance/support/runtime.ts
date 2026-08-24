@@ -138,6 +138,7 @@ export const proxyContractsRequest = async ({
   workspaceSlug,
   credentialsByWorkspace,
 }: ProxyInput): Promise<void> => {
+  let response: Awaited<ReturnType<typeof route.fetch>>;
   try {
     const request = route.request();
     const rawBody = request.postData();
@@ -154,7 +155,7 @@ export const proxyContractsRequest = async ({
       /^\/__contracts/u,
       "",
     )}${sourceUrl.search}`;
-    const response = await route.fetch({
+    response = await route.fetch({
       method: request.method(),
       headers: {
         authorization: `Bearer ${activeApiKey}`,
@@ -166,10 +167,11 @@ export const proxyContractsRequest = async ({
       }),
       url: targetUrl,
     });
-    await route.fulfill({ response });
   } catch {
     await route.fulfill({ status: 502 });
+    return;
   }
+  await route.fulfill({ response });
 };
 
 export const redactContractsDiagnostic = (
