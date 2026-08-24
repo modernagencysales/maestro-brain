@@ -612,7 +612,7 @@ describe("Slack connection capability contract", () => {
     expect(JSON.stringify(row)).not.toContain("xox");
   });
 
-  it("selects the exact current WorkOS organization and fails closed", () => {
+  it("selects an exact WorkOS organization or the sole eligible organization", () => {
     const result = selectCurrentSlackOrganization({
       memberships: [
         { organizationId: "organizations_1", role: "owner", status: "active" },
@@ -645,7 +645,7 @@ describe("Slack connection capability contract", () => {
       agencyKey: "agency_current",
     });
     expect(
-      Either.isLeft(
+      Either.getOrThrow(
         selectCurrentSlackOrganization({
           memberships: [
             {
@@ -659,9 +659,47 @@ describe("Slack connection capability contract", () => {
               "organizations_1",
               {
                 _id: "organizations_1",
-                agencyKey: "agency_wrong",
+                agencyKey: "agency_only",
                 status: "active",
-                workosOrganizationId: "org_wrong",
+                workosOrganizationId: "org_only",
+              },
+            ],
+          ]),
+        }),
+      ),
+    ).toMatchObject({ agencyKey: "agency_only" });
+    expect(
+      Either.isLeft(
+        selectCurrentSlackOrganization({
+          memberships: [
+            {
+              organizationId: "organizations_1",
+              role: "owner",
+              status: "active",
+            },
+            {
+              organizationId: "organizations_2",
+              role: "admin",
+              status: "active",
+            },
+          ],
+          organizationsById: new Map([
+            [
+              "organizations_1",
+              {
+                _id: "organizations_1",
+                agencyKey: "agency_1",
+                status: "active",
+                workosOrganizationId: "org_1",
+              },
+            ],
+            [
+              "organizations_2",
+              {
+                _id: "organizations_2",
+                agencyKey: "agency_2",
+                status: "active",
+                workosOrganizationId: "org_2",
               },
             ],
           ]),

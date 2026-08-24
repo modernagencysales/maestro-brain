@@ -94,7 +94,9 @@ export const selectCurrentSlackOrganization = (input: {
     );
   const current =
     input.currentWorkosOrganizationId === undefined
-      ? undefined
+      ? candidates.length === 1
+        ? candidates[0]
+        : undefined
       : candidates.find(
           (organization) =>
             organization.workosOrganizationId ===
