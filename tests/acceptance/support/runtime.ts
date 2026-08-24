@@ -6,9 +6,10 @@ import {
 } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 type SeededActor = {
@@ -668,6 +669,42 @@ async function bootContractsRuntime(
         localEnvironment,
         commandTimeoutMs,
       );
+    }
+    const pushEnvironmentRoot = await mkdtemp(
+      join(tmpdir(), "maestro-contracts-convex-"),
+    );
+    const pushEnvironmentPath = join(pushEnvironmentRoot, ".env.local");
+    try {
+      await writeFile(
+        pushEnvironmentPath,
+        [
+          `CONVEX_SELF_HOSTED_URL=${JSON.stringify(`http://127.0.0.1:${convexPort}`)}`,
+          `CONVEX_SELF_HOSTED_ADMIN_KEY=${JSON.stringify(localAdminKey)}`,
+          "",
+        ].join("\n"),
+        { mode: 0o600 },
+      );
+      await executeCommand(
+        [
+          "--silent",
+          "exec",
+          "convex",
+          "dev",
+          "--env-file",
+          pushEnvironmentPath,
+          "--once",
+          "--typecheck",
+          "disable",
+          "--codegen",
+          "disable",
+          "--tail-logs",
+          "disable",
+        ],
+        localEnvironment,
+        commandTimeoutMs,
+      );
+    } finally {
+      await rm(pushEnvironmentRoot, { force: true, recursive: true });
     }
     const credentials = new WeakMap<
       ContractsScenario,
