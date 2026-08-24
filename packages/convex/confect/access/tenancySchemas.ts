@@ -29,6 +29,13 @@ export const AccessAuditAction = Schema.Literals([
   "invitation.accepted",
   "invitation.declined",
   "invitation.cancelled",
+  "slack.connectionChanged",
+  "slack.channelPolicyChanged",
+  "retention.policyChanged",
+  "model.egressPolicyChanged",
+  "autopilot.policyChanged",
+  "export.administered",
+  "apiKey.administered",
   // Retain the immutable vocabulary already persisted by the staging pilot.
   "proposal.created",
   "proposal.accepted",

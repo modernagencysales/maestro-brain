@@ -166,5 +166,15 @@ describe("tenancy table contracts", () => {
       action: "member.roleChanged",
       subjectKind: "workspaceMember",
     });
+    expect(
+      Schema.decodeUnknownSync(AccessAuditEventRow)({
+        workspaceId: "workspace_123",
+        action: "apiKey.administered",
+        subjectKind: "privilegedAction",
+        subjectId: "api_key_123",
+        metadataJson: '{"outcome":"allowed"}',
+        createdAt: 1,
+      }),
+    ).toMatchObject({ action: "apiKey.administered" });
   });
 });
