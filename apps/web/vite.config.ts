@@ -1,6 +1,6 @@
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
-import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import { fileURLToPath, URL } from "node:url";
 
@@ -11,6 +11,19 @@ import {
 
 process.env.VITE_MAESTRO_AUTH_MODE = resolveWebAuthMode(process.env);
 assertProductionAuthConfiguration(process.env);
+
+const contractWorkerVars =
+  process.env.MAESTRO_CONTRACT_TEST === "1"
+    ? {
+        MAESTRO_CONTRACT_TEST: "1",
+        VITE_MAESTRO_CONTRACT_MODE:
+          process.env.VITE_MAESTRO_CONTRACT_MODE ?? "1",
+        WORKOS_API_KEY: process.env.WORKOS_API_KEY ?? "",
+        WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID ?? "",
+        WORKOS_COOKIE_PASSWORD: process.env.WORKOS_COOKIE_PASSWORD ?? "",
+        WORKOS_REDIRECT_URI: process.env.WORKOS_REDIRECT_URI ?? "",
+      }
+    : {};
 
 export default defineConfig(({ mode }) => ({
   build: { sourcemap: false },
@@ -25,18 +38,22 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    mode === "test"
+      ? null
+      : cloudflare({
+          viteEnvironment: { name: "ssr" },
+          config: (config) => ({
+            vars: { ...config.vars, ...contractWorkerVars },
+          }),
+        }),
     tanstackStart({
       router: {
         enableRouteGeneration:
           mode !== "test" &&
           process.env.MAESTRO_DISABLE_ROUTE_GENERATION !== "1",
       },
-      spa: {
-        enabled: true,
-      },
     }),
     react(),
-    nitro(),
   ],
   server: {
     port: 3000,

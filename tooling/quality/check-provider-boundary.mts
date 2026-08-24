@@ -26,6 +26,7 @@ const allowedProviderBoundaryPrefixes = [
 ] as const;
 
 const allowedProviderBoundaryFiles = new Set([
+  "apps/web/vite.config.ts",
   "apps/web/src/lib/auth/route-auth.ts",
   "apps/web/src/lib/auth/workos-auth-catch-all.ts",
   "apps/web/src/lib/auth/workos-auth-entry.ts",

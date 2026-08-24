@@ -101,6 +101,9 @@ describe("check:provider-boundary", () => {
 
   it("allows explicit runtime/auth boundary files", async () => {
     const result = await evaluateFixture({
+      "apps/web/vite.config.ts": `
+        import { cloudflare } from "@cloudflare/vite-plugin";
+      `,
       "apps/web/src/lib/auth/route-auth.ts": `
         import { getAuthKitContext } from "@workos/authkit-tanstack-react-start";
       `,
