@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { DefaultLoader } from "#components/default-loader";
 import { getLastUsedWorkspace } from "#lib/last-used-workspace";
+import { selectInitialWorkspace } from "#lib/root-index-navigation";
 import {
   getFunctionReference,
   templateConfectRefs,
@@ -37,13 +38,10 @@ export const Route = createFileRoute("/_app/")({
       });
     }
 
-    const lastUsedWorkspace = getLastUsedWorkspace();
-
-    const workspace = lastUsedWorkspace
-      ? (user.workspaces.find(
-          (workspace: { slug: string }) => workspace.slug === lastUsedWorkspace,
-        ) ?? user.workspaces[0])
-      : user.workspaces[0];
+    const workspace = selectInitialWorkspace(
+      user.workspaces,
+      getLastUsedWorkspace(),
+    );
 
     if (!workspace) {
       throw redirect({
