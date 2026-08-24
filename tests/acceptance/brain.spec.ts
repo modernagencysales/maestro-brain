@@ -227,7 +227,19 @@ test(
     await expect(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
+    const beginResponse = page.waitForResponse((response) =>
+      response.url().includes("integrations.connections.begin"),
+    );
+    const completeResponse = page.waitForResponse((response) =>
+      response.url().includes("integrations.connections.complete"),
+    );
     await page.getByRole("button", { name: "Connect" }).first().click();
+    const [beginPayload, completePayload] = await Promise.all([
+      beginResponse.then((response) => response.json()),
+      completeResponse.then((response) => response.json()),
+    ]);
+    expect(beginPayload).toMatchObject({ ok: true });
+    expect(completePayload).toMatchObject({ ok: true });
 
     type ConnectionListResponse = {
       ok: true;
