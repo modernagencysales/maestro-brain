@@ -41,5 +41,16 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 3000,
     allowedHosts: process.env.NODE_ENV === "development" ? true : undefined,
+    warmup: {
+      clientFiles: [
+        "./src/router.tsx",
+        "./src/provider.tsx",
+        "./src/routes/_app/$workspace/_dashboard/inbox.tsx",
+        "./src/routes/_app/$workspace/_dashboard/inbox/$id.tsx",
+        "./src/features/contacts/inbox/inbox-layout.tsx",
+        "./src/features/contacts/inbox/brain-inbox-adapter.ts",
+        "./src/features/contacts/inbox/brain-inbox-view-page.tsx",
+      ],
+    },
   },
 }));
