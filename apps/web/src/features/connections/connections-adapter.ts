@@ -71,3 +71,25 @@ export const projectDurableConnectionStatus = (
   if (connection?.status === 'error') return 'error'
   return 'available'
 }
+
+export const projectLegacySlackStatus = (
+  status:
+    | 'not_connected'
+    | 'authorizing'
+    | 'verifying'
+    | 'active'
+    | 'error'
+    | 'reauthorizing'
+    | 'revoked'
+    | undefined,
+): ConnectionStatus => {
+  if (status === 'active') return 'connected'
+  if (
+    status === 'authorizing' ||
+    status === 'verifying' ||
+    status === 'reauthorizing'
+  ) {
+    return 'connecting'
+  }
+  return status === 'error' ? 'error' : 'available'
+}

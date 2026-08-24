@@ -1,7 +1,7 @@
 type BeginResult = Readonly<{
   connectSessionToken: string
   expiresAt: number
-  generation: number
+  connectSessionId: string
 }>
 
 type OpenNangoConnect = (input: {
@@ -13,7 +13,7 @@ export const runSlackConnect = async (input: {
   readonly open: OpenNangoConnect
   readonly complete: (input: {
     connectionId: string
-    generation: number
+    connectSessionId: string
   }) => Promise<unknown>
 }) => {
   const session = await input.begin()
@@ -26,7 +26,7 @@ export const runSlackConnect = async (input: {
     })
     await input.complete({
       connectionId: connected.connectionId,
-      generation: session.generation,
+      connectSessionId: session.connectSessionId,
     })
   } catch (error) {
     if ((error as { readonly _tag?: unknown })._tag === 'NangoConnectCancelled') {

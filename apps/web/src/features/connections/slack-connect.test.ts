@@ -7,7 +7,7 @@ describe('runSlackConnect', () => {
     const begin = vi.fn().mockResolvedValue({
       connectSessionToken: 'connect_token',
       expiresAt: Date.now() + 60_000,
-      generation: 2,
+      connectSessionId: 'session_2',
     })
     const open = vi.fn().mockResolvedValue({ connectionId: 'connection_1' })
     const complete = vi.fn().mockResolvedValue(undefined)
@@ -19,7 +19,7 @@ describe('runSlackConnect', () => {
     })
     expect(complete).toHaveBeenCalledWith({
       connectionId: 'connection_1',
-      generation: 2,
+      connectSessionId: 'session_2',
     })
   })
 
@@ -30,7 +30,7 @@ describe('runSlackConnect', () => {
         begin: vi.fn().mockResolvedValue({
           connectSessionToken: 'connect_token',
           expiresAt: Date.now() + 60_000,
-          generation: 1,
+          connectSessionId: 'session_1',
         }),
         open: vi.fn().mockRejectedValue({ _tag: 'NangoConnectCancelled' }),
         complete,

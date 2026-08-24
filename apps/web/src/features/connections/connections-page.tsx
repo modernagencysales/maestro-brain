@@ -1,59 +1,54 @@
 import React from 'react'
 
 import { SimpleGrid } from '@chakra-ui/react'
-import { useConvexQuery } from '@convex-dev/react-query'
-import {
-  getFunctionReference,
-  templateConfectRefs,
-} from '@maestro-template/convex/refs'
 import { openNangoConnect } from '@maestro-template/integrations/nango/connectBrowser'
-import {
-  useAction as useConvexAction,
-  useMutation as useConvexMutation,
-} from 'convex/react'
+import { useAction as useConvexAction, useQuery } from 'convex/react'
+import { makeFunctionReference } from 'convex/server'
 import { IntegrationCard } from '#components/integration-card/integration-card'
-import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
 
 import {
   connectionFixtures,
-  projectDurableConnectionStatus,
+  projectLegacySlackStatus,
   transitionConnectionStatus,
   type ConnectionCardModel,
   type ConnectionStatus,
-  type DurableConnection,
 } from './connections-adapter'
 import { runSlackConnect } from './slack-connect'
 
-const listConnectionsRef = getFunctionReference(
-  templateConfectRefs.public.integrations.connections.list,
+type SlackStatus = Readonly<{
+  status:
+    | 'not_connected'
+    | 'authorizing'
+    | 'verifying'
+    | 'active'
+    | 'error'
+    | 'reauthorizing'
+    | 'revoked'
+}>
+
+const slackStatusRef = makeFunctionReference<'query', Record<string, never>, SlackStatus>(
+  'integrations/slackConnections:getSlackConnectionStatus',
 )
-const beginConnectionRef = getFunctionReference(
-  templateConfectRefs.public.integrations.connections.begin,
-)
-const revokeConnectionRef = getFunctionReference(
-  templateConfectRefs.public.integrations.connections.revoke,
-)
-const beginSlackOauthRef = getFunctionReference(
-  templateConfectRefs.public.integrations.connections.beginSlackOauth,
-)
-const completeSlackOauthRef = getFunctionReference(
-  templateConfectRefs.public.integrations.connections.completeSlackOauth,
-)
+const beginSlackConnectRef = makeFunctionReference<
+  'action',
+  Record<string, never>,
+  { connectSessionId: string; connectSessionToken: string; expiresAt: number }
+>('integrations/slackConnections:beginSlackConnect')
+const completeSlackConnectRef = makeFunctionReference<
+  'action',
+  { connectionId: string; connectSessionId: string },
+  unknown
+>('integrations/slackConnections:completeSlackConnect')
 
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
 export const ConnectionsPage = () => {
-  const [workspace] = useCurrentWorkspace()
   const fixtureRuntime = isFixtureAuthRuntime()
-  const durableConnections = useConvexQuery(
-    listConnectionsRef,
-    fixtureRuntime ? 'skip' : { workspaceId: workspace.id },
-  )
-  const beginConnection = useConvexMutation(beginConnectionRef)
-  const revokeConnection = useConvexMutation(revokeConnectionRef)
-  const beginSlackOauth = useConvexAction(beginSlackOauthRef)
-  const completeSlackOauth = useConvexAction(completeSlackOauthRef)
-  const liveConnections = (durableConnections?.data ?? []) as readonly DurableConnection[]
+  // The staging backend still owns the proven Slack ingestion pipeline. Keep
+  // the canonical card on that contract until its tables migrate in place.
+  const slackStatus = useQuery(slackStatusRef, fixtureRuntime ? 'skip' : {})
+  const beginSlackConnect = useConvexAction(beginSlackConnectRef)
+  const completeSlackConnect = useConvexAction(completeSlackConnectRef)
   const [statuses, setStatuses] = React.useState<
     Record<string, ConnectionStatus>
   >(() =>
@@ -70,30 +65,20 @@ export const ConnectionsPage = () => {
       if (event === 'connect') {
         if (id === 'slack') {
           await runSlackConnect({
-            begin: () => beginSlackOauth({ workspaceId: workspace.id }),
+            begin: () => beginSlackConnect({}),
             open: openNangoConnect,
-            complete: ({ connectionId, generation }) =>
-              completeSlackOauth({
-                workspaceId: workspace.id,
-                generation,
+            complete: ({ connectionId, connectSessionId }) =>
+              completeSlackConnect({
                 connectionId,
+                connectSessionId,
               }),
           })
           return
         }
-        await beginConnection({ workspaceId: workspace.id, provider: id })
+        setStatuses((current) => ({ ...current, [id]: 'connected' }))
         return
       }
-      const current = liveConnections.find(
-        (connection) => connection.provider === id,
-      )
-      if (current !== undefined) {
-        await revokeConnection({
-          workspaceId: workspace.id,
-          provider: id,
-          generation: current.generation,
-        })
-      }
+      setStatuses((current) => ({ ...current, [id]: 'available' }))
       return
     }
     setStatuses((current) => ({
@@ -106,13 +91,10 @@ export const ConnectionsPage = () => {
     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
       {connectionFixtures.map((integration) => (
         (() => {
-          const status = fixtureRuntime
-            ? (statuses[integration.id] ?? 'available')
-            : projectDurableConnectionStatus(
-                liveConnections.find(
-                  (connection) => connection.provider === integration.id,
-                ),
-              )
+          const status =
+            !fixtureRuntime && integration.id === 'slack'
+              ? projectLegacySlackStatus(slackStatus?.status)
+              : (statuses[integration.id] ?? 'available')
           return (
         <IntegrationCard
           key={integration.id}

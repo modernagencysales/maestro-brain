@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   connectionFixtures,
   projectDurableConnectionStatus,
+  projectLegacySlackStatus,
   transitionConnectionStatus,
 } from './connections-adapter'
 
@@ -40,5 +41,7 @@ describe('Connections IntegrationCard adapter', () => {
       }),
     ).toBe('connected')
     expect(projectDurableConnectionStatus(undefined)).toBe('available')
+    expect(projectLegacySlackStatus('active')).toBe('connected')
+    expect(projectLegacySlackStatus('reauthorizing')).toBe('connecting')
   })
 })
