@@ -202,6 +202,30 @@ const revokeForActor = FunctionSpec.internalMutation({
   error: () => MutationError,
 });
 
+const beginSlackOauth = FunctionSpec.publicAction({
+  name: "beginSlackOauth",
+  args: () => Schema.Struct({ workspaceId: Id("workspaces") }),
+  returns: () =>
+    Schema.Struct({
+      connectSessionToken: Schema.NonEmptyString,
+      expiresAt: Schema.Number,
+      generation: Schema.Number,
+    }),
+  error: () => MutationError,
+});
+
+const completeSlackOauth = FunctionSpec.publicAction({
+  name: "completeSlackOauth",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      generation: Schema.Number,
+      connectionId: Schema.NonEmptyString,
+    }),
+  returns: () => providerConnections.Doc,
+  error: () => MutationError,
+});
+
 const contractFunctions = [list, begin, complete, revoke] as const;
 export const manifest = collectContractManifest(contractFunctions);
 export const schemaRegistry = collectContractSchemas(contractFunctions);
@@ -209,6 +233,8 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 export default GroupSpec.make()
   .addFunction(list.spec)
   .addFunction(begin.spec)
+  .addFunction(beginSlackOauth)
+  .addFunction(completeSlackOauth)
   .addFunction(complete.spec)
   .addFunction(revoke.spec)
   .addFunction(listForActor)

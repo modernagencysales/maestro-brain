@@ -6,7 +6,11 @@ import {
   getFunctionReference,
   templateConfectRefs,
 } from '@maestro-template/convex/refs'
-import { useMutation as useConvexMutation } from 'convex/react'
+import { openNangoConnect } from '@maestro-template/integrations/nango/connectBrowser'
+import {
+  useAction as useConvexAction,
+  useMutation as useConvexMutation,
+} from 'convex/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { IntegrationCard } from '#components/integration-card/integration-card'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
@@ -27,6 +31,7 @@ import {
   type ConnectionStatus,
   type DurableConnection,
 } from './connections-adapter'
+import { runSlackConnect } from './slack-connect'
 
 const listConnectionsRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.list,
@@ -36,6 +41,12 @@ const beginConnectionRef = getFunctionReference(
 )
 const revokeConnectionRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.revoke,
+)
+const beginSlackOauthRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.beginSlackOauth,
+)
+const completeSlackOauthRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.completeSlackOauth,
 )
 
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
@@ -60,6 +71,8 @@ export const ConnectionsPage = () => {
   })
   const beginConnection = useConvexMutation(beginConnectionRef)
   const revokeConnection = useConvexMutation(revokeConnectionRef)
+  const beginSlackOauth = useConvexAction(beginSlackOauthRef)
+  const completeSlackOauth = useConvexAction(completeSlackOauthRef)
   const liveConnections = (
     isolatedContracts
       ? (isolatedConnections.data ?? [])
@@ -76,8 +89,21 @@ export const ConnectionsPage = () => {
   const transition = async (
     id: ConnectionCardModel['id'],
     event: 'connect' | 'disconnect',
-  ) =>
-    executeConnectionTransition({
+  ) => {
+    if (!isolatedContracts && !fixtureRuntime && id === 'slack' && event === 'connect') {
+      await runSlackConnect({
+        begin: () => beginSlackOauth({ workspaceId: workspace.id }),
+        open: openNangoConnect,
+        complete: ({ connectionId, generation }) =>
+          completeSlackOauth({
+            workspaceId: workspace.id,
+            generation,
+            connectionId,
+          }),
+      })
+      return
+    }
+    await executeConnectionTransition({
       mode: connectionRuntimeMode(isolatedContracts, fixtureRuntime),
       provider: id,
       event,
@@ -130,6 +156,7 @@ export const ConnectionsPage = () => {
           })),
       },
     })
+  }
 
   return (
     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">

@@ -442,6 +442,26 @@
       "lifecycle": "active"
     },
     {
+      "id": "integration:nango-connect",
+      "kind": "provider",
+      "system": "provider-integrations",
+      "path": "packages/integrations/src/nango/connect.ts",
+      "responsibility": "create and verify workspace-bound Nango Connect sessions",
+      "surfaces": ["internal", "worker"],
+      "uses": ["access-and-tenancy"],
+      "lifecycle": "active"
+    },
+    {
+      "id": "integration:nango-connect-browser",
+      "kind": "provider",
+      "system": "provider-integrations",
+      "path": "packages/integrations/src/nango/connectBrowser.ts",
+      "responsibility": "open Nango Connect and project its terminal browser events",
+      "surfaces": ["web"],
+      "uses": [],
+      "lifecycle": "active"
+    },
+    {
       "id": "integration:provider-registry",
       "kind": "provider",
       "system": "policy-and-prompts",
