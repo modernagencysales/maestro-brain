@@ -7,11 +7,14 @@ import {
   StartCookieSessionStorage,
 } from "#lib/auth/workos-cookie-session-storage";
 import { appendStaleVerifierDeletes } from "#lib/auth/workos-auth-entry";
+import { isFixtureAuthRuntime } from "#lib/auth/route-auth";
+import { fixtureAuthRedirect } from "#lib/auth/fixture-auth";
 
 export const Route = createFileRoute("/api/auth/sign-up")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        if (isFixtureAuthRuntime()) return fixtureAuthRedirect(request);
         const auth = createAuthService<Request, Response>({
           sessionStorageFactory: (config) =>
             new StartCookieSessionStorage(config),

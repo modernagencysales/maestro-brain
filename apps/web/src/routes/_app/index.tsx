@@ -6,9 +6,16 @@ import {
   getFunctionReference,
   templateConfectRefs,
 } from "@maestro-template/convex/refs";
+import { isFixtureAuthRuntime } from "#lib/auth/route-auth";
 
 export const Route = createFileRoute("/_app/")({
   beforeLoad: async ({ context }) => {
+    if (isFixtureAuthRuntime()) {
+      throw redirect({
+        to: "/$workspace",
+        params: { workspace: "awesome-inc" },
+      });
+    }
     if (!context.auth?.user) {
       throw redirect({
         to: "/login",
