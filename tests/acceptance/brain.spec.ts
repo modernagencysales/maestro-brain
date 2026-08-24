@@ -3,6 +3,8 @@ import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
 test.setTimeout(120_000);
 
+const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 15_000;
+
 type BrainPage = Readonly<{
   _id: string;
   title: string;
@@ -98,7 +100,9 @@ test(
     const otherTitle = `Other Brain ${scenario.namespace}`;
     const pageId = await createPage(runtime, scenario, title);
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/inbox`);
-    await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(title, { exact: true }).first()).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
     await expect(page.getByText(otherTitle, { exact: true })).toHaveCount(0);
     await page.getByText(title, { exact: true }).first().click();
     await expect(page.getByLabel("Agency Brain page editor")).toBeVisible();
@@ -185,10 +189,13 @@ test(
 
     let current: BrainPage = initial;
     await expect
-      .poll(async () => {
-        current = await getPage(runtime, scenario, pageId);
-        return current.markdown;
-      })
+      .poll(
+        async () => {
+          current = await getPage(runtime, scenario, pageId);
+          return current.markdown;
+        },
+        { timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS },
+      )
       .toContain(uniqueText);
 
     const httpPage = (await runtime.runApi(scenario, "brain.pages.get", {
@@ -225,7 +232,9 @@ test(
   async ({ acceptancePage: page, runtime, scenario }) => {
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/`);
 
-    await expect(page.getByRole("heading", { name: "Slack" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Slack" })).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
     await expect(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
@@ -293,7 +302,9 @@ test(
 
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/contacts`);
     const clientName = `Client ${scenario.namespace}`;
-    await expect(page.getByText(clientName, { exact: true })).toBeVisible();
+    await expect(page.getByText(clientName, { exact: true })).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
     await expect(page.getByText(`Contracts observer`)).toHaveCount(0);
 
     await page.getByText(clientName, { exact: true }).click();
