@@ -1,19 +1,21 @@
 # Hosting
 
-The reference app currently builds a prerendered TanStack Start SPA and deploys
-its static output to Cloudflare Pages. A generated app that adds server
-functions, SSR-only authentication, or API proxy routes is no longer a static
-app and must choose a server runtime deliberately.
+This generated Maestro Brain target uses TanStack Start SSR on Cloudflare
+Workers with static assets. Its canonical staging target is:
 
-Current Cloudflare Pages URL:
+- Worker: `maestro-brain-staging`
+- URL: `https://maestro-brain-staging.tim-bb0.workers.dev`
 
-- `https://maestro-template.pages.dev`
+The production coordinates in `project.config.json` retain the inherited Pages
+path until a separate production Worker and provider bindings are reviewed. Do
+not infer production settings from staging or deploy the staging build to the
+legacy Pages project.
 
 See [deployment-lessons.md](./deployment-lessons.md) before provisioning a live
 environment. It records the failures found during the first real WorkOS, Convex,
 and Cloudflare deployment.
 
-## Static reference deployment
+## Legacy static production deployment
 
 Use this path only while every production route can be prerendered and the app
 has no server runtime responsibilities.
@@ -27,7 +29,7 @@ headless-bws-env exec -- pnpm deploy:cloudflare
 The static artifact is `apps/web/dist/client`. The checked-in
 `apps/web/public/_headers` file governs these static responses.
 
-## Recommended server deployment
+## Canonical staging Worker deployment
 
 If the app needs SSR, server functions, WorkOS callbacks, or API proxy routes,
 deploy it directly to **Cloudflare Workers with static assets** using the tested
@@ -35,12 +37,19 @@ TanStack Start Worker entry. Do not hand-assemble a Pages advanced-mode
 `_worker.js`, copy server chunks during deployment, or treat a client output
 directory as a complete SSR artifact.
 
-An SSR fork should implement one thin repository command as its operator
-interface; this interface is a target and is not provided by the current static
-template deploy script:
+The guarded staging pipeline builds the application and runs the pinned local
+Wrangler from `apps/web`. The Cloudflare Vite plugin writes
+`.wrangler/deploy/config.json`, which redirects Wrangler to the generated
+`dist/server/wrangler.json`; passing the source `wrangler.json` explicitly would
+bypass that generated server entry and fail deployment.
+
+The package alias is the low-level guarded production route and needs the
+reviewed production environment, target, commit, deployment-kind, and authority
+bindings. Operators should normally use `tooling/ci/production-promote.sh`,
+which supplies those coordinates:
 
 ```bash
-pnpm deploy:cloudflare --environment production
+pnpm deploy:cloudflare
 ```
 
 For an SSR fork, that command should:

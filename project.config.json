@@ -7,8 +7,9 @@
   "environments": {
     "staging": {
       "name": "staging",
-      "domain": "maestro-template-staging.pages.dev",
-      "cloudflarePagesProject": "maestro-template-staging",
+      "domain": "maestro-brain-staging.tim-bb0.workers.dev",
+      "cloudflareDeploymentKind": "worker",
+      "cloudflarePagesProject": "maestro-brain-staging",
       "cloudflareBranch": "staging",
       "convexDeployName": "perfect-sparrow-808",
       "convexDeployNameEnv": "TEMPLATE_STAGING_CONVEX_DEPLOYMENT",
@@ -29,6 +30,7 @@
     "production": {
       "name": "production",
       "domain": "maestro-template.pages.dev",
+      "cloudflareDeploymentKind": "pages",
       "cloudflarePagesProject": "maestro-template",
       "cloudflareBranch": "main",
       "convexDeployName": "hearty-peccary-962",

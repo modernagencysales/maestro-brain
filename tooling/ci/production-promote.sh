@@ -14,6 +14,7 @@ node scripts/_project-config.mjs assert-isolated-convex
 STAGED_SHA="${STAGED_SHA:?STAGED_SHA is required}"
 PROJECT_NAME="$(node scripts/_project-config.mjs get production cloudflarePagesProject)"
 PRODUCTION_BRANCH="$(node scripts/_project-config.mjs get production cloudflareBranch)"
+CLOUDFLARE_DEPLOYMENT_KIND="$(node scripts/_project-config.mjs get production cloudflareDeploymentKind)"
 
 # Cluster secrets are namespaced TEMPLATE_* so this pipeline can never read
 # (or collide with) another pipeline's deploy credentials in the shared
@@ -30,7 +31,8 @@ CLOUDFLARE_PAGES_BRANCH="${PRODUCTION_BRANCH}"
 CLOUDFLARE_DEPLOYMENT_VERSION="${CURRENT_SHA}"
 DEPLOY_ENVIRONMENT=production
 export CONVEX_DEPLOYMENT TEMPLATE_HOSTED_URL DEPLOY_ENVIRONMENT
-export CLOUDFLARE_PAGES_PROJECT CLOUDFLARE_PAGES_BRANCH CLOUDFLARE_DEPLOYMENT_VERSION
+export CLOUDFLARE_DEPLOYMENT_KIND CLOUDFLARE_PAGES_PROJECT CLOUDFLARE_PAGES_BRANCH
+export CLOUDFLARE_DEPLOYMENT_VERSION
 
 node scripts/_project-config.mjs assert-convex-deploy-key production
 pnpm exec tsx tooling/quality/check-deploy-authority-receipt.mts validate-inputs pending
