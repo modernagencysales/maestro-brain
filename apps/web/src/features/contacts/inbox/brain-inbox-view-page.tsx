@@ -11,6 +11,7 @@ import {
 import { useConvexQuery } from '@convex-dev/react-query'
 import { useMutation as useConvexMutation } from 'convex/react'
 import { Editor } from '@workspace/ui/editor'
+import { Skeleton } from '@chakra-ui/react'
 import {
   ButtonGroup,
   IconButton,
@@ -135,7 +136,6 @@ const useBrainMarkdown = (input: {
   workspaceId: string
 }) => {
   const updateMarkdown = useConvexMutation(updatePageRef)
-  const pageRef = React.useRef(input.page)
   const updateMarkdownRef = React.useRef(updateMarkdown)
   const [markdown, setMarkdown] = React.useState(pageMarkdown(input.page))
   const loadedMarkdownRef = React.useRef(pageMarkdown(input.page))
@@ -146,7 +146,6 @@ const useBrainMarkdown = (input: {
     pageUpdatedAt(input.page),
   )
 
-  pageRef.current = input.page
   updateMarkdownRef.current = updateMarkdown
 
   React.useEffect(() => {
@@ -160,15 +159,16 @@ const useBrainMarkdown = (input: {
 
   React.useEffect(() => {
     if (
+      !input.page ||
       !shouldPersistBrainMarkdown({
         fixtureRuntime: input.fixtureRuntime && !input.isolatedContracts,
+        pageLoaded: input.page !== undefined,
         loadedMarkdown: loadedMarkdownRef.current,
         draftMarkdown: markdown,
       })
     )
       return
-    // shouldPersistBrainMarkdown can only pass when a live page is loaded.
-    const page = pageRef.current as BrainEditorPage
+    const page = input.page
     const saveKey = `${revisionRef.current}:${markdown}`
     if (failedSaveRef.current === saveKey) return
     const timeout = window.setTimeout(() => {
@@ -421,12 +421,16 @@ export function BrainInboxViewPage({
       primaryLabel="Page"
       primaryIcon={<LuFileText />}
       primaryContent={
-        <Editor
-          aria-label="Agency Brain page editor"
-          value={markdown}
-          onChange={setMarkdown}
-          minH="60vh"
-        />
+        page ? (
+          <Editor
+            aria-label="Agency Brain page editor"
+            value={markdown}
+            onChange={setMarkdown}
+            minH="60vh"
+          />
+        ) : (
+          <Skeleton aria-label="Loading Agency Brain page" height="60vh" />
+        )
       }
     />
   )
