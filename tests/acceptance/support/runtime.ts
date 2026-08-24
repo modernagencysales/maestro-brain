@@ -7,6 +7,7 @@ import {
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
+import { request } from "node:http";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
@@ -14,6 +15,17 @@ type SeededActor = {
   readonly keyId: string;
   readonly workspaceId: string;
   readonly userId: string;
+};
+
+type SeedLocalContractsInput = {
+  readonly deploymentUrl: string;
+  readonly adminKey: string;
+  readonly args: {
+    readonly namespace: string;
+    readonly primaryKeyHash: string;
+    readonly observerKeyHash: string;
+  };
+  readonly timeoutMs: number;
 };
 
 export type ContractsScenario = {
@@ -82,6 +94,9 @@ export type ContractsRuntimeDependencies = {
   readonly freePort: () => Promise<number>;
   readonly launchBrowser: (environment: NodeJS.ProcessEnv) => Promise<Browser>;
   readonly loadLocalAdminKey: (cloudPort: number) => Promise<string>;
+  readonly seedLocalContracts: (
+    input: SeedLocalContractsInput,
+  ) => Promise<string>;
   readonly randomBytes: (size: number) => Uint8Array;
   readonly runCommand: (
     args: readonly string[],
@@ -280,6 +295,69 @@ export const readLocalAdminKeyForPort = async (
   throw new Error(
     `No local Convex deployment credentials matched cloud port ${cloudPort}.`,
   );
+};
+
+export const runLocalSeedMutation = async (
+  input: SeedLocalContractsInput,
+): Promise<string> => {
+  const body = JSON.stringify({
+    path: "headless/apiKeys:seedLocalContracts",
+    format: "convex_encoded_json",
+    args: [input.args],
+  });
+  const signal = AbortSignal.timeout(input.timeoutMs);
+  const mutation = new Promise<string>((resolve, reject) => {
+    const target = new URL("/api/mutation", input.deploymentUrl);
+    const outgoing = request(
+      target,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Convex ${input.adminKey}`,
+          "content-length": Buffer.byteLength(body),
+          "content-type": "application/json",
+        },
+        signal,
+      },
+      (response) => {
+        let responseBody = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk: string) => {
+          responseBody = `${responseBody}${chunk}`;
+        });
+        response.on("end", () => {
+          try {
+            const payload: unknown = JSON.parse(responseBody);
+            if (
+              response.statusCode !== undefined &&
+              response.statusCode >= 200 &&
+              response.statusCode < 300 &&
+              isObject(payload) &&
+              payload.status === "success" &&
+              "value" in payload
+            ) {
+              resolve(JSON.stringify(payload.value));
+              return;
+            }
+            reject(new Error("Local Convex seed mutation failed."));
+          } catch {
+            reject(
+              new Error("Local Convex seed mutation returned invalid JSON."),
+            );
+          }
+        });
+      },
+    );
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
+  try {
+    return await mutation;
+  } catch (error) {
+    if (signal.aborted)
+      throw new Error("Local Convex seed mutation timed out.");
+    throw error;
+  }
 };
 
 const parseSeedResult = (
@@ -602,29 +680,21 @@ async function bootContractsRuntime(
         observerKeyHash,
       ])
         secrets.add(value);
-      const seedArgs = [
-        "--silent",
-        "exec",
-        "convex",
-        "run",
-        "headless/apiKeys:seedLocalContracts",
-        JSON.stringify({ namespace, primaryKeyHash, observerKeyHash }),
-        ...explicitLocalDeployment,
-      ];
       const deadline = Date.now() + seedTimeoutMs;
       let seedOutput = "";
       while (true) {
         try {
           const remaining = Math.max(1, deadline - Date.now());
-          seedOutput = await runCommand(
-            seedArgs,
-            localEnvironment,
-            boundedSeedAttemptTimeout(
+          seedOutput = await dependencies.seedLocalContracts({
+            deploymentUrl: `http://127.0.0.1:${convexPort}`,
+            adminKey: localAdminKey,
+            args: { namespace, primaryKeyHash, observerKeyHash },
+            timeoutMs: boundedSeedAttemptTimeout(
               remaining,
               commandTimeoutMs,
               CONTRACTS_SEED_ATTEMPT_TIMEOUT_MS,
             ),
-          );
+          });
           break;
         } catch (error) {
           ensureRunning();
@@ -805,6 +875,7 @@ function nodeDependencies(): ContractsRuntimeDependencies {
     launchBrowser: (environment) =>
       chromium.launch({ headless: true, env: stringEnvironment(environment) }),
     loadLocalAdminKey: (cloudPort) => readLocalAdminKeyForPort(cwd, cloudPort),
+    seedLocalContracts: (input) => runLocalSeedMutation(input),
     randomBytes: (size) => randomBytes(size),
     runCommand: (args, environment) =>
       spawnManagedCommand({
