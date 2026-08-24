@@ -15,6 +15,7 @@ const contract = JSON.stringify({
   requiredText: { "route.tsx": "ConnectionsPage" },
   requiredEmptyArrays: ["deviations.json"],
 });
+const mainSha = "a".repeat(40);
 
 const dependencies = (
   overrides: Partial<CanonicalLaunchGuardDependencies> = {},
@@ -36,6 +37,8 @@ const dependencies = (
       return "https://github.com/modernagencysales/maestro-brain.git";
     if (command === "symbolic-ref refs/remotes/origin/HEAD")
       return "refs/remotes/origin/main";
+    if (command === "rev-parse --verify refs/remotes/origin/main^{commit}")
+      return mainSha;
     if (command.startsWith("merge-base --is-ancestor")) return "";
     throw new Error(`Unexpected git command: ${command}`);
   },
@@ -65,7 +68,7 @@ describe("canonical customer launch guard", () => {
           const command = args.join(" ");
           if (command === "config --get remote.origin.url")
             return "https://github.com/example/old-ui.git";
-          if (command === "merge-base --is-ancestor origin/main HEAD")
+          if (command === `merge-base --is-ancestor ${mainSha} HEAD`)
             throw new Error("not an ancestor");
           return base.git(cwd, args);
         },
@@ -107,7 +110,7 @@ describe("canonical customer launch guard", () => {
     ).resolves.toContain("Web port 15173 is already owned by pid 43.");
   });
 
-  it("accepts CI clones that omit the optional origin HEAD symbolic ref", async () => {
+  it("accepts CI clones that resolve the contract branch without remote refs", async () => {
     const base = dependencies();
     await expect(
       canonicalLaunchFindings(
@@ -115,13 +118,44 @@ describe("canonical customer launch guard", () => {
         ["start"],
         dependencies({
           git: async (cwd, args) => {
-            if (args.join(" ") === "symbolic-ref refs/remotes/origin/HEAD")
+            const command = args.join(" ");
+            if (command === "symbolic-ref refs/remotes/origin/HEAD")
               throw new Error("origin/HEAD is unavailable");
+            if (
+              command === "rev-parse --verify refs/remotes/origin/main^{commit}"
+            )
+              throw new Error("origin/main is unavailable");
+            if (command === "ls-remote --exit-code origin refs/heads/main")
+              return `${mainSha}\trefs/heads/main`;
             return base.git(cwd, args);
           },
         }),
       ),
     ).resolves.toEqual([]);
+  });
+
+  it("fails closed when neither local nor remote contract branch authority is available", async () => {
+    const base = dependencies();
+    await expect(
+      canonicalLaunchFindings(
+        "/repo",
+        ["start"],
+        dependencies({
+          git: async (cwd, args) => {
+            const command = args.join(" ");
+            if (
+              command ===
+                "rev-parse --verify refs/remotes/origin/main^{commit}" ||
+              command === "ls-remote --exit-code origin refs/heads/main"
+            )
+              throw new Error("contract branch is unavailable");
+            return base.git(cwd, args);
+          },
+        }),
+      ),
+    ).resolves.toEqual([
+      "Canonical launch verification failed: contract branch is unavailable",
+    ]);
   });
 
   it("rejects an available origin HEAD that points away from the contract branch", async () => {

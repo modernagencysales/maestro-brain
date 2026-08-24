@@ -174,6 +174,42 @@ const optionalGitOutput = async (
   }
 };
 
+const exactCommitSha = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u;
+
+const remoteDefaultBranchCommit = async (
+  dependencies: CanonicalLaunchGuardDependencies,
+  cwd: string,
+  defaultBranch: string,
+): Promise<string> => {
+  const remoteRef = `refs/remotes/origin/${defaultBranch}`;
+  const localCommit = await optionalGitOutput(dependencies, cwd, [
+    "rev-parse",
+    "--verify",
+    `${remoteRef}^{commit}`,
+  ]);
+  if (localCommit !== undefined && exactCommitSha.test(localCommit))
+    return localCommit;
+
+  const headRef = `refs/heads/${defaultBranch}`;
+  const remoteOutput = await dependencies.git(cwd, [
+    "ls-remote",
+    "--exit-code",
+    "origin",
+    headRef,
+  ]);
+  const [remoteCommit, returnedRef, ...unexpected] = remoteOutput
+    .trim()
+    .split(/\s+/u);
+  if (
+    remoteCommit === undefined ||
+    !exactCommitSha.test(remoteCommit) ||
+    returnedRef !== headRef ||
+    unexpected.length > 0
+  )
+    throw new Error(`origin/${defaultBranch} is unavailable`);
+  return remoteCommit;
+};
+
 const repositoryFindings = async (
   cwd: string,
   contract: CanonicalLaunchContract,
@@ -208,6 +244,20 @@ const repositoryFindings = async (
     !(await gitSucceeds(dependencies, cwd, [
       "merge-base",
       "--is-ancestor",
+      await remoteDefaultBranchCommit(
+        dependencies,
+        cwd,
+        contract.defaultBranch,
+      ),
+      "HEAD",
+    ]))
+  )
+    findings.push(`HEAD is behind origin/${contract.defaultBranch}.`);
+
+  if (
+    !(await gitSucceeds(dependencies, cwd, [
+      "merge-base",
+      "--is-ancestor",
       contract.requiredAncestor,
       "HEAD",
     ]))
@@ -215,16 +265,6 @@ const repositoryFindings = async (
     findings.push(
       `HEAD does not contain canonical shell ${contract.requiredAncestor}.`,
     );
-
-  if (
-    !(await gitSucceeds(dependencies, cwd, [
-      "merge-base",
-      "--is-ancestor",
-      `origin/${contract.defaultBranch}`,
-      "HEAD",
-    ]))
-  )
-    findings.push(`HEAD is behind origin/${contract.defaultBranch}.`);
 
   return findings;
 };
