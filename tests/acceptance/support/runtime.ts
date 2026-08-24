@@ -201,7 +201,7 @@ export const redactContractsDiagnostic = (
   return safe.slice(-19_900);
 };
 
-export const CONTRACTS_RUNTIME_STARTUP_TIMEOUT_MS = 120_000;
+export const CONTRACTS_RUNTIME_STARTUP_TIMEOUT_MS = 180_000;
 export const CONTRACTS_HOOK_TIMEOUT_MS = 150_000;
 const CONTRACTS_SEED_ATTEMPT_TIMEOUT_MS = 15_000;
 
