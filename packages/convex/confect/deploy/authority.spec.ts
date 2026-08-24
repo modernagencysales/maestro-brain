@@ -2,6 +2,7 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import type {
   auditExport,
   consume,
+  issueDeploymentEvidence,
   provisionApproval,
   provisionCensus,
   provisionIssuer,
@@ -38,6 +39,11 @@ export default GroupSpec.make()
   .addFunction(
     FunctionSpec.convexPublicMutation<typeof provisionVerdict>()(
       "provisionVerdict",
+    ),
+  )
+  .addFunction(
+    FunctionSpec.convexPublicMutation<typeof issueDeploymentEvidence>()(
+      "issueDeploymentEvidence",
     ),
   )
   .addFunction(FunctionSpec.convexPublicQuery<typeof status>()("status"))

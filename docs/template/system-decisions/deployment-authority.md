@@ -29,7 +29,10 @@ workspace feature or a workspace data-subject lifecycle.
   - `packages/convex/confect/deploy/authority.spec.ts`
   - `packages/convex/confect/deployAuthority/admin.ts`
   - `packages/convex/confect/deployAuthority/http.ts`
-  - `packages/convex/confect/deployAuthority/store.ts`
+  - `packages/convex/confect/deployAuthority/store.ts` (stable public barrel)
+  - `packages/convex/confect/deployAuthority/issuance.ts`
+  - `packages/convex/confect/deployAuthority/consumption.ts`
+  - `packages/convex/confect/deployAuthority/census.ts`
 - Implemented responsibilities: bind signed approvals, verdicts, and complete
   census evidence to an exact environment, target, and commit; verify configured
   trusted issuers; issue short-lived authorization; consume each action exactly
@@ -68,6 +71,32 @@ self-bootstrap its own authority, compute or replace the external trusted root,
 fall back to the target Convex deployment, or bypass an unavailable authority.
 Missing independent control-plane readiness is a deployment refusal, not a
 recoverable setup path inside the deploy job.
+
+## Operator Issuance Ceremony
+
+The supported release ceremony calls the authenticated
+`deploy/authority:issueDeploymentEvidence` mutation on the independent authority
+deployment. The operator supplies the exact environment, target, commit, a
+closed and complete workflow census plus immutable version bindings, its source
+receipt hash, and a lifetime of at most ten minutes. The mutation resolves the
+one active issuer for the operator's HTTPS origin, proves that the authority
+runtime's private key matches it, computes the census fingerprint, signs the
+approval and verdict inside that runtime, and writes all three evidence records
+in one Convex transaction.
+
+The census snapshot fingerprint includes its environment, target, commit,
+capture time, and expiry as well as the canonical runs and bindings. Unchanged
+workflow versions can therefore authorize a later release without colliding with
+an older snapshot, while a snapshot cannot be moved to another release scope.
+
+The response contains only the approval hash, census snapshot id, verdict hash,
+and expiry. It never returns the private key or either signature, and the audit
+log records only hashes. Operators may invoke the mutation with Convex CLI
+`--identity` using a reviewed release-operator identity whose issuer is the
+independent authority origin. Do not export the private key to construct the
+legacy `provisionApproval` or `provisionVerdict` inputs on a workstation or CI
+runner. Those narrow provisioning mutations remain compatibility surfaces; the
+authority-side issuance mutation is the canonical operational path.
 
 ## Terminal Condition
 
