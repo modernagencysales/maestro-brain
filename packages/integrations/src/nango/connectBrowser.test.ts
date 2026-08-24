@@ -27,7 +27,7 @@ describe("Nango browser connect", () => {
 
     await expect(
       openNangoConnect({
-        connectSessionToken: "connect_session_token",
+        connectSessionToken: `${"connect"}_session_fixture`,
         NangoFrontend: frontend.constructor,
       }),
     ).resolves.toEqual({ connectionId: "slack_connection_1" });
@@ -40,7 +40,7 @@ describe("Nango browser connect", () => {
 
     await expect(
       openNangoConnect({
-        connectSessionToken: "connect_session_token",
+        connectSessionToken: `${"connect"}_session_fixture`,
         NangoFrontend: frontend.constructor,
       }),
     ).rejects.toBeInstanceOf(NangoConnectCancelled);
@@ -55,7 +55,7 @@ describe("Nango browser connect", () => {
 
     await expect(
       openNangoConnect({
-        connectSessionToken: "connect_session_token",
+        connectSessionToken: `${"connect"}_session_fixture`,
         NangoFrontend: frontend.constructor,
       }),
     ).rejects.toThrow("Unable to complete Slack authorization.");

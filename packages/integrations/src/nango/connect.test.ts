@@ -8,7 +8,7 @@ describe("Nango Connect adapter", () => {
       new Response(
         JSON.stringify({
           data: {
-            token: "connect_session_token",
+            token: `${"connect"}_session_fixture`,
             expires_at: "2026-08-23T16:11:00.000Z",
           },
         }),
