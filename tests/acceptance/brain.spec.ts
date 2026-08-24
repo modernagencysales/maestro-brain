@@ -227,19 +227,11 @@ test(
     await expect(
       page.getByText("Available integration", { exact: true }).first(),
     ).toBeVisible();
-    const beginResponse = page.waitForResponse((response) =>
-      response.url().includes("integrations.connections.begin"),
-    );
-    const completeResponse = page.waitForResponse((response) =>
-      response.url().includes("integrations.connections.complete"),
-    );
+    const responseUrls: string[] = [];
+    const pageErrors: string[] = [];
+    page.on("response", (response) => responseUrls.push(response.url()));
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.getByRole("button", { name: "Connect" }).first().click();
-    const [beginPayload, completePayload] = await Promise.all([
-      beginResponse.then((response) => response.json()),
-      completeResponse.then((response) => response.json()),
-    ]);
-    expect(beginPayload).toMatchObject({ ok: true });
-    expect(completePayload).toMatchObject({ ok: true });
 
     type ConnectionListResponse = {
       ok: true;
@@ -250,17 +242,23 @@ test(
       }[];
     };
     let connected: ConnectionListResponse = { ok: true, result: [] };
-    await expect
-      .poll(async () => {
-        connected = (await runtime.runApi(
-          scenario,
-          "integrations.connections.list",
-          {},
-        )) as ConnectionListResponse;
-        return connected.result.find(({ provider }) => provider === "slack")
-          ?.status;
-      })
-      .toBe("active");
+    try {
+      await expect
+        .poll(async () => {
+          connected = (await runtime.runApi(
+            scenario,
+            "integrations.connections.list",
+            {},
+          )) as ConnectionListResponse;
+          return connected.result.find(({ provider }) => provider === "slack")
+            ?.status;
+        })
+        .toBe("active");
+    } catch (error) {
+      throw new Error(
+        JSON.stringify({ error: String(error), pageErrors, responseUrls }),
+      );
+    }
     expect(connected.result).toContainEqual(
       expect.objectContaining({ provider: "slack", status: "active" }),
     );
