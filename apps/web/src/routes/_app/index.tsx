@@ -2,13 +2,21 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { DefaultLoader } from "#components/default-loader";
 import { getLastUsedWorkspace } from "#lib/last-used-workspace";
+import { selectInitialWorkspace } from "#lib/root-index-navigation";
 import {
   getFunctionReference,
   templateConfectRefs,
 } from "@maestro-template/convex/refs";
+import { isFixtureAuthRuntime } from "#lib/auth/route-auth";
 
 export const Route = createFileRoute("/_app/")({
   beforeLoad: async ({ context }) => {
+    if (isFixtureAuthRuntime()) {
+      throw redirect({
+        to: "/$workspace",
+        params: { workspace: "awesome-inc" },
+      });
+    }
     if (!context.auth?.user) {
       throw redirect({
         to: "/login",
@@ -30,13 +38,10 @@ export const Route = createFileRoute("/_app/")({
       });
     }
 
-    const lastUsedWorkspace = getLastUsedWorkspace();
-
-    const workspace = lastUsedWorkspace
-      ? (user.workspaces.find(
-          (workspace: { slug: string }) => workspace.slug === lastUsedWorkspace,
-        ) ?? user.workspaces[0])
-      : user.workspaces[0];
+    const workspace = selectInitialWorkspace(
+      user.workspaces,
+      getLastUsedWorkspace(),
+    );
 
     if (!workspace) {
       throw redirect({

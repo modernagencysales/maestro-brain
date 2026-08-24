@@ -3,6 +3,8 @@ import {
   AuthProvider as BaseAuthProvider,
   type AuthProviderProps,
 } from "@saas-ui/auth-provider";
+import { isFixtureAuthRuntime } from "#lib/auth/route-auth";
+import { fixtureAuthService } from "#lib/auth/fixture-auth";
 
 type StarterUser = {
   readonly id: string;
@@ -45,5 +47,6 @@ export const authService: Pick<
 };
 
 export function AuthProvider(props: { children: React.ReactNode }) {
-  return <BaseAuthProvider {...authService}>{props.children}</BaseAuthProvider>;
+  const service = isFixtureAuthRuntime() ? fixtureAuthService : authService;
+  return <BaseAuthProvider {...service}>{props.children}</BaseAuthProvider>;
 }

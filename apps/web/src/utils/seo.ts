@@ -1,7 +1,7 @@
 export const seo = ({
-  title = "Saas.js Tanstack Start",
-  description = "Build better SaaS apps with Saas.js Tanstack Start",
-  keywords = "tanstack, saas, ui, react, typescript, trpc",
+  title = "Maestro Brain",
+  description = "Company knowledge that people and agents can find, trust, and improve.",
+  keywords = "company knowledge, agency knowledge, AI agents, Maestro Brain",
   image = "",
 } = {}) => {
   const tags = [
@@ -10,8 +10,6 @@ export const seo = ({
     { name: "keywords", content: keywords },
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },
-    { name: "twitter:creator", content: "@saas_js" },
-    { name: "twitter:site", content: "@saas_js" },
     { name: "og:type", content: "website" },
     { name: "og:title", content: title },
     { name: "og:description", content: description },

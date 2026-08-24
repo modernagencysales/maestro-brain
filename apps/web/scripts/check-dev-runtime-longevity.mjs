@@ -42,6 +42,9 @@ const stopGroup = (child, signal) => {
   }
 };
 
+export const isCleanDevRuntimeExit = ({ code, signal }) =>
+  code === 0 || code === 130 || signal === "SIGINT";
+
 export async function checkDevRuntimeLongevity({
   cwd,
   webPort,
@@ -63,7 +66,13 @@ export async function checkDevRuntimeLongevity({
     {
       cwd,
       detached: true,
-      env: { ...process.env, MAESTRO_DISABLE_ROUTE_GENERATION: "1" },
+      env: {
+        ...process.env,
+        APP_ENV: "fake",
+        APP_PROVIDER_MODE: "fake",
+        MAESTRO_DISABLE_ROUTE_GENERATION: "1",
+        VITE_MAESTRO_AUTH_MODE: "fixture",
+      },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -110,7 +119,7 @@ export async function checkDevRuntimeLongevity({
     return {
       healthBefore,
       healthAfter,
-      cleanShutdown: exit.code === 0 || exit.signal === "SIGINT",
+      cleanShutdown: isCleanDevRuntimeExit(exit),
       checkedRoutes,
       checkedViewports: ["desktop", "mobile"],
       logs,
