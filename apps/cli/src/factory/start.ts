@@ -15,10 +15,11 @@ import {
   type createPreflightCommand,
 } from "@maestro-template/agent-pack";
 import type { CliResult } from "../types";
-import { cliSuccess } from "../result";
+import { cliFailure, cliSuccess } from "../result";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { runAgentPackCommandAsCli, type FactoryCliRenderMode } from "./router";
+import { canonicalLaunchFindings } from "./canonicalLaunchGuard";
 
 export const START_HELP =
   "maestro start [--mode fake|local|dev] [--web-port PORT] [--convex-port PORT] [--convex-site-port PORT] [--readiness-port PORT] [--human|--details|--json]\n";
@@ -56,12 +57,18 @@ export function createStartCliHandler<Args, Data extends AgentPackJsonValue>(
   };
 }
 
-export function runStartCli<Args, Data extends AgentPackJsonValue>(
+export async function runStartCli<Args, Data extends AgentPackJsonValue>(
   command: AgentPackCommand<"start", Args, Data>,
   argv: readonly string[],
   cwd: string,
   output?: StartOutputBoundary,
 ): Promise<CliResult> {
+  const findings = await canonicalLaunchFindings(cwd, argv);
+  if (findings.length > 0) {
+    return cliFailure(
+      `Canonical launch blocked:\n${findings.map((finding) => `- ${finding}`).join("\n")}\n`,
+    );
+  }
   const parsed = parseStartCli(argv.slice(1));
   const execute = () =>
     runAgentPackCommandAsCli(
@@ -74,7 +81,7 @@ export function runStartCli<Args, Data extends AgentPackJsonValue>(
       },
       parsed.renderMode,
     );
-  return output?.run(parsed.renderMode, execute) ?? execute();
+  return (await output?.run(parsed.renderMode, execute)) ?? execute();
 }
 
 export function createComposedStartCommand(options: {
