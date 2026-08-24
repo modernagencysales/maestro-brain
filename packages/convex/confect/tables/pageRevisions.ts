@@ -79,7 +79,6 @@ export const PageRevisionRow = Schema.Union([
 export default Table.make(() => PageRevisionRow)
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_page_updated", ["workspaceId", "pageId", "updatedAt"])
-  .index("by_workspace_ledger", ["workspaceId"])
   .index("by_workspace_revision_key", ["workspaceId", "revisionKey"])
   .index("by_page_created", ["workspaceId", "pageKey", "createdAt"])
   .index("by_page_hash", ["workspaceId", "pageKey", "contentHash"])
