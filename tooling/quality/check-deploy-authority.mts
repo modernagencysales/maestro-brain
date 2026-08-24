@@ -305,6 +305,17 @@ export function validateDeployAuthoritySources(
         if (!deploy.includes(`${secret}:\n        from_secret:`))
           failures.push(`${job.deploy} must retain scoped ${secret}`);
       }
+      for (const binding of [
+        "TEMPLATE_STAGING_CONVEX_DEPLOYMENT",
+        "TEMPLATE_STAGING_CONVEX_URL",
+        "TEMPLATE_PRODUCTION_CONVEX_DEPLOYMENT",
+        "TEMPLATE_PRODUCTION_CONVEX_URL",
+      ]) {
+        if (!deploy.includes(`${binding}:\n        from_secret:`))
+          failures.push(
+            `${job.deploy} must receive ${binding} for cross-environment isolation proof`,
+          );
+      }
     }
     const script = input.sources[job.script] ?? "";
     if (script.includes("authorityCli.ts")) {

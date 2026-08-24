@@ -198,6 +198,44 @@ describe("deploy authority self-protection", () => {
         },
       }),
     ).not.toEqual([]);
+
+    const removeStepBinding = (
+      pipeline: string,
+      stepName: string,
+      binding: string,
+      secret: string,
+    ) => {
+      const start = pipeline.indexOf(`  - name: ${stepName}`);
+      const end = pipeline.indexOf("\n  - name:", start + 1);
+      const blockEnd = end < 0 ? pipeline.length : end;
+      const block = pipeline.slice(start, blockEnd);
+      const declaration = `      ${binding}:\n        from_secret: ${secret}\n`;
+      const changed = block.replace(declaration, "");
+      return `${pipeline.slice(0, start)}${changed}${pipeline.slice(blockEnd)}`;
+    };
+    for (const [stepName, binding, secret] of [
+      [
+        "staging-deploy",
+        "TEMPLATE_PRODUCTION_CONVEX_DEPLOYMENT",
+        "template_production_convex_deployment",
+      ],
+      [
+        "production-promote",
+        "TEMPLATE_STAGING_CONVEX_URL",
+        "template_staging_convex_url",
+      ],
+    ] as const) {
+      const pipeline = removeStepBinding(
+        base.pipeline,
+        stepName,
+        binding,
+        secret,
+      );
+      expect(pipeline).not.toBe(base.pipeline);
+      expect(validateDeployAuthoritySources({ ...base, pipeline })).not.toEqual(
+        [],
+      );
+    }
   });
 
   it("requires external trust bindings to come from Woodpecker secrets", () => {
