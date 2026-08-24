@@ -308,8 +308,12 @@ export function validateDeployAuthoritySources(
       for (const binding of [
         "TEMPLATE_STAGING_CONVEX_DEPLOYMENT",
         "TEMPLATE_STAGING_CONVEX_URL",
+        "TEMPLATE_STAGING_HOSTED_URL",
         "TEMPLATE_PRODUCTION_CONVEX_DEPLOYMENT",
         "TEMPLATE_PRODUCTION_CONVEX_URL",
+        "TEMPLATE_PRODUCTION_HOSTED_URL",
+        "TRUSTED_CI_SELF_PROTECTION_COMMIT",
+        "TRUSTED_DEPLOY_ROOT_SHA256",
       ]) {
         if (!deploy.includes(`${binding}:\n        from_secret:`))
           failures.push(
