@@ -272,6 +272,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "route:callback",
+      "kind": "route",
+      "system": "access-and-tenancy",
+      "path": "apps/web/src/routes/callback.tsx",
+      "responsibility": "complete the registered WorkOS authentication callback",
+      "surfaces": ["web"],
+      "uses": [],
+      "lifecycle": "active"
+    },
+    {
       "id": "route:api/auth/$",
       "kind": "route",
       "system": "access-and-tenancy",
