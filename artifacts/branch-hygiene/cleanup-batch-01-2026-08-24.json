@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "repository": "modernagencysales/maestro-brain",
+  "baseRef": "origin/main",
+  "reviewedBaseSha": "ce8f331a8656db75c3e3bd02df16fb06a53747a6",
+  "reviewedAt": "2026-08-24T14:23:50.106Z",
+  "approvedBy": "repository-owner",
+  "approvalContext": "User authorized canonical branch cleanup on 2026-08-24.",
+  "reason": "Each selected archive/headless/maestro-review ref is an earlier numbered review run with a later version for the same task, candidate commit, review identity, and review role.",
+  "safetyChecks": {
+    "openPullRequests": [
+      {
+        "number": 41,
+        "headRefName": "feat/brain-tiptap-editor",
+        "selectedForCleanup": false
+      }
+    ],
+    "worktrees": [
+      {
+        "path": "/Users/lappy/maestro-brain",
+        "branch": "main",
+        "sha": "ce8f331a8656db75c3e3bd02df16fb06a53747a6"
+      }
+    ],
+    "namedEnvironments": ["production", "staging"],
+    "selectedBranchDeploymentReferences": []
+  },
+  "executedAt": "2026-08-24T14:27:37Z",
+  "status": "executed-and-verified",
+  "result": {
+    "deletedBranchCount": 15,
+    "pushedRecoveryTagCount": 8,
+    "liveRemoteBranchCountAfter": 499,
+    "keepCountAfter": 16,
+    "reviewArchiveCountAfter": 483,
+    "reviewDeleteCountAfter": 0,
+    "canonicalMainShaAfter": "ce8f331a8656db75c3e3bd02df16fb06a53747a6",
+    "liveShellPid": 86494,
+    "liveShellBrainHttpStatus": 200
+  },
+  "branches": [
+    {
+      "name": "archive/headless/maestro-review/S04-T04/7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75/12d6e679-3da0-426c-bbe6-cf1ea0590d6e-v1/contract",
+      "sha": "7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S04-T04/7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75/12d6e679-3da0-426c-bbe6-cf1ea0590d6e-v1/quality",
+      "sha": "3a61e591f5b49455166d073423e36a373f6b24bd",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S04-T04/7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75/12d6e679-3da0-426c-bbe6-cf1ea0590d6e-v1/safety",
+      "sha": "7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v1/contract",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v1/quality",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v1/safety",
+      "sha": "7a2aa6da7ff59bb9ffe0cea55a6ab87943017a44",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v2/contract",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v2/quality",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v2/safety",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+      "supersededByVersion": 3
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T03/27c0bdfd3fc0739c0788ab89186a676ef54230a8/54a80030-10ce-401c-a849-6c6335d31cfd-v1/contract",
+      "sha": "27c0bdfd3fc0739c0788ab89186a676ef54230a8",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T03/27c0bdfd3fc0739c0788ab89186a676ef54230a8/54a80030-10ce-401c-a849-6c6335d31cfd-v1/quality",
+      "sha": "1d6742b7e7c8f1e002bb6d61cc7f7bec3fe18dad",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T03/27c0bdfd3fc0739c0788ab89186a676ef54230a8/54a80030-10ce-401c-a849-6c6335d31cfd-v1/safety",
+      "sha": "27c0bdfd3fc0739c0788ab89186a676ef54230a8",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T04/e32afae7dd5c51a018b64a919b829dfd7763f0d8/7f90ec0a-889b-4729-af93-e406f1b96daa-v1/contract",
+      "sha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T04/e32afae7dd5c51a018b64a919b829dfd7763f0d8/7f90ec0a-889b-4729-af93-e406f1b96daa-v1/quality",
+      "sha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8",
+      "supersededByVersion": 2
+    },
+    {
+      "name": "archive/headless/maestro-review/S08-T04/e32afae7dd5c51a018b64a919b829dfd7763f0d8/7f90ec0a-889b-4729-af93-e406f1b96daa-v1/safety",
+      "sha": "a801f943393d8b61116db793b2cb6d9c54892db6",
+      "supersededByVersion": 2
+    }
+  ],
+  "recoveryTags": [
+    {
+      "tag": "archive/branch-cleanup-20260824-1d6742b7e7c8",
+      "sha": "1d6742b7e7c8f1e002bb6d61cc7f7bec3fe18dad"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-27c0bdfd3fc0",
+      "sha": "27c0bdfd3fc0739c0788ab89186a676ef54230a8"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-3a61e591f5b4",
+      "sha": "3a61e591f5b49455166d073423e36a373f6b24bd"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-7a2aa6da7ff5",
+      "sha": "7a2aa6da7ff59bb9ffe0cea55a6ab87943017a44"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-7eaafcc3a421",
+      "sha": "7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-9e4ab3cfc926",
+      "sha": "9e4ab3cfc9261af8203beee9413f404aaf619d34"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-a801f943393d",
+      "sha": "a801f943393d8b61116db793b2cb6d9c54892db6"
+    },
+    {
+      "tag": "archive/branch-cleanup-20260824-e32afae7dd5c",
+      "sha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8"
+    }
+  ]
+}

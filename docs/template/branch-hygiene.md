@@ -16,12 +16,17 @@ product or deployment authority.
 
 ## Inventory
 
-Refresh remote refs, then generate a read-only proposal:
+Generate a read-only proposal from the live remote:
 
 ```bash
-rtk git fetch --prune origin
 rtk pnpm branch:hygiene -- --remote origin --base main --stale-days 30
 ```
+
+The command fetches live heads into an isolated temporary ref namespace and
+removes that namespace after inventory. It does not trust
+`refs/remotes/<remote>/*`: a canonical checkout may intentionally fetch only
+`main`, in which case ordinary `git fetch --prune` leaves previously fetched
+remote-tracking refs behind and can falsely report deleted branches as live.
 
 To retain a review artifact, provide an explicit repository-relative path:
 
@@ -41,6 +46,9 @@ The inventory is only a proposal. `review-archive` is not a weaker spelling of
 record why they were abandoned. Before approval, review open pull requests,
 worktrees, deployment references, branch-specific environments, and commits that
 are not reachable from the base.
+
+After deletion, run the command again. Treat the regenerated live-remote
+manifest, not `git branch -r`, as the confirmation that the exact refs are gone.
 
 ## Recovery Tags
 
