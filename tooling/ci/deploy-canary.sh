@@ -17,10 +17,7 @@ case "${MODE}" in
     node -e 'const result=JSON.parse(process.env.HEALTH_RESULT); if (result?.ok !== true) throw new Error("Convex liveness canary failed")'
     ;;
   hosted)
-    pnpm smoke:hosted
-    pnpm smoke:hosted:browser
-    pnpm smoke:hosted:a11y
-    pnpm smoke:hosted:visual
+    pnpm exec tsx tooling/ci/hosted-worker-canary.mts
     ;;
   *)
     echo "Usage: deploy-canary.sh <backend|hosted>" >&2

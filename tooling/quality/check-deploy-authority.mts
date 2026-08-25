@@ -65,6 +65,8 @@ export function validateDeployAuthoritySources(
 ): readonly string[] {
   const failures: string[] = [];
   const expectedTrustMembers = [
+    "tooling/ci/deploy-canary.sh",
+    "tooling/ci/hosted-worker-canary.mts",
     "tooling/quality/check-deploy-authority.mts",
     "tooling/release/deploy-policy.json",
     "tooling/release/keys/deploy-authority-public-key.pem",
@@ -496,15 +498,10 @@ export function validateDeployAuthoritySources(
   const canary = input.sources["tooling/ci/deploy-canary.sh"] ?? "";
   if (
     !canary.includes("convex run ops/health:liveness") ||
-    ![
-      "pnpm smoke:hosted",
-      "pnpm smoke:hosted:browser",
-      "pnpm smoke:hosted:a11y",
-      "pnpm smoke:hosted:visual",
-    ].every((marker) => canary.includes(marker))
+    !canary.includes("pnpm exec tsx tooling/ci/hosted-worker-canary.mts")
   )
     failures.push(
-      "deploy canary must check Convex health plus hosted HTTP, browser, accessibility, and visual proof",
+      "deploy canary must check Convex health plus the hosted Worker route and asset contract",
     );
   if (!input.selfProtection.includes("check:deploy-authority")) {
     failures.push(

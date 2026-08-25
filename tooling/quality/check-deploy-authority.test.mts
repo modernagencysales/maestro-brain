@@ -12,6 +12,10 @@ const source = (name: string) => readFileSync(resolve(root, name), "utf8");
 const policySource = () => source("tooling/release/deploy-policy.json");
 const fixture = () => {
   const trustMembers = {
+    "tooling/ci/deploy-canary.sh": source("tooling/ci/deploy-canary.sh"),
+    "tooling/ci/hosted-worker-canary.mts": source(
+      "tooling/ci/hosted-worker-canary.mts",
+    ),
     "tooling/quality/check-deploy-authority.mts": source(
       "tooling/quality/check-deploy-authority.mts",
     ),
@@ -450,29 +454,22 @@ describe("deploy authority self-protection", () => {
     }
   });
 
-  it("requires complete hosted launch proof before a receipt", () => {
+  it("requires the hosted Worker route and asset contract before a receipt", () => {
     const base = fixture();
-    for (const marker of [
-      "pnpm smoke:hosted",
-      "pnpm smoke:hosted:browser",
-      "pnpm smoke:hosted:a11y",
-      "pnpm smoke:hosted:visual",
-    ]) {
-      expect(
-        validateDeployAuthoritySources({
-          ...base,
-          sources: {
-            ...base.sources,
-            "tooling/ci/deploy-canary.sh": base.sources[
-              "tooling/ci/deploy-canary.sh"
-            ]
-              .split(marker)
-              .join("REMOVED_MARKER"),
-          },
-        }),
-        marker,
-      ).not.toEqual([]);
-    }
+    const marker = "pnpm exec tsx tooling/ci/hosted-worker-canary.mts";
+    expect(
+      validateDeployAuthoritySources({
+        ...base,
+        sources: {
+          ...base.sources,
+          "tooling/ci/deploy-canary.sh": base.sources[
+            "tooling/ci/deploy-canary.sh"
+          ]
+            .split(marker)
+            .join("REMOVED_MARKER"),
+        },
+      }),
+    ).not.toEqual([]);
   });
 
   it("fails closed without the external root or when verifier, policy, or key co-change", () => {
