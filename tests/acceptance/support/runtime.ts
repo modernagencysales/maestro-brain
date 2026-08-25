@@ -165,7 +165,17 @@ export const proxyContractsRequest = async ({
     }),
     url: targetUrl,
   });
-  await route.fulfill({ response });
+  try {
+    await route.fulfill({ response });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      !/Fetch response has been disposed|Route is already handled/u.test(
+        message,
+      )
+    )
+      throw error;
+  }
 };
 
 export const redactContractsDiagnostic = (
