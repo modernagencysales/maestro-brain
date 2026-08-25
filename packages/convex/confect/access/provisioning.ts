@@ -125,6 +125,7 @@ export type ProvisioningPlan = {
 
 export const extractIdentityProfile = (
   claims: IdentityClaims | null,
+  sessionEmail?: string,
 ): Effect.Effect<IdentityProfile, Unauthorized | ValidationFailed> =>
   Effect.gen(function* () {
     const subject = claims?.subject ?? claims?.tokenIdentifier ?? null;
@@ -132,8 +133,16 @@ export const extractIdentityProfile = (
       return yield* new Unauthorized();
     }
 
-    const emailResult = normalizeEmail(claims?.email);
-    if (emailResult.kind !== "verified" || claims?.emailVerified !== true) {
+    const emailResult = normalizeEmail(claims?.email ?? sessionEmail);
+    // WorkOS AuthKit authenticates the address but does not currently include
+    // `email_verified` in every access-token shape. Convex therefore exposes a
+    // valid provider email with `emailVerified` undefined. Treat an explicit
+    // false as unverified while accepting the authenticated provider email when
+    // the optional claim is absent.
+    if (
+      emailResult.kind !== "verified" ||
+      (claims?.email !== undefined && claims.emailVerified === false)
+    ) {
       return yield* new ValidationFailed({
         field: "email",
         message: "A verified provider email is required for provisioning.",
@@ -298,20 +307,30 @@ const planOrganization = (
   ownerUserId: string,
   seed: ProvisioningSeed,
   now: number,
-): RowPlan<Omit<OrganizationProvisioningRow, "_id">> =>
-  existing === null
-    ? {
-        action: "insert",
-        value: {
-          ownerUserId,
-          slug: seed.slug,
-          name: seed.organizationName,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        },
-      }
-    : { action: "none" };
+): RowPlan<Omit<OrganizationProvisioningRow, "_id">> => {
+  if (existing === null) {
+    return {
+      action: "insert",
+      value: {
+        ownerUserId,
+        slug: seed.slug,
+        name: seed.organizationName,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
+    };
+  }
+
+  const normalizedSlug = existing.slug.toLowerCase();
+  return normalizedSlug === existing.slug
+    ? { action: "none" }
+    : {
+        action: "patch",
+        id: existing._id,
+        value: { slug: normalizedSlug, updatedAt: now },
+      };
+};
 
 const planWorkspace = (input: {
   readonly existing: WorkspaceProvisioningRow | null;
@@ -319,22 +338,32 @@ const planWorkspace = (input: {
   readonly ownerUserId: string;
   readonly seed: ProvisioningSeed;
   readonly now: number;
-}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> =>
-  input.existing === null
-    ? {
-        action: "insert",
-        value: {
-          organizationId: input.organizationId,
-          ownerUserId: input.ownerUserId,
-          slug: input.seed.slug,
-          name: input.seed.workspaceName,
-          status: "active",
-          dataClassification: "internal",
-          createdAt: input.now,
-          updatedAt: input.now,
-        },
-      }
-    : { action: "none" };
+}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> => {
+  if (input.existing === null) {
+    return {
+      action: "insert",
+      value: {
+        organizationId: input.organizationId,
+        ownerUserId: input.ownerUserId,
+        slug: input.seed.slug,
+        name: input.seed.workspaceName,
+        status: "active",
+        dataClassification: "internal",
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+    };
+  }
+
+  const normalizedSlug = input.existing.slug.toLowerCase();
+  return normalizedSlug === input.existing.slug
+    ? { action: "none" }
+    : {
+        action: "patch",
+        id: input.existing._id,
+        value: { slug: normalizedSlug, updatedAt: input.now },
+      };
+};
 
 const planOrganizationMembership = (input: {
   readonly existing: OrganizationMembershipProvisioningRow | null;
@@ -421,7 +450,10 @@ type ProvisioningSeed = {
 };
 
 const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
-  const suffix = identity.subject.slice(-8).replace(/[^a-zA-Z0-9]/g, "");
+  const suffix = identity.subject
+    .slice(-8)
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
   const base = identity.displayName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

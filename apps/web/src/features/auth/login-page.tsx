@@ -2,12 +2,19 @@
 
 import { useCallback } from 'react'
 
-import { Container, HStack, Separator, Stack, Text } from '@chakra-ui/react'
+import {
+  Alert,
+  Container,
+  HStack,
+  Separator,
+  Stack,
+  Text,
+} from '@chakra-ui/react'
 import { useLocalStorageValue } from '@react-hookz/web'
 import { useAuth } from '@saas-ui/auth-provider'
 import { toast } from '@saas-ui/react'
 import { useMutation } from '@tanstack/react-query'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 
 import { Form, useAppForm } from '@workspace/ui/form'
 
@@ -19,8 +26,6 @@ import { Providers } from './components/providers'
 import { LoginFormInput, loginSchema } from './schema/login.schema'
 
 export const LoginPage = () => {
-  const navigate = useNavigate()
-
   const search = useSearch({
     from: '/_auth/login',
   })
@@ -35,10 +40,7 @@ export const LoginPage = () => {
     mutationFn: (params: LoginFormInput) => auth.logIn(params),
     onSuccess: () => {
       lastUsed.set('credentials')
-
-      navigate({
-        to: search.redirectTo ?? '/',
-      })
+      window.location.assign(search.redirectTo ?? '/')
     },
     onError: (error) => {
       toast.error({
@@ -100,6 +102,18 @@ export const LoginPage = () => {
               </Text>
               <Separator />
             </HStack>
+
+            {mutation.error ? (
+              <Alert.Root status="error" mb="4">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Could not log in</Alert.Title>
+                  <Alert.Description>
+                    {mutation.error.message}
+                  </Alert.Description>
+                </Alert.Content>
+              </Alert.Root>
+            ) : null}
 
             <Form form={form}>
               <form.Layout>

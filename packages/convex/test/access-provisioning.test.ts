@@ -44,6 +44,25 @@ describe("access provisioning", () => {
     });
   });
 
+  it("accepts the authenticated WorkOS session email when the access token omits it", () => {
+    const profile = Effect.runSync(
+      extractIdentityProfile(
+        {
+          subject: "user_01workos",
+          tokenIdentifier: "https://api.workos.com|user_01workos",
+          name: "Tim Keen",
+        },
+        "tim@keen.digital",
+      ),
+    );
+
+    expect(profile).toEqual({
+      subject: "user_01workos",
+      displayName: "Tim Keen",
+      email: "tim@keen.digital",
+    });
+  });
+
   it("rejects missing identity before any row planning occurs", () => {
     const error = Effect.runSync(Effect.flip(extractIdentityProfile(null)));
 
@@ -148,6 +167,76 @@ describe("access provisioning", () => {
           updatedAt: now,
         },
       },
+    });
+  });
+
+  it("normalizes uppercase provider subject suffixes in generated slugs", () => {
+    const plan = Result.getOrThrow(
+      buildProvisioningPlan({
+        identity: {
+          subject: "user_01M0X0MYMQ1D5WRDBP5M0SBTAZ",
+          displayName: "timkeen+test55@gmail.com",
+          email: "timkeen+test55@gmail.com",
+        },
+        state: emptyState,
+        now,
+      }),
+    );
+
+    expect(plan.organization).toMatchObject({
+      action: "insert",
+      value: { slug: "timkeen-test55-gmail-com-5m0sbtaz" },
+    });
+    expect(plan.workspace).toMatchObject({
+      action: "insert",
+      value: { slug: "timkeen-test55-gmail-com-5m0sbtaz" },
+    });
+  });
+
+  it("self-heals uppercase slugs for existing organizations and workspaces", () => {
+    const plan = Result.getOrThrow(
+      buildProvisioningPlan({
+        identity: {
+          subject: "user_01M0X0MYMQ1D5WRDBP5M0SBTAZ",
+          displayName: "Tim Keen",
+          email: "tim@example.com",
+        },
+        state: {
+          ...emptyState,
+          liveOrganization: {
+            _id: "organizations_1",
+            ownerUserId: "users_1",
+            slug: "tim-keen-5M0SBTAZ",
+            name: "Tim Keen",
+            status: "active",
+            createdAt: now - 100,
+            updatedAt: now - 100,
+          },
+          liveWorkspace: {
+            _id: "workspaces_1",
+            organizationId: "organizations_1",
+            ownerUserId: "users_1",
+            slug: "tim-keen-5M0SBTAZ",
+            name: "Tim Keen Workspace",
+            status: "active",
+            dataClassification: "internal",
+            createdAt: now - 100,
+            updatedAt: now - 100,
+          },
+        },
+        now,
+      }),
+    );
+
+    expect(plan.organization).toEqual({
+      action: "patch",
+      id: "organizations_1",
+      value: { slug: "tim-keen-5m0sbtaz", updatedAt: now },
+    });
+    expect(plan.workspace).toEqual({
+      action: "patch",
+      id: "workspaces_1",
+      value: { slug: "tim-keen-5m0sbtaz", updatedAt: now },
     });
   });
 

@@ -13,6 +13,16 @@ type StarterUser = {
   readonly image?: string | null;
 };
 
+export class EmailVerificationRequiredError extends Error {
+  readonly userId: string;
+
+  constructor(message: string, userId: string) {
+    super(message);
+    this.name = "EmailVerificationRequiredError";
+    this.userId = userId;
+  }
+}
+
 export const client = {
   getSession: async () => {
     const response = await fetch("/api/auth/session");
@@ -30,13 +40,127 @@ const redirectToAuth = (path: string) => {
   return null;
 };
 
+const passwordAuth = async (
+  path: "sign-in" | "sign-up",
+  params: unknown,
+): Promise<StarterUser | null> => {
+  if (typeof params !== "object" || params === null) {
+    throw new Error("Email and password are required.");
+  }
+
+  if (
+    "provider" in params &&
+    typeof params.provider === "string" &&
+    params.provider.length > 0
+  ) {
+    redirectToAuth(path);
+    return null;
+  }
+
+  const response = await fetch(`/api/auth/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (
+    response.status === 202 &&
+    typeof payload === "object" &&
+    payload !== null &&
+    "verificationRequired" in payload &&
+    payload.verificationRequired === true
+  ) {
+    const message =
+      "message" in payload && typeof payload.message === "string"
+        ? payload.message
+        : "Check your email to verify your account, then log in.";
+    const userId =
+      "userId" in payload && typeof payload.userId === "string"
+        ? payload.userId
+        : "";
+    if (!userId)
+      throw new Error("WorkOS did not return an email verification session.");
+    throw new EmailVerificationRequiredError(message, userId);
+  }
+  if (!response.ok) {
+    if (
+      response.status === 409 &&
+      typeof payload === "object" &&
+      payload !== null &&
+      "fallback" in payload &&
+      (payload.fallback === "hosted" || payload.fallback === "hosted-sign-in")
+    ) {
+      redirectToAuth(payload.fallback === "hosted-sign-in" ? "sign-in" : path);
+      return null;
+    }
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : "Authentication failed. Please try again.";
+    throw new Error(message);
+  }
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("user" in payload) ||
+    typeof payload.user !== "object" ||
+    payload.user === null ||
+    !("id" in payload.user) ||
+    typeof payload.user.id !== "string"
+  ) {
+    throw new Error("Authentication succeeded without a valid user session.");
+  }
+  return payload.user as StarterUser;
+};
+
+const passwordReset = async (
+  path: "password-reset" | "password-reset/confirm",
+  params: unknown,
+) => {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : "Password reset failed. Please try again.";
+    throw new Error(message);
+  }
+  return payload;
+};
+
+export const verifySignupEmail = (params: {
+  readonly email: string;
+  readonly password: string;
+  readonly userId: string;
+  readonly verificationCode: string;
+}) => passwordAuth("sign-up", params);
+
 export const authService: Pick<
   AuthProviderProps,
-  "onLoadUser" | "onLogin" | "onSignup" | "onLogout"
+  | "onLoadUser"
+  | "onLogin"
+  | "onSignup"
+  | "onLogout"
+  | "onResetPassword"
+  | "onUpdatePassword"
 > = {
   onLoadUser: async () => (await client.getSession()).data?.user ?? null,
-  onLogin: async () => redirectToAuth("sign-in"),
-  onSignup: async () => redirectToAuth("sign-up"),
+  onLogin: async (params) => passwordAuth("sign-in", params),
+  onSignup: async (params) => passwordAuth("sign-up", params),
+  onResetPassword: async (params) => passwordReset("password-reset", params),
+  onUpdatePassword: async (params) =>
+    passwordReset("password-reset/confirm", params),
   onLogout: async () => {
     const form = document.createElement("form");
     form.method = "post";

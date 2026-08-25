@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isLogoutRequest } from "#lib/auth/workos-logout";
+import { isLogoutRequest, logoutRedirect } from "#lib/auth/workos-logout";
 
 describe("WorkOS logout route", () => {
   it("accepts only same-origin POST logout requests", () => {
@@ -26,5 +26,18 @@ describe("WorkOS logout route", () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it("uses See Other so the WorkOS logout redirect follows with GET", () => {
+    const headers = new Headers({
+      Location:
+        "https://api.workos.com/user_management/sessions/logout?session_id=session_1",
+    });
+    const response = logoutRedirect(headers);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("Location")).toContain(
+      "/user_management/sessions/logout",
+    );
   });
 });
