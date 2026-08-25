@@ -10,6 +10,7 @@ import { Form, useAppForm } from '@workspace/ui/form'
 
 import { Link } from '#components/link'
 
+import { EmailVerificationRequiredError } from './auth-provider'
 import { AuthCard } from './components/auth-card'
 import { Testimonial } from './components/testimonial'
 import { type SignupFormInput, signupSchema } from './schema/signup.schema'
@@ -26,12 +27,15 @@ export const SignupPage = () => {
       window.location.assign(search.redirectTo ?? '/')
     },
     onError: (error) => {
+      if (error instanceof EmailVerificationRequiredError) return
       toast.error({
         title: error.message ?? 'Could not sign you up',
         description: 'Please try again or contact us if the problem persists.',
       })
     },
   })
+
+  const verificationRequired = error instanceof EmailVerificationRequiredError
 
   const form = useAppForm({
     validators: {
@@ -69,7 +73,15 @@ export const SignupPage = () => {
               </Text>
             }
           >
-            {error ? (
+            {verificationRequired ? (
+              <Alert.Root status="success" mb="4">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Check your email</Alert.Title>
+                  <Alert.Description>{error.message}</Alert.Description>
+                </Alert.Content>
+              </Alert.Root>
+            ) : error ? (
               <Alert.Root status="error" mb="4">
                 <Alert.Indicator />
                 <Alert.Content>
@@ -78,40 +90,44 @@ export const SignupPage = () => {
                 </Alert.Content>
               </Alert.Root>
             ) : null}
-            <Form form={form}>
-              <form.Layout>
-                <form.AppField name="email">
-                  {(field) => (
-                    <field.TextField
-                      label="Email"
-                      autoComplete="email"
-                      type="email"
-                    />
-                  )}
-                </form.AppField>
+            {verificationRequired ? (
+              <Link to="/login">Continue to login</Link>
+            ) : (
+              <Form form={form}>
+                <form.Layout>
+                  <form.AppField name="email">
+                    {(field) => (
+                      <field.TextField
+                        label="Email"
+                        autoComplete="email"
+                        type="email"
+                      />
+                    )}
+                  </form.AppField>
 
-                <form.AppField name="password">
-                  {(field) => (
-                    <field.TextField
-                      label="Password"
-                      type="password"
-                      autoComplete="password"
-                    />
-                  )}
-                </form.AppField>
+                  <form.AppField name="password">
+                    {(field) => (
+                      <field.TextField
+                        label="Password"
+                        type="password"
+                        autoComplete="password"
+                      />
+                    )}
+                  </form.AppField>
 
-                <Link to="/forgot-password" mt="-2">
-                  Forgot your password?
-                </Link>
+                  <Link to="/forgot-password" mt="-2">
+                    Forgot your password?
+                  </Link>
 
-                <form.SubmitButton
-                  loadingText="Creating account..."
-                  disabled={isPending || isSuccess}
-                >
-                  Sign up
-                </form.SubmitButton>
-              </form.Layout>
-            </Form>
+                  <form.SubmitButton
+                    loadingText="Creating account..."
+                    disabled={isPending || isSuccess}
+                  >
+                    Sign up
+                  </form.SubmitButton>
+                </form.Layout>
+              </Form>
+            )}
           </AuthCard>
 
           <Text textAlign="center" color="fg.muted" mt="4">

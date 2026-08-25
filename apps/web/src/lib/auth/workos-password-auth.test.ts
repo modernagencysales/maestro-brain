@@ -22,7 +22,7 @@ const user = {
 
 const createService = () => {
   const createUser = vi.fn(async () => user);
-  const listUsers = vi.fn(async () => ({ data: [] }));
+  const listUsers = vi.fn(async () => ({ data: [] as (typeof user)[] }));
   const authenticateWithPassword = vi.fn(async () => ({
     user,
     accessToken: "access",
@@ -99,6 +99,29 @@ describe("WorkOS password auth", () => {
     expect(createUser).toHaveBeenCalledWith({
       email: "person@example.com",
       password: "secret",
+    });
+  });
+
+  it("treats new-account email verification as a successful pending signup", async () => {
+    const { service, createUser, authenticateWithPassword } = createService();
+    authenticateWithPassword.mockRejectedValueOnce({
+      status: 403,
+      code: "email_verification_required",
+    });
+
+    const response = await createPasswordAuthHandler(
+      "sign-up",
+      service,
+    )({
+      request: request({ email: "person@example.com", password: "secret" }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(createUser).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual({
+      verificationRequired: true,
+      message:
+        "Verify your email address using the message from WorkOS, then log in.",
     });
   });
 

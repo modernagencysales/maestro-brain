@@ -13,6 +13,13 @@ type StarterUser = {
   readonly image?: string | null;
 };
 
+export class EmailVerificationRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmailVerificationRequiredError";
+  }
+}
+
 export const client = {
   getSession: async () => {
     const response = await fetch("/api/auth/session");
@@ -53,6 +60,19 @@ const passwordAuth = async (
     body: JSON.stringify(params),
   });
   const payload: unknown = await response.json().catch(() => null);
+  if (
+    response.status === 202 &&
+    typeof payload === "object" &&
+    payload !== null &&
+    "verificationRequired" in payload &&
+    payload.verificationRequired === true
+  ) {
+    const message =
+      "message" in payload && typeof payload.message === "string"
+        ? payload.message
+        : "Check your email to verify your account, then log in.";
+    throw new EmailVerificationRequiredError(message);
+  }
   if (!response.ok) {
     if (
       response.status === 409 &&

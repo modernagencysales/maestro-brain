@@ -58,6 +58,17 @@ const authError = (error: unknown, kind: PasswordAuthKind) => {
       : "";
 
   if (code === "email_verification_required") {
+    if (kind === "sign-up") {
+      return jsonResponse(
+        {
+          verificationRequired: true,
+          message:
+            "Verify your email address using the message from WorkOS, then log in.",
+        },
+        { status: 202 },
+      );
+    }
+
     return jsonResponse(
       {
         error:
