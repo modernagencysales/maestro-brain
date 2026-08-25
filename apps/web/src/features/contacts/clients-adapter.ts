@@ -122,17 +122,18 @@ const useAuthorizedClientWorkspaces = (): {
       }),
     enabled: isolatedContracts,
   })
+  if (fixtureRuntime) {
+    return { workspaces: clientWorkspaceFixtures, isLoading: false }
+  }
+  if (isolatedContracts) {
+    return {
+      workspaces: contractResult.data ?? [],
+      isLoading: contractResult.isLoading,
+    }
+  }
   return {
-    workspaces: fixtureRuntime
-      ? clientWorkspaceFixtures
-      : isolatedContracts
-        ? (contractResult.data ?? [])
-        : (convexResult ?? []),
-    isLoading: isolatedContracts
-      ? contractResult.isLoading
-      : fixtureRuntime
-        ? false
-        : convexResult === undefined,
+    workspaces: convexResult ?? [],
+    isLoading: convexResult === undefined,
   }
 }
 

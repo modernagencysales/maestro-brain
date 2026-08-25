@@ -66,21 +66,24 @@ const useBrainInbox = ({ workspaceId }: { workspaceId: string }) => {
     queryFn: () =>
       runIsolatedHeadlessOperation<readonly BrainInboxPage[]>({
         operationId: 'brain.pages.list',
-      }),
+    }),
     enabled: isolatedContracts,
   })
-  const pages = isolatedContracts
-    ? contractResult.data
-    : fixtureRuntime
-      ? brainInboxFixtures
-      : convexResult
+  if (fixtureRuntime) {
+    return {
+      data: projectBrainPagesToInbox(brainInboxFixtures),
+      isLoading: false,
+    }
+  }
+  if (isolatedContracts) {
+    return {
+      data: projectBrainPagesToInbox(contractResult.data ?? []),
+      isLoading: contractResult.isLoading,
+    }
+  }
   return {
-    data: projectBrainPagesToInbox(pages ?? []),
-    isLoading: isolatedContracts
-      ? contractResult.isLoading
-      : fixtureRuntime
-        ? false
-        : convexResult === undefined,
+    data: projectBrainPagesToInbox(convexResult ?? []),
+    isLoading: convexResult === undefined,
   }
 }
 
