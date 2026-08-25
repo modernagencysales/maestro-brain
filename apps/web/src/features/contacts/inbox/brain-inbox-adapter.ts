@@ -55,11 +55,11 @@ export const brainInboxFixtures: readonly BrainInboxPage[] = [
 ]
 
 const useBrainInbox = ({ workspaceId }: { workspaceId: string }) => {
-  const fixtureRuntime = isFixtureAuthRuntime()
   const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
   const convexResult = useConvexQuery(
     brainPagesListRef,
-    fixtureRuntime ? 'skip' : { workspaceId },
+    fixtureRuntime || isolatedContracts ? 'skip' : { workspaceId },
   )
   const contractResult = useQuery({
     queryKey: ['brain-pages', 'isolated-contracts', workspaceId],
