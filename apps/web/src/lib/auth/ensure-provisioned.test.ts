@@ -15,9 +15,9 @@ describe("authenticated provisioning boundary", () => {
 
   it("recognizes legacy uppercase workspace URLs without rewriting arbitrary paths", () => {
     expect(hasLegacyUppercaseWorkspaceSlug("/tim-keen-5P0Y50P2")).toBe(true);
-    expect(
-      hasLegacyUppercaseWorkspaceSlug("/tim-keen-5P0Y50P2/settings"),
-    ).toBe(true);
+    expect(hasLegacyUppercaseWorkspaceSlug("/tim-keen-5P0Y50P2/settings")).toBe(
+      true,
+    );
     expect(hasLegacyUppercaseWorkspaceSlug("/tim-keen-5p0y50p2")).toBe(false);
     expect(hasLegacyUppercaseWorkspaceSlug("/getting-started")).toBe(false);
   });
