@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_app/")({
       getFunctionReference(
         templateConfectRefs.public.access.provisioning.ensureProvisioned,
       ) as never,
-      sessionEmailArgs(context.auth.user),
+      sessionEmailArgs(context.auth.user) as never,
     );
 
     const user = await context.trpc.auth.me.ensureData().catch(() => null);

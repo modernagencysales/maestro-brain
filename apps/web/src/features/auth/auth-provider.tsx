@@ -30,13 +30,70 @@ const redirectToAuth = (path: string) => {
   return null;
 };
 
+const passwordAuth = async (
+  path: "sign-in" | "sign-up",
+  params: unknown,
+): Promise<StarterUser | null> => {
+  if (typeof params !== "object" || params === null) {
+    throw new Error("Email and password are required.");
+  }
+
+  if (
+    "provider" in params &&
+    typeof params.provider === "string" &&
+    params.provider.length > 0
+  ) {
+    redirectToAuth(path);
+    return null;
+  }
+
+  const response = await fetch(`/api/auth/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (
+      response.status === 409 &&
+      typeof payload === "object" &&
+      payload !== null &&
+      "fallback" in payload &&
+      (payload.fallback === "hosted" || payload.fallback === "hosted-sign-in")
+    ) {
+      redirectToAuth(payload.fallback === "hosted-sign-in" ? "sign-in" : path);
+      return null;
+    }
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : "Authentication failed. Please try again.";
+    throw new Error(message);
+  }
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("user" in payload) ||
+    typeof payload.user !== "object" ||
+    payload.user === null ||
+    !("id" in payload.user) ||
+    typeof payload.user.id !== "string"
+  ) {
+    throw new Error("Authentication succeeded without a valid user session.");
+  }
+  return payload.user as StarterUser;
+};
+
 export const authService: Pick<
   AuthProviderProps,
   "onLoadUser" | "onLogin" | "onSignup" | "onLogout"
 > = {
   onLoadUser: async () => (await client.getSession()).data?.user ?? null,
-  onLogin: async () => redirectToAuth("sign-in"),
-  onSignup: async () => redirectToAuth("sign-up"),
+  onLogin: async (params) => passwordAuth("sign-in", params),
+  onSignup: async (params) => passwordAuth("sign-up", params),
   onLogout: async () => {
     const form = document.createElement("form");
     form.method = "post";

@@ -1,10 +1,10 @@
 'use client'
 
-import { Center, Container, Stack, Text } from '@chakra-ui/react'
+import { Alert, Center, Container, Stack, Text } from '@chakra-ui/react'
 import { useAuth } from '@saas-ui/auth-provider'
 import { toast } from '@saas-ui/react'
 import { useMutation } from '@tanstack/react-query'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 
 import { Form, useAppForm } from '@workspace/ui/form'
 
@@ -15,18 +15,15 @@ import { Testimonial } from './components/testimonial'
 import { type SignupFormInput, signupSchema } from './schema/signup.schema'
 
 export const SignupPage = () => {
-  const navigate = useNavigate()
   const search = useSearch({
     from: '/_auth/signup',
   })
   const auth = useAuth()
 
-  const { mutateAsync, isPending, isSuccess } = useMutation({
+  const { mutateAsync, isPending, isSuccess, error } = useMutation({
     mutationFn: (params: SignupFormInput) => auth.signUp(params),
     onSuccess: () => {
-      navigate({
-        to: search.redirectTo ?? '/',
-      })
+      window.location.assign(search.redirectTo ?? '/')
     },
     onError: (error) => {
       toast.error({
@@ -72,6 +69,15 @@ export const SignupPage = () => {
               </Text>
             }
           >
+            {error ? (
+              <Alert.Root status="error" mb="4">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Could not complete signup</Alert.Title>
+                  <Alert.Description>{error.message}</Alert.Description>
+                </Alert.Content>
+              </Alert.Root>
+            ) : null}
             <Form form={form}>
               <form.Layout>
                 <form.AppField name="email">
