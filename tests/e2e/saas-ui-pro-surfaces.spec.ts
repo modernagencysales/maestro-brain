@@ -2,20 +2,24 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
+  await expect(page.locator("#app-loader")).toHaveCSS("opacity", "0");
   await page.locator('input[type="email"]').fill("parity@saas-ui.dev");
   await page.locator('input[type="password"]').fill("DemoPassword123");
   await page.locator('input[type="password"]').press("Tab");
-  await page.getByRole("button", { name: "Log in" }).click();
-  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  const logIn = page.getByRole("button", { name: "Log in" });
+  await expect(logIn).toBeEnabled();
+  await logIn.click();
+  await expect(page).toHaveURL(/\/awesome-inc$/u);
+  await expect(page).toHaveTitle("Connections");
 });
 
-test("exposes Kanban and Showcase from the workspace sidebar", async ({
+test("keeps the wholesale Kanban and Showcase screens routable", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Kanban" }).click();
+  await page.goto("/awesome-inc/kanban");
   await expect(page).toHaveURL(/\/awesome-inc\/kanban$/u);
   await expect(page.getByRole("heading", { name: "Kanban" })).toBeVisible();
-  await page.getByRole("button", { name: "Showcase" }).click();
+  await page.goto("/awesome-inc/showcase");
   await expect(page).toHaveURL(/\/awesome-inc\/showcase$/u);
   await expect(
     page.getByRole("heading", { name: "Pro surfaces" }),
