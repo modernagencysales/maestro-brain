@@ -112,6 +112,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "route:brain",
+      "kind": "route",
+      "system": "knowledge-brain",
+      "path": "apps/web/src/routes/_app/brain.tsx",
+      "responsibility": "redirect the legacy Brain entry point into the canonical Starter shell",
+      "surfaces": ["web"],
+      "uses": ["access-and-tenancy"],
+      "lifecycle": "active"
+    },
+    {
       "id": "route:$workspace/kanban",
       "kind": "route",
       "system": "workflow-runtime",
