@@ -16,6 +16,13 @@ export function isLogoutRequest(request: Request): boolean {
   );
 }
 
+export function logoutRedirect(headers: Headers): Response {
+  // Logout begins as a same-origin POST. A 307 would preserve POST when the
+  // browser follows WorkOS's GET-only session logout URL. A 303 deliberately
+  // switches the follow-up request to GET.
+  return new Response(null, { status: 303, headers });
+}
+
 export async function handleWorkosLogout(request: Request): Promise<Response> {
   const auth = createAuthService<Request, Response>({
     sessionStorageFactory: (config) => new StartCookieSessionStorage(config),
@@ -38,5 +45,5 @@ export async function handleWorkosLogout(request: Request): Promise<Response> {
     appendHeaderBag(headers, result.headers);
     headers.set("Location", getConfig("redirectUri"));
   }
-  return new Response(null, { status: 307, headers });
+  return logoutRedirect(headers);
 }

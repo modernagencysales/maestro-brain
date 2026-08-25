@@ -116,6 +116,29 @@ const passwordAuth = async (
   return payload.user as StarterUser;
 };
 
+const passwordReset = async (
+  path: "password-reset" | "password-reset/confirm",
+  params: unknown,
+) => {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : "Password reset failed. Please try again.";
+    throw new Error(message);
+  }
+  return payload;
+};
+
 export const verifySignupEmail = (params: {
   readonly email: string;
   readonly password: string;
@@ -125,11 +148,19 @@ export const verifySignupEmail = (params: {
 
 export const authService: Pick<
   AuthProviderProps,
-  "onLoadUser" | "onLogin" | "onSignup" | "onLogout"
+  | "onLoadUser"
+  | "onLogin"
+  | "onSignup"
+  | "onLogout"
+  | "onResetPassword"
+  | "onUpdatePassword"
 > = {
   onLoadUser: async () => (await client.getSession()).data?.user ?? null,
   onLogin: async (params) => passwordAuth("sign-in", params),
   onSignup: async (params) => passwordAuth("sign-up", params),
+  onResetPassword: async (params) => passwordReset("password-reset", params),
+  onUpdatePassword: async (params) =>
+    passwordReset("password-reset/confirm", params),
   onLogout: async () => {
     const form = document.createElement("form");
     form.method = "post";
