@@ -44,6 +44,25 @@ describe("access provisioning", () => {
     });
   });
 
+  it("accepts the authenticated WorkOS session email when the access token omits it", () => {
+    const profile = Effect.runSync(
+      extractIdentityProfile(
+        {
+          subject: "user_01workos",
+          tokenIdentifier: "https://api.workos.com|user_01workos",
+          name: "Tim Keen",
+        },
+        "tim@keen.digital",
+      ),
+    );
+
+    expect(profile).toEqual({
+      subject: "user_01workos",
+      displayName: "Tim Keen",
+      email: "tim@keen.digital",
+    });
+  });
+
   it("rejects missing identity before any row planning occurs", () => {
     const error = Effect.runSync(Effect.flip(extractIdentityProfile(null)));
 

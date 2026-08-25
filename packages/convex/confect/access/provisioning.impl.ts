@@ -23,13 +23,14 @@ const ensureProvisioned = FunctionImpl.make(
   databaseSchema,
   provisioning,
   "ensureProvisioned",
-  () =>
+  ({ sessionEmail }) =>
     Effect.gen(function* () {
       const auth = yield* Auth;
       const identity = yield* extractIdentityProfile(
         yield* auth.getUserIdentity.pipe(
           Effect.mapError(() => new Unauthorized()),
         ),
+        sessionEmail,
       );
       const now = yield* Clock.currentTimeMillis;
 

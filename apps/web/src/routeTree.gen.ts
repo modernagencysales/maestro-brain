@@ -15,6 +15,7 @@ import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppWorkspaceRouteImport } from './routes/_app/$workspace'
 import { Route as AppAcceptInviteRouteImport } from './routes/_app/accept-invite'
+import { Route as AppBrainRouteImport } from './routes/_app/brain'
 import { Route as AppGettingStartedRouteImport } from './routes/_app/getting-started'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -77,6 +78,11 @@ const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
 const AppAcceptInviteRoute = AppAcceptInviteRouteImport.update({
   id: '/accept-invite',
   path: '/accept-invite',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBrainRoute = AppBrainRouteImport.update({
+  id: '/brain',
+  path: '/brain',
   getParentRoute: () => AppRoute,
 } as any)
 const AppGettingStartedRoute = AppGettingStartedRouteImport.update({
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/callback': typeof CallbackRoute
   '/$workspace': typeof AppWorkspaceRouteWithChildren
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
+  '/brain': typeof AppBrainRoute
   '/getting-started': typeof AppGettingStartedRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
   '/$workspace': typeof AppWorkspaceDashboardIndexRoute
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
+  '/brain': typeof AppBrainRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
@@ -358,6 +366,7 @@ export interface FileRoutesById {
   '/callback': typeof CallbackRoute
   '/_app/$workspace': typeof AppWorkspaceRouteWithChildren
   '/_app/accept-invite': typeof AppAcceptInviteRouteWithChildren
+  '/_app/brain': typeof AppBrainRoute
   '/_app/getting-started': typeof AppGettingStartedRouteWithChildren
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -402,6 +411,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/$workspace'
     | '/accept-invite'
+    | '/brain'
     | '/getting-started'
     | '/forgot-password'
     | '/login'
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/$workspace'
     | '/accept-invite'
+    | '/brain'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
@@ -480,6 +491,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/_app/$workspace'
     | '/_app/accept-invite'
+    | '/_app/brain'
     | '/_app/getting-started'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -572,6 +584,13 @@ declare module '@tanstack/react-router' {
       path: '/accept-invite'
       fullPath: '/accept-invite'
       preLoaderRoute: typeof AppAcceptInviteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/brain': {
+      id: '/_app/brain'
+      path: '/brain'
+      fullPath: '/brain'
+      preLoaderRoute: typeof AppBrainRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/getting-started': {
@@ -939,6 +958,7 @@ const AppGettingStartedRouteWithChildren =
 interface AppRouteChildren {
   AppWorkspaceRoute: typeof AppWorkspaceRouteWithChildren
   AppAcceptInviteRoute: typeof AppAcceptInviteRouteWithChildren
+  AppBrainRoute: typeof AppBrainRoute
   AppGettingStartedRoute: typeof AppGettingStartedRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -946,6 +966,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppWorkspaceRoute: AppWorkspaceRouteWithChildren,
   AppAcceptInviteRoute: AppAcceptInviteRouteWithChildren,
+  AppBrainRoute: AppBrainRoute,
   AppGettingStartedRoute: AppGettingStartedRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }

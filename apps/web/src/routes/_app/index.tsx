@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_app/")({
       getFunctionReference(
         templateConfectRefs.public.access.provisioning.ensureProvisioned,
       ) as never,
-      {},
+      sessionEmailArgs(context.auth.user),
     );
 
     const user = await context.trpc.auth.me.ensureData().catch(() => null);
@@ -59,3 +59,13 @@ export const Route = createFileRoute("/_app/")({
   pendingComponent: DefaultLoader,
   component: () => null,
 });
+
+const sessionEmailArgs = (user: unknown) => {
+  if (typeof user !== "object" || user === null || !("email" in user)) {
+    return {};
+  }
+  const email = user.email;
+  return typeof email === "string" && email.trim().length > 0
+    ? { sessionEmail: email }
+    : {};
+};

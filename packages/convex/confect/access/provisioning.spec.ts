@@ -10,7 +10,10 @@ import {
 
 const ensureProvisioned = FunctionSpec.publicMutation({
   name: "ensureProvisioned",
-  args: () => Schema.Struct({}),
+  args: () =>
+    Schema.Struct({
+      sessionEmail: Schema.optional(Schema.NonEmptyString),
+    }),
   returns: () =>
     Schema.Struct({
       workspaceId: Id("workspaces"),

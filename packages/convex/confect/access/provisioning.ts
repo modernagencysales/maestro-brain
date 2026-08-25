@@ -125,6 +125,7 @@ export type ProvisioningPlan = {
 
 export const extractIdentityProfile = (
   claims: IdentityClaims | null,
+  sessionEmail?: string,
 ): Effect.Effect<IdentityProfile, Unauthorized | ValidationFailed> =>
   Effect.gen(function* () {
     const subject = claims?.subject ?? claims?.tokenIdentifier ?? null;
@@ -132,8 +133,16 @@ export const extractIdentityProfile = (
       return yield* new Unauthorized();
     }
 
-    const emailResult = normalizeEmail(claims?.email);
-    if (emailResult.kind !== "verified" || claims?.emailVerified !== true) {
+    const emailResult = normalizeEmail(claims?.email ?? sessionEmail);
+    // WorkOS AuthKit authenticates the address but does not currently include
+    // `email_verified` in every access-token shape. Convex therefore exposes a
+    // valid provider email with `emailVerified` undefined. Treat an explicit
+    // false as unverified while accepting the authenticated provider email when
+    // the optional claim is absent.
+    if (
+      emailResult.kind !== "verified" ||
+      (claims?.email !== undefined && claims.emailVerified === false)
+    ) {
       return yield* new ValidationFailed({
         field: "email",
         message: "A verified provider email is required for provisioning.",
