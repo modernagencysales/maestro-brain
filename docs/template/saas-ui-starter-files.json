@@ -62,7 +62,7 @@
       "source": "apps/web/src/features/auth/auth-provider.tsx",
       "destination": "apps/web/src/features/auth/auth-provider.tsx",
       "sourceSha256": "9185809368d94f20e4ab16a5ba0a0c33760f8393c66e60bd316abdb69a3f9280",
-      "sha256": "778dafb8cb60affe75d8f91ea25210d0c9ae96f803b40b47dad8497cc70cc757",
+      "sha256": "634f6bd58022dc261ff85a220b665886f8b85382e3a1cc36ac60ca3cdcffc1c3",
       "adapted": true
     },
     {
@@ -153,7 +153,7 @@
       "source": "apps/web/src/features/auth/signup-page.tsx",
       "destination": "apps/web/src/features/auth/signup-page.tsx",
       "sourceSha256": "716337d1b3084f7501df348c0a3dd8058e27e00a1c181ecd06e8bf92e79e83d0",
-      "sha256": "2a420af63ddd3a01efd673abb344f3014c9160cc7e47fcf8bc5b8ad102b1ed7c",
+      "sha256": "672732338b399b3ea3bcfe299900645dacc94b20a086c45ff36fb752d1a2c330",
       "adapted": true
     },
     {

@@ -14,9 +14,12 @@ type StarterUser = {
 };
 
 export class EmailVerificationRequiredError extends Error {
-  constructor(message: string) {
+  readonly userId: string;
+
+  constructor(message: string, userId: string) {
     super(message);
     this.name = "EmailVerificationRequiredError";
+    this.userId = userId;
   }
 }
 
@@ -71,7 +74,13 @@ const passwordAuth = async (
       "message" in payload && typeof payload.message === "string"
         ? payload.message
         : "Check your email to verify your account, then log in.";
-    throw new EmailVerificationRequiredError(message);
+    const userId =
+      "userId" in payload && typeof payload.userId === "string"
+        ? payload.userId
+        : "";
+    if (!userId)
+      throw new Error("WorkOS did not return an email verification session.");
+    throw new EmailVerificationRequiredError(message, userId);
   }
   if (!response.ok) {
     if (
@@ -106,6 +115,13 @@ const passwordAuth = async (
   }
   return payload.user as StarterUser;
 };
+
+export const verifySignupEmail = (params: {
+  readonly email: string;
+  readonly password: string;
+  readonly userId: string;
+  readonly verificationCode: string;
+}) => passwordAuth("sign-up", params);
 
 export const authService: Pick<
   AuthProviderProps,

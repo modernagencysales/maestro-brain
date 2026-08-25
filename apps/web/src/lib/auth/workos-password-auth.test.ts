@@ -29,12 +29,18 @@ const createService = () => {
     refreshToken: "refresh",
     sealedSession: "sealed-session",
   }));
+  const verifyEmail = vi.fn(async () => ({ user }));
   const saveSession = vi.fn(async () => ({
     headers: { "Set-Cookie": "wos-session=sealed-session; HttpOnly" },
   }));
   const service = {
     getWorkOS: () => ({
-      userManagement: { createUser, listUsers, authenticateWithPassword },
+      userManagement: {
+        createUser,
+        listUsers,
+        authenticateWithPassword,
+        verifyEmail,
+      },
     }),
     saveSession,
   } as unknown as AuthService<Request, Response>;
@@ -43,6 +49,7 @@ const createService = () => {
     createUser,
     listUsers,
     authenticateWithPassword,
+    verifyEmail,
     saveSession,
   };
 };
@@ -120,9 +127,56 @@ describe("WorkOS password auth", () => {
     expect(createUser).toHaveBeenCalledOnce();
     expect(await response.json()).toEqual({
       verificationRequired: true,
-      message:
-        "Verify your email address using the message from WorkOS, then log in.",
+      userId: "user_test",
+      message: "Enter the verification code WorkOS sent to your email.",
     });
+  });
+
+  it("verifies the emailed code and creates the WorkOS session", async () => {
+    const { service, createUser, verifyEmail, saveSession } = createService();
+
+    const response = await createPasswordAuthHandler(
+      "sign-up",
+      service,
+    )({
+      request: request({
+        email: "person@example.com",
+        password: "secret",
+        userId: "user_test",
+        verificationCode: "123456",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(createUser).not.toHaveBeenCalled();
+    expect(verifyEmail).toHaveBeenCalledWith({
+      userId: "user_test",
+      code: "123456",
+    });
+    expect(saveSession).toHaveBeenCalledOnce();
+  });
+
+  it("returns a useful error for an invalid verification code", async () => {
+    const { service, verifyEmail, authenticateWithPassword } = createService();
+    verifyEmail.mockRejectedValueOnce({ status: 400 });
+
+    const response = await createPasswordAuthHandler(
+      "sign-up",
+      service,
+    )({
+      request: request({
+        email: "person@example.com",
+        password: "secret",
+        userId: "user_test",
+        verificationCode: "wrong",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "That verification code is invalid or expired.",
+    });
+    expect(authenticateWithPassword).not.toHaveBeenCalled();
   });
 
   it("authenticates an existing WorkOS user when signup is retried", async () => {

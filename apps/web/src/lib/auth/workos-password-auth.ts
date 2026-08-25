@@ -17,6 +17,8 @@ type PasswordAuthKind = "sign-in" | "sign-up";
 type PasswordCredentials = {
   readonly email: string;
   readonly password: string;
+  readonly userId?: string;
+  readonly verificationCode?: string;
 };
 
 const jsonResponse = (body: unknown, init?: ResponseInit) => {
@@ -36,7 +38,21 @@ const parseCredentials = async (
 
   const email = body.email.trim().toLowerCase();
   if (!email || !body.password) return null;
-  return { email, password: body.password };
+  const userId =
+    "userId" in body && typeof body.userId === "string"
+      ? body.userId.trim()
+      : "";
+  const verificationCode =
+    "verificationCode" in body && typeof body.verificationCode === "string"
+      ? body.verificationCode.trim()
+      : "";
+  if ((userId && !verificationCode) || (!userId && verificationCode))
+    return null;
+  return {
+    email,
+    password: body.password,
+    ...(userId && verificationCode ? { userId, verificationCode } : {}),
+  };
 };
 
 const publicUser = (user: {
@@ -112,6 +128,16 @@ const authError = (error: unknown, kind: PasswordAuthKind) => {
   );
 };
 
+const verificationPendingResponse = (userId: string) =>
+  jsonResponse(
+    {
+      verificationRequired: true,
+      userId,
+      message: "Enter the verification code WorkOS sent to your email.",
+    },
+    { status: 202 },
+  );
+
 const createService = () =>
   createAuthService<Request, Response>({
     sessionStorageFactory: (config) => new StartCookieSessionStorage(config),
@@ -135,18 +161,37 @@ export function createPasswordAuthHandler(
       return jsonResponse({ user: fixtureAuthUser }, { status: 200 });
 
     let existingUser = false;
+    let verificationUserId = credentials.userId;
+    const isVerificationAttempt = Boolean(
+      credentials.userId && credentials.verificationCode,
+    );
     try {
       const workos = service.getWorkOS();
-      if (kind === "sign-up") {
+      if (
+        kind === "sign-up" &&
+        credentials.userId &&
+        credentials.verificationCode
+      ) {
+        await workos.userManagement.verifyEmail({
+          userId: credentials.userId,
+          code: credentials.verificationCode,
+        });
+      } else if (kind === "sign-up") {
         const matches = await workos.userManagement.listUsers({
           email: credentials.email,
           limit: 1,
         });
-        existingUser = matches.data.some(
+        const matchingUser = matches.data.find(
           (user) => user.email.toLowerCase() === credentials.email,
         );
+        existingUser = Boolean(matchingUser);
+        verificationUserId = matchingUser?.id;
         if (!existingUser) {
-          await workos.userManagement.createUser(credentials);
+          const created = await workos.userManagement.createUser({
+            email: credentials.email,
+            password: credentials.password,
+          });
+          verificationUserId = created.id;
         }
       }
 
@@ -171,6 +216,21 @@ export function createPasswordAuthHandler(
         { status: 200, headers },
       );
     } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String(error.code)
+          : "";
+      if (
+        kind === "sign-up" &&
+        code === "email_verification_required" &&
+        verificationUserId
+      )
+        return verificationPendingResponse(verificationUserId);
+      if (isVerificationAttempt)
+        return jsonResponse(
+          { error: "That verification code is invalid or expired." },
+          { status: 400 },
+        );
       if (existingUser) {
         return jsonResponse(
           {
