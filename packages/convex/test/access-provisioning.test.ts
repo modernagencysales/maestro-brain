@@ -170,6 +170,76 @@ describe("access provisioning", () => {
     });
   });
 
+  it("normalizes uppercase provider subject suffixes in generated slugs", () => {
+    const plan = Result.getOrThrow(
+      buildProvisioningPlan({
+        identity: {
+          subject: "user_01M0X0MYMQ1D5WRDBP5M0SBTAZ",
+          displayName: "timkeen+test55@gmail.com",
+          email: "timkeen+test55@gmail.com",
+        },
+        state: emptyState,
+        now,
+      }),
+    );
+
+    expect(plan.organization).toMatchObject({
+      action: "insert",
+      value: { slug: "timkeen-test55-gmail-com-5m0sbtaz" },
+    });
+    expect(plan.workspace).toMatchObject({
+      action: "insert",
+      value: { slug: "timkeen-test55-gmail-com-5m0sbtaz" },
+    });
+  });
+
+  it("self-heals uppercase slugs for existing organizations and workspaces", () => {
+    const plan = Result.getOrThrow(
+      buildProvisioningPlan({
+        identity: {
+          subject: "user_01M0X0MYMQ1D5WRDBP5M0SBTAZ",
+          displayName: "Tim Keen",
+          email: "tim@example.com",
+        },
+        state: {
+          ...emptyState,
+          liveOrganization: {
+            _id: "organizations_1",
+            ownerUserId: "users_1",
+            slug: "tim-keen-5M0SBTAZ",
+            name: "Tim Keen",
+            status: "active",
+            createdAt: now - 100,
+            updatedAt: now - 100,
+          },
+          liveWorkspace: {
+            _id: "workspaces_1",
+            organizationId: "organizations_1",
+            ownerUserId: "users_1",
+            slug: "tim-keen-5M0SBTAZ",
+            name: "Tim Keen Workspace",
+            status: "active",
+            dataClassification: "internal",
+            createdAt: now - 100,
+            updatedAt: now - 100,
+          },
+        },
+        now,
+      }),
+    );
+
+    expect(plan.organization).toEqual({
+      action: "patch",
+      id: "organizations_1",
+      value: { slug: "tim-keen-5m0sbtaz", updatedAt: now },
+    });
+    expect(plan.workspace).toEqual({
+      action: "patch",
+      id: "workspaces_1",
+      value: { slug: "tim-keen-5m0sbtaz", updatedAt: now },
+    });
+  });
+
   it("is idempotent for an already provisioned active owner", () => {
     const result = buildProvisioningPlan({
       identity: {

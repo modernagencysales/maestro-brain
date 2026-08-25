@@ -150,6 +150,19 @@ const ensureProvisioned = FunctionImpl.make(
               .pipe(Effect.orDie)
           : asGenericId<"organizations">(existingOrganization._id);
 
+      if (
+        existingOrganization !== null &&
+        plan.organization.action === "patch"
+      ) {
+        yield* writer
+          .table("organizations")
+          .patch(
+            asGenericId<"organizations">(existingOrganization._id),
+            plan.organization.value,
+          )
+          .pipe(Effect.orDie);
+      }
+
       const workspaceId: GenericId<"workspaces"> =
         existingWorkspace === null
           ? yield* writer
@@ -161,6 +174,16 @@ const ensureProvisioned = FunctionImpl.make(
               })
               .pipe(Effect.orDie)
           : asGenericId<"workspaces">(existingWorkspace._id);
+
+      if (existingWorkspace !== null && plan.workspace.action === "patch") {
+        yield* writer
+          .table("workspaces")
+          .patch(
+            asGenericId<"workspaces">(existingWorkspace._id),
+            plan.workspace.value,
+          )
+          .pipe(Effect.orDie);
+      }
 
       // The two membership upserts below are deliberately kept inline rather than
       // factored into a shared `upsertMembership<T extends TableNames>` helper.

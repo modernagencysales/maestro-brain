@@ -307,20 +307,30 @@ const planOrganization = (
   ownerUserId: string,
   seed: ProvisioningSeed,
   now: number,
-): RowPlan<Omit<OrganizationProvisioningRow, "_id">> =>
-  existing === null
-    ? {
-        action: "insert",
-        value: {
-          ownerUserId,
-          slug: seed.slug,
-          name: seed.organizationName,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        },
-      }
-    : { action: "none" };
+): RowPlan<Omit<OrganizationProvisioningRow, "_id">> => {
+  if (existing === null) {
+    return {
+      action: "insert",
+      value: {
+        ownerUserId,
+        slug: seed.slug,
+        name: seed.organizationName,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
+    };
+  }
+
+  const normalizedSlug = existing.slug.toLowerCase();
+  return normalizedSlug === existing.slug
+    ? { action: "none" }
+    : {
+        action: "patch",
+        id: existing._id,
+        value: { slug: normalizedSlug, updatedAt: now },
+      };
+};
 
 const planWorkspace = (input: {
   readonly existing: WorkspaceProvisioningRow | null;
@@ -328,22 +338,32 @@ const planWorkspace = (input: {
   readonly ownerUserId: string;
   readonly seed: ProvisioningSeed;
   readonly now: number;
-}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> =>
-  input.existing === null
-    ? {
-        action: "insert",
-        value: {
-          organizationId: input.organizationId,
-          ownerUserId: input.ownerUserId,
-          slug: input.seed.slug,
-          name: input.seed.workspaceName,
-          status: "active",
-          dataClassification: "internal",
-          createdAt: input.now,
-          updatedAt: input.now,
-        },
-      }
-    : { action: "none" };
+}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> => {
+  if (input.existing === null) {
+    return {
+      action: "insert",
+      value: {
+        organizationId: input.organizationId,
+        ownerUserId: input.ownerUserId,
+        slug: input.seed.slug,
+        name: input.seed.workspaceName,
+        status: "active",
+        dataClassification: "internal",
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+    };
+  }
+
+  const normalizedSlug = input.existing.slug.toLowerCase();
+  return normalizedSlug === input.existing.slug
+    ? { action: "none" }
+    : {
+        action: "patch",
+        id: input.existing._id,
+        value: { slug: normalizedSlug, updatedAt: input.now },
+      };
+};
 
 const planOrganizationMembership = (input: {
   readonly existing: OrganizationMembershipProvisioningRow | null;
@@ -430,7 +450,10 @@ type ProvisioningSeed = {
 };
 
 const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
-  const suffix = identity.subject.slice(-8).replace(/[^a-zA-Z0-9]/g, "");
+  const suffix = identity.subject
+    .slice(-8)
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
   const base = identity.displayName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
