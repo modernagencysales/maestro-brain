@@ -303,6 +303,13 @@ const defaultSubscription = (): WorkspaceSubscription => ({
   currentPeriodEnd: new Date(0),
 });
 
+// Convex returns the durable workspace projection while the purchased Starter
+// screens expect additional relation placeholders. Preserve the projection's
+// identity after adapting it: providers use workspace identity as an effect
+// boundary, so rebuilding this object on every render causes identify -> render
+// loops for authenticated workspaces.
+const normalizedWorkspaceCache = new WeakMap<object, Workspace>();
+
 const hasWorkspaceIdentity = (
   candidate: Partial<Workspace>,
 ): candidate is Partial<Workspace> & Pick<Workspace, "id" | "slug" | "name"> =>
@@ -326,7 +333,9 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
   const candidate = value as Partial<Workspace>;
   if (!hasWorkspaceIdentity(candidate)) return null;
   if (hasStarterWorkspaceRelations(candidate)) return candidate;
-  return {
+  const cached = normalizedWorkspaceCache.get(candidate);
+  if (cached) return cached;
+  const normalized: Workspace = {
     id: candidate.id,
     slug: candidate.slug,
     name: candidate.name,
@@ -338,6 +347,8 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
       ...(candidate.subscription ?? {}),
     },
   };
+  normalizedWorkspaceCache.set(candidate, normalized);
+  return normalized;
 };
 
 const adaptProcedureData = <TData,>(key: string, value: unknown): TData =>
