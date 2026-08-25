@@ -30,6 +30,7 @@ export const ensureAuthenticatedUserProvisioned = async (
 
 export const hasLegacyUppercaseWorkspaceSlug = (pathname: string): boolean => {
   const firstSegment = pathname.split("/").filter(Boolean)[0];
-  if (!firstSegment || firstSegment === firstSegment.toLowerCase()) return false;
+  if (!firstSegment || firstSegment === firstSegment.toLowerCase())
+    return false;
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(firstSegment.toLowerCase());
 };

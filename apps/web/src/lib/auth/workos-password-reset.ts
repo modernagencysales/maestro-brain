@@ -1,7 +1,4 @@
-import {
-  createAuthService,
-  type AuthService,
-} from "@workos/authkit-session";
+import { createAuthService, type AuthService } from "@workos/authkit-session";
 
 import { StartCookieSessionStorage } from "./workos-cookie-session-storage";
 
