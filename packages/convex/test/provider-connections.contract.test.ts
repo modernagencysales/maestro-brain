@@ -1,16 +1,41 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { MemberNotInWorkspace, ValidationFailed } from "../confect/errors";
+import { LegacyProviderConnectionRow } from "../confect/tables/providerConnections";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
 
 describe("provider connections Confect contract", () => {
+  it("retains staged Nango connection attempts until migration", () => {
+    expect(
+      Schema.decodeUnknownSync(LegacyProviderConnectionRow)({
+        provider: "nango",
+        providerConfigKey: "slack",
+        organizationKey: "organization_123",
+        connectionKey: "slack_organization_123",
+        connectionGeneration: 0,
+        status: "error",
+        connectSessionId: "maestro-session-123",
+        nangoConnectionId: null,
+        nangoEndUserId: "nango-user-slack-123",
+        nangoOrganizationId: "nango-org-slack-123",
+        correlationTag: "slack-connect:maestro-session-123",
+        attemptId: "attempt_123",
+        attemptExpiresAt: 2,
+        completedAt: null,
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    ).toMatchObject({ provider: "nango", providerConfigKey: "slack" });
+  });
+
   it("persists a generation-fenced connection lifecycle", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

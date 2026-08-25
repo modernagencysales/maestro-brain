@@ -11,12 +11,37 @@ import knowledge, {
   UpsertConceptArgs,
 } from "../confect/ops/knowledge.spec";
 import knowledgeImpl from "../confect/ops/knowledge.impl";
-import citations from "../confect/tables/citations";
+import citations, { CitationRow } from "../confect/tables/citations";
 import claims from "../confect/tables/claims";
 import concepts from "../confect/tables/concepts";
 import contextPacks from "../confect/tables/contextPacks";
 
 describe("knowledge Confect contracts", () => {
+  it("retains call transcript citation provenance already stored in staging", () => {
+    const historicalRow = {
+      workspaceId: "workspace_123",
+      citationId: "citation_123",
+      claimId: "claim_123",
+      sourceId: "call_123",
+      sourceKind: "call_transcript",
+      sourceTitle: "Discovery call",
+      quotedText: "The customer needs a faster review cycle.",
+      startOffset: 0,
+      endOffset: 41,
+      pageKey: "pag_call_notes",
+      revisionKey: "rev_call_notes_1",
+      sourceUnitRevisionKey: "source_revision_1",
+      segmentKey: "segment_1",
+      startMs: 1_000,
+      endMs: 4_000,
+      createdAt: 5_000,
+    } as const;
+
+    expect(Schema.decodeUnknownSync(CitationRow)(historicalRow)).toEqual(
+      historicalRow,
+    );
+  });
+
   it("declares workspace-owned knowledge tables with stable indexes", () => {
     expect(concepts.indexes).toMatchObject({
       by_workspace: ["workspaceId"],

@@ -377,6 +377,16 @@ const sharedConfectJsonSchemasValue1 = {
     workspaceId: {
       type: "string",
     },
+    organizationId: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     slug: {
       type: "string",
     },
@@ -435,6 +445,43 @@ const sharedConfectJsonSchemasValue1 = {
         },
       ],
     },
+    pageKey: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    parentPageKey: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    siblingSlug: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     sortKey: {
       anyOf: [
         {
@@ -466,7 +513,100 @@ const sharedConfectJsonSchemasValue1 = {
         },
       ],
     },
+    currentRevisionKey: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    lifecycle: {
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            state: {
+              type: "string",
+              enum: ["active", "archived", "redacted", "purged"],
+            },
+            generation: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            updatedAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            purgeAfter: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+          },
+          required: ["state", "generation", "updatedAt", "purgeAfter"],
+          additionalProperties: false,
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     createdAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    schemaVersion: {
       anyOf: [
         {
           anyOf: [
@@ -978,11 +1118,62 @@ const sharedConfectJsonSchemas = {
         ownerUserId: {
           type: "string",
         },
+        brainKey: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         slug: {
           type: "string",
         },
         name: {
           type: "string",
+        },
+        kind: {
+          anyOf: [
+            {
+              type: "string",
+              enum: ["agency", "client"],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        clientSlug: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        clientCreationIdempotencyKey: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        clientCreationPayloadHash: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
         },
         status: {
           type: "string",
@@ -1011,6 +1202,42 @@ const sharedConfectJsonSchemas = {
             {
               type: "string",
               enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        lifecycleGeneration: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        revocationGeneration: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
             },
           ],
         },
@@ -1201,17 +1428,35 @@ const sharedConfectJsonSchemas = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "array",
     items: {
-      type: "object",
-      properties: {
-        workspaceId: {
-          type: "string",
-        },
-        pageId: {
-          type: "string",
-        },
-        priorUpdatedAt: {
-          anyOf: [
-            {
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            workspaceId: {
+              type: "string",
+            },
+            pageId: {
+              type: "string",
+            },
+            priorUpdatedAt: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            updatedAt: {
               anyOf: [
                 {
                   type: "number",
@@ -1222,112 +1467,290 @@ const sharedConfectJsonSchemas = {
                 },
               ],
             },
-            {
-              type: "null",
-            },
-          ],
-        },
-        updatedAt: {
-          anyOf: [
-            {
-              type: "number",
-            },
-            {
+            title: {
               type: "string",
-              enum: ["Infinity", "-Infinity", "NaN"],
             },
-          ],
-        },
-        title: {
-          type: "string",
-        },
-        markdown: {
-          type: "string",
-        },
-        sourceKind: {
-          type: "string",
-          enum: ["markdown", "link", "note"],
-        },
-        causation: {
-          type: "string",
-          enum: [
-            "create",
-            "update",
-            "rename",
-            "move",
+            markdown: {
+              type: "string",
+            },
+            sourceKind: {
+              type: "string",
+              enum: ["markdown", "link", "note"],
+            },
+            causation: {
+              type: "string",
+              enum: [
+                "create",
+                "update",
+                "rename",
+                "move",
+                "favorite",
+                "archive",
+                "restore",
+              ],
+            },
+            parentPageId: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            sortKey: {
+              type: "string",
+            },
+            favorite: {
+              type: "boolean",
+            },
+            status: {
+              type: "string",
+              enum: ["active", "archived"],
+            },
+            actorUserId: {
+              type: "string",
+            },
+            createdAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            _id: {
+              type: "string",
+            },
+            _creationTime: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+          },
+          required: [
+            "workspaceId",
+            "pageId",
+            "priorUpdatedAt",
+            "updatedAt",
+            "title",
+            "markdown",
+            "sourceKind",
+            "causation",
+            "parentPageId",
+            "sortKey",
             "favorite",
-            "archive",
-            "restore",
+            "status",
+            "actorUserId",
+            "createdAt",
+            "_id",
+            "_creationTime",
           ],
+          additionalProperties: false,
         },
-        parentPageId: {
-          anyOf: [
-            {
+        {
+          type: "object",
+          properties: {
+            workspaceId: {
               type: "string",
             },
-            {
-              type: "null",
-            },
-          ],
-        },
-        sortKey: {
-          type: "string",
-        },
-        favorite: {
-          type: "boolean",
-        },
-        status: {
-          type: "string",
-          enum: ["active", "archived"],
-        },
-        actorUserId: {
-          type: "string",
-        },
-        createdAt: {
-          anyOf: [
-            {
-              type: "number",
-            },
-            {
+            organizationId: {
               type: "string",
-              enum: ["Infinity", "-Infinity", "NaN"],
             },
-          ],
-        },
-        _id: {
-          type: "string",
-        },
-        _creationTime: {
-          anyOf: [
-            {
-              type: "number",
-            },
-            {
+            pageKey: {
               type: "string",
-              enum: ["Infinity", "-Infinity", "NaN"],
             },
+            revisionKey: {
+              type: "string",
+            },
+            priorRevisionKey: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            blockNoteJson: {
+              type: "string",
+            },
+            markdown: {
+              type: "string",
+            },
+            contentHash: {
+              type: "string",
+            },
+            causation: {
+              type: "string",
+              enum: [
+                "human-edit",
+                "agent-edit",
+                "import",
+                "migration",
+                "restore",
+              ],
+            },
+            actor: {
+              type: "object",
+              properties: {
+                kind: {
+                  type: "string",
+                  enum: ["user", "agent", "system", "migration"],
+                },
+                id: {
+                  type: "string",
+                },
+              },
+              required: ["kind", "id"],
+              additionalProperties: false,
+            },
+            modelReceiptKey: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            effectKey: {
+              type: "string",
+            },
+            state: {
+              type: "string",
+              enum: [
+                "draft",
+                "proposed",
+                "published",
+                "rejected",
+                "redacted",
+                "purged",
+              ],
+            },
+            lifecycle: {
+              type: "object",
+              properties: {
+                state: {
+                  type: "string",
+                  enum: ["active", "redacted", "purged"],
+                },
+                generation: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                updatedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                purgeAfter: {
+                  anyOf: [
+                    {
+                      anyOf: [
+                        {
+                          type: "number",
+                        },
+                        {
+                          type: "string",
+                          enum: ["Infinity", "-Infinity", "NaN"],
+                        },
+                      ],
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+              },
+              required: ["state", "generation", "updatedAt", "purgeAfter"],
+              additionalProperties: false,
+            },
+            createdAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            schemaVersion: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            _id: {
+              type: "string",
+            },
+            _creationTime: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+          },
+          required: [
+            "workspaceId",
+            "organizationId",
+            "pageKey",
+            "revisionKey",
+            "priorRevisionKey",
+            "blockNoteJson",
+            "markdown",
+            "contentHash",
+            "causation",
+            "actor",
+            "modelReceiptKey",
+            "effectKey",
+            "state",
+            "lifecycle",
+            "createdAt",
+            "schemaVersion",
+            "_id",
+            "_creationTime",
           ],
+          additionalProperties: false,
         },
-      },
-      required: [
-        "workspaceId",
-        "pageId",
-        "priorUpdatedAt",
-        "updatedAt",
-        "title",
-        "markdown",
-        "sourceKind",
-        "causation",
-        "parentPageId",
-        "sortKey",
-        "favorite",
-        "status",
-        "actorUserId",
-        "createdAt",
-        "_id",
-        "_creationTime",
       ],
-      additionalProperties: false,
     },
   },
   "brain.pages.list.args": {
@@ -1359,6 +1782,16 @@ const sharedConfectJsonSchemas = {
       properties: {
         workspaceId: {
           type: "string",
+        },
+        organizationId: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
         },
         slug: {
           type: "string",
@@ -1418,6 +1851,43 @@ const sharedConfectJsonSchemas = {
             },
           ],
         },
+        pageKey: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        parentPageKey: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        siblingSlug: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         sortKey: {
           anyOf: [
             {
@@ -1449,7 +1919,100 @@ const sharedConfectJsonSchemas = {
             },
           ],
         },
+        currentRevisionKey: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lifecycle: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                state: {
+                  type: "string",
+                  enum: ["active", "archived", "redacted", "purged"],
+                },
+                generation: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                updatedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                purgeAfter: {
+                  anyOf: [
+                    {
+                      anyOf: [
+                        {
+                          type: "number",
+                        },
+                        {
+                          type: "string",
+                          enum: ["Infinity", "-Infinity", "NaN"],
+                        },
+                      ],
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+              },
+              required: ["state", "generation", "updatedAt", "purgeAfter"],
+              additionalProperties: false,
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         createdAt: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        schemaVersion: {
           anyOf: [
             {
               anyOf: [

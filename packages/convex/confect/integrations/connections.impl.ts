@@ -8,6 +8,7 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type { ProviderConnectionsDoc } from "../_generated/docs";
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
 import {
@@ -35,19 +36,42 @@ const withConfectClock = <A, E, R>(
 ): Effect.Effect<A, E, Exclude<R, Clock.Clock>> =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 
+type CurrentProviderConnectionDocument = Extract<
+  ProviderConnectionsDoc,
+  { readonly workspaceId: GenericId<"workspaces"> }
+>;
+
+const currentConnectionOrNull = (
+  row: ProviderConnectionsDoc | null,
+): CurrentProviderConnectionDocument | null =>
+  row !== null && "workspaceId" in row ? row : null;
+
+const requireCurrentConnectionRow = (
+  row: ProviderConnectionsDoc | null,
+  provider: ProviderKey,
+) => {
+  const current = currentConnectionOrNull(row);
+  return current === null
+    ? Effect.fail(
+        new NotFound({ resource: "providerConnections", id: provider }),
+      )
+    : Effect.succeed(current);
+};
+
 const currentConnection = (
   workspaceId: GenericId<"workspaces">,
   provider: ProviderKey,
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const row = yield* reader
       .table("providerConnections")
       .index("by_workspace_and_provider", (q) =>
         q.eq("workspaceId", workspaceId).eq("provider", provider),
       )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    return currentConnectionOrNull(row);
   });
 
 const toState = (row: {
@@ -75,11 +99,15 @@ const transitionFailure = () =>
 const listConnectionRows = (workspaceId: GenericId<"workspaces">) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const rows = yield* reader
       .table("providerConnections")
       .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .collect()
       .pipe(Effect.orDie);
+    return rows.filter(
+      (row): row is CurrentProviderConnectionDocument =>
+        currentConnectionOrNull(row) !== null,
+    );
   });
 
 const beginConnectionRow = (
@@ -104,7 +132,7 @@ const beginConnectionRow = (
         .table("providerConnections")
         .get(id)
         .pipe(Effect.orDie);
-      if (inserted !== null) return inserted;
+      return yield* requireCurrentConnectionRow(inserted, provider);
     } else {
       yield* writer
         .table("providerConnections")
@@ -121,12 +149,8 @@ const beginConnectionRow = (
         .table("providerConnections")
         .get(existing._id)
         .pipe(Effect.orDie);
-      if (updated !== null) return updated;
+      return yield* requireCurrentConnectionRow(updated, provider);
     }
-    return yield* new NotFound({
-      resource: "providerConnections",
-      id: provider,
-    });
   });
 
 const completeConnectionRow = (args: {
@@ -171,7 +195,7 @@ const completeConnectionRow = (args: {
       .table("providerConnections")
       .get(existing._id)
       .pipe(Effect.orDie);
-    return updated ?? existing;
+    return currentConnectionOrNull(updated) ?? existing;
   });
 
 const revokeConnectionRow = (args: {
@@ -209,7 +233,7 @@ const revokeConnectionRow = (args: {
       .table("providerConnections")
       .get(existing._id)
       .pipe(Effect.orDie);
-    return updated ?? existing;
+    return currentConnectionOrNull(updated) ?? existing;
   });
 
 const list = FunctionImpl.make(

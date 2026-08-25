@@ -4,6 +4,7 @@ import databaseSchema from "../_generated/schema";
 import {
   auditExport,
   consume,
+  issueDeploymentEvidence,
   provisionApproval,
   provisionCensus,
   provisionIssuer,
@@ -52,6 +53,12 @@ const provisionVerdictImpl = FunctionImpl.make(
   "provisionVerdict",
   provisionVerdict,
 );
+const issueDeploymentEvidenceImpl = FunctionImpl.make(
+  databaseSchema,
+  authority,
+  "issueDeploymentEvidence",
+  issueDeploymentEvidence,
+);
 const statusImpl = FunctionImpl.make(
   databaseSchema,
   authority,
@@ -90,6 +97,7 @@ export default GroupImpl.make(databaseSchema, authority).pipe(
   Layer.provide(provisionApprovalImpl),
   Layer.provide(provisionCensusImpl),
   Layer.provide(provisionVerdictImpl),
+  Layer.provide(issueDeploymentEvidenceImpl),
   Layer.provide(statusImpl),
   Layer.provide(readinessImpl),
   Layer.provide(auditExportImpl),
