@@ -73,15 +73,14 @@ const useBrainInbox = ({ workspaceId }: { workspaceId: string }) => {
     ? contractResult.data
     : fixtureRuntime
       ? brainInboxFixtures
-      : convexResult.data
+      : convexResult
   return {
-    ...(isolatedContracts ? contractResult : convexResult),
     data: projectBrainPagesToInbox(pages ?? []),
     isLoading: isolatedContracts
       ? contractResult.isLoading
       : fixtureRuntime
         ? false
-        : convexResult.isLoading,
+        : convexResult === undefined,
   }
 }
 

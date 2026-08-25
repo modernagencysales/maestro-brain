@@ -63,4 +63,38 @@ describe("Nango Connect adapter", () => {
       }),
     ).rejects.toMatchObject({ _tag: "NangoConnectionInvalid" });
   });
+
+  it("verifies the current Nango connection response and normalized tags", async () => {
+    const request = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          connection_id: "connection_1",
+          provider_config_key: "slack",
+          end_user: {
+            id: "workspace:workspace_1",
+            organization: { id: "workspace:workspace_1" },
+          },
+          tags: { correlationtag: "slack:workspace_1:2" },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      verifyNangoConnection({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        workspaceId: "workspace_1",
+        generation: 2,
+        connectionId: "connection_1",
+        request,
+      }),
+    ).resolves.toEqual({ connectionId: "connection_1" });
+    expect(request).toHaveBeenCalledWith(
+      "https://api.nango.dev/connections/connection_1?provider_config_key=slack",
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: "Bearer secret" }),
+      }),
+    );
+  });
 });

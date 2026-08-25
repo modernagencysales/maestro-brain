@@ -127,12 +127,12 @@ const useAuthorizedClientWorkspaces = (): {
       ? clientWorkspaceFixtures
       : isolatedContracts
         ? (contractResult.data ?? [])
-        : (convexResult.data ?? []),
+        : (convexResult ?? []),
     isLoading: isolatedContracts
       ? contractResult.isLoading
       : fixtureRuntime
         ? false
-        : convexResult.isLoading,
+        : convexResult === undefined,
   }
 }
 

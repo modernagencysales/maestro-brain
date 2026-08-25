@@ -126,7 +126,7 @@ const useBrainPage = (input: {
     ? contractQuery.data
     : input.fixtureRuntime
       ? fixturePage(input.pageId)
-      : (convexQuery.data as BrainEditorPage | undefined)
+      : (convexQuery as BrainEditorPage | undefined)
 }
 
 const useBrainMarkdown = (input: {

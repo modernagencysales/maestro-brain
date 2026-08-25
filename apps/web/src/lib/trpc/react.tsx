@@ -550,10 +550,11 @@ function procedure<
           isPending: false,
         };
       }
-      const result = useConvexQuery(convexRef, input ?? {}) as QueryResult;
+      const data = useConvexQuery(convexRef, input ?? {});
       return {
-        ...result,
-        data: adaptProcedureData<TQueryData>(key, result.data),
+        data: adaptProcedureData<TQueryData>(key, data),
+        isLoading: data === undefined,
+        isPending: data === undefined,
       };
     },
     useSuspenseQuery: (input, options) => {

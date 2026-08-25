@@ -55,7 +55,7 @@ export function BrainPageOrganizeDialog({
   const pagesQuery = useConvexQuery(listPagesRef, { workspaceId })
   const options = [
     { value: ROOT_PAGE, label: 'Top level' },
-    ...((pagesQuery.data ?? []) as readonly OrganizePage[])
+    ...((pagesQuery ?? []) as readonly OrganizePage[])
       .filter((candidate) => candidate._id !== page._id)
       .map((candidate) => ({ value: candidate._id, label: candidate.title })),
   ]
