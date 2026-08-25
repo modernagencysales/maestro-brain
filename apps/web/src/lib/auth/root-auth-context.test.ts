@@ -41,12 +41,17 @@ describe("auth route context", () => {
     ).toBeUndefined();
   });
 
-  it("uses root auth for protected client navigation", () => {
-    expect(
+  it("uses root auth for protected client navigation", async () => {
+    const mutation = vi.fn(async () => ({ workspaceId: "workspace_1" }));
+    await expect(
       AppRoute.options.beforeLoad?.({
-        context: { auth: { user: { id: "user_1" } } },
+        context: {
+          auth: { user: { id: "user_1", email: "person@example.com" } },
+          convexClient: { mutation },
+        },
         location: { pathname: "/workspace", searchStr: "" },
       } as never),
-    ).toBeUndefined();
+    ).resolves.toBeUndefined();
+    expect(mutation).toHaveBeenCalledOnce();
   });
 });
