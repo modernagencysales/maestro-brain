@@ -34,6 +34,8 @@ const allowedProviderBoundaryFiles = new Set([
   "apps/web/src/lib/auth/workos-auth.ts",
   "apps/web/src/lib/auth/workos-cookie-session-storage.ts",
   "apps/web/src/lib/auth/workos-logout.ts",
+  "apps/web/src/lib/auth/workos-password-auth.ts",
+  "apps/web/src/lib/auth/workos-password-reset.ts",
   "apps/web/src/routes/__root.tsx",
   "apps/web/src/routes/api/auth/callback.tsx",
   "apps/web/src/routes/api/auth/sign-in.tsx",

@@ -3,10 +3,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { DefaultLoader } from "#components/default-loader";
 import { getLastUsedWorkspace } from "#lib/last-used-workspace";
 import { selectInitialWorkspace } from "#lib/root-index-navigation";
-import {
-  getFunctionReference,
-  templateConfectRefs,
-} from "@maestro-template/convex/refs";
 import { isFixtureAuthRuntime } from "#lib/auth/route-auth";
 
 export const Route = createFileRoute("/_app/")({
@@ -22,13 +18,6 @@ export const Route = createFileRoute("/_app/")({
         to: "/login",
       });
     }
-
-    await context.convexClient.mutation(
-      getFunctionReference(
-        templateConfectRefs.public.access.provisioning.ensureProvisioned,
-      ) as never,
-      sessionEmailArgs(context.auth.user) as never,
-    );
 
     const user = await context.trpc.auth.me.ensureData().catch(() => null);
 
@@ -59,13 +48,3 @@ export const Route = createFileRoute("/_app/")({
   pendingComponent: DefaultLoader,
   component: () => null,
 });
-
-const sessionEmailArgs = (user: unknown) => {
-  if (typeof user !== "object" || user === null || !("email" in user)) {
-    return {};
-  }
-  const email = user.email;
-  return typeof email === "string" && email.trim().length > 0
-    ? { sessionEmail: email }
-    : {};
-};

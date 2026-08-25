@@ -125,6 +125,12 @@ describe("check:provider-boundary", () => {
       "apps/web/src/lib/auth/workos-logout.ts": `
         import { createAuthService } from "@workos/authkit-session";
       `,
+      "apps/web/src/lib/auth/workos-password-auth.ts": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
+      "apps/web/src/lib/auth/workos-password-reset.ts": `
+        import { createAuthService } from "@workos/authkit-session";
+      `,
       "apps/web/src/routes/__root.tsx": `
         import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
       `,
