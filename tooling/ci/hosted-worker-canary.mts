@@ -90,7 +90,8 @@ export const runHostedWorkerCanary = async (input: {
 
   for (const route of requiredRoutes) {
     const response = await fetchOk(fetchImpl, new URL(route, origin));
-    assetPath ??= await validateHostedHtml(route, response);
+    const routeAssetPath = await validateHostedHtml(route, response);
+    assetPath ??= routeAssetPath;
   }
 
   if (!assetPath) throw new Error("Hosted canary found no asset to probe");

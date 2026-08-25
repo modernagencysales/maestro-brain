@@ -33,6 +33,30 @@ describe("hosted Worker canary", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
+  it("validates every route after the root route supplies the asset", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/login") {
+        return new Response(html("Old UI"), {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
+      return new Response(html(), {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    });
+
+    await expect(
+      runHostedWorkerCanary({
+        hostedUrl: "https://brain.example.test/",
+        fetchImpl,
+      }),
+    ).rejects.toThrow("wrong product shell for /login");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ["an HTTP failure", new Response("no", { status: 500 })],
     [
