@@ -1,21 +1,28 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const brainInboxMocks = vi.hoisted(() => ({
   headless: vi.fn(async () => []),
+  isolatedContracts: false,
+  queryData: [] as Array<{
+    _id: string
+    title: string
+    sourceKind: 'markdown' | 'link' | 'note'
+    updatedAt: number
+  }>,
 }))
 
 vi.mock('@convex-dev/react-query', () => ({
-  useConvexQuery: () => ({ data: [], isLoading: false }),
+  useConvexQuery: () => [],
 }))
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (options: { queryFn: () => unknown }) => {
     void options.queryFn()
-    return { data: [], isLoading: false }
+    return { data: brainInboxMocks.queryData, isLoading: false }
   },
 }))
 vi.mock('#lib/auth/route-auth', () => ({
   isFixtureAuthRuntime: () => true,
-  isIsolatedContractsRuntime: () => false,
+  isIsolatedContractsRuntime: () => brainInboxMocks.isolatedContracts,
 }))
 vi.mock('#lib/headless-api', () => ({
   runIsolatedHeadlessOperation: brainInboxMocks.headless,
@@ -28,6 +35,11 @@ import {
 } from './brain-inbox-adapter'
 
 describe('Brain pages to Starter Inbox adapter', () => {
+  beforeEach(() => {
+    brainInboxMocks.isolatedContracts = false
+    brainInboxMocks.queryData = []
+  })
+
   it('projects behavior data without changing the Starter row contract', () => {
     expect(
       projectBrainPagesToInbox([
@@ -72,6 +84,30 @@ describe('Brain pages to Starter Inbox adapter', () => {
       isLoading: false,
     })
     expect(brainInboxMocks.headless).toHaveBeenCalled()
+  })
+
+  it('prefers isolated contract data over fixture Brain pages', () => {
+    brainInboxMocks.isolatedContracts = true
+    brainInboxMocks.queryData = [
+      {
+        _id: 'contract-page',
+        title: 'Contract Brain page',
+        sourceKind: 'markdown',
+        updatedAt: 1_782_924_800_000,
+      },
+    ]
+
+    expect(inboxDataHooks.brain({ workspaceId: 'agency' })).toMatchObject({
+      data: {
+        notifications: [
+          expect.objectContaining({
+            id: 'contract-page',
+            subject: { name: 'Contract Brain page' },
+          }),
+        ],
+      },
+      isLoading: false,
+    })
   })
 
   it('retains the untouched Starter contacts inbox adapter', () => {

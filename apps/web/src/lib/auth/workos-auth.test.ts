@@ -63,6 +63,25 @@ describe("WorkOS auth adapter", () => {
     await expect(fetchToken?.()).resolves.toBe("secret");
   });
 
+  it("does not reset Convex auth during client-side route navigation", async () => {
+    let setAuthCalls = 0;
+    const client = {
+      setAuth: () => {
+        setAuthCalls += 1;
+      },
+    };
+    const readAuth = async () =>
+      ({
+        user: { id: "user_1" },
+        sessionId: "session_1",
+      }) as never;
+
+    await loadInitialAuthForConvex(client, readAuth, async () => "secret");
+    await loadInitialAuthForConvex(client, readAuth, async () => "secret");
+
+    expect(setAuthCalls).toBe(1);
+  });
+
   it("returns an unauthenticated initial state when auth context is unavailable", async () => {
     await expect(
       loadInitialAuthForConvex({ setAuth: () => undefined }, async () => {

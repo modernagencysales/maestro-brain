@@ -59,18 +59,20 @@ describe("Convex starter query compatibility", () => {
   });
 
   it("normalizes the narrow Convex workspace into the Starter screen contract", async () => {
+    const durableWorkspace = {
+      id: "workspace_1",
+      slug: "acme",
+      name: "Acme",
+      logo: null,
+    };
     const compatibility = createCompatibilityApi({
-      query: async () => ({
-        id: "workspace_1",
-        slug: "acme",
-        name: "Acme",
-        logo: null,
-      }),
+      query: async () => durableWorkspace,
     } as never);
 
-    await expect(
-      compatibility.workspaces.bySlug.ensureData({ slug: "acme" }),
-    ).resolves.toMatchObject({
+    const normalized = await compatibility.workspaces.bySlug.ensureData({
+      slug: "acme",
+    });
+    expect(normalized).toMatchObject({
       id: "workspace_1",
       slug: "acme",
       tags: [],
@@ -81,6 +83,9 @@ describe("Convex starter query compatibility", () => {
         status: "active",
       },
     });
+    await expect(
+      compatibility.workspaces.bySlug.ensureData({ slug: "acme" }),
+    ).resolves.toBe(normalized);
   });
 
   it("keeps isolated shell fixture identities stable across renders", async () => {

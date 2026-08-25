@@ -45,7 +45,7 @@ export function BrainPageHistoryDialog({
   const restore = useConvexMutation(restoreRef)
   const currentRevisionRef = React.useRef(updatedAt)
   const [restoring, setRestoring] = React.useState<number | null>(null)
-  const revisions = (history.data ?? []) as readonly PageRevision[]
+  const revisions = (history ?? []) as readonly PageRevision[]
   const restoreRevision = async (revisionUpdatedAt: number) => {
     setRestoring(revisionUpdatedAt)
     try {

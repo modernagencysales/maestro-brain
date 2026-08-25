@@ -55,33 +55,35 @@ export const brainInboxFixtures: readonly BrainInboxPage[] = [
 ]
 
 const useBrainInbox = ({ workspaceId }: { workspaceId: string }) => {
-  const fixtureRuntime = isFixtureAuthRuntime()
   const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
   const convexResult = useConvexQuery(
     brainPagesListRef,
-    fixtureRuntime ? 'skip' : { workspaceId },
+    fixtureRuntime || isolatedContracts ? 'skip' : { workspaceId },
   )
   const contractResult = useQuery({
     queryKey: ['brain-pages', 'isolated-contracts', workspaceId],
     queryFn: () =>
       runIsolatedHeadlessOperation<readonly BrainInboxPage[]>({
         operationId: 'brain.pages.list',
-      }),
+    }),
     enabled: isolatedContracts,
   })
-  const pages = isolatedContracts
-    ? contractResult.data
-    : fixtureRuntime
-      ? brainInboxFixtures
-      : convexResult.data
+  if (fixtureRuntime) {
+    return {
+      data: projectBrainPagesToInbox(brainInboxFixtures),
+      isLoading: false,
+    }
+  }
+  if (isolatedContracts) {
+    return {
+      data: projectBrainPagesToInbox(contractResult.data ?? []),
+      isLoading: contractResult.isLoading,
+    }
+  }
   return {
-    ...(isolatedContracts ? contractResult : convexResult),
-    data: projectBrainPagesToInbox(pages ?? []),
-    isLoading: isolatedContracts
-      ? contractResult.isLoading
-      : fixtureRuntime
-        ? false
-        : convexResult.isLoading,
+    data: projectBrainPagesToInbox(convexResult ?? []),
+    isLoading: convexResult === undefined,
   }
 }
 

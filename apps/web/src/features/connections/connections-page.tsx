@@ -79,7 +79,7 @@ export const ConnectionsPage = () => {
   const liveConnections = (
     isolatedContracts
       ? (isolatedConnections.data ?? [])
-      : (durableConnections?.data ?? [])
+      : (durableConnections ?? [])
   ) as readonly DurableConnection[]
   const [statuses, setStatuses] = React.useState<
     Record<string, ConnectionStatus>

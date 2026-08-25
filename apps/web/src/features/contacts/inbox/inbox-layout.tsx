@@ -5,13 +5,16 @@ import * as React from 'react'
 import { ResizeHandle, Resizer, SplitPage } from '@saas-ui-pro/react'
 import { useLocalStorage } from '@saas-ui/hooks'
 import {
+  Button,
   ButtonGroup,
   EmptyState,
   Page,
   useBreakpointValue,
 } from '@saas-ui/react'
 import { useNavigate } from '@tanstack/react-router'
-import { LuInbox } from 'react-icons/lu'
+import { LuBookOpen, LuInbox } from 'react-icons/lu'
+import type { NotificationDTO } from '@workspace/api/types'
+import { useModals } from '@workspace/ui/modals'
 
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace.ts'
 import { useOpenState } from '#hooks/use-open-state.ts'
@@ -19,7 +22,66 @@ import { productShell } from '#config/product-shell'
 
 import { inboxDataHooks } from './brain-inbox-adapter'
 import { inboxToolbarComponents } from './brain-inbox-toolbar'
+import { BrainPageCreateDialog } from './brain-page-create-dialog'
 import { InboxList } from './inbox-list.tsx'
+
+const BrainInboxEmptyState = ({ workspace }: { workspace: string }) => {
+  const navigate = useNavigate()
+  const modals = useModals()
+  return (
+    <EmptyState
+      icon={<LuBookOpen />}
+      title="Build your company Brain"
+      description="Create a page for company context, positioning, processes, or client knowledge. Pages are available to your team and connected agents."
+      height="100%"
+    >
+      <Button
+        variant="primary"
+        colorPalette="accent"
+        onClick={() =>
+          modals.open(BrainPageCreateDialog, { workspaceSlug: workspace })
+        }
+      >
+        Create first page
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() =>
+          navigate({ to: '/$workspace', params: { workspace } })
+        }
+      >
+        Connect a source
+      </Button>
+    </EmptyState>
+  )
+}
+
+const ContactsInboxEmptyState = () => (
+  <EmptyState
+    icon={<LuInbox />}
+    title="Inbox zero"
+    description="Nothing to do here"
+    height="100%"
+  />
+)
+
+const inboxEmptyStateComponents = {
+  brain: BrainInboxEmptyState,
+  contacts: ContactsInboxEmptyState,
+} as const
+
+const InboxCollection = ({
+  emptyState,
+  items,
+  open,
+}: {
+  emptyState: React.ReactNode
+  items: NotificationDTO[]
+  open: boolean
+}) => {
+  if (items.length === 0 && !open) return emptyState
+  return <InboxList items={items} />
+}
 
 export function InboxLayout({
   params,
@@ -36,6 +98,7 @@ export function InboxLayout({
 
   const useInboxData = inboxDataHooks[productShell.inbox]
   const InboxToolbar = inboxToolbarComponents[productShell.inbox]
+  const InboxEmptyState = inboxEmptyStateComponents[productShell.inbox]
   const { data, isLoading } = useInboxData({ workspaceId: workspace.id })
 
   const isMobile = useBreakpointValue(
@@ -87,7 +150,7 @@ export function InboxLayout({
 
   // const [visibleProps, setVisibleProps] = React.useState<string[]>([])
 
-  const notificationCount = data?.notifications?.length || 0
+  const notifications = data?.notifications ?? []
 
   // const displayProperties = (
   //   <ToggleButtonGroup
@@ -151,14 +214,7 @@ export function InboxLayout({
     </ButtonGroup>
   )
 
-  const emptyState = (
-    <EmptyState
-      icon={<LuInbox />}
-      title="Inbox zero"
-      description="Nothing to do here"
-      height="100%"
-    />
-  )
+  const emptyState = <InboxEmptyState workspace={params.workspace} />
 
   return (
     <SplitPage
@@ -182,11 +238,11 @@ export function InboxLayout({
         >
           <Page.Header title={productShell.labels.inbox} actions={toolbar} />
           <Page.Body p="0">
-            {!notificationCount && !open ? (
-              emptyState
-            ) : (
-              <InboxList items={data?.notifications || []} />
-            )}
+            <InboxCollection
+              emptyState={emptyState}
+              items={notifications}
+              open={!!open}
+            />
           </Page.Body>
           <ResizeHandle />
         </Page.Root>

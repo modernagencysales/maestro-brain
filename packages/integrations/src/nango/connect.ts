@@ -84,8 +84,11 @@ export const verifyNangoConnection = async (input: {
     throw new NangoConnectionInvalid();
   }
   const request = input.request ?? fetch;
+  const query = new URLSearchParams({
+    provider_config_key: input.providerConfigKey,
+  });
   const response = await request(
-    `https://api.nango.dev/connection/${encodeURIComponent(input.providerConfigKey)}/${encodeURIComponent(input.connectionId)}`,
+    `https://api.nango.dev/connections/${encodeURIComponent(input.connectionId)}?${query.toString()}`,
     { headers: authorization(input.secretKey) },
   );
   const body = await readJson(response);
@@ -96,12 +99,15 @@ export const verifyNangoConnection = async (input: {
     string,
     unknown
   >;
+  // Nango normalizes connection tag keys to lowercase in API responses.
+  const returnedCorrelationTag = tags.correlationtag ?? tags.correlationTag;
   const expectedKey = workspaceKey(input.workspaceId);
   if (
     connection.provider_config_key !== input.providerConfigKey ||
     endUser.id !== expectedKey ||
     organization.id !== expectedKey ||
-    tags.correlationTag !== correlationTag(input.workspaceId, input.generation)
+    returnedCorrelationTag !==
+      correlationTag(input.workspaceId, input.generation)
   ) {
     throw new NangoConnectionInvalid();
   }

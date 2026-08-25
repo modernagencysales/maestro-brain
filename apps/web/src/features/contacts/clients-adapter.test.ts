@@ -5,7 +5,7 @@ const clientAdapterMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@convex-dev/react-query', () => ({
-  useConvexQuery: () => ({ data: [], isLoading: false }),
+  useConvexQuery: () => [],
 }))
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (options: { queryFn: () => unknown }) => {
