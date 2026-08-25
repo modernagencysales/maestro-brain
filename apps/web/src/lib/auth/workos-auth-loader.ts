@@ -11,6 +11,13 @@ type RawAuth = UserInfo | NoUserInfo;
 type ConvexAuthClient = {
   readonly setAuth: (fetchToken: () => Promise<string | null>) => void;
 };
+
+// The root route's beforeLoad runs again for every client-side navigation.
+// Convex setAuth is intentionally stateful: calling it again resets the auth
+// manager, pauses the socket, and temporarily reruns subscribed queries without
+// a confirmed identity. Configure each router-owned client only once and let
+// Convex call the retained token fetcher whenever the token needs refreshing.
+const configuredConvexClients = new WeakSet<ConvexAuthClient>();
 const isHttpErrorStatus = (status: unknown) =>
   typeof status === "number" && status >= 400;
 
@@ -49,7 +56,8 @@ export async function loadInitialAuthForConvex(
 ) {
   try {
     const auth = await readAuth();
-    if (auth.user) {
+    if (auth.user && !configuredConvexClients.has(client)) {
+      configuredConvexClients.add(client);
       client.setAuth(async () => (await readAccessToken()) ?? null);
     }
     return stripAccessToken(auth);
