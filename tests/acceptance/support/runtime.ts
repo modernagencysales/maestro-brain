@@ -138,37 +138,43 @@ export const proxyContractsRequest = async ({
   workspaceSlug,
   credentialsByWorkspace,
 }: ProxyInput): Promise<void> => {
+  const request = route.request();
+  const rawBody = request.postData();
+  const body: unknown = rawBody ? JSON.parse(rawBody) : {};
+  if (!isObject(body)) throw new Error("Invalid contracts request.");
+  const sourceUrl = new URL(request.url());
+  const frameUrl = new URL(request.frame().url());
+  const activeWorkspaceSlug = frameUrl.pathname.split("/").filter(Boolean)[0];
+  const activeApiKey =
+    (activeWorkspaceSlug === undefined
+      ? undefined
+      : credentialsByWorkspace?.[activeWorkspaceSlug]) ?? apiKey;
+  const targetUrl = `${apiBaseUrl}${sourceUrl.pathname.replace(
+    /^\/__contracts/u,
+    "",
+  )}${sourceUrl.search}`;
+  const response = await route.fetch({
+    method: request.method(),
+    headers: {
+      authorization: `Bearer ${activeApiKey}`,
+      "content-type": "application/json",
+    },
+    postData: JSON.stringify({
+      ...body,
+      workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
+    }),
+    url: targetUrl,
+  });
   try {
-    const request = route.request();
-    const rawBody = request.postData();
-    const body: unknown = rawBody ? JSON.parse(rawBody) : {};
-    if (!isObject(body)) throw new Error("Invalid contracts request.");
-    const sourceUrl = new URL(request.url());
-    const frameUrl = new URL(request.frame().url());
-    const activeWorkspaceSlug = frameUrl.pathname.split("/").filter(Boolean)[0];
-    const activeApiKey =
-      (activeWorkspaceSlug === undefined
-        ? undefined
-        : credentialsByWorkspace?.[activeWorkspaceSlug]) ?? apiKey;
-    const targetUrl = `${apiBaseUrl}${sourceUrl.pathname.replace(
-      /^\/__contracts/u,
-      "",
-    )}${sourceUrl.search}`;
-    const response = await route.fetch({
-      method: request.method(),
-      headers: {
-        authorization: `Bearer ${activeApiKey}`,
-        "content-type": "application/json",
-      },
-      postData: JSON.stringify({
-        ...body,
-        workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
-      }),
-      url: targetUrl,
-    });
     await route.fulfill({ response });
-  } catch {
-    await route.fulfill({ status: 502 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      !/Fetch response has been disposed|Route is already handled/u.test(
+        message,
+      )
+    )
+      throw error;
   }
 };
 
@@ -205,7 +211,7 @@ export const redactContractsDiagnostic = (
   return safe.slice(-19_900);
 };
 
-export const CONTRACTS_RUNTIME_STARTUP_TIMEOUT_MS = 120_000;
+export const CONTRACTS_RUNTIME_STARTUP_TIMEOUT_MS = 180_000;
 export const CONTRACTS_HOOK_TIMEOUT_MS = 150_000;
 const CONTRACTS_SEED_ATTEMPT_TIMEOUT_MS = 15_000;
 

@@ -28,6 +28,7 @@ the actions or content later performed through a provider.
 - Canonical entrypoints:
   - `packages/convex/confect/integrations/connections.spec.ts`
   - `packages/integrations/src/providerAdapter.ts`
+  - `packages/integrations/src/nango/connect.ts`
 - Responsibilities:
   - list workspace provider connection state;
   - begin and complete provider authorization through a narrow adapter;
@@ -39,12 +40,11 @@ the actions or content later performed through a provider.
 
 ## Migration And Preservation
 
-The superseded `product/maestro-brain` branch contains Slack/Nango-specific
-authorization code. It is evidence for required behaviors, error cases, and
-generation fencing, not a filesystem to merge. Preserve tenant binding,
-single-use connect sessions, generation fencing, redaction, retryable provider
-failures, and connect/disconnect behavior through generic contracts. Do not copy
-its custom Connections UI or make Nango identifiers product authority.
+Slack authorization now extends the generic contract through a Nango adapter.
+The adapter creates short-lived Slack-only sessions, binds provider metadata to
+the initiating workspace and generation, and keeps the provider connection ID as
+a redacted reference rather than product authority. Other providers retain the
+generic lifecycle until their live adapters are promoted.
 
 ## Terminal Condition
 

@@ -272,6 +272,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "route:callback",
+      "kind": "route",
+      "system": "access-and-tenancy",
+      "path": "apps/web/src/routes/callback.tsx",
+      "responsibility": "complete the registered WorkOS authentication callback",
+      "surfaces": ["web"],
+      "uses": [],
+      "lifecycle": "active"
+    },
+    {
       "id": "route:api/auth/$",
       "kind": "route",
       "system": "access-and-tenancy",
@@ -439,6 +449,26 @@
       "responsibility": "construct provider adapters behind the canonical registry",
       "surfaces": ["internal", "worker"],
       "uses": ["billing-and-entitlements", "notifications"],
+      "lifecycle": "active"
+    },
+    {
+      "id": "integration:nango-connect",
+      "kind": "provider",
+      "system": "provider-integrations",
+      "path": "packages/integrations/src/nango/connect.ts",
+      "responsibility": "create and verify workspace-bound Nango Connect sessions",
+      "surfaces": ["internal", "worker"],
+      "uses": ["access-and-tenancy"],
+      "lifecycle": "active"
+    },
+    {
+      "id": "integration:nango-connect-browser",
+      "kind": "provider",
+      "system": "provider-integrations",
+      "path": "packages/integrations/src/nango/connectBrowser.ts",
+      "responsibility": "open Nango Connect and project its terminal browser events",
+      "surfaces": ["web"],
+      "uses": [],
       "lifecycle": "active"
     },
     {

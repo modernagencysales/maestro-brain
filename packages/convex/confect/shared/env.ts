@@ -70,6 +70,20 @@ export const readNodeEnvironment = (): "production" | "test" | undefined => {
 export const readPromotionAuthorityPrivateKeyPkcs8Base64Url = () =>
   process.env.PROMOTION_AUTHORITY_PRIVATE_KEY_PKCS8_BASE64URL;
 
+export const readNangoConnectConfig = (
+  env: EnvSource = process.env,
+):
+  | { readonly secretKey: string; readonly providerConfigKey: string }
+  | undefined => {
+  const secretKey = readOptionalEnv("NANGO_SECRET_KEY", env);
+  if (secretKey === undefined) return undefined;
+  return {
+    secretKey,
+    providerConfigKey:
+      readOptionalEnv("NANGO_CONNECT_INTEGRATION_ID", env) ?? "slack",
+  };
+};
+
 export const readRequiredEnv = (name: string, env: EnvSource): string => {
   if (!(name in env)) {
     throw makeEnvConfigError(name, "missing");

@@ -1077,7 +1077,7 @@
       "source": "apps/web/src/routeTree.gen.ts",
       "destination": "apps/web/src/routeTree.gen.ts",
       "sourceSha256": "45d73c4b308bfb015325284e5b601a8c4edc97e07768436c4eefdedfb000c8fa",
-      "sha256": "44323e6ea69254d893baed06a0a6d48c0478b06c1399c9008501487d8c4fda1c",
+      "sha256": "56f4046fedb7189c1d299a89b1508043fad9c4a2d4cab1c13176778581dc32f3",
       "adapted": true
     },
     {

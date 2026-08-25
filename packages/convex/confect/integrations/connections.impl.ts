@@ -1,17 +1,27 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import {
+  createNangoConnectSession,
+  verifyNangoConnection,
+} from "@maestro-template/integrations/nango/connect";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import databaseSchema from "../_generated/schema";
 import type { ProviderConnectionsDoc } from "../_generated/docs";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import databaseSchema from "../_generated/schema";
+import refs from "../_generated/refs";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  MutationRunner,
+} from "../_generated/services";
 import {
   requireWorkspaceAccess,
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
+import { readNangoConnectConfig } from "../shared/env";
 import {
   beginConnection,
   completeConnection,
@@ -248,6 +258,94 @@ const begin = FunctionImpl.make(
     }),
 );
 
+const providerFailure = () =>
+  new ValidationFailed({
+    field: "provider",
+    message: "Slack authorization is temporarily unavailable. Try again.",
+  });
+
+const beginSlackOauth = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "beginSlackOauth",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      const begun = yield* runMutation(
+        refs.public.integrations.connections.begin,
+        { workspaceId, provider: "slack" },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const config = readNangoConnectConfig();
+      if (config === undefined) {
+        yield* runMutation(refs.public.integrations.connections.complete, {
+          workspaceId,
+          provider: "slack",
+          generation: begun.generation,
+          completion: { status: "error", errorCode: "provider_unavailable" },
+        }).pipe(Effect.ignore);
+        return yield* providerFailure();
+      }
+      const now = yield* Clock.currentTimeMillis;
+      const session = yield* Effect.tryPromise({
+        try: () =>
+          createNangoConnectSession({
+            ...config,
+            workspaceId,
+            generation: begun.generation,
+            now,
+          }),
+        catch: providerFailure,
+      }).pipe(
+        Effect.tapError(() =>
+          runMutation(refs.public.integrations.connections.complete, {
+            workspaceId,
+            provider: "slack",
+            generation: begun.generation,
+            completion: { status: "error", errorCode: "provider_unavailable" },
+          }).pipe(Effect.ignore),
+        ),
+      );
+      return { ...session, generation: begun.generation };
+    }),
+);
+
+const completeSlackOauth = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "completeSlackOauth",
+  ({ workspaceId, generation, connectionId }) =>
+    Effect.gen(function* () {
+      const config = readNangoConnectConfig();
+      if (config === undefined) return yield* providerFailure();
+      const runMutation = yield* MutationRunner;
+      yield* Effect.tryPromise({
+        try: () =>
+          verifyNangoConnection({
+            ...config,
+            workspaceId,
+            generation,
+            connectionId,
+          }),
+        catch: providerFailure,
+      }).pipe(
+        Effect.tapError(() =>
+          runMutation(refs.public.integrations.connections.complete, {
+            workspaceId,
+            provider: "slack",
+            generation,
+            completion: { status: "error", errorCode: "verification_failed" },
+          }).pipe(Effect.ignore),
+        ),
+      );
+      return yield* runMutation(refs.public.integrations.connections.complete, {
+        workspaceId,
+        provider: "slack",
+        generation,
+        completion: { status: "active", connectionRef: connectionId },
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    }),
+);
+
 const complete = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -327,6 +425,8 @@ const revokeForActor = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(list),
   Layer.provide(begin),
+  Layer.provide(beginSlackOauth),
+  Layer.provide(completeSlackOauth),
   Layer.provide(complete),
   Layer.provide(revoke),
   Layer.provide(listForActor),

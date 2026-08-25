@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppWorkspaceRouteImport } from './routes/_app/$workspace'
 import { Route as AppAcceptInviteRouteImport } from './routes/_app/accept-invite'
@@ -56,6 +57,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallbackRoute = CallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -270,6 +276,7 @@ const AppWorkspaceDashboardContactsViewIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/callback': typeof CallbackRoute
   '/$workspace': typeof AppWorkspaceRouteWithChildren
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/getting-started': typeof AppGettingStartedRouteWithChildren
@@ -309,6 +316,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/callback': typeof CallbackRoute
   '/$workspace': typeof AppWorkspaceDashboardIndexRoute
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/callback': typeof CallbackRoute
   '/_app/$workspace': typeof AppWorkspaceRouteWithChildren
   '/_app/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/_app/getting-started': typeof AppGettingStartedRouteWithChildren
@@ -390,6 +399,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/callback'
     | '/$workspace'
     | '/accept-invite'
     | '/getting-started'
@@ -429,6 +439,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/callback'
     | '/$workspace'
     | '/accept-invite'
     | '/forgot-password'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/callback'
     | '/_app/$workspace'
     | '/_app/accept-invite'
     | '/_app/getting-started'
@@ -509,6 +521,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  CallbackRoute: typeof CallbackRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
   ApiAuthSignInRoute: typeof ApiAuthSignInRoute
@@ -531,6 +544,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/callback': {
+      id: '/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof CallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -951,6 +971,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  CallbackRoute: CallbackRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
   ApiAuthSignInRoute: ApiAuthSignInRoute,

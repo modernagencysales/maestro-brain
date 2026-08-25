@@ -441,7 +441,8 @@
       "tables": ["providerConnections"],
       "canonicalEntrypoints": [
         "packages/convex/confect/integrations/connections.spec.ts",
-        "packages/integrations/src/providerAdapter.ts"
+        "packages/integrations/src/providerAdapter.ts",
+        "packages/integrations/src/nango/connect.ts"
       ],
       "decisionRef": "docs/template/system-decisions/provider-integrations.md"
     },
