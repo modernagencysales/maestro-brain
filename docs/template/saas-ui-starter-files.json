@@ -62,15 +62,15 @@
       "source": "apps/web/src/features/auth/auth-provider.tsx",
       "destination": "apps/web/src/features/auth/auth-provider.tsx",
       "sourceSha256": "9185809368d94f20e4ab16a5ba0a0c33760f8393c66e60bd316abdb69a3f9280",
-      "sha256": "c066518363c91582f15e1a6da5680f9b75f2168dc6d45e00b7aa3adf39a4de56",
+      "sha256": "d60936c2a41cdd351b1bd44541479b038f8c199535e88f7e0bedef2f48ef266d",
       "adapted": true
     },
     {
       "source": "apps/web/src/features/auth/components/auth-card.tsx",
       "destination": "apps/web/src/features/auth/components/auth-card.tsx",
       "sourceSha256": "358b4f5851c10d9e7e5c74e3eecb52d54e02ebd9696f14a27871b480455abed1",
-      "sha256": "358b4f5851c10d9e7e5c74e3eecb52d54e02ebd9696f14a27871b480455abed1",
-      "adapted": false
+      "sha256": "197def1f440d293b5d671b5e13d168502c97d67fba6ec3368cd9424f407bf2b4",
+      "adapted": true
     },
     {
       "source": "apps/web/src/features/auth/components/last-used.tsx",
@@ -90,8 +90,8 @@
       "source": "apps/web/src/features/auth/components/testimonial.tsx",
       "destination": "apps/web/src/features/auth/components/testimonial.tsx",
       "sourceSha256": "bab1166712a30628004ad3aa21d464a2d70b771d844bfa8e32ee37b515fb13ba",
-      "sha256": "bab1166712a30628004ad3aa21d464a2d70b771d844bfa8e32ee37b515fb13ba",
-      "adapted": false
+      "sha256": "3833c0436f2f6cd1b1d6edc3c6783ecd224956b6c19ca8b1a4eff5c8bd1d74ec",
+      "adapted": true
     },
     {
       "source": "apps/web/src/features/auth/forgot-password-page.tsx",
@@ -104,7 +104,7 @@
       "source": "apps/web/src/features/auth/login-page.tsx",
       "destination": "apps/web/src/features/auth/login-page.tsx",
       "sourceSha256": "206fafcdd95565cee4a2116a6fa0481c21f81e02b06e9be0fdf018b0ec8bff6d",
-      "sha256": "3dbfe266db7191ee22cab8993669e6df18a7c62c5a65f35f713d4eb2a09b3797",
+      "sha256": "5449876815deb01b12ffa14f684b48c2f8593dece22c3812071b0e10f372e473",
       "adapted": true
     },
     {
@@ -153,7 +153,7 @@
       "source": "apps/web/src/features/auth/signup-page.tsx",
       "destination": "apps/web/src/features/auth/signup-page.tsx",
       "sourceSha256": "716337d1b3084f7501df348c0a3dd8058e27e00a1c181ecd06e8bf92e79e83d0",
-      "sha256": "672732338b399b3ea3bcfe299900645dacc94b20a086c45ff36fb752d1a2c330",
+      "sha256": "4c3b734491a0759cbde573a2db16796810cce1642d8715989cc086adb30585f2",
       "adapted": true
     },
     {
@@ -342,7 +342,7 @@
       "source": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "destination": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "sourceSha256": "bc5baf32043a6d9e67b10b79e01f7efcae44120ea12b3fd54fee9bb6e60fb56f",
-      "sha256": "ca5c15ed787934c80a1731b0b27ca009e68af232da95e01a9de9e6e1eeb85e76",
+      "sha256": "55f9c0a9585da5cb92eb573f621509792043ba01d3c49dac666a692e0fb42b92",
       "adapted": true
     },
     {
@@ -1021,7 +1021,7 @@
       "source": "apps/web/src/routes/_auth.tsx",
       "destination": "apps/web/src/routes/_auth.tsx",
       "sourceSha256": "9b0ee0371edac0a345e18f9dc970e7ccc7b86c8726aa99cb8013d738bda2baf7",
-      "sha256": "18e3c0b8452634def0e7b206874514f39b23d1c89e174f64b0627bc05585c9b7",
+      "sha256": "9a412148785a3434dcadbb93a05cfd71363865c7f8471b7abcdf1dc20e17cae0",
       "adapted": true
     },
     {

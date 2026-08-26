@@ -70,6 +70,7 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
 
   React.useEffect(() => {
     if (params.id) setOpen(true)
+    else if (isMobile) setOpen(false)
   }, [isMobile, params.id, setOpen])
 
   const createPage = () =>

@@ -1,7 +1,5 @@
-import { Heading } from '@chakra-ui/react'
+import { Heading, HStack, Image, Text } from '@chakra-ui/react'
 import { Card } from '@saas-ui/react/card'
-
-import { Logo } from '@workspace/ui/logo'
 
 export function AuthCard(props: {
   title: string
@@ -16,7 +14,12 @@ export function AuthCard(props: {
       borderColor="border.emphasized/80"
     >
       <Card.Body borderRadius="lg" borderBottomWidth="1px" bg="bg.panel" p="6">
-        <Logo mb="6" width="120px" mx="auto" />
+        <HStack justify="center" mb="6" gap="2">
+          <Image src="/img/logo-icon.svg" alt="" boxSize="7" />
+          <Text fontSize="lg" fontWeight="semibold">
+            Maestro Brain
+          </Text>
+        </HStack>
 
         <Heading as="h2" size="lg" mb="4" textAlign="center">
           {props.title}

@@ -68,7 +68,15 @@ export const linkTerminal = async (input: {
       const link = new URL("/terminal-link", input.siteOrigin);
       link.searchParams.set("callback", callback);
       link.searchParams.set("state", state);
-      (input.open ?? ((url) => openBrowser(url, input.platform)))(link.href);
+      const open =
+        input.open ??
+        ((url: string) => {
+          process.stderr.write(
+            `Opening Maestro Brain in your browser. Waiting for approval.\nFallback URL: ${url}\n`,
+          );
+          openBrowser(url, input.platform);
+        });
+      open(link.href);
     });
     const timeout = setTimeout(() => {
       server.close();

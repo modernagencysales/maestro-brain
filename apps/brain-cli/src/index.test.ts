@@ -220,7 +220,9 @@ describe("standalone teammate CLI", () => {
       .fn<typeof globalThis.fetch>()
       .mockImplementation(async (url) =>
         String(url).endsWith("/mcp")
-          ? new Response('{"jsonrpc":"2.0","id":1,"result":{}}')
+          ? new Response(
+              '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}',
+            )
           : new Response(JSON.stringify({ ok: true, result: [] })),
       );
     const deps = { ...configured(root), fetch };
@@ -229,5 +231,19 @@ describe("standalone teammate CLI", () => {
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/mcp"))).toBe(
       true,
     );
+
+    const rejected = await runCli(["doctor"], {
+      ...configured(temp()),
+      fetch: vi
+        .fn<typeof globalThis.fetch>()
+        .mockImplementation(async (url) =>
+          String(url).endsWith("/mcp")
+            ? new Response(
+                '{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}',
+              )
+            : new Response(JSON.stringify({ ok: true, result: [] })),
+        ),
+    });
+    expect(rejected.exitCode).toBe(1);
   });
 });

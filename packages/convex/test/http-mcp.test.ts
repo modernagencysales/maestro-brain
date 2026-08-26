@@ -63,6 +63,28 @@ describe("hosted Brain MCP", () => {
       },
     });
 
+    const negotiated = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        mcpRequest("initialize", { protocolVersion: "2025-03-26" }),
+      ),
+    );
+    expect(negotiated).toMatchObject({
+      result: { protocolVersion: "2025-03-26" },
+    });
+
+    const notification = new Request("https://template.local/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      }),
+    });
+    const acknowledged = await handleTemplateHttpRequest(noopCtx, notification);
+    expect(acknowledged.status).toBe(202);
+    expect(await acknowledged.text()).toBe("");
+
     const listed = await readJson(
       await handleTemplateHttpRequest(noopCtx, mcpRequest("prompts/list")),
     );

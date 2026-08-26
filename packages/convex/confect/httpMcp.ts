@@ -29,6 +29,7 @@ type McpRequest = {
   readonly method:
     "initialize" | "prompts/list" | "prompts/get" | "tools/list" | "tools/call";
   readonly params?: {
+    readonly protocolVersion?: string;
     readonly name?: string;
     readonly arguments?: Record<string, unknown>;
   };
@@ -265,9 +266,14 @@ const toolCallResponse = async (
 const initializedResponse = (
   respond: JsonResponder,
   id: string | number | undefined,
+  requestedProtocolVersion: string | undefined,
 ): Response =>
   mcpReply(respond, id, {
-    protocolVersion: "2025-06-18",
+    protocolVersion:
+      requestedProtocolVersion === "2025-03-26" ||
+      requestedProtocolVersion === "2024-11-05"
+        ? requestedProtocolVersion
+        : "2025-06-18",
     capabilities: { prompts: {}, tools: {} },
     serverInfo: { name: "maestro-brain", version: "1.0.0" },
   });
@@ -281,7 +287,12 @@ type McpHandler = (
 
 const mcpHandlers: Readonly<Record<string, McpHandler | undefined>> = {
   initialize: (_ctx, _request, respond, candidate) =>
-    initializedResponse(respond, candidate.id),
+    initializedResponse(
+      respond,
+      candidate.id,
+      candidate.params?.protocolVersion,
+    ),
+  "notifications/initialized": () => new Response(null, { status: 202 }),
   "prompts/list": (_ctx, _request, respond, candidate) =>
     mcpReply(respond, candidate.id, { prompts: [askBrainPrompt] }),
   "prompts/get": (_ctx, _request, respond, candidate) =>

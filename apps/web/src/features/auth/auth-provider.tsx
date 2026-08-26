@@ -34,8 +34,9 @@ export const client = {
 };
 
 const redirectToAuth = (path: string) => {
+  const returnPath = `${window.location.pathname}${window.location.search}`;
   window.location.assign(
-    `/api/auth/${path}?returnPathname=${encodeURIComponent(window.location.pathname)}`,
+    `/api/auth/${path}?returnPathname=${encodeURIComponent(returnPath)}`,
   );
   return null;
 };

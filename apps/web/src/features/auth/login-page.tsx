@@ -89,7 +89,13 @@ export const LoginPage = () => {
             footer={
               <Text color="fg.muted">
                 Don&apos;t have an account yet?{' '}
-                <Link to="/signup">Sign up</Link>.
+                <Link
+                  to="/signup"
+                  search={{ redirectTo: search.redirectTo }}
+                >
+                  Sign up
+                </Link>
+                .
               </Text>
             }
           >

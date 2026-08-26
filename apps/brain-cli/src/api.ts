@@ -114,9 +114,32 @@ export const callMcp = async (
       signal: AbortSignal.timeout(10_000),
     });
     const text = redacted(await response.text(), config.apiKey);
-    return response.ok
-      ? success({ ok: true, method, response: text })
-      : failure(`HTTP MCP ${method} failed with HTTP ${response.status}.`);
+    if (!response.ok)
+      return failure(`HTTP MCP ${method} failed with HTTP ${response.status}.`);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return failure(`HTTP MCP ${method} returned invalid JSON.`);
+    }
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      !("jsonrpc" in body) ||
+      body.jsonrpc !== "2.0" ||
+      "error" in body ||
+      !("result" in body)
+    )
+      return failure(`HTTP MCP ${method} returned a JSON-RPC error.`);
+    if (
+      method === "initialize" &&
+      (body.result === null ||
+        typeof body.result !== "object" ||
+        !("protocolVersion" in body.result) ||
+        body.result.protocolVersion !== "2025-03-26")
+    )
+      return failure("HTTP MCP server negotiated an incompatible protocol.");
+    return success({ ok: true, method, response: body });
   } catch {
     return failure(`HTTP MCP ${method} could not reach ${config.apiUrl}/mcp.`);
   }
