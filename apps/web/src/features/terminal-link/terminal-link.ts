@@ -1,3 +1,10 @@
+import { z } from 'zod'
+
+export const terminalLinkSearchSchema = z.object({
+  callback: z.string().catch(''),
+  state: z.string().min(16).catch(''),
+})
+
 export const parseLoopbackCallback = (value: string): URL | null => {
   try {
     const callback = new URL(value)
