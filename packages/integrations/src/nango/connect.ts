@@ -1,5 +1,9 @@
 export class NangoProviderUnavailable extends Error {
   readonly _tag = "NangoProviderUnavailable";
+
+  constructor(readonly status?: number) {
+    super("Nango provider unavailable");
+  }
 }
 
 export class NangoConnectionInvalid extends Error {
@@ -7,6 +11,10 @@ export class NangoConnectionInvalid extends Error {
 }
 
 type Request = (input: string | URL, init?: RequestInit) => Promise<Response>;
+type Sleep = (delayMs: number) => Promise<void>;
+
+const sleep: Sleep = (delayMs) =>
+  new Promise((resolve) => setTimeout(resolve, delayMs));
 
 const workspaceKey = (workspaceId: string) => `workspace:${workspaceId}`;
 const correlationTag = (workspaceId: string, generation: number) =>
@@ -15,13 +23,19 @@ const correlationTag = (workspaceId: string, generation: number) =>
 const readJson = async (
   response: Response,
 ): Promise<Record<string, unknown>> => {
-  if (!response.ok) throw new NangoProviderUnavailable();
+  if (!response.ok) throw new NangoProviderUnavailable(response.status);
   try {
     return (await response.json()) as Record<string, unknown>;
   } catch {
     throw new NangoProviderUnavailable();
   }
 };
+
+const isRetryableConnectionRead = (error: unknown): boolean =>
+  error instanceof NangoProviderUnavailable &&
+  (error.status === 404 ||
+    error.status === 429 ||
+    (error.status !== undefined && error.status >= 500));
 
 const authorization = (secretKey: string) => ({
   authorization: `Bearer ${secretKey}`,
@@ -76,6 +90,7 @@ export const verifyNangoConnection = async (input: {
   readonly generation: number;
   readonly connectionId: string;
   readonly request?: Request;
+  readonly sleep?: Sleep;
 }) => {
   if (
     input.connectionId.trim().length === 0 ||
@@ -84,14 +99,25 @@ export const verifyNangoConnection = async (input: {
     throw new NangoConnectionInvalid();
   }
   const request = input.request ?? fetch;
+  const wait = input.sleep ?? sleep;
   const query = new URLSearchParams({
     provider_config_key: input.providerConfigKey,
   });
-  const response = await request(
-    `https://api.nango.dev/connections/${encodeURIComponent(input.connectionId)}?${query.toString()}`,
-    { headers: authorization(input.secretKey) },
-  );
-  const body = await readJson(response);
+  const connectionUrl = `https://api.nango.dev/connections/${encodeURIComponent(input.connectionId)}?${query.toString()}`;
+  let body: Record<string, unknown> | undefined;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const response = await request(connectionUrl, {
+        headers: authorization(input.secretKey),
+      });
+      body = await readJson(response);
+      break;
+    } catch (error) {
+      if (!isRetryableConnectionRead(error) || attempt === 4) throw error;
+      await wait(250 * 2 ** attempt);
+    }
+  }
+  if (body === undefined) throw new NangoProviderUnavailable();
   const connection = (body.data ?? body) as Record<string, unknown>;
   const endUser = (connection.end_user ?? {}) as Record<string, unknown>;
   const organization = (endUser.organization ?? {}) as Record<string, unknown>;

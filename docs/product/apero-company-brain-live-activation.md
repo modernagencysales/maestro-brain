@@ -116,7 +116,7 @@ page:
 
 | Provider     | Active sources | Current entries | Coverage state                      |
 | ------------ | -------------: | --------------: | ----------------------------------- |
-| Brain page   |              2 |               2 | current index covers active sources |
+| Brain page   |              3 |               3 | current index covers active sources |
 | Slack        |              0 |               0 | no active sources                   |
 | Google Drive |              0 |               0 | no active sources                   |
 | HubSpot      |              0 |               0 | no active sources                   |
@@ -125,6 +125,50 @@ page:
 No real Apero Slack channel, Drive root, HubSpot portal, or transcript corpus
 has been authorized or selected. That means connector code is deployed but the
 provider slice of the read pilot is not activated.
+
+## CLI 0.1.4 and provider-scope deployment receipt
+
+- Merge commit: `31bf7f9bf636d7d69c59f4145c5f6519e1821226`
+- Release: `brain-cli-v0.1.4`
+- Versioned asset:
+  `https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.4/maestro-brain.tgz`
+- Artifact SHA-256:
+  `147213f621865733a7069dcbb74e561c4dce7f587148dc2c9f2125a8c3aaf9e7`
+- GitHub deployment: `6109470283`
+- Convex deployment: `perfect-sparrow-808`
+- Cloudflare Worker version: `b656045b-3eae-48e7-8547-e80fde47ed64`
+
+The public version-pinned asset passed a fresh-cache installation. `version`
+returned `0.1.4`; `setup --help` performed no OAuth action; non-interactive
+setup transactionally created Codex, Claude Code, Claude Cowork, and Ask Apero
+project descriptors; and live `status`, `doctor`, page listing, evidence health,
+MCP initialization, and nine-tool discovery passed. Codex discovered the HTTP
+MCP as enabled. Claude discovered it and correctly reported the one-time project
+approval as pending.
+
+The exact merged backend exposes
+`integrations/connections.js:discoverProviderScopes`. The exact merged Worker
+version is tagged `31bf7f9b`, its deployment message contains the full merge
+SHA, and Cloudflare reports that version at 100 percent traffic. Public login
+and signup rendered in a headless browser without console or page errors;
+protected routes returned to the canonical login screen when unauthenticated.
+
+A live write/index smoke created `Release 31bf7f9b Live Smoke` through CLI
+`0.1.4`, reopened the exact Markdown page, found its unique marker through the
+canonical evidence search, and reported matching source, observation, and index
+times in evidence health. Its stable source receipt is:
+
+- source key: `brain-page:kd7br48njqe1p7y3p7jdwby8g98d6j0g`
+- revision key: `1787769446751`
+- content hash:
+  `08edbd4d36df0451dee9bf04449760c11f4a2667a44897617e79abb63ffd8cd6`
+
+The guarded Woodpecker deployment canceled before publishing, as the preceding
+deployment did. The authenticated Convex and Cloudflare fallback deployed the
+exact merge and the GitHub deployment was closed successfully only after the
+catalog, Worker-version, UI, MCP, and write/index smokes above passed. This is a
+valid live release receipt, but the canceled guarded path remains deployment
+automation debt rather than being represented as green CI.
 
 ## Remaining Apero-owner actions
 

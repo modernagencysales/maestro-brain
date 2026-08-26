@@ -174,7 +174,9 @@ describe("local Convex seed transport", () => {
           clientKeyHash: "c".repeat(43),
           observerKeyHash: "b".repeat(43),
         },
-        timeoutMs: 5,
+        // Leave enough time for the request to reach the fixture server before
+        // asserting that aborting the in-flight request closes the socket.
+        timeoutMs: 250,
       }),
     ).rejects.toThrow("seed mutation timed out");
     await expect.poll(() => requestClosed).toBe(true);
