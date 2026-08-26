@@ -2,18 +2,25 @@ import { describe, expect, it, vi } from 'vitest'
 
 const brainMocks = vi.hoisted(() => ({
   headless: vi.fn(async () => []),
+  isolatedContracts: false,
+  queryData: [] as Array<{
+    _id: string
+    title: string
+    sourceKind: 'markdown' | 'link' | 'note'
+    updatedAt: number
+  }>,
 }))
 
 vi.mock('@convex-dev/react-query', () => ({ useConvexQuery: () => [] }))
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (options: { queryFn: () => unknown }) => {
     void options.queryFn()
-    return { data: [], isLoading: false }
+    return { data: brainMocks.queryData, isLoading: false }
   },
 }))
 vi.mock('#lib/auth/route-auth', () => ({
   isFixtureAuthRuntime: () => true,
-  isIsolatedContractsRuntime: () => false,
+  isIsolatedContractsRuntime: () => brainMocks.isolatedContracts,
 }))
 vi.mock('#lib/headless-api', () => ({
   runIsolatedHeadlessOperation: brainMocks.headless,
@@ -98,5 +105,22 @@ describe('Brain page-tree adapter', () => {
     })
     expect(brainPageFixtures[0]).not.toHaveProperty('subject')
     expect(brainMocks.headless).toHaveBeenCalled()
+  })
+
+  it('prefers isolated contract pages over fixture pages', () => {
+    brainMocks.isolatedContracts = true
+    brainMocks.queryData = [
+      {
+        _id: 'contract-page',
+        title: 'Contract Brain page',
+        sourceKind: 'markdown',
+        updatedAt: 1_782_924_800_000,
+      },
+    ]
+
+    expect(useBrainPages({ workspaceId: 'agency' })).toMatchObject({
+      pages: [expect.objectContaining({ title: 'Contract Brain page' })],
+      isLoading: false,
+    })
   })
 })

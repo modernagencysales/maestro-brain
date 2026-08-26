@@ -66,7 +66,7 @@ const connectionType = (
   if (connection?.syncStatus === 'error') return 'Connected · Sync needs attention'
   if (connection?.syncStatus === 'ready')
     return `Connected · ${connection.lastSyncMessageCount ?? 0} messages synced`
-  return 'Connected · Initial sync pending'
+  return connectionCardType(status)
 }
 
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
