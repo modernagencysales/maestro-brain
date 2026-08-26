@@ -114,11 +114,9 @@ const searchEvidence = (input: {
   Effect.gen(function* () {
     const relevanceMode = input.relevanceMode ?? "broad";
     const queryTokens = selectEvidenceQueryTokens(
-      evidenceTokens("", input.query)
-        .map(({ token }) => token)
-        .slice(0, 12),
+      evidenceTokens("", input.query).map(({ token }) => token),
       relevanceMode,
-    );
+    ).slice(0, 12);
     if (queryTokens.length === 0) return [];
     const reader = yield* DatabaseReader;
     const candidates = new Map<

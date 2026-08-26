@@ -31,6 +31,9 @@ const GROUNDED_QUERY_STOP_WORDS = new Set([
   "which",
   "while",
   "would",
+  "you",
+  "your",
+  "yours",
 ]);
 
 export const selectEvidenceQueryTokens = (

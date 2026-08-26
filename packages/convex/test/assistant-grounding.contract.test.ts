@@ -212,6 +212,18 @@ describe("grounded assistant Confect contract", () => {
         sourceModifiedAt: now,
         observedAt: now,
       });
+      yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:apero",
+        runKey: "run-single-token",
+        sourceKey: "slack:zeta-message",
+        revisionKey: "revision-1",
+        title: "Reference notes",
+        markdown: "Zeta",
+        sourceModifiedAt: now,
+        observedAt: now,
+      });
       yield* actor.mutation(refs.public.brain.pages.createMarkdown, {
         workspaceId: seeded.workspaceId,
         slug: "what-we-do",
@@ -230,7 +242,15 @@ describe("grounded assistant Confect contract", () => {
         refs.public.agents.assistant.answerQuestion,
         { workspaceId: seeded.workspaceId, question },
       );
-      return { answer, broad };
+      const verboseAnswer = yield* actor.query(
+        refs.public.agents.assistant.answerQuestion,
+        {
+          workspaceId: seeded.workspaceId,
+          question:
+            "Could you explain what current authoritative company context evidence sources show, and tell me where Zeta is used?",
+        },
+      );
+      return { answer, broad, verboseAnswer };
     });
 
     const result = await Effect.runPromise(
@@ -245,6 +265,17 @@ describe("grounded assistant Confect contract", () => {
       }),
     ]);
     expect(result.broad.map(({ title }) => title)).toContain("What We Do");
+    expect(result.verboseAnswer).toMatchObject({
+      status: "answered",
+      contextPack: {
+        citations: [
+          expect.objectContaining({
+            sourceId: "slack:zeta-message",
+            excerpt: "Zeta",
+          }),
+        ],
+      },
+    });
   });
 
   it("combines distinct terms across sources for a conjunctive question", async () => {
