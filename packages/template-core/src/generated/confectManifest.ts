@@ -791,6 +791,86 @@ const sharedConfectJsonSchemasValue4 = {
         },
       ],
     },
+    syncStatus: {
+      anyOf: [
+        {
+          type: "string",
+          enum: ["syncing", "ready", "error"],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    lastSyncedAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    lastSyncMessageCount: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    lastSyncPageCount: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    syncErrorCode: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     createdAt: {
       anyOf: [
         {
@@ -2351,6 +2431,86 @@ const sharedConfectJsonSchemas = {
           ],
         },
         errorCode: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        syncStatus: {
+          anyOf: [
+            {
+              type: "string",
+              enum: ["syncing", "ready", "error"],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lastSyncedAt: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lastSyncMessageCount: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lastSyncPageCount: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        syncErrorCode: {
           anyOf: [
             {
               type: "string",
