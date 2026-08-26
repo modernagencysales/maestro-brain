@@ -372,20 +372,30 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
   return normalized;
 };
 
-const adaptProcedureData = <TData,>(key: string, value: unknown): TData =>
-  (key === "workspaceMembers.invitation" &&
-  value !== null &&
-  typeof value === "object" &&
-  "workspace" in value
-    ? {
-        ...value,
-        workspace: normalizeWorkspace(value.workspace),
-      }
-    : key === "workspaces.bySlug" ||
-        key === "workspaces.create" ||
-        key === "workspaces.update"
-      ? normalizeWorkspace(value)
-      : value) as TData;
+const normalizeWorkspaceInvitation = (value: unknown): unknown => {
+  if (value === null || typeof value !== "object") return value;
+  if (!("workspace" in value)) return value;
+  return {
+    ...value,
+    workspace: normalizeWorkspace(value.workspace),
+  };
+};
+
+const workspaceResultPaths = [
+  "workspaces.bySlug",
+  "workspaces.create",
+  "workspaces.update",
+] as const;
+
+const adaptProcedureData = <TData,>(key: string, value: unknown): TData => {
+  if (key === "workspaceMembers.invitation") {
+    return normalizeWorkspaceInvitation(value) as TData;
+  }
+  if (workspaceResultPaths.some((path) => path === key)) {
+    return normalizeWorkspace(value) as TData;
+  }
+  return value as TData;
+};
 
 export const realQueryInput = (
   key: string,
