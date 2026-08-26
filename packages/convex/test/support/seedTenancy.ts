@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import type { GenericId } from "convex/values";
 
 import { Id } from "../../confect/_generated/id";
 import { DatabaseWriter } from "../../confect/_generated/services";
@@ -80,4 +81,43 @@ export const seedTenancy = (
       .pipe(Effect.orDie);
 
     return { organizationId, workspaceId, memberUserId, outsiderUserId };
+  });
+
+export const seedWorkspaceForMember = (input: {
+  readonly organizationId: GenericId<"organizations">;
+  readonly ownerUserId: GenericId<"users">;
+  readonly name: string;
+  readonly slug: string;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const workspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId: input.organizationId,
+        ownerUserId: input.ownerUserId,
+        name: input.name,
+        slug: input.slug,
+        status: "active",
+        dataClassification: "internal",
+        createdAt: input.now,
+        updatedAt: input.now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("workspaceMembers")
+      .insert({
+        workspaceId,
+        userId: input.ownerUserId,
+        role: "editor",
+        status: "active",
+        acceptedAt: input.now,
+        revokedAt: null,
+        deletedAt: null,
+        createdAt: input.now,
+        updatedAt: input.now,
+      })
+      .pipe(Effect.orDie);
+    return workspaceId;
   });
