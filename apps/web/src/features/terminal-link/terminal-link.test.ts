@@ -3,9 +3,23 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTerminalCallbackUrl,
   parseLoopbackCallback,
+  terminalLinkSearchSchema,
 } from './terminal-link'
 
 describe('terminal link callback', () => {
+  it('turns incomplete browser links into a renderable invalid request', () => {
+    expect(terminalLinkSearchSchema.parse({})).toEqual({
+      callback: '',
+      state: '',
+    })
+    expect(
+      terminalLinkSearchSchema.parse({
+        callback: 'not-a-url',
+        state: 'short',
+      }),
+    ).toEqual({ callback: 'not-a-url', state: '' })
+  })
+
   it('accepts only loopback HTTP callback origins', () => {
     expect(parseLoopbackCallback('http://127.0.0.1:43127/callback')?.origin).toBe(
       'http://127.0.0.1:43127',
