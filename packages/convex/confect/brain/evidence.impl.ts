@@ -18,6 +18,14 @@ import {
   projectEvidence,
   retireEvidence,
 } from "./evidenceProjection";
+import {
+  addEvidenceCoverage,
+  compareEvidenceCandidates,
+  contributesEvidenceCoverage,
+  hasSufficientEvidenceCoverage,
+  selectEvidenceQueryTokens,
+  type EvidenceRelevanceMode,
+} from "./groundedRelevance";
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const HEALTH_COUNT_LIMIT = 1_000;
 const EVIDENCE_PROVIDERS = [
@@ -101,12 +109,16 @@ const searchEvidence = (input: {
   readonly query: string;
   readonly limit?: number | undefined;
   readonly asOf: number;
-  readonly relevanceMode?: "broad" | "grounded" | undefined;
+  readonly relevanceMode?: EvidenceRelevanceMode | undefined;
 }) =>
   Effect.gen(function* () {
-    const queryTokens = evidenceTokens("", input.query)
-      .map(({ token }) => token)
-      .slice(0, 12);
+    const relevanceMode = input.relevanceMode ?? "broad";
+    const queryTokens = selectEvidenceQueryTokens(
+      evidenceTokens("", input.query)
+        .map(({ token }) => token)
+        .slice(0, 12),
+      relevanceMode,
+    );
     if (queryTokens.length === 0) return [];
     const reader = yield* DatabaseReader;
     const candidates = new Map<
@@ -115,6 +127,7 @@ const searchEvidence = (input: {
         readonly entryKey: string;
         readonly passageStartOffset: number;
         readonly passageEndOffset: number;
+        readonly matchedTokens: Set<string>;
         score: number;
       }
     >();
@@ -142,15 +155,16 @@ const searchEvidence = (input: {
           passageStartOffset: posting.passageStartOffset ?? 0,
           passageEndOffset:
             posting.passageEndOffset ?? Number.POSITIVE_INFINITY,
+          matchedTokens: new Set<string>(),
           score: 0,
         };
+        candidate.matchedTokens.add(token);
         candidate.score += posting.weight;
         candidates.set(candidateKey, candidate);
       }
     }
-    const ranked = [...candidates.entries()].sort(
-      ([leftKey, left], [rightKey, right]) =>
-        right.score - left.score || leftKey.localeCompare(rightKey),
+    const ranked = [...candidates.entries()].sort((left, right) =>
+      compareEvidenceCandidates(relevanceMode, left, right),
     );
     const citationLimit = Math.min(
       Math.max(Math.floor(input.limit ?? 3), 1),
@@ -158,13 +172,18 @@ const searchEvidence = (input: {
     );
     const citations = [];
     const citedEntries = new Set<string>();
-    const groundedMinimumScore =
-      input.relevanceMode === "grounded" && queryTokens.length > 1 ? 2 : 0;
-    let topEligibleScore: number | null = null;
+    const coveredTokens = new Set<string>();
     for (const [, candidate] of ranked) {
       if (citations.length >= citationLimit) break;
-      if (candidate.score < groundedMinimumScore) break;
       if (citedEntries.has(candidate.entryKey)) continue;
+      if (
+        !contributesEvidenceCoverage(
+          relevanceMode,
+          candidate.matchedTokens,
+          coveredTokens,
+        )
+      )
+        continue;
       const entry = yield* reader
         .table("brainRetrievalEntries")
         .index("by_workspace_and_entry_key", (q) =>
@@ -177,12 +196,6 @@ const searchEvidence = (input: {
       if (entry === null || entry.status !== "current") continue;
       if (!(yield* providerIsEligible(input.workspaceId, entry.provider)))
         continue;
-      if (topEligibleScore === null) topEligibleScore = candidate.score;
-      else if (
-        input.relevanceMode === "grounded" &&
-        candidate.score < topEligibleScore * 0.4
-      )
-        break;
       if (
         entry.contentHash !== evidenceContentHash(entry.title, entry.markdown)
       )
@@ -209,8 +222,15 @@ const searchEvidence = (input: {
         freshness: freshness(entry.sourceModifiedAt, input.asOf),
       });
       citedEntries.add(entry.entryKey);
+      addEvidenceCoverage(coveredTokens, candidate.matchedTokens);
     }
-    return citations;
+    return hasSufficientEvidenceCoverage(
+      relevanceMode,
+      queryTokens.length,
+      coveredTokens.size,
+    )
+      ? citations
+      : [];
   });
 
 const search = FunctionImpl.make(
