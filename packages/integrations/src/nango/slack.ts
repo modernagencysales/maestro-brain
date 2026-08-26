@@ -38,6 +38,19 @@ export class SlackSnapshotCapacityExceeded extends Error {
   }
 }
 
+export class SlackChannelAllowlistInvalid extends Error {
+  readonly resource = "channels" as const;
+
+  constructor(readonly missingChannelIds: readonly string[]) {
+    super(
+      missingChannelIds.length === 0
+        ? "Slack snapshot requires at least one approved channel."
+        : `Slack snapshot could not resolve approved channels: ${missingChannelIds.join(", ")}.`,
+    );
+    this.name = "SlackChannelAllowlistInvalid";
+  }
+}
+
 const DEFAULT_MAX_CHANNELS = 500;
 const DEFAULT_MAX_MESSAGES_PER_CHANNEL = 10_000;
 const DEFAULT_MAX_MESSAGES_TOTAL = 20_000;
@@ -218,6 +231,7 @@ export const fetchSlackSnapshot = async (input: {
   readonly secretKey: string;
   readonly providerConfigKey: string;
   readonly connectionId: string;
+  readonly channelIds: readonly string[];
   readonly request?: Request;
   readonly limits?: SlackSnapshotLimits;
 }): Promise<SlackSnapshot> => {
@@ -239,6 +253,13 @@ export const fetchSlackSnapshot = async (input: {
     input.limits?.maxPagesPerCollection,
     DEFAULT_MAX_PAGES_PER_COLLECTION,
   );
+  const approvedChannelIds = [
+    ...new Set(input.channelIds.map((channelId) => channelId.trim())),
+  ].filter(Boolean);
+  if (approvedChannelIds.length === 0)
+    throw new SlackChannelAllowlistInvalid([]);
+  if (approvedChannelIds.length > maxChannels)
+    throw new SlackSnapshotCapacityExceeded("channels", maxChannels);
   const channelRecords = await fetchCollection({
     method: "conversations.list",
     itemKey: "channels",
@@ -258,11 +279,23 @@ export const fetchSlackSnapshot = async (input: {
       ? [{ id, name }]
       : [];
   });
-  if (channelIdentities.length > maxChannels)
-    throw new SlackSnapshotCapacityExceeded("channels", maxChannels);
+  const channelById = new Map(
+    channelIdentities.map((channel) => [channel.id, channel] as const),
+  );
+  const missingChannelIds = approvedChannelIds.filter(
+    (channelId) => !channelById.has(channelId),
+  );
+  if (missingChannelIds.length > 0)
+    throw new SlackChannelAllowlistInvalid(missingChannelIds);
+  const approvedChannels = approvedChannelIds
+    .map((channelId) => channelById.get(channelId))
+    .filter(
+      (channel): channel is { readonly id: string; readonly name: string } =>
+        channel !== undefined,
+    );
 
   const channels: SlackSnapshot["channels"][number][] = [];
-  for (const channel of channelIdentities) {
+  for (const channel of approvedChannels) {
     channels.push({
       ...channel,
       messages: await loadChannelMessages({

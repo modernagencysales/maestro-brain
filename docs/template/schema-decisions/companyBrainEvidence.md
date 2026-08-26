@@ -7,7 +7,12 @@ not alter existing `brainPages` or `pageRevisions` rows.
 `brainEvidenceRevisions` is immutable source history. `brainEvidenceSources`
 holds the current revision pointer and removal state. `brainRetrievalEntries`
 and `brainRetrievalTokens` are derived, bounded search projections updated in
-the same mutation as a source revision. `brainConnectorRuns` and
+the same mutation as a source revision. Retrieval projection version 2 stores
+optional passage identity and exact character bounds on token postings. This is
+additive: old token rows remain valid as whole-document candidates until the
+bounded provisioning repair or the next source publication reprojects them. New
+projections fail explicitly when the 48-passage/3,840-token per-entry capacity
+is exceeded instead of silently truncating the source. `brainConnectorRuns` and
 `brainConnectorRunSeen` record bounded full-traversal receipts so only a
 successful complete run may infer removals.
 

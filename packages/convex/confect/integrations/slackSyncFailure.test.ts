@@ -6,7 +6,7 @@ const source = readFileSync(
   "utf8",
 );
 const syncSlack = source.slice(
-  source.indexOf("const syncSlack ="),
+  source.indexOf("const runSlackSync ="),
   source.indexOf("const recordSlackSync ="),
 );
 

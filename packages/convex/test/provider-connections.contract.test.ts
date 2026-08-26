@@ -112,4 +112,64 @@ describe("provider connections Confect contract", () => {
     );
     expect(result).toBeInstanceOf(MemberNotInWorkspace);
   });
+
+  it("persists an approved sync scope for reconciliation and clears it on reauthorization", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const begun = yield* actor.mutation(
+        refs.public.integrations.connections.begin,
+        { workspaceId: seeded.workspaceId, provider: "slack" },
+      );
+      yield* actor.mutation(refs.public.integrations.connections.complete, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        generation: begun.generation,
+        completion: {
+          status: "active",
+          connectionRef: "conn_redacted_1",
+        },
+      });
+      yield* confect.mutation(
+        refs.internal.integrations.connections.recordSlackSync,
+        {
+          workspaceId: seeded.workspaceId,
+          status: "ready",
+          syncedAt: now,
+          messageCount: 2,
+          pageCount: 1,
+          channelIds: ["C02", "C01", "C02"],
+        },
+      );
+      const configured = yield* actor.query(
+        refs.public.integrations.connections.list,
+        { workspaceId: seeded.workspaceId },
+      );
+      const dispatch = yield* confect.mutation(
+        refs.internal.integrations.connections.dispatchScheduledSyncs,
+        {},
+      );
+      const reauthorizing = yield* actor.mutation(
+        refs.public.integrations.connections.begin,
+        { workspaceId: seeded.workspaceId, provider: "slack" },
+      );
+      return { configured: configured[0], dispatch, reauthorizing };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.configured).toMatchObject({
+      scheduledSyncEnabled: true,
+      slackChannelIds: ["C01", "C02"],
+    });
+    expect(result.dispatch).toEqual({ scheduledCount: 1, skippedCount: 0 });
+    expect(result.reauthorizing).not.toHaveProperty("scheduledSyncEnabled");
+    expect(result.reauthorizing).not.toHaveProperty("slackChannelIds");
+  });
 });

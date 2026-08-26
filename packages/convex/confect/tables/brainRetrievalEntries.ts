@@ -12,6 +12,7 @@ export const BrainRetrievalEntryRow = S.Struct({
   title: S.String,
   markdown: S.String,
   contentHash: S.String,
+  projectionVersion: S.optional(S.Number),
   locator: S.optional(S.String),
   sourceModifiedAt: S.Number,
   observedAt: S.Number,

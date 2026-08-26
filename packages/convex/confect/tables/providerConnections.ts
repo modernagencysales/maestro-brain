@@ -19,6 +19,14 @@ export const CurrentProviderConnectionRow = Schema.Struct({
   lastSyncPageCount: Schema.optional(Schema.Number),
   lastSyncSourceCount: Schema.optional(Schema.Number),
   syncErrorCode: Schema.optional(Schema.NonEmptyString),
+  scheduledSyncEnabled: Schema.optional(Schema.Boolean),
+  slackChannelIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+  googleDriveId: Schema.optional(Schema.NonEmptyString),
+  googleDriveRootFolderIds: Schema.optional(
+    Schema.Array(Schema.NonEmptyString),
+  ),
+  hubSpotPortalId: Schema.optional(Schema.NonEmptyString),
+  syncAllowlistGeneration: Schema.optional(Schema.Number),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
 });
@@ -76,6 +84,7 @@ export default Table.make(() => ProviderConnectionRow)
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_and_provider", ["workspaceId", "provider"])
   .index("by_workspace_and_status", ["workspaceId", "status"])
+  .index("by_status", ["status"])
   .index("by_organization", ["organizationKey"])
   .index("by_organization_status", ["organizationKey", "status"])
   .index("by_connection_key", ["connectionKey"])

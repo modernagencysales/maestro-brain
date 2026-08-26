@@ -129,6 +129,7 @@ export const setupProject = (input: {
             `Create a workspace API key at ${apiKeySettingsUrl(input.config)}, then rerun setup.`,
           ]),
       'Run eval "$(maestro-brain env)" once in each agent terminal.',
+      "Or launch a terminal agent with maestro-brain run -- codex (or claude) so the key is injected without changing shell state.",
       "Trust/restart the target runtime, then verify maestro-brain is registered.",
       "For Claude Cowork, add the generated .cowork/maestro-brain.json HTTP connector in Cowork if it is not discovered automatically.",
       "Run maestro-brain doctor.",

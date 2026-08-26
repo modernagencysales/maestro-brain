@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { callApi, failure, type CliResult } from "./api.js";
@@ -19,6 +20,18 @@ export type CliDependencies = {
   readonly platform: NodeJS.Platform;
   readonly nodeVersion: string;
   readonly linkAccount: typeof linkTerminal;
+  readonly runProcess: (
+    command: string,
+    args: readonly string[],
+    options: {
+      readonly cwd: string;
+      readonly environment: Readonly<Record<string, string | undefined>>;
+    },
+  ) => {
+    readonly status: number | null;
+    readonly signal: NodeJS.Signals | null;
+    readonly error?: Error | undefined;
+  };
 };
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -33,6 +46,18 @@ export const defaultDependencies = (): CliDependencies => ({
   platform: process.platform,
   nodeVersion: process.version,
   linkAccount: linkTerminal,
+  runProcess: (command, args, options) => {
+    const result = spawnSync(command, [...args], {
+      cwd: options.cwd,
+      env: { ...options.environment },
+      stdio: "inherit",
+    });
+    return {
+      status: result.status,
+      signal: result.signal,
+      ...(result.error === undefined ? {} : { error: result.error }),
+    };
+  },
 });
 
 export const option = (

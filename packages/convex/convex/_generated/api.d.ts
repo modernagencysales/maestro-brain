@@ -18,6 +18,7 @@ import type * as brain_pages from "../brain/pages.js";
 import type * as capabilities__versions_publicationEcho_v1 from "../capabilities/_versions/publicationEcho/v1.js";
 import type * as capabilities_catalog from "../capabilities/catalog.js";
 import type * as capabilities_sourceGroundedBrief from "../capabilities/sourceGroundedBrief.js";
+import type * as crons from "../crons.js";
 import type * as demo_showcase from "../demo/showcase.js";
 import type * as deploy_authority from "../deploy/authority.js";
 import type * as editorSync from "../editorSync.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "capabilities/_versions/publicationEcho/v1": typeof capabilities__versions_publicationEcho_v1;
   "capabilities/catalog": typeof capabilities_catalog;
   "capabilities/sourceGroundedBrief": typeof capabilities_sourceGroundedBrief;
+  crons: typeof crons;
   "demo/showcase": typeof demo_showcase;
   "deploy/authority": typeof deploy_authority;
   editorSync: typeof editorSync;

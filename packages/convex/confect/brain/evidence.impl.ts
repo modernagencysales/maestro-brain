@@ -40,14 +40,22 @@ const freshness = (sourceModifiedAt: number, now: number) => {
       : ("stale" as const);
 };
 
-const excerpt = (markdown: string, queryTokens: readonly string[]) => {
-  const normalized = markdown.toLowerCase();
+const excerpt = (
+  markdown: string,
+  queryTokens: readonly string[],
+  passageStartOffset = 0,
+  passageEndOffset = markdown.length,
+) => {
+  const passage = markdown.slice(passageStartOffset, passageEndOffset);
+  const normalized = passage.toLowerCase();
   const first = queryTokens.reduce((best, token) => {
     const found = normalized.indexOf(token);
     return found < 0 ? best : Math.min(best, found);
   }, Number.POSITIVE_INFINITY);
-  const startOffset = Math.max(0, (Number.isFinite(first) ? first : 0) - 120);
-  const endOffset = Math.min(markdown.length, startOffset + 640);
+  const startOffset =
+    passageStartOffset +
+    Math.max(0, (Number.isFinite(first) ? first : 0) - 120);
+  const endOffset = Math.min(passageEndOffset, startOffset + 640);
   return {
     excerpt: markdown.slice(startOffset, endOffset),
     startOffset,
@@ -100,7 +108,15 @@ const searchEvidence = (input: {
       .slice(0, 12);
     if (queryTokens.length === 0) return [];
     const reader = yield* DatabaseReader;
-    const scores = new Map<string, number>();
+    const candidates = new Map<
+      string,
+      {
+        readonly entryKey: string;
+        readonly passageStartOffset: number;
+        readonly passageEndOffset: number;
+        score: number;
+      }
+    >();
     for (const token of queryTokens) {
       const postings = yield* reader
         .table("brainRetrievalTokens")
@@ -115,24 +131,41 @@ const searchEvidence = (input: {
           message:
             "Retrieval candidate capacity was exceeded; narrow the query or rebuild the index.",
         });
-      for (const posting of postings)
-        scores.set(
-          posting.entryKey,
-          (scores.get(posting.entryKey) ?? 0) + posting.weight,
-        );
+      for (const posting of postings) {
+        const candidateKey =
+          posting.passageKey === undefined
+            ? posting.entryKey
+            : `${posting.entryKey}:${posting.passageKey}`;
+        const candidate = candidates.get(candidateKey) ?? {
+          entryKey: posting.entryKey,
+          passageStartOffset: posting.passageStartOffset ?? 0,
+          passageEndOffset:
+            posting.passageEndOffset ?? Number.POSITIVE_INFINITY,
+          score: 0,
+        };
+        candidate.score += posting.weight;
+        candidates.set(candidateKey, candidate);
+      }
     }
-    const ranked = [...scores.entries()]
-      .sort(
-        ([leftKey, leftScore], [rightKey, rightScore]) =>
-          rightScore - leftScore || leftKey.localeCompare(rightKey),
-      )
-      .slice(0, Math.min(Math.max(Math.floor(input.limit ?? 3), 1), 10));
+    const ranked = [...candidates.entries()].sort(
+      ([leftKey, left], [rightKey, right]) =>
+        right.score - left.score || leftKey.localeCompare(rightKey),
+    );
+    const citationLimit = Math.min(
+      Math.max(Math.floor(input.limit ?? 3), 1),
+      10,
+    );
     const citations = [];
-    for (const [entryKey] of ranked) {
+    const citedEntries = new Set<string>();
+    for (const [, candidate] of ranked) {
+      if (citations.length >= citationLimit) break;
+      if (citedEntries.has(candidate.entryKey)) continue;
       const entry = yield* reader
         .table("brainRetrievalEntries")
         .index("by_workspace_and_entry_key", (q) =>
-          q.eq("workspaceId", input.workspaceId).eq("entryKey", entryKey),
+          q
+            .eq("workspaceId", input.workspaceId)
+            .eq("entryKey", candidate.entryKey),
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
@@ -152,13 +185,19 @@ const searchEvidence = (input: {
         revisionKey: entry.revisionKey,
         provider: entry.provider,
         title: entry.title,
-        ...excerpt(entry.markdown, queryTokens),
+        ...excerpt(
+          entry.markdown,
+          queryTokens,
+          candidate.passageStartOffset,
+          Math.min(candidate.passageEndOffset, entry.markdown.length),
+        ),
         contentHash: entry.contentHash,
         ...(entry.locator === undefined ? {} : { locator: entry.locator }),
         sourceModifiedAt: entry.sourceModifiedAt,
         observedAt: entry.observedAt,
         freshness: freshness(entry.sourceModifiedAt, input.asOf),
       });
+      citedEntries.add(entry.entryKey);
     }
     return citations;
   });

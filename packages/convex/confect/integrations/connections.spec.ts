@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 import { Id } from "../_generated/id";
 import {
   MemberNotInWorkspace,
+  NoRecoverableError,
   NotFound,
   StaleRevision,
   Unauthorized,
@@ -72,6 +73,26 @@ const ActorRevokeArgs = Schema.Struct({
   userId: Id("users"),
 });
 const ConnectionList = Schema.Array(CurrentProviderConnectionDoc);
+const ConnectionOrNull = Schema.NullOr(CurrentProviderConnectionDoc);
+const SlackSyncArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  channelIds: Schema.Array(Schema.NonEmptyString).pipe(
+    Schema.check(Schema.isMinLength(1)),
+  ),
+});
+const GoogleDriveSyncArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  driveId: Schema.NonEmptyString,
+  rootFolderIds: Schema.Array(Schema.NonEmptyString).pipe(
+    Schema.check(Schema.isMinLength(1)),
+  ),
+  allowlistGeneration: Schema.optional(Schema.Number),
+});
+const HubSpotSyncArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  portalId: Schema.NonEmptyString,
+  allowlistGeneration: Schema.optional(Schema.Number),
+});
 
 const list = defineContractFunction(
   FunctionSpec.publicQuery({
@@ -259,7 +280,7 @@ const completeProviderOauth = FunctionSpec.publicAction({
 
 const syncSlack = FunctionSpec.publicAction({
   name: "syncSlack",
-  args: () => Schema.Struct({ workspaceId: Id("workspaces") }),
+  args: () => SlackSyncArgs,
   returns: () =>
     Schema.Struct({
       pageCount: Schema.Number,
@@ -271,15 +292,7 @@ const syncSlack = FunctionSpec.publicAction({
 
 const syncGoogleDrive = FunctionSpec.publicAction({
   name: "syncGoogleDrive",
-  args: () =>
-    Schema.Struct({
-      workspaceId: Id("workspaces"),
-      driveId: Schema.NonEmptyString,
-      rootFolderIds: Schema.Array(Schema.NonEmptyString).pipe(
-        Schema.check(Schema.isMinLength(1)),
-      ),
-      allowlistGeneration: Schema.optional(Schema.Number),
-    }),
+  args: () => GoogleDriveSyncArgs,
   returns: () =>
     Schema.Struct({
       sourceCount: Schema.Number,
@@ -290,12 +303,7 @@ const syncGoogleDrive = FunctionSpec.publicAction({
 
 const syncHubSpot = FunctionSpec.publicAction({
   name: "syncHubSpot",
-  args: () =>
-    Schema.Struct({
-      workspaceId: Id("workspaces"),
-      portalId: Schema.NonEmptyString,
-      allowlistGeneration: Schema.optional(Schema.Number),
-    }),
+  args: () => HubSpotSyncArgs,
   returns: () =>
     Schema.Struct({
       sourceCount: Schema.Number,
@@ -313,6 +321,10 @@ const recordProviderSync = FunctionSpec.internalMutation({
       status: Schema.Literals(["syncing", "ready", "error"]),
       syncedAt: Schema.optional(Schema.Number),
       sourceCount: Schema.optional(Schema.Number),
+      driveId: Schema.optional(Schema.NonEmptyString),
+      rootFolderIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+      portalId: Schema.optional(Schema.NonEmptyString),
+      allowlistGeneration: Schema.optional(Schema.Number),
       errorCode: Schema.optional(Schema.NonEmptyString),
     }),
   returns: () => CurrentProviderConnectionDoc,
@@ -328,10 +340,57 @@ const recordSlackSync = FunctionSpec.internalMutation({
       syncedAt: Schema.optional(Schema.Number),
       messageCount: Schema.optional(Schema.Number),
       pageCount: Schema.optional(Schema.Number),
+      channelIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
       errorCode: Schema.optional(Schema.NonEmptyString),
     }),
   returns: () => CurrentProviderConnectionDoc,
   error: () => MutationError,
+});
+
+const connectionForSync = FunctionSpec.internalQuery({
+  name: "connectionForSync",
+  args: () => WorkspaceProviderArgs,
+  returns: () => ConnectionOrNull,
+  error: () => NoRecoverableError,
+});
+
+const syncSlackScheduled = FunctionSpec.internalAction({
+  name: "syncSlackScheduled",
+  args: () => SlackSyncArgs,
+  returns: () =>
+    Schema.Struct({
+      pageCount: Schema.Number,
+      messageCount: Schema.Number,
+      syncedAt: Schema.Number,
+    }),
+  error: () => SyncError,
+});
+
+const syncGoogleDriveScheduled = FunctionSpec.internalAction({
+  name: "syncGoogleDriveScheduled",
+  args: () => GoogleDriveSyncArgs,
+  returns: () =>
+    Schema.Struct({ sourceCount: Schema.Number, syncedAt: Schema.Number }),
+  error: () => SyncError,
+});
+
+const syncHubSpotScheduled = FunctionSpec.internalAction({
+  name: "syncHubSpotScheduled",
+  args: () => HubSpotSyncArgs,
+  returns: () =>
+    Schema.Struct({ sourceCount: Schema.Number, syncedAt: Schema.Number }),
+  error: () => SyncError,
+});
+
+const dispatchScheduledSyncs = FunctionSpec.internalMutation({
+  name: "dispatchScheduledSyncs",
+  args: () => Schema.Struct({}),
+  returns: () =>
+    Schema.Struct({
+      scheduledCount: Schema.Number,
+      skippedCount: Schema.Number,
+    }),
+  error: () => Schema.Union([ValidationFailed]),
 });
 
 const contractFunctions = [list, begin, complete, revoke] as const;
@@ -348,6 +407,11 @@ export default GroupSpec.make()
   .addFunction(syncSlack)
   .addFunction(syncGoogleDrive)
   .addFunction(syncHubSpot)
+  .addFunction(syncSlackScheduled)
+  .addFunction(syncGoogleDriveScheduled)
+  .addFunction(syncHubSpotScheduled)
+  .addFunction(connectionForSync)
+  .addFunction(dispatchScheduledSyncs)
   .addFunction(recordSlackSync)
   .addFunction(recordProviderSync)
   .addFunction(complete.spec)

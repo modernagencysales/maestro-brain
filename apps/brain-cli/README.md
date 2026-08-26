@@ -7,6 +7,7 @@ npm install --global https://github.com/modernagencysales/maestro-brain/releases
 maestro-brain setup
 eval "$(maestro-brain env)"
 maestro-brain doctor
+maestro-brain run -- codex
 maestro-brain ask "What is our ICP?"
 maestro-brain evidence search "What is our ICP?"
 maestro-brain evidence health
@@ -21,6 +22,8 @@ and Brain API origin with user-only file permissions, then creates Codex, Claude
 Code, Claude Cowork, and Ask Apero project configuration without embedding the
 key in agent config files. Codex HTTP MCP still requires the bearer environment
 variable, so source it into each agent terminal with the printed `eval` command.
+Alternatively, `maestro-brain run -- codex` or `maestro-brain run -- claude`
+launches the agent with the stored key injected only into that child process.
 Claude Cowork may require adding the generated `.cowork/maestro-brain.json` HTTP
 connector through its connector UI when project descriptors are not discovered
 automatically.

@@ -899,6 +899,100 @@ const sharedConfectJsonSchemasValue4 = {
         },
       ],
     },
+    scheduledSyncEnabled: {
+      anyOf: [
+        {
+          type: "boolean",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    slackChannelIds: {
+      anyOf: [
+        {
+          type: "array",
+          items: {
+            type: "string",
+            allOf: [
+              {
+                minLength: 1,
+              },
+            ],
+          },
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    googleDriveId: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    googleDriveRootFolderIds: {
+      anyOf: [
+        {
+          type: "array",
+          items: {
+            type: "string",
+            allOf: [
+              {
+                minLength: 1,
+              },
+            ],
+          },
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    hubSpotPortalId: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    syncAllowlistGeneration: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     createdAt: {
       anyOf: [
         {
@@ -2650,6 +2744,100 @@ const sharedConfectJsonSchemas = {
               allOf: [
                 {
                   minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        scheduledSyncEnabled: {
+          anyOf: [
+            {
+              type: "boolean",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        slackChannelIds: {
+          anyOf: [
+            {
+              type: "array",
+              items: {
+                type: "string",
+                allOf: [
+                  {
+                    minLength: 1,
+                  },
+                ],
+              },
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        googleDriveId: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        googleDriveRootFolderIds: {
+          anyOf: [
+            {
+              type: "array",
+              items: {
+                type: "string",
+                allOf: [
+                  {
+                    minLength: 1,
+                  },
+                ],
+              },
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        hubSpotPortalId: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        syncAllowlistGeneration: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
                 },
               ],
             },

@@ -31,6 +31,8 @@ Setup and diagnostics
   maestro-brain setup [--project <directory>]
   maestro-brain setup --workspace <slug> --api-key <key> [--api-url <origin>]
   eval "$(maestro-brain env)"
+  maestro-brain run -- codex
+  maestro-brain run -- claude
   maestro-brain doctor
   maestro-brain status
   maestro-brain logout
@@ -96,6 +98,44 @@ const setupCommand = async (
   });
 };
 
+const runCommand = (
+  argv: readonly string[],
+  dependencies: CliDependencies,
+): CliResult => {
+  const config = configFor(dependencies);
+  if (isCliResult(config)) return config;
+  if (!config.apiKey)
+    return failure("No linked API key is configured. Run maestro-brain setup.");
+  const separator = argv.indexOf("--");
+  const commandIndex = separator === -1 ? 1 : separator + 1;
+  const command = argv[commandIndex]?.trim();
+  if (!command)
+    return failure("Usage: maestro-brain run -- <command> [args...]");
+  const result = dependencies.runProcess(
+    command,
+    argv.slice(commandIndex + 1),
+    {
+      cwd: dependencies.cwd,
+      environment: {
+        ...dependencies.environment,
+        MAESTRO_BRAIN_API_KEY: config.apiKey,
+      },
+    },
+  );
+  if (result.error)
+    return failure(`Could not start ${command}: ${result.error.message}`);
+  if (result.status !== 0)
+    return {
+      ...failure(
+        result.signal
+          ? `${command} exited after signal ${result.signal}.`
+          : `${command} exited with status ${result.status ?? "unknown"}.`,
+      ),
+      exitCode: result.status ?? 1,
+    };
+  return success({ ok: true, command });
+};
+
 type CommandHandler = () => CliResult | Promise<CliResult>;
 
 const commandHandlers = (
@@ -113,6 +153,7 @@ const commandHandlers = (
     const quoted = config.apiKey.replaceAll("'", "'\\''");
     return success(`export MAESTRO_BRAIN_API_KEY='${quoted}'`);
   },
+  run: () => runCommand(argv, dependencies),
   doctor: async () => await doctorCommand(dependencies),
   status: () => statusCommand(dependencies),
   logout: () => {

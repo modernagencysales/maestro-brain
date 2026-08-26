@@ -25,6 +25,7 @@ const dependencies = (
   platform: "linux",
   nodeVersion: "v22.18.0",
   linkAccount: vi.fn(),
+  runProcess: vi.fn(() => ({ status: 0, signal: null })),
 });
 
 const configured = (root: string): CliDependencies => {
@@ -121,6 +122,27 @@ describe("standalone teammate CLI", () => {
     expect((await runCli(["env"], deps)).stdout).toBe(
       "export MAESTRO_BRAIN_API_KEY='linked-key'\n",
     );
+  });
+
+  it("launches terminal agents with the stored MCP credential", async () => {
+    const root = temp();
+    const runProcess = vi.fn(() => ({ status: 0, signal: null }));
+    const result = await runCli(["run", "--", "codex", "--full-auto"], {
+      ...configured(root),
+      runProcess,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(runProcess).toHaveBeenCalledWith(
+      "codex",
+      ["--full-auto"],
+      expect.objectContaining({
+        cwd: root,
+        environment: expect.objectContaining({
+          MAESTRO_BRAIN_API_KEY: "secret-key",
+        }),
+      }),
+    );
+    expect(result.stdout).not.toContain("secret-key");
   });
 
   it("asks through the current assistant API contract", async () => {
@@ -536,7 +558,7 @@ describe("standalone teammate CLI", () => {
     const root = temp();
     const deps = configured(root);
     expect((await runCli(["status"], deps)).stdout).not.toContain("secret-key");
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.2\n");
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.3\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
       "/releases/latest/download/maestro-brain.tgz",
     );
