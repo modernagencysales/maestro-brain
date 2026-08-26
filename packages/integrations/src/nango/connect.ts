@@ -1,5 +1,9 @@
 export class NangoProviderUnavailable extends Error {
   readonly _tag = "NangoProviderUnavailable";
+
+  constructor(readonly status?: number) {
+    super("Nango provider unavailable");
+  }
 }
 
 export class NangoConnectionInvalid extends Error {
@@ -19,13 +23,19 @@ const correlationTag = (workspaceId: string, generation: number) =>
 const readJson = async (
   response: Response,
 ): Promise<Record<string, unknown>> => {
-  if (!response.ok) throw new NangoProviderUnavailable();
+  if (!response.ok) throw new NangoProviderUnavailable(response.status);
   try {
     return (await response.json()) as Record<string, unknown>;
   } catch {
     throw new NangoProviderUnavailable();
   }
 };
+
+const isRetryableConnectionRead = (error: unknown): boolean =>
+  error instanceof NangoProviderUnavailable &&
+  (error.status === 404 ||
+    error.status === 429 ||
+    (error.status !== undefined && error.status >= 500));
 
 const authorization = (secretKey: string) => ({
   authorization: `Bearer ${secretKey}`,
@@ -103,8 +113,7 @@ export const verifyNangoConnection = async (input: {
       body = await readJson(response);
       break;
     } catch (error) {
-      if (!(error instanceof NangoProviderUnavailable) || attempt === 4)
-        throw error;
+      if (!isRetryableConnectionRead(error) || attempt === 4) throw error;
       await wait(250 * 2 ** attempt);
     }
   }
