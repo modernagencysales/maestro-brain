@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "./sha256";
 
 export type ProviderSourceScope<ProviderKey extends string = string> =
   Readonly<{
@@ -53,7 +53,7 @@ export const stableJson = (value: unknown): string => {
 };
 
 export const stableHash = (value: unknown): string =>
-  createHash("sha256").update(stableJson(value)).digest("hex");
+  sha256Hex(stableJson(value));
 
 export const nangoProxyHeaders = (input: {
   readonly secretKey: string;
