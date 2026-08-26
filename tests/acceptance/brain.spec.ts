@@ -3,7 +3,10 @@ import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
 test.setTimeout(120_000);
 
-const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 15_000;
+// Source-mode acceptance compiles the complete purchased Contacts and Inbox
+// compositions on demand. Preserve the exact UI/data assertions while allowing
+// the measured cold route to finish loading before declaring data absent.
+const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 30_000;
 
 type BrainPage = Readonly<{
   _id: string;
@@ -105,7 +108,9 @@ test(
     });
     await expect(page.getByText(otherTitle, { exact: true })).toHaveCount(0);
     await page.getByText(title, { exact: true }).first().click();
-    await expect(page.getByLabel("Agency Brain page editor")).toBeVisible();
+    await expect(page.getByLabel("Agency Brain page editor")).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
     await expect(
       page
         .getByRole("navigation", { name: "breadcrumb" })
@@ -184,7 +189,9 @@ test(
     const contentEditable = page
       .getByLabel("Agency Brain page editor")
       .locator('[contenteditable="true"]');
-    await expect(contentEditable).toBeVisible();
+    await expect(contentEditable).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
     await contentEditable.fill(uniqueText);
 
     let current: BrainPage = initial;
@@ -317,6 +324,8 @@ test(
     await expect(page.getByText(agencyTitle, { exact: true })).toHaveCount(0);
 
     await page.goto(`${runtime.webUrl}/unauthorized-workspace/inbox`);
-    await expect(page.getByText("This workspace does not exist")).toBeVisible();
+    await expect(page.getByText("This workspace does not exist")).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
   },
 );
