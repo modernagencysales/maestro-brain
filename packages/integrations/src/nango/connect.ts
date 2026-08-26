@@ -7,6 +7,10 @@ export class NangoConnectionInvalid extends Error {
 }
 
 type Request = (input: string | URL, init?: RequestInit) => Promise<Response>;
+type Sleep = (delayMs: number) => Promise<void>;
+
+const sleep: Sleep = (delayMs) =>
+  new Promise((resolve) => setTimeout(resolve, delayMs));
 
 const workspaceKey = (workspaceId: string) => `workspace:${workspaceId}`;
 const correlationTag = (workspaceId: string, generation: number) =>
@@ -76,6 +80,7 @@ export const verifyNangoConnection = async (input: {
   readonly generation: number;
   readonly connectionId: string;
   readonly request?: Request;
+  readonly sleep?: Sleep;
 }) => {
   if (
     input.connectionId.trim().length === 0 ||
@@ -84,14 +89,26 @@ export const verifyNangoConnection = async (input: {
     throw new NangoConnectionInvalid();
   }
   const request = input.request ?? fetch;
+  const wait = input.sleep ?? sleep;
   const query = new URLSearchParams({
     provider_config_key: input.providerConfigKey,
   });
-  const response = await request(
-    `https://api.nango.dev/connections/${encodeURIComponent(input.connectionId)}?${query.toString()}`,
-    { headers: authorization(input.secretKey) },
-  );
-  const body = await readJson(response);
+  const connectionUrl = `https://api.nango.dev/connections/${encodeURIComponent(input.connectionId)}?${query.toString()}`;
+  let body: Record<string, unknown> | undefined;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const response = await request(connectionUrl, {
+        headers: authorization(input.secretKey),
+      });
+      body = await readJson(response);
+      break;
+    } catch (error) {
+      if (!(error instanceof NangoProviderUnavailable) || attempt === 4)
+        throw error;
+      await wait(250 * 2 ** attempt);
+    }
+  }
+  if (body === undefined) throw new NangoProviderUnavailable();
   const connection = (body.data ?? body) as Record<string, unknown>;
   const endUser = (connection.end_user ?? {}) as Record<string, unknown>;
   const organization = (endUser.organization ?? {}) as Record<string, unknown>;
