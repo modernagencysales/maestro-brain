@@ -8,7 +8,13 @@ export type ActionJobsDoc = Document.Document<typeof schemaDefinition, "actionJo
 export type ActionTriggersDoc = Document.Document<typeof schemaDefinition, "actionTriggers">;
 export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
+export type BrainConnectorRunSeenDoc = Document.Document<typeof schemaDefinition, "brainConnectorRunSeen">;
+export type BrainConnectorRunsDoc = Document.Document<typeof schemaDefinition, "brainConnectorRuns">;
+export type BrainEvidenceRevisionsDoc = Document.Document<typeof schemaDefinition, "brainEvidenceRevisions">;
+export type BrainEvidenceSourcesDoc = Document.Document<typeof schemaDefinition, "brainEvidenceSources">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
+export type BrainRetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "brainRetrievalEntries">;
+export type BrainRetrievalTokensDoc = Document.Document<typeof schemaDefinition, "brainRetrievalTokens">;
 export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations">;
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
 export type ConceptsDoc = Document.Document<typeof schemaDefinition, "concepts">;
@@ -69,7 +75,13 @@ export interface Docs {
   actionTriggers: ActionTriggersDoc;
   apiKeys: ApiKeysDoc;
   billingPlans: BillingPlansDoc;
+  brainConnectorRunSeen: BrainConnectorRunSeenDoc;
+  brainConnectorRuns: BrainConnectorRunsDoc;
+  brainEvidenceRevisions: BrainEvidenceRevisionsDoc;
+  brainEvidenceSources: BrainEvidenceSourcesDoc;
   brainPages: BrainPagesDoc;
+  brainRetrievalEntries: BrainRetrievalEntriesDoc;
+  brainRetrievalTokens: BrainRetrievalTokensDoc;
   citations: CitationsDoc;
   claims: ClaimsDoc;
   concepts: ConceptsDoc;

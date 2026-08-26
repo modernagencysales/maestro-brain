@@ -7,6 +7,7 @@ import {
 
 const response = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });
+const textResponse = (body: string) => new Response(body, { status: 200 });
 
 const driveFile = (id: string, version: string) => ({
   id,
@@ -53,8 +54,11 @@ describe("Nango Google Drive source inventory", () => {
           nextPageToken: "root-page-2",
         }),
       )
+      .mockResolvedValueOnce(textResponse("File B body\r\nSecond line"))
       .mockResolvedValueOnce(response({ files: [driveFile("file-a", "1")] }))
-      .mockResolvedValueOnce(response({ files: [driveFile("file-c", "3")] }));
+      .mockResolvedValueOnce(textResponse("File A body"))
+      .mockResolvedValueOnce(response({ files: [driveFile("file-c", "3")] }))
+      .mockResolvedValueOnce(textResponse("File C body"));
 
     const result = await fetchGoogleDriveInventory({ ...baseInput, request });
 
@@ -82,11 +86,15 @@ describe("Nango Google Drive source inventory", () => {
       revisionKey: "google_drive:file:file-a:file_version:1",
       observationOrder: { kind: "file_version", value: "1" },
       sourceModifiedAt: Date.parse("2026-08-26T01:00:00.000Z"),
-      metadata: { mimeType: "application/vnd.google-apps.document" },
+      metadata: {
+        mimeType: "application/vnd.google-apps.document",
+        contentStatus: "text",
+        contentText: "File A body",
+      },
     });
-    const secondUrl = new URL(String(request.mock.calls[1]?.[0]));
+    const secondUrl = new URL(String(request.mock.calls[2]?.[0]));
     expect(secondUrl.searchParams.get("pageToken")).toBe("root-page-2");
-    const nestedUrl = new URL(String(request.mock.calls[2]?.[0]));
+    const nestedUrl = new URL(String(request.mock.calls[4]?.[0]));
     expect(nestedUrl.searchParams.get("q")).toContain("'nested' in parents");
     expect(request.mock.calls[0]?.[1]?.headers).toMatchObject({
       Authorization: "Bearer nango-secret",
@@ -120,11 +128,14 @@ describe("Nango Google Drive source inventory", () => {
   });
 
   it("fails explicitly instead of truncating source inventory", async () => {
-    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      response({
-        files: [driveFile("file-a", "1"), driveFile("file-b", "1")],
-      }),
-    );
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        response({
+          files: [driveFile("file-a", "1"), driveFile("file-b", "1")],
+        }),
+      )
+      .mockResolvedValueOnce(textResponse("File A body"));
 
     await expect(
       fetchGoogleDriveInventory({

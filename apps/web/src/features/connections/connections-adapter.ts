@@ -16,6 +16,18 @@ export type DurableConnection = Readonly<{
   lastSyncedAt?: number
   lastSyncMessageCount?: number
   lastSyncPageCount?: number
+  lastSyncSourceCount?: number
+}>
+
+export type EvidenceProviderHealth = Readonly<{
+  provider: 'brain_page' | 'slack' | 'google_drive' | 'hubspot' | 'transcript'
+  activeSourceCount: number
+  currentEntryCount: number
+  coverageState: string
+  lastConnectorRun: Readonly<{
+    status: 'running' | 'complete' | 'failed'
+    updatedAt: number
+  }> | null
 }>
 
 export type ConnectionCardModel = Readonly<{

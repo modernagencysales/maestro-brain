@@ -48,6 +48,8 @@ describe("standalone teammate CLI", () => {
     const result = await runCli(["--help"], dependencies(temp()));
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("maestro-brain setup");
+    expect(result.stdout).toContain("evidence search");
+    expect(result.stdout).toContain("evidence source-get");
     expect(result.stdout).toContain("page create");
     expect(result.stdout).toContain("import <folder>");
     expect(result.stdout).toContain("bug-bundle");
@@ -58,6 +60,11 @@ describe("standalone teammate CLI", () => {
     const deps = dependencies(root);
     mkdirSync(deps.assetDirectory, { recursive: true });
     writeFileSync(join(deps.assetDirectory, "SKILL.md"), "# Ask Apero\n");
+    mkdirSync(join(deps.assetDirectory, "references"), { recursive: true });
+    writeFileSync(
+      join(deps.assetDirectory, "references", "evidence-reading.md"),
+      "# Canonical Evidence Reading\n",
+    );
     const result = await runCli(
       ["setup", "--workspace", "apero", "--api-key", "secret-key"],
       deps,
@@ -75,6 +82,12 @@ describe("standalone teammate CLI", () => {
     expect(
       readFileSync(join(root, ".agents/skills/ask-apero/SKILL.md"), "utf8"),
     ).toContain("Ask Apero");
+    expect(
+      readFileSync(
+        join(root, ".agents/skills/ask-apero/references/evidence-reading.md"),
+        "utf8",
+      ),
+    ).toContain("Canonical Evidence Reading");
     expect(result.stdout).not.toContain("secret-key");
     expect(
       (
@@ -134,6 +147,108 @@ describe("standalone teammate CLI", () => {
         }),
       }),
     );
+  });
+
+  it("searches canonical evidence and reopens an exact source revision over HTTP MCP", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          params: { name: string };
+        };
+        const result =
+          request.params.name === "template.brain.evidence.search"
+            ? [{ sourceKey: "drive:file-1", revisionKey: "revision-2" }]
+            : {
+                sourceKey: "drive:file-1",
+                revisionKey: "revision-2",
+                markdown: "# Exact evidence",
+              };
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    ok: true,
+                    operationId: request.params.name.slice("template.".length),
+                    result,
+                  }),
+                },
+              ],
+            },
+          }),
+        );
+      });
+    const deps = { ...configured(root), fetch };
+
+    const searched = await runCli(
+      ["evidence", "search", "approved", "positioning", "--limit", "5"],
+      deps,
+    );
+    const opened = await runCli(
+      ["evidence", "source-get", "drive:file-1", "revision-2"],
+      deps,
+    );
+    const health = await runCli(["evidence", "health"], deps);
+
+    expect(searched.exitCode).toBe(0);
+    expect(searched.stdout).toContain("drive:file-1");
+    expect(opened.exitCode).toBe(0);
+    expect(opened.stdout).toContain("# Exact evidence");
+    expect(health.exitCode).toBe(0);
+    expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://api.example.test/mcp",
+      "https://api.example.test/mcp",
+      "https://api.example.test/mcp",
+    ]);
+    const bodies = fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(bodies).toEqual([
+      expect.objectContaining({
+        method: "tools/call",
+        params: {
+          name: "template.brain.evidence.search",
+          arguments: { query: "approved positioning", limit: 5 },
+        },
+      }),
+      expect.objectContaining({
+        method: "tools/call",
+        params: {
+          name: "template.brain.evidence.sourceGet",
+          arguments: {
+            sourceKey: "drive:file-1",
+            revisionKey: "revision-2",
+          },
+        },
+      }),
+      expect.objectContaining({
+        method: "tools/call",
+        params: {
+          name: "template.brain.evidence.health",
+          arguments: {},
+        },
+      }),
+    ]);
+  });
+
+  it("rejects invalid evidence CLI input before making a request", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const deps = { ...configured(root), fetch };
+    expect(
+      (await runCli(["evidence", "search", "question", "--limit", "11"], deps))
+        .exitCode,
+    ).toBe(1);
+    expect(
+      (await runCli(["evidence", "source-get", "only-source"], deps)).exitCode,
+    ).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("maps page list, get, create, and update to current API operations", async () => {
@@ -218,13 +333,29 @@ describe("standalone teammate CLI", () => {
     const root = temp();
     const fetch = vi
       .fn<typeof globalThis.fetch>()
-      .mockImplementation(async (url) =>
-        String(url).endsWith("/mcp")
+      .mockImplementation(async (url, init) => {
+        if (!String(url).endsWith("/mcp"))
+          return new Response(JSON.stringify({ ok: true, result: [] }));
+        const body = JSON.parse(String(init?.body)) as { method: string };
+        return body.method === "tools/call"
           ? new Response(
-              '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}',
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                result: {
+                  content: [
+                    {
+                      type: "text",
+                      text: JSON.stringify({ ok: true, result: {} }),
+                    },
+                  ],
+                },
+              }),
             )
-          : new Response(JSON.stringify({ ok: true, result: [] })),
-      );
+          : new Response(
+              '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}',
+            );
+      });
     const deps = { ...configured(root), fetch };
     expect((await runCli(["doctor"], deps)).exitCode).toBe(0);
     expect((await runCli(["mcp", "tools"], deps)).exitCode).toBe(0);

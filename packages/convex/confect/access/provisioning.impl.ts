@@ -10,6 +10,7 @@ import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { Unauthorized } from "../errors";
 import { asGenericId } from "./handlerContext";
 import provisioning from "./provisioning.spec";
+import { projectEvidence, retireEvidence } from "../brain/evidenceProjection";
 import {
   buildProvisioningPlan,
   extractIdentityProfile,
@@ -232,6 +233,54 @@ const ensureProvisioned = FunctionImpl.make(
           .table("workspaceMembers")
           .patch(workspaceMembership._id, plan.workspaceMembership.value)
           .pipe(Effect.orDie);
+      }
+
+      // Keep legacy Brain pages searchable after the canonical evidence
+      // projection is introduced. New page writes update this projection in
+      // the same transaction; this bounded pass only repairs older rows.
+      const pages = yield* reader
+        .table("brainPages")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .take(100)
+        .pipe(Effect.orDie);
+      let repairedPages = 0;
+      for (const page of pages) {
+        const projected = yield* reader
+          .table("brainEvidenceSources")
+          .index("by_workspace_and_source_key", (q) =>
+            q
+              .eq("workspaceId", workspaceId)
+              .eq("sourceKey", `brain-page:${page._id}`),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+        const expectedRevision =
+          (page.status ?? "active") === "archived"
+            ? `archived:${page.updatedAt}`
+            : String(page.updatedAt);
+        if (projected?.currentRevisionKey === expectedRevision) continue;
+        if (repairedPages >= 10) break;
+        const sourceKey = `brain-page:${page._id}`;
+        if ((page.status ?? "active") === "archived")
+          yield* retireEvidence({
+            workspaceId,
+            sourceKey,
+            revisionKey: `archived:${page.updatedAt}`,
+            observedAt: page.updatedAt,
+          });
+        else
+          yield* projectEvidence({
+            workspaceId,
+            provider: "brain_page",
+            scopeKey: "brain-pages",
+            sourceKey,
+            revisionKey: String(page.updatedAt),
+            title: page.title,
+            markdown: page.markdown,
+            sourceModifiedAt: page.updatedAt,
+            observedAt: page.updatedAt,
+          });
+        repairedPages += 1;
       }
 
       return { workspaceId };

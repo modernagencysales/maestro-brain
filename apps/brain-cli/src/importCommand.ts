@@ -40,11 +40,20 @@ export const importCommand = async (
   if (!folder) return failure("import requires a folder.");
   const files = importPaths(folder);
   if ("exitCode" in files) return files;
-  const imported: string[] = [];
+  const prepared: Array<{
+    path: string;
+    relativePath: string;
+    markdown: string;
+  }> = [];
   for (const path of files.paths) {
     const markdown = readFileSync(path, "utf8").trim();
     const relativePath = relative(files.root, path).split("\\").join("/");
-    if (!markdown) return failure(`${relativePath} is empty.`);
+    if (!markdown)
+      return failure(`${relativePath} is empty; nothing was imported.`);
+    prepared.push({ path, relativePath, markdown });
+  }
+  const imported: string[] = [];
+  for (const { path, relativePath, markdown } of prepared) {
     const result = await request(dependencies, {
       operationId: "brain.pages.createMarkdown",
       input: {
@@ -56,7 +65,11 @@ export const importCommand = async (
         .update(`${relativePath}\0${markdown}`)
         .digest("hex"),
     });
-    if (result.exitCode !== 0) return result;
+    if (result.exitCode !== 0)
+      return {
+        ...result,
+        stderr: `${result.stderr.trimEnd()}\nImported ${imported.length}/${prepared.length} files before failure. Rerun the same command to resume safely.\n`,
+      };
     imported.push(relativePath);
   }
   return success({ ok: true, importedCount: imported.length, imported });

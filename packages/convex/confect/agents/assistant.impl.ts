@@ -15,7 +15,6 @@ import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
 import {
   ActionCtx,
-  DatabaseReader,
   QueryCtx,
   QueryRunner,
 } from "../_generated/services";
@@ -30,8 +29,8 @@ import {
 } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
 import { loadLlmGatewayEnvConfig } from "../shared/env";
+import { searchEvidence } from "../brain/evidence.impl";
 import assistant, { AssistantError } from "./assistant.spec";
-import { buildGroundedAnswer } from "./assistantGrounding";
 import { createAssistantLanguageModel } from "./assistantModel";
 
 const agentComponent = componentsGeneric().agent as unknown as AgentComponent;
@@ -163,64 +162,64 @@ const answerGroundedQuestion = (input: {
         field: "question",
         message: "Question must not be blank.",
       });
-    const reader = yield* DatabaseReader;
     const now = yield* withConfectClock(Clock.currentTimeMillis);
-    const pages = yield* reader
-      .table("brainPages")
-      .index("by_workspace", (q) => q.eq("workspaceId", input.workspaceId))
-      .collect()
-      .pipe(Effect.orDie);
-    const revisions = yield* reader
-      .table("pageRevisions")
-      .index("by_workspace", (q) => q.eq("workspaceId", input.workspaceId))
-      .collect()
-      .pipe(Effect.orDie);
-    const grounded = buildGroundedAnswer({
+    const citations = yield* searchEvidence({
       workspaceId: input.workspaceId,
-      question: normalizedQuestion,
-      pages: pages.map((page) => ({
-        id: page._id,
-        workspaceId: page.workspaceId,
-        title: page.title,
-        markdown: page.markdown,
-        updatedAt: page.updatedAt,
-        status: page.status ?? "active",
-      })),
-      revisions: revisions
-        .filter((revision) => "pageId" in revision)
-        .map((revision) => ({
-          workspaceId: revision.workspaceId,
-          pageId: revision.pageId,
-          title: revision.title,
-          markdown: revision.markdown,
-          updatedAt: revision.updatedAt,
-          status: revision.status,
-        })),
-      now,
+      query: normalizedQuestion,
+      asOf: now,
       ...(input.maxCitations === undefined
         ? {}
-        : { maxCitations: input.maxCitations }),
+        : { limit: input.maxCitations }),
     });
+    const projectedCitations = citations.map((citation) => ({
+      citationKey: `citation:${citation.entryKey}`,
+      sourceId: citation.sourceKey,
+      sourceRevisionId: citation.entryKey,
+      provider: citation.provider,
+      revisionKey: citation.revisionKey,
+      title: citation.title,
+      excerpt: citation.excerpt,
+      startOffset: citation.startOffset,
+      endOffset: citation.endOffset,
+      contentHash: citation.contentHash,
+      ...(citation.locator === undefined ? {} : { locator: citation.locator }),
+      sourceModifiedAt: citation.sourceModifiedAt,
+      observedAt: citation.observedAt,
+      freshness: citation.freshness,
+    }));
+    const freshness = projectedCitations.some(
+      (citation) => citation.freshness === "stale",
+    )
+      ? ("stale" as const)
+      : projectedCitations.some(
+            (citation) => citation.freshness === "review-due",
+          )
+        ? ("review-due" as const)
+        : projectedCitations.length > 0
+          ? ("current" as const)
+          : ("unknown" as const);
     const contextPack = {
       schemaVersion: "3" as const,
       candidateManifest: {
         schemaVersion: "2" as const,
-        candidateKeys: grounded.citations.map(
+        candidateKeys: projectedCitations.map(
           ({ sourceRevisionId }) => sourceRevisionId,
         ),
       },
       workspaceId: input.workspaceId,
       question: normalizedQuestion,
-      asOf: grounded.asOf,
-      freshness: grounded.freshness,
-      citations: grounded.citations,
-      omissions: grounded.omissions,
+      asOf: now,
+      freshness,
+      citations: projectedCitations,
+      omissions: [],
     };
 
-    return grounded.status === "answered"
+    return projectedCitations.length > 0
       ? {
           status: "answered" as const,
-          answerMarkdown: grounded.answerMarkdown ?? "",
+          answerMarkdown: projectedCitations
+            .map(({ excerpt }, index) => `${excerpt} [${index + 1}]`)
+            .join("\n\n"),
           contextPack,
         }
       : {

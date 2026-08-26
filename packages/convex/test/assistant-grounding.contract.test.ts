@@ -90,7 +90,8 @@ describe("grounded assistant Confect contract", () => {
     });
     expect(result.answer.contextPack.citations).toEqual([
       expect.objectContaining({
-        pageId: result.currentPageId,
+        provider: "brain_page",
+        sourceId: `brain-page:${result.currentPageId}`,
         excerpt: "Acme launches the customer portal on Friday.",
       }),
     ]);

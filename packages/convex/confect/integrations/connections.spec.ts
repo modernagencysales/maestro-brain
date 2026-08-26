@@ -221,11 +221,35 @@ const beginSlackOauth = FunctionSpec.publicAction({
   error: () => MutationError,
 });
 
+const beginProviderOauth = FunctionSpec.publicAction({
+  name: "beginProviderOauth",
+  args: () => WorkspaceProviderArgs,
+  returns: () =>
+    Schema.Struct({
+      connectSessionToken: Schema.NonEmptyString,
+      expiresAt: Schema.Number,
+      generation: Schema.Number,
+    }),
+  error: () => MutationError,
+});
+
 const completeSlackOauth = FunctionSpec.publicAction({
   name: "completeSlackOauth",
   args: () =>
     Schema.Struct({
       workspaceId: Id("workspaces"),
+      generation: Schema.Number,
+      connectionId: Schema.NonEmptyString,
+    }),
+  returns: () => CurrentProviderConnectionDoc,
+  error: () => MutationError,
+});
+
+const completeProviderOauth = FunctionSpec.publicAction({
+  name: "completeProviderOauth",
+  args: () =>
+    Schema.Struct({
+      ...WorkspaceProviderArgs.fields,
       generation: Schema.Number,
       connectionId: Schema.NonEmptyString,
     }),
@@ -243,6 +267,56 @@ const syncSlack = FunctionSpec.publicAction({
       syncedAt: Schema.Number,
     }),
   error: () => SyncError,
+});
+
+const syncGoogleDrive = FunctionSpec.publicAction({
+  name: "syncGoogleDrive",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      driveId: Schema.NonEmptyString,
+      rootFolderIds: Schema.Array(Schema.NonEmptyString).pipe(
+        Schema.check(Schema.isMinLength(1)),
+      ),
+      allowlistGeneration: Schema.optional(Schema.Number),
+    }),
+  returns: () =>
+    Schema.Struct({
+      sourceCount: Schema.Number,
+      syncedAt: Schema.Number,
+    }),
+  error: () => SyncError,
+});
+
+const syncHubSpot = FunctionSpec.publicAction({
+  name: "syncHubSpot",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      portalId: Schema.NonEmptyString,
+      allowlistGeneration: Schema.optional(Schema.Number),
+    }),
+  returns: () =>
+    Schema.Struct({
+      sourceCount: Schema.Number,
+      syncedAt: Schema.Number,
+    }),
+  error: () => SyncError,
+});
+
+const recordProviderSync = FunctionSpec.internalMutation({
+  name: "recordProviderSync",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      provider: ProviderKey,
+      status: Schema.Literals(["syncing", "ready", "error"]),
+      syncedAt: Schema.optional(Schema.Number),
+      sourceCount: Schema.optional(Schema.Number),
+      errorCode: Schema.optional(Schema.NonEmptyString),
+    }),
+  returns: () => CurrentProviderConnectionDoc,
+  error: () => MutationError,
 });
 
 const recordSlackSync = FunctionSpec.internalMutation({
@@ -268,9 +342,14 @@ export default GroupSpec.make()
   .addFunction(list.spec)
   .addFunction(begin.spec)
   .addFunction(beginSlackOauth)
+  .addFunction(beginProviderOauth)
   .addFunction(completeSlackOauth)
+  .addFunction(completeProviderOauth)
   .addFunction(syncSlack)
+  .addFunction(syncGoogleDrive)
+  .addFunction(syncHubSpot)
   .addFunction(recordSlackSync)
+  .addFunction(recordProviderSync)
   .addFunction(complete.spec)
   .addFunction(revoke.spec)
   .addFunction(listForActor)

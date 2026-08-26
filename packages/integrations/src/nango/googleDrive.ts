@@ -37,6 +37,8 @@ export type GoogleDriveSourceMetadata = Readonly<{
   version: string | null;
   md5Checksum: string | null;
   sizeBytes: string | null;
+  contentText: string | null;
+  contentStatus: "text" | "metadata_only";
 }>;
 
 export type GoogleDriveSourceObservation = ProviderSourceObservation<
@@ -57,6 +59,7 @@ export type GoogleDriveLimits = Readonly<{
   maxFolders?: number;
   maxSources?: number;
   maxPages?: number;
+  maxContentBytes?: number;
 }>;
 
 export class GoogleDriveAdapterError extends Error {
@@ -75,7 +78,7 @@ export class GoogleDriveCapacityExceeded extends Error {
   readonly _tag = "GoogleDriveCapacityExceeded";
 
   constructor(
-    readonly resource: "folders" | "sources" | "pages",
+    readonly resource: "folders" | "sources" | "pages" | "content_bytes",
     readonly capacity: number,
   ) {
     super(`Google Drive ${resource} capacity of ${capacity} was exceeded.`);
@@ -86,6 +89,8 @@ export class GoogleDriveCapacityExceeded extends Error {
 const DEFAULT_MAX_FOLDERS = 2_000;
 const DEFAULT_MAX_SOURCES = 20_000;
 const DEFAULT_MAX_PAGES = 5_000;
+const DEFAULT_MAX_CONTENT_BYTES = 2_000_000;
+const GOOGLE_DOCUMENT_MIME_TYPE = "application/vnd.google-apps.document";
 
 const requireString = (value: unknown): string => {
   const parsed = nonEmptyString(value);
@@ -203,6 +208,48 @@ const projectFile = (
       version,
       md5Checksum: checksum,
       sizeBytes: nonEmptyString(file.size) ?? null,
+      contentText: null,
+      contentStatus: "metadata_only",
+    },
+  };
+};
+
+const loadTextContent = async (input: {
+  readonly observation: GoogleDriveSourceObservation;
+  readonly request: Request;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly maxContentBytes: number;
+}): Promise<GoogleDriveSourceObservation> => {
+  const mimeType = input.observation.metadata.mimeType;
+  const method =
+    mimeType === GOOGLE_DOCUMENT_MIME_TYPE
+      ? `drive/v3/files/${encodeURIComponent(input.observation.providerObjectId)}/export`
+      : mimeType.startsWith("text/") || mimeType === "application/json"
+        ? `drive/v3/files/${encodeURIComponent(input.observation.providerObjectId)}`
+        : undefined;
+  if (method === undefined) return input.observation;
+  const response = await input.request(
+    nangoProxyUrl(
+      method,
+      mimeType === GOOGLE_DOCUMENT_MIME_TYPE
+        ? { mimeType: "text/plain" }
+        : { alt: "media", supportsAllDrives: "true" },
+    ),
+    { headers: input.headers },
+  );
+  if (!response.ok) throw new GoogleDriveAdapterError("provider_unavailable");
+  const content = await response.text();
+  if (new TextEncoder().encode(content).byteLength > input.maxContentBytes)
+    throw new GoogleDriveCapacityExceeded(
+      "content_bytes",
+      input.maxContentBytes,
+    );
+  return {
+    ...input.observation,
+    metadata: {
+      ...input.observation.metadata,
+      contentText: content.replace(/\r\n?/gu, "\n"),
+      contentStatus: "text",
     },
   };
 };
@@ -229,6 +276,10 @@ export const fetchGoogleDriveInventory = async (input: {
     DEFAULT_MAX_SOURCES,
   );
   const maxPages = positiveInteger(input.limits?.maxPages, DEFAULT_MAX_PAGES);
+  const maxContentBytes = positiveInteger(
+    input.limits?.maxContentBytes,
+    DEFAULT_MAX_CONTENT_BYTES,
+  );
   const request = input.request ?? fetch;
   const headers = nangoProxyHeaders(input);
   const folderQueue = [...rootFolderIds];
@@ -294,7 +345,15 @@ export const fetchGoogleDriveInventory = async (input: {
         if (current === undefined) {
           if (observations.size >= maxSources)
             throw new GoogleDriveCapacityExceeded("sources", maxSources);
-          observations.set(projected.sourceKey, projected);
+          observations.set(
+            projected.sourceKey,
+            await loadTextContent({
+              observation: projected,
+              request,
+              headers,
+              maxContentBytes,
+            }),
+          );
         }
       }
       pageToken = nonEmptyString(body.nextPageToken);

@@ -13,6 +13,7 @@ import {
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, StaleRevision, ValidationFailed } from "../errors";
 import { withMutationErrorCapture } from "../observability/errorCapture";
+import { projectEvidence, retireEvidence } from "./evidenceProjection";
 import pages from "./pages.spec";
 import { nextPageUpdatedAt } from "./pageRevision";
 import { isAdvancingSnapshotVersion } from "./snapshotVersion";
@@ -107,6 +108,35 @@ const writeRevision = (input: {
       .pipe(Effect.orDie);
   });
 
+const publishPageEvidence = (page: {
+  readonly _id: GenericId<"brainPages">;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly title: string;
+  readonly markdown: string;
+  readonly updatedAt: number;
+  readonly status?: "active" | "archived" | undefined;
+}) => {
+  const sourceKey = `brain-page:${page._id}`;
+  return (page.status ?? "active") === "archived"
+    ? retireEvidence({
+        workspaceId: page.workspaceId,
+        sourceKey,
+        revisionKey: `archived:${page.updatedAt}`,
+        observedAt: page.updatedAt,
+      }).pipe(Effect.map((changed) => ({ changed, entryKey: sourceKey })))
+    : projectEvidence({
+        workspaceId: page.workspaceId,
+        provider: "brain_page",
+        scopeKey: "brain-pages",
+        sourceKey,
+        revisionKey: String(page.updatedAt),
+        title: page.title,
+        markdown: page.markdown,
+        sourceModifiedAt: page.updatedAt,
+        observedAt: page.updatedAt,
+      });
+};
+
 const listPages = (
   workspaceId: GenericId<"workspaces">,
   includeArchived?: boolean,
@@ -116,8 +146,13 @@ const listPages = (
     const rows = yield* reader
       .table("brainPages")
       .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-      .collect()
+      .take(1_001)
       .pipe(Effect.orDie);
+    if (rows.length > 1_000)
+      return yield* new ValidationFailed({
+        field: "workspaceId",
+        message: "Brain page list capacity was exceeded.",
+      });
     return rows.filter(
       (page) =>
         includeArchived === true || currentState(page).status === "active",
@@ -137,8 +172,13 @@ const pageHistory = (args: {
       .index("by_workspace_page_updated", (q) =>
         q.eq("workspaceId", args.workspaceId).eq("pageId", args.pageId),
       )
-      .collect()
+      .take(101)
       .pipe(Effect.orDie);
+    if (rows.length > 100)
+      return yield* new ValidationFailed({
+        field: "pageId",
+        message: "Brain page history capacity was exceeded.",
+      });
     return rows
       .filter((revision) => "pageId" in revision)
       .sort((left, right) => right.updatedAt - left.updatedAt)
@@ -229,6 +269,14 @@ const createMarkdownPage = (args: {
       state,
       actorUserId: args.actorUserId,
     });
+    yield* publishPageEvidence({
+      _id: pageId,
+      workspaceId: args.workspaceId,
+      title,
+      markdown: args.markdown,
+      updatedAt,
+      status: "active",
+    });
     return pageId;
   });
 
@@ -284,6 +332,7 @@ const patchPage = (input: {
       state: currentState(patchedPage),
       actorUserId: input.actorUserId,
     });
+    yield* publishPageEvidence(patchedPage);
     return patchedPage;
   });
 
@@ -463,6 +512,7 @@ const restore = FunctionImpl.make(databaseSchema, pages, "restore", (args) =>
         state: currentState(restoredPage),
         actorUserId: access.userId,
       });
+      yield* publishPageEvidence(restoredPage);
       return restoredPage;
     }),
   ),

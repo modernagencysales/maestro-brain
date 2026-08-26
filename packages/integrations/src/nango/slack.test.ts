@@ -48,6 +48,7 @@ describe("Nango Slack snapshot", () => {
           messages: [
             {
               timestamp: "1782924800.0001",
+              revisionTimestamp: "1782924800.0001",
               authorId: "U01",
               text: "Our ICP is…",
             },
@@ -168,9 +169,24 @@ describe("Nango Slack snapshot", () => {
     });
 
     expect(result.channels[0]?.messages).toEqual([
-      { timestamp: "10.0", authorId: "U01", text: "Parent" },
-      { timestamp: "10.1", authorId: "U02", text: "First reply" },
-      { timestamp: "10.2", authorId: "B01", text: "Second reply" },
+      {
+        timestamp: "10.0",
+        revisionTimestamp: "10.0",
+        authorId: "U01",
+        text: "Parent",
+      },
+      {
+        timestamp: "10.1",
+        revisionTimestamp: "10.1",
+        authorId: "U02",
+        text: "First reply",
+      },
+      {
+        timestamp: "10.2",
+        revisionTimestamp: "10.2",
+        authorId: "B01",
+        text: "Second reply",
+      },
     ]);
     expect(requestedUrl(request, 2).pathname).toBe(
       "/proxy/conversations.replies",

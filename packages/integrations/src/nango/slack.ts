@@ -8,6 +8,7 @@ export type SlackSnapshot = {
     readonly name: string;
     readonly messages: readonly {
       readonly timestamp: string;
+      readonly revisionTimestamp?: string;
       readonly authorId: string;
       readonly text: string;
     }[];
@@ -18,6 +19,7 @@ export type SlackSnapshot = {
 export type SlackSnapshotLimits = Readonly<{
   maxChannels?: number;
   maxMessagesPerChannel?: number;
+  maxMessagesTotal?: number;
   maxPagesPerCollection?: number;
 }>;
 
@@ -38,6 +40,7 @@ export class SlackSnapshotCapacityExceeded extends Error {
 
 const DEFAULT_MAX_CHANNELS = 500;
 const DEFAULT_MAX_MESSAGES_PER_CHANNEL = 10_000;
+const DEFAULT_MAX_MESSAGES_TOTAL = 20_000;
 const DEFAULT_MAX_PAGES_PER_COLLECTION = 100;
 
 const positiveLimit = (value: number | undefined, fallback: number): number =>
@@ -140,11 +143,22 @@ const projectMessage = (
   const timestamp = message.ts;
   const text = message.text;
   const authorId = message.user ?? message.bot_id;
+  const edited = message.edited;
+  const editedTimestamp =
+    typeof edited === "object" && edited !== null
+      ? (edited as Record<string, unknown>).ts
+      : undefined;
   return typeof timestamp === "string" &&
     typeof text === "string" &&
     text.trim().length > 0 &&
     typeof authorId === "string"
-    ? { timestamp, authorId, text }
+    ? {
+        timestamp,
+        revisionTimestamp:
+          typeof editedTimestamp === "string" ? editedTimestamp : timestamp,
+        authorId,
+        text,
+      }
     : undefined;
 };
 
@@ -217,6 +231,10 @@ export const fetchSlackSnapshot = async (input: {
     input.limits?.maxMessagesPerChannel,
     DEFAULT_MAX_MESSAGES_PER_CHANNEL,
   );
+  const maxMessagesTotal = positiveLimit(
+    input.limits?.maxMessagesTotal,
+    DEFAULT_MAX_MESSAGES_TOTAL,
+  );
   const maxPages = positiveLimit(
     input.limits?.maxPagesPerCollection,
     DEFAULT_MAX_PAGES_PER_COLLECTION,
@@ -255,6 +273,11 @@ export const fetchSlackSnapshot = async (input: {
         maxPages,
       }),
     });
+    if (
+      channels.reduce((total, item) => total + item.messages.length, 0) >
+      maxMessagesTotal
+    )
+      throw new SlackSnapshotCapacityExceeded("messages", maxMessagesTotal);
   }
   return {
     channels,

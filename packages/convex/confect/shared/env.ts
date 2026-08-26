@@ -84,6 +84,28 @@ export const readNangoConnectConfig = (
   };
 };
 
+export const readNangoProviderConfig = (
+  provider: "slack" | "google-drive" | "hubspot",
+  env: EnvSource = process.env,
+):
+  | { readonly secretKey: string; readonly providerConfigKey: string }
+  | undefined => {
+  const secretKey = readOptionalEnv("NANGO_SECRET_KEY", env);
+  if (secretKey === undefined) return undefined;
+  const variable =
+    provider === "slack"
+      ? "NANGO_SLACK_INTEGRATION_ID"
+      : provider === "google-drive"
+        ? "NANGO_GOOGLE_DRIVE_INTEGRATION_ID"
+        : "NANGO_HUBSPOT_INTEGRATION_ID";
+  return {
+    secretKey,
+    providerConfigKey:
+      readOptionalEnv(variable, env) ??
+      (provider === "google-drive" ? "google-drive" : provider),
+  };
+};
+
 export const readRequiredEnv = (name: string, env: EnvSource): string => {
   if (!(name in env)) {
     throw makeEnvConfigError(name, "missing");

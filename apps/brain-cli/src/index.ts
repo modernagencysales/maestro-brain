@@ -11,6 +11,7 @@ import {
   mcpCommand,
   statusCommand,
 } from "./diagnostics.js";
+import { evidenceCommand } from "./evidenceCommand.js";
 import { importCommand } from "./importCommand.js";
 import { pageCommand } from "./pageCommand.js";
 import {
@@ -28,6 +29,7 @@ const help = `Maestro Brain CLI
 
 Setup and diagnostics
   maestro-brain setup [--project <directory>]
+  maestro-brain setup --workspace <slug> --api-key <key> [--api-url <origin>]
   eval "$(maestro-brain env)"
   maestro-brain doctor
   maestro-brain status
@@ -37,6 +39,9 @@ Setup and diagnostics
 
 Use company context
   maestro-brain ask <question>
+  maestro-brain evidence search <query> [--limit <1-10>]
+  maestro-brain evidence source-get <source-key> <revision-key>
+  maestro-brain evidence health
   maestro-brain page list [--include-archived]
   maestro-brain page get <page-id>
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -134,6 +139,7 @@ const commandHandlers = (
         })
       : failure("ask requires a question.");
   },
+  evidence: async () => await evidenceCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),
   import: async () => await importCommand(argv[1], dependencies),
   mcp: async () => await mcpCommand(argv, dependencies),

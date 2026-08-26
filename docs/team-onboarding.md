@@ -40,8 +40,22 @@ terminal so Codex can pass the bearer key to HTTP MCP.
 ```bash
 maestro-brain status
 maestro-brain ask "What is our ICP?"
+maestro-brain evidence search "What is our ICP?"
+maestro-brain evidence health
 maestro-brain page list
 ```
+
+For evidence-sensitive work, reopen a search result before citing it:
+
+```bash
+maestro-brain evidence source-get <source-key> <revision-key>
+```
+
+These evidence commands use the same read-only HTTP MCP surface available to
+Codex, Claude Code, and Cowork. Search results are candidates; the exact source
+revision is the citation authority. Health reports bounded facts about provider
+evidence and connector runs; it does not claim that the available company
+context is complete or ready.
 
 Claude Cowork users can add the generated `.cowork/maestro-brain.json`
 descriptor through Cowork's connector UI if it is not discovered automatically.
