@@ -1,7 +1,7 @@
 # Team onboarding
 
 Everyone uses the live **Apero Company Brain** workspace (`apero`) at
-`https://maestro-brain-staging.tim-bb0.workers.dev/apero/brain`. A workspace
+`https://maestro-brain-staging.tim-bb0.workers.dev/apero/inbox`. A workspace
 admin first opens `Settings -> Members` in the web app and invites each
 teammate. The teammate receives the invitation email when outbound email is
 configured. The app also copies each new invitation link so the admin can send
