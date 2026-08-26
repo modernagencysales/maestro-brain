@@ -44,3 +44,14 @@ export const runSlackConnect = async (input: {
     throw error
   }
 }
+
+export const runSlackSyncWithFeedback = async (input: {
+  readonly sync: () => Promise<unknown>
+  readonly onError: () => void
+}) => {
+  try {
+    await input.sync()
+  } catch {
+    input.onError()
+  }
+}

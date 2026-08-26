@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { SimpleGrid } from '@chakra-ui/react'
+import { toast } from '@saas-ui/react'
 import { useConvexQuery } from '@convex-dev/react-query'
 import {
   getFunctionReference,
@@ -34,6 +35,7 @@ import {
 import {
   isLiveSlackOauthTransition,
   runSlackConnect,
+  runSlackSyncWithFeedback,
 } from './slack-connect'
 
 const listConnectionsRef = getFunctionReference(
@@ -94,6 +96,15 @@ export const ConnectionsPage = () => {
   const beginSlackOauth = useConvexAction(beginSlackOauthRef)
   const completeSlackOauth = useConvexAction(completeSlackOauthRef)
   const syncSlack = useConvexAction(syncSlackRef)
+  const syncSlackWithFeedback = () =>
+    runSlackSyncWithFeedback({
+      sync: () => syncSlack({ workspaceId: workspace.id }),
+      onError: () =>
+        toast.error({
+          title: 'Slack is connected, but sync failed',
+          description: 'Try Sync now again.',
+        }),
+    })
   const liveConnections = (
     isolatedContracts
       ? (isolatedConnections.data ?? [])
@@ -122,7 +133,7 @@ export const ConnectionsPage = () => {
             generation,
             connectionId,
           })
-          await syncSlack({ workspaceId: workspace.id })
+          await syncSlackWithFeedback()
         },
       })
       return
@@ -205,7 +216,7 @@ export const ConnectionsPage = () => {
           onDisconnect={() => transition(integration.id, 'disconnect')}
           onSync={
             integration.id === 'slack' && status === 'connected'
-              ? () => syncSlack({ workspaceId: workspace.id })
+              ? syncSlackWithFeedback
               : undefined
           }
           onDocs={() => window.open(integration.docs, '_blank', 'noopener')}

@@ -382,13 +382,52 @@ const syncSlack = FunctionImpl.make(
         workspaceId,
         status: "syncing",
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const snapshot = yield* Effect.tryPromise({
-        try: () =>
-          fetchSlackSnapshot({
-            ...config,
-            connectionId: connection.connectionRef as string,
-          }),
-        catch: providerFailure,
+      return yield* Effect.gen(function* () {
+        const snapshot = yield* Effect.tryPromise({
+          try: () =>
+            fetchSlackSnapshot({
+              ...config,
+              connectionId: connection.connectionRef as string,
+            }),
+          catch: providerFailure,
+        });
+        const syncedAt = yield* Clock.currentTimeMillis;
+        const pages = buildSlackPages(snapshot, syncedAt);
+        const existing = yield* query(refs.public.brain.pages.list, {
+          workspaceId,
+          includeArchived: true,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        for (const page of pages) {
+          const current = existing.find(({ slug }) => slug === page.slug);
+          if (current === undefined) {
+            yield* mutation(refs.public.brain.pages.createMarkdown, {
+              workspaceId,
+              ...page,
+            }).pipe(Effect.catchTag("SchemaError", providerFailure));
+          } else if (current.markdown !== page.markdown) {
+            yield* mutation(refs.public.brain.pages.updateMarkdown, {
+              workspaceId,
+              pageId: current._id,
+              markdown: page.markdown,
+              expectedUpdatedAt: current.updatedAt,
+            }).pipe(Effect.catchTag("SchemaError", providerFailure));
+          }
+        }
+        yield* mutation(
+          refs.internal.integrations.connections.recordSlackSync,
+          {
+            workspaceId,
+            status: "ready",
+            syncedAt,
+            messageCount: snapshot.messageCount,
+            pageCount: pages.length,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        return {
+          pageCount: pages.length,
+          messageCount: snapshot.messageCount,
+          syncedAt,
+        };
       }).pipe(
         Effect.tapError(() =>
           mutation(refs.internal.integrations.connections.recordSlackSync, {
@@ -398,40 +437,6 @@ const syncSlack = FunctionImpl.make(
           }).pipe(Effect.ignore),
         ),
       );
-      const syncedAt = yield* Clock.currentTimeMillis;
-      const pages = buildSlackPages(snapshot, syncedAt);
-      const existing = yield* query(refs.public.brain.pages.list, {
-        workspaceId,
-        includeArchived: true,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      for (const page of pages) {
-        const current = existing.find(({ slug }) => slug === page.slug);
-        if (current === undefined) {
-          yield* mutation(refs.public.brain.pages.createMarkdown, {
-            workspaceId,
-            ...page,
-          }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        } else if (current.markdown !== page.markdown) {
-          yield* mutation(refs.public.brain.pages.updateMarkdown, {
-            workspaceId,
-            pageId: current._id,
-            markdown: page.markdown,
-            expectedUpdatedAt: current.updatedAt,
-          }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        }
-      }
-      yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
-        workspaceId,
-        status: "ready",
-        syncedAt,
-        messageCount: snapshot.messageCount,
-        pageCount: pages.length,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      return {
-        pageCount: pages.length,
-        messageCount: snapshot.messageCount,
-        syncedAt,
-      };
     }),
 );
 

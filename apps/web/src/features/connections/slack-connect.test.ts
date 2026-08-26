@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   isLiveSlackOauthTransition,
   runSlackConnect,
+  runSlackSyncWithFeedback,
 } from './slack-connect'
 
 describe('runSlackConnect', () => {
@@ -57,5 +58,31 @@ describe('runSlackConnect', () => {
       }),
     ).resolves.toBeUndefined()
     expect(complete).not.toHaveBeenCalled()
+  })
+})
+
+describe('runSlackSyncWithFeedback', () => {
+  it('surfaces a failed sync without turning a completed OAuth flow into a rejection', async () => {
+    const onError = vi.fn()
+
+    await expect(
+      runSlackSyncWithFeedback({
+        sync: vi.fn().mockRejectedValue(new Error('sync failed')),
+        onError,
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(onError).toHaveBeenCalledOnce()
+  })
+
+  it('does not report successful syncs as failures', async () => {
+    const onError = vi.fn()
+
+    await runSlackSyncWithFeedback({
+      sync: vi.fn().mockResolvedValue(undefined),
+      onError,
+    })
+
+    expect(onError).not.toHaveBeenCalled()
   })
 })
