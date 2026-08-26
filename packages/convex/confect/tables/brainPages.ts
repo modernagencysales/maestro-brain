@@ -18,6 +18,7 @@ export const BrainPageRow = Schema.Struct({
   editorSnapshotJson: Schema.optional(Schema.String),
   editorSnapshotVersion: Schema.optional(Schema.Number),
   sourceKind: Schema.Literals(["markdown", "link", "note"]),
+  importSourceKey: Schema.optional(Schema.String),
   parentPageId: Schema.optional(Schema.NullOr(Id("brainPages"))),
   pageKey: Schema.optional(Schema.String),
   parentPageKey: Schema.optional(Schema.NullOr(Schema.String)),
@@ -35,6 +36,7 @@ export const BrainPageRow = Schema.Struct({
 export default Table.make(() => BrainPageRow)
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_slug", ["workspaceId", "slug"])
+  .index("by_workspace_import_source", ["workspaceId", "importSourceKey"])
   .index("by_workspace_status", ["workspaceId", "status"])
   .index("by_workspace_parent_sort", [
     "workspaceId",

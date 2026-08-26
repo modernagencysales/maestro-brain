@@ -1,11 +1,12 @@
 # Team onboarding
 
-Everyone uses the same Maestro Brain workspace. A workspace admin first opens
-`Settings -> Members` in the web app and invites each teammate. The teammate
-receives the invitation email when outbound email is configured. The app also
-copies each new invitation link so the admin can send it directly. The teammate
-logs in with the invited email, accepts the invitation, and then links a
-terminal.
+Everyone uses the live **Apero Company Brain** workspace (`apero`) at
+`https://maestro-brain-staging.tim-bb0.workers.dev/apero/brain`. A workspace
+admin first opens `Settings -> Members` in the web app and invites each
+teammate. The teammate receives the invitation email when outbound email is
+configured. The app also copies each new invitation link so the admin can send
+it directly. The teammate logs in with the invited email, accepts the
+invitation, and then links a terminal.
 
 ## Connect a terminal
 
@@ -25,11 +26,14 @@ screen copies this equivalent one-command path:
 npx --yes https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz setup
 ```
 
-`setup` opens the staging app, asks the teammate to choose their shared
-workspace, and writes project configuration for Codex, Claude Code, Claude
-Cowork, HTTP MCP, and the Ask Apero skill. If no browser opens, copy the
-fallback URL printed in the terminal. Restart the agent after setup so it loads
-the new configuration.
+`setup` opens the staging app, asks the teammate to choose **Apero Company
+Brain**, and links an individual 90-day credential. It writes key-free local
+project descriptors for Codex, Claude Code, Claude Cowork, HTTP MCP, and the Ask
+Apero skill. Repository policy intentionally keeps those generated runtime files
+out of Git; setup verifies or merges them in each teammate's chosen project and
+stores the credential outside Git. If no browser opens, copy the fallback URL
+printed in the terminal. Restart the agent after setup so it loads the new
+configuration.
 
 The linked API key stays in the user's local Maestro Brain config; it is not
 committed to the repository. Run `eval "$(maestro-brain env)"` in each new agent
@@ -72,6 +76,26 @@ maestro-brain import ./company-context
 Pages are immediately available to the web Brain, CLI, Ask Apero, and HTTP MCP
 inside the linked workspace. Connected Slack channels are ingested from the web
 app's Slack integration and appear as Brain pages with source provenance.
+
+Directory import is safe to repeat. Each relative Markdown path maps to a stable
+page slug and persisted CLI-import identity: new files are created, changed
+files update only their owned page with an optimistic revision check, and
+unchanged files are skipped. Manual, archived, or duplicate page collisions fail
+before any import writes. The command reports `created`, `updated`, and
+`unchanged` counts. If another user edits or creates the page during the import,
+the backend rejects the conflicting write; rerun the same command to resume from
+the current workspace state. Removing a local file does not archive its Brain
+page, so use the web app for intentional archival.
+
+If this folder was previously imported with CLI `0.1.1`, inspect the conflicting
+pages in the web app once, then attach the new provenance identity explicitly:
+
+```bash
+maestro-brain import ./company-context --adopt-existing
+```
+
+Adoption works only for an active, currently unowned page with the same slug and
+is revision-fenced. Normal imports never adopt existing pages.
 
 ## Report or fix a bug
 

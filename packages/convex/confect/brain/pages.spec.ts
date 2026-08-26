@@ -43,6 +43,7 @@ const CreateMarkdownArgs = Schema.Struct({
   slug: Schema.String,
   title: Schema.String,
   markdown: Schema.String,
+  importSourceKey: Schema.optional(Schema.String),
   parentPageId: Schema.optional(Schema.NullOr(Id("brainPages"))),
   sortKey: Schema.optional(Schema.String),
 });
@@ -58,6 +59,9 @@ const UpdateMarkdownArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   pageId: Id("brainPages"),
   markdown: Schema.String,
+  title: Schema.optional(Schema.String),
+  expectedImportSourceKey: Schema.optional(Schema.String),
+  adoptImportSourceKey: Schema.optional(Schema.String),
   expectedUpdatedAt: Schema.Number,
 });
 

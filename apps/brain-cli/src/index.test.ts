@@ -289,11 +289,15 @@ describe("standalone teammate CLI", () => {
     mkdirSync(join(folder, "team"), { recursive: true });
     writeFileSync(join(folder, "z.md"), "# Zed\n");
     writeFileSync(join(folder, "team", "a.md"), "# Alpha\n");
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockImplementation(
-        async () => new Response(JSON.stringify({ ok: true, result: "page" })),
-      );
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(
+      async (url) =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: String(url).endsWith("brain.pages.list") ? [] : "page",
+          }),
+        ),
+    );
     const result = await runCli(["import", folder], {
       ...configured(root),
       fetch,
@@ -302,7 +306,219 @@ describe("standalone teammate CLI", () => {
     const bodies = fetch.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body)),
     );
-    expect(bodies.map((body) => body.input.title)).toEqual(["Alpha", "Zed"]);
+    expect(bodies.slice(1).map((body) => body.input.title)).toEqual([
+      "Alpha",
+      "Zed",
+    ]);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      processed: 2,
+      created: 2,
+      updated: 0,
+      unchanged: 0,
+    });
+  });
+
+  it("makes repeat imports source-aware without touching unrelated pages", async () => {
+    const root = temp();
+    const folder = join(root, "brain");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "icp.md"), "# ICP\n\nNew context.\n");
+    writeFileSync(join(folder, "stable.md"), "# Stable\n\nSame context.\n");
+    const pages = [
+      {
+        _id: "page_icp",
+        slug: "icp",
+        title: "ICP",
+        markdown: "# ICP\n\nOld context.",
+        updatedAt: 100,
+        importSourceKey: "cli-import:icp",
+      },
+      {
+        _id: "page_stable",
+        slug: "stable",
+        title: "Stable",
+        markdown: "# Stable\n\nSame context.",
+        updatedAt: 200,
+        importSourceKey: "cli-import:stable",
+      },
+      {
+        _id: "page_unrelated",
+        slug: "unrelated",
+        title: "Unrelated",
+        markdown: "# Unrelated",
+        updatedAt: 300,
+      },
+    ];
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (url, init) => {
+        if (String(url).endsWith("brain.pages.list"))
+          return new Response(JSON.stringify({ ok: true, result: pages }));
+        const body = JSON.parse(String(init?.body));
+        const firstPage = pages[0];
+        if (firstPage === undefined) throw new Error("missing import fixture");
+        pages[0] = {
+          ...firstPage,
+          title: body.input.title,
+          markdown: body.input.markdown,
+          updatedAt: 101,
+        };
+        return new Response(JSON.stringify({ ok: true, result: pages[0] }));
+      });
+    const result = await runCli(["import", folder], {
+      ...configured(root),
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      processed: 2,
+      created: 0,
+      updated: 1,
+      unchanged: 1,
+    });
+    const repeated = await runCli(["import", folder], {
+      ...configured(root),
+      fetch,
+    });
+    expect(repeated.exitCode).toBe(0);
+    expect(JSON.parse(repeated.stdout)).toMatchObject({
+      processed: 2,
+      created: 0,
+      updated: 0,
+      unchanged: 2,
+    });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const update = JSON.parse(String(fetch.mock.calls[1]?.[1]?.body));
+    expect(update.input).toEqual({
+      pageId: "page_icp",
+      title: "ICP",
+      markdown: "# ICP\n\nNew context.",
+      expectedImportSourceKey: "cli-import:icp",
+      expectedUpdatedAt: 100,
+    });
+  });
+
+  it("fails closed on unowned, archived, or duplicate workspace pages", async () => {
+    const root = temp();
+    const folder = join(root, "brain");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "icp.md"), "# ICP\n");
+    const page = {
+      _id: "page_icp",
+      slug: "icp",
+      title: "ICP",
+      markdown: "# Existing",
+      updatedAt: 100,
+    };
+    const runWith = async (pages: unknown[]) => {
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ ok: true, result: pages })),
+        );
+      const result = await runCli(["import", folder], {
+        ...configured(root),
+        fetch,
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      return result;
+    };
+
+    expect((await runWith([page])).stderr).toContain("does not own");
+    const adoptionFetch = vi.fn<typeof globalThis.fetch>().mockImplementation(
+      async (url) =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: String(url).endsWith("brain.pages.list") ? [page] : page,
+          }),
+        ),
+    );
+    const adopted = await runCli(["import", folder, "--adopt-existing"], {
+      ...configured(root),
+      fetch: adoptionFetch,
+    });
+    expect(adopted.exitCode).toBe(0);
+    expect(adoptionFetch).toHaveBeenCalledTimes(2);
+    expect(
+      JSON.parse(String(adoptionFetch.mock.calls[1]?.[1]?.body)).input,
+    ).toMatchObject({
+      pageId: "page_icp",
+      adoptImportSourceKey: "cli-import:icp",
+    });
+    expect(
+      (
+        await runWith([
+          {
+            ...page,
+            status: "archived",
+            importSourceKey: "cli-import:icp",
+          },
+        ])
+      ).stderr,
+    ).toContain("archived");
+    expect(
+      (await runWith([page, { ...page, _id: "page_icp_2" }])).stderr,
+    ).toContain("multiple pages");
+  });
+
+  it("aborts imports before writes when page discovery fails", async () => {
+    const root = temp();
+    const folder = join(root, "brain");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "icp.md"), "# ICP\n");
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, error: "unavailable" }), {
+        status: 503,
+      }),
+    );
+    const result = await runCli(["import", folder], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports resumable progress when an import update is stale", async () => {
+    const root = temp();
+    const folder = join(root, "brain");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "icp.md"), "# ICP\n\nNew.\n");
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: [
+              {
+                _id: "page_icp",
+                slug: "icp",
+                title: "ICP",
+                markdown: "# ICP\n\nOld.",
+                updatedAt: 100,
+                importSourceKey: "cli-import:icp",
+              },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: false, error: { _tag: "StaleRevision" } }),
+          { status: 409 },
+        ),
+      );
+    const result = await runCli(["import", folder], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("StaleRevision");
+    expect(result.stderr).toContain("Processed 0/1 files");
+    expect(result.stderr).toContain("Rerun the same command");
   });
 
   it("creates a redacted, allowlisted bug bundle", async () => {
@@ -320,7 +536,7 @@ describe("standalone teammate CLI", () => {
     const root = temp();
     const deps = configured(root);
     expect((await runCli(["status"], deps)).stdout).not.toContain("secret-key");
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.1\n");
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.2\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
       "/releases/latest/download/maestro-brain.tgz",
     );

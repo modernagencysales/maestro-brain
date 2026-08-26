@@ -46,7 +46,7 @@ Use company context
   maestro-brain page get <page-id>
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
   maestro-brain page update <page-id> <file.md> --expected-updated-at <ms>
-  maestro-brain import <folder>
+  maestro-brain import <folder> [--adopt-existing]
 
 HTTP MCP troubleshooting
   maestro-brain mcp doctor|tools|prompts
@@ -141,7 +141,10 @@ const commandHandlers = (
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),
-  import: async () => await importCommand(argv[1], dependencies),
+  import: async () =>
+    await importCommand(argv[1], dependencies, {
+      adoptExisting: argv.includes("--adopt-existing"),
+    }),
   mcp: async () => await mcpCommand(argv, dependencies),
   "bug-bundle": () => bugBundleCommand(argv, dependencies),
 });
