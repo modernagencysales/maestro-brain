@@ -81,9 +81,7 @@ const providerIsEligible = (
     const row = yield* (yield* DatabaseReader)
       .table("providerConnections")
       .index("by_workspace_and_provider", (q) =>
-        q
-          .eq("workspaceId", workspaceId)
-          .eq("provider", connectionProvider),
+        q.eq("workspaceId", workspaceId).eq("provider", connectionProvider),
       )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);

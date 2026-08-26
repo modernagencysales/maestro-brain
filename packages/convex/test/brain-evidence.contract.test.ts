@@ -6,10 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
-import {
-  DatabaseReader,
-  DatabaseWriter,
-} from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 

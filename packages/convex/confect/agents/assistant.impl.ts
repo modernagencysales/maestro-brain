@@ -13,11 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
-import {
-  ActionCtx,
-  QueryCtx,
-  QueryRunner,
-} from "../_generated/services";
+import { ActionCtx, QueryCtx, QueryRunner } from "../_generated/services";
 import {
   requireWorkspaceAccess,
   requireWorkspaceActorAccess,
