@@ -320,7 +320,7 @@ describe("standalone teammate CLI", () => {
     const root = temp();
     const deps = configured(root);
     expect((await runCli(["status"], deps)).stdout).not.toContain("secret-key");
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.0\n");
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.1\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
       "/releases/latest/download/maestro-brain.tgz",
     );

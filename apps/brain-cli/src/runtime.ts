@@ -8,7 +8,7 @@ import {
 } from "./config.js";
 import { linkTerminal } from "./terminalLink.js";
 
-export const cliVersion = "0.1.0";
+export const cliVersion = "0.1.1";
 
 export type CliDependencies = {
   readonly cwd: string;

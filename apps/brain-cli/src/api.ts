@@ -98,7 +98,7 @@ export const callMcp = async (
       ? {
           protocolVersion: "2025-03-26",
           capabilities: {},
-          clientInfo: { name: "maestro-brain-cli", version: "0.1.0" },
+          clientInfo: { name: "maestro-brain-cli", version: "0.1.1" },
         }
       : {};
   try {
