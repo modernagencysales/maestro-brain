@@ -121,7 +121,8 @@ const commandHandlers = (
   version: () => success(cliVersion),
   update: () =>
     success({
-      command: "npm install --global @modernagencysales/maestro-brain@latest",
+      command:
+        "npm install --global https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz",
       automatic: false,
     }),
   ask: async () => {

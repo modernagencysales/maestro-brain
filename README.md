@@ -13,6 +13,10 @@ and factory compatibility; it is not the product or repository identity.
 
 ## Start here
 
+Teammates who only need the shared company Brain should use the
+[terminal and MCP onboarding guide](./docs/team-onboarding.md). The development
+instructions below are for contributors changing this repository.
+
 Requirements: Git and Node 22. The bootstrap check chooses a pinned Corepack or
 npx pnpm command for the available host.
 
