@@ -14,6 +14,7 @@ import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspac
 import { api } from '#lib/trpc/react'
 
 import { Member, MembersList } from './members-list'
+import { invitationShareText } from './workspace-invitation-links'
 
 export function MembersSettingsPage() {
   const modals = useModals()
@@ -49,12 +50,13 @@ export function MembersSettingsPage() {
   })
 
   const onInvite = async ({ emails, role }: InviteData) => {
-    return toast.promise(
-      inviteMembers.mutateAsync({
-        workspaceId: workspace.id,
-        emails,
-        role,
-      }),
+    const invitationRequest = inviteMembers.mutateAsync({
+      workspaceId: workspace.id,
+      emails,
+      role,
+    })
+    toast.promise(
+      invitationRequest,
       {
         loading: {
           title:
@@ -73,6 +75,21 @@ export function MembersSettingsPage() {
         },
       },
     )
+    const invitations = await invitationRequest
+    const shareText = invitationShareText(window.location.origin, invitations)
+    try {
+      await navigator.clipboard.writeText(shareText)
+      toast.success({
+        title: 'Invitation link(s) copied',
+        description: 'Send the copied link to each invited teammate.',
+      })
+    } catch {
+      toast.error({
+        title: 'Invitation created; copy the link manually',
+        description: shareText,
+      })
+    }
+    return invitations
   }
 
   const onCancelInvite = async (member: Member) => {

@@ -34,6 +34,9 @@ export const realRefs = {
   "workspaceMembers.list": getFunctionReference(
     templateConfectRefs.public.access.members.list,
   ),
+  "workspaceMembers.invitation": getFunctionReference(
+    templateConfectRefs.public.access.invitations.view,
+  ),
 };
 
 export const realMutationRefs = {
@@ -45,6 +48,9 @@ export const realMutationRefs = {
   ),
   "workspaceMembers.invite": getFunctionReference(
     templateConfectRefs.public.access.invitations.create,
+  ),
+  "workspaceMembers.acceptInvitation": getFunctionReference(
+    templateConfectRefs.public.access.invitations.accept,
   ),
   "workspaceMembers.removeMember": getFunctionReference(
     templateConfectRefs.public.access.members.remove,
@@ -153,6 +159,10 @@ type NotificationSettingsInput = {
   readonly topics?: WorkspaceMemberSettingsDTO["topics"];
   readonly newsletters?: WorkspaceMemberSettingsDTO["newsletters"];
 };
+export type WorkspaceInvitationResult = Readonly<{
+  email: string;
+  invitationId: string;
+}>;
 export type CompatibilityApi = {
   readonly auth: {
     readonly me: StarterProcedure<CurrentUser>;
@@ -167,7 +177,15 @@ export type CompatibilityApi = {
   };
   readonly workspaceMembers: {
     readonly list: StarterProcedure<readonly WorkspaceMember[]>;
-    readonly invite: StarterProcedure;
+    readonly invite: StarterProcedure<
+      unknown,
+      readonly WorkspaceInvitationResult[],
+      {
+        readonly workspaceId: string;
+        readonly emails: readonly string[];
+        readonly role?: "admin" | "editor" | "viewer" | string;
+      }
+    >;
     readonly removeMember: StarterProcedure;
     readonly updateRoles: StarterProcedure;
     readonly notificationSettings: StarterProcedure<WorkspaceMemberSettingsDTO>;
@@ -178,9 +196,13 @@ export type CompatibilityApi = {
     >;
     readonly invitation: StarterProcedure<{
       workspace: Workspace;
-      invitedBy?: string;
+      invitedBy?: string | null;
     } | null>;
-    readonly acceptInvitation: StarterProcedure;
+    readonly acceptInvitation: StarterProcedure<
+      unknown,
+      { readonly workspaceId: string },
+      { readonly token: string }
+    >;
   };
   readonly contacts: {
     readonly listByType: StarterProcedure<{ contacts: ContactDTO[] }>;
@@ -240,8 +262,6 @@ export const neutralPaths = [
   "billing.setSubscriptionPlan",
   "workspaceMembers.notificationSettings",
   "workspaceMembers.updateNotificationSettings",
-  "workspaceMembers.invitation",
-  "workspaceMembers.acceptInvitation",
   "users.subscribeToNewsletter",
   "users.updateProfile",
   "auth.listAccounts",
@@ -273,7 +293,6 @@ const neutralData = (path: string) => {
   if (path === "workspaceMembers.notificationSettings") {
     return { channels: {}, topics: {}, newsletters: {} };
   }
-  if (path === "workspaceMembers.invitation") return null;
   return [];
 };
 
@@ -352,11 +371,27 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
 };
 
 const adaptProcedureData = <TData,>(key: string, value: unknown): TData =>
-  (key === "workspaces.bySlug" ||
-  key === "workspaces.create" ||
-  key === "workspaces.update"
-    ? normalizeWorkspace(value)
-    : value) as TData;
+  (key === "workspaceMembers.invitation" &&
+  value !== null &&
+  typeof value === "object" &&
+  "workspace" in value
+    ? {
+        ...value,
+        workspace: normalizeWorkspace(value.workspace),
+      }
+    : key === "workspaces.bySlug" ||
+        key === "workspaces.create" ||
+        key === "workspaces.update"
+      ? normalizeWorkspace(value)
+      : value) as TData;
+
+export const realQueryInput = (
+  key: string,
+  input: Record<string, unknown> | undefined,
+): Record<string, unknown> =>
+  key === "workspaceMembers.invitation"
+    ? { invitationId: inputString(input, "token", "") }
+    : (input ?? {});
 
 const workspaceFixture = (
   slug: string,
@@ -488,16 +523,23 @@ const executeRealMutation = async (
           (email): email is string => typeof email === "string",
         )
       : [];
-    await Promise.all(
-      emails.map((email) =>
-        client.mutation(realMutationRefs[key], {
+    const invitationIds = await Promise.all(
+      emails.map(async (email) => ({
+        email,
+        invitationId: await client.mutation(realMutationRefs[key], {
           workspaceId,
           email,
           role: memberRole(input.role),
         }),
-      ),
+      })),
     );
-    return { handled: true, value: null };
+    return { handled: true, value: invitationIds };
+  }
+  if (key === "workspaceMembers.acceptInvitation") {
+    const value = await client.mutation(realMutationRefs[key], {
+      invitationId: inputString(input, "token", ""),
+    });
+    return { handled: true, value };
   }
   if (key === "workspaceMembers.removeMember") {
     const value = await client.mutation(realMutationRefs[key], {
@@ -550,7 +592,7 @@ function procedure<
           isPending: false,
         };
       }
-      const data = useConvexQuery(convexRef, input ?? {});
+      const data = useConvexQuery(convexRef, realQueryInput(key, input));
       return {
         data: adaptProcedureData<TQueryData>(key, data),
         isLoading: data === undefined,
@@ -586,9 +628,10 @@ function procedure<
           },
         ];
       }
-      const queryOptions = convexQuery(convexRef, input ?? {}) as Parameters<
-        typeof useTanstackSuspenseQuery
-      >[0];
+      const queryOptions = convexQuery(
+        convexRef,
+        realQueryInput(key, input),
+      ) as Parameters<typeof useTanstackSuspenseQuery>[0];
       const result = useTanstackSuspenseQuery(queryOptions);
       const data = adaptProcedureData<TQueryData>(key, result.data);
       return [data, { ...result, data } as QueryResult<TQueryData>];
@@ -604,7 +647,7 @@ function procedure<
         throw new Error(`Router Convex client is required for ${key}`);
       const data = await client.query(
         convexRef as never,
-        (input ?? {}) as never,
+        realQueryInput(key, input) as never,
       );
       return adaptProcedureData<TQueryData>(key, data);
     },
@@ -675,7 +718,7 @@ export const createCompatibilityApi = (
       >(["workspaceMembers", "updateNotificationSettings"]),
       invitation: procedure<{
         workspace: Workspace;
-        invitedBy?: string;
+        invitedBy?: string | null;
       } | null>(["workspaceMembers", "invitation"]),
       acceptInvitation: procedure(["workspaceMembers", "acceptInvitation"]),
     },

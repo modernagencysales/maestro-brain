@@ -273,12 +273,12 @@ the same generated contracts across web, API, CLI, and MCP projections.
 ## Concurrent Product Delta
 
 `origin/main` added the legacy Nango-backed Slack event flow in `d97664a4` while
-this alpha.9 customer migration was under review. That implementation depends on
-the removed legacy Brain schema and legacy Connections screen. The merge records
-its ancestry but deliberately does not restore those parallel systems. A later
-product port must extend the alpha.9 `providerConnections` contract and keep the
-installed Pro `IntegrationCard` composition; it must not copy the deleted legacy
-screen or its backend wholesale.
+this alpha.9 customer migration was under review. That implementation depended
+on the removed legacy Brain schema and legacy Connections screen, so the merge
+recorded its ancestry without restoring those parallel systems. PR #57 later
+ported Slack into the alpha.9 `providerConnections` contract, the installed Pro
+`IntegrationCard` composition, and canonical `brainPages` snapshots. No legacy
+Connections screen or retired Brain store was restored.
 
 ## Execution Order
 

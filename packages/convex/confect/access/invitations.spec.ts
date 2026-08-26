@@ -13,6 +13,30 @@ import {
 } from "../errors";
 import { Role } from "./roles";
 
+const view = FunctionSpec.publicQuery({
+  name: "view",
+  args: () =>
+    Schema.Struct({
+      invitationId: Id("invitations"),
+    }),
+  returns: () =>
+    Schema.Struct({
+      workspace: Schema.Struct({
+        id: Id("workspaces"),
+        slug: Schema.String,
+        name: Schema.String,
+      }),
+      invitedBy: Schema.NullOr(Schema.String),
+    }),
+  error: () =>
+    Schema.Union([
+      Unauthorized,
+      InvitationNotAccessible,
+      InvitationNotPending,
+      InvitationExpired,
+    ]),
+});
+
 const create = FunctionSpec.publicMutation({
   name: "create",
   args: () =>
@@ -72,6 +96,7 @@ const cancel = FunctionSpec.publicMutation({
 });
 
 export default GroupSpec.make()
+  .addFunction(view)
   .addFunction(create)
   .addFunction(accept)
   .addFunction(decline)

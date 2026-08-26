@@ -28,6 +28,13 @@ describe("access Confect groups", () => {
   });
 
   it("exposes workspace invitation lifecycle refs", () => {
+    expect(refs.public.access.invitations.view).toMatchObject({
+      functionNamespace: "access/invitations",
+      functionSpec: {
+        name: "view",
+        functionVisibility: "public",
+      },
+    });
     expect(refs.public.access.invitations.create).toMatchObject({
       functionNamespace: "access/invitations",
       functionSpec: {

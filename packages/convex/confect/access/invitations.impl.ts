@@ -17,6 +17,7 @@ import {
 import { stableFingerprint } from "../shared/tokenCrypto";
 import { PublicBaseUrlConfig } from "../shared/config";
 import { recordAccessLifecycleEvents } from "./audit";
+import { buildInvitationUrl } from "./invitationUrl";
 import {
   Forbidden,
   InvitationNotAccessible,
@@ -35,11 +36,57 @@ import {
   buildWorkspaceInvitation,
   cancelInvitation,
   declineInvitation,
+  inspectInvitation,
   isLiveWorkspaceMembership,
   type InvitationRef,
   type WorkspaceMemberLifecycleRef,
 } from "./lifecycle";
 import invitations from "./invitations.spec";
+
+const view = FunctionImpl.make(
+  databaseSchema,
+  invitations,
+  "view",
+  ({ invitationId }) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const reader = yield* DatabaseReader;
+      const user = yield* loadCurrentUser(reader);
+      const loaded = yield* loadInvitationForResponse(reader, invitationId);
+      const invitation = yield* Effect.fromResult(
+        inspectInvitation({
+          invitation: loaded,
+          verifiedEmail: user.email,
+          now,
+        }),
+      );
+      const workspace = yield* reader
+        .table("workspaces")
+        .get(asGenericId<"workspaces">(invitation.workspaceId))
+        .pipe(
+          Effect.catch((error) =>
+            error._tag === "GetByIdFailure"
+              ? Effect.fail(new InvitationNotAccessible())
+              : Effect.die(error),
+          ),
+        );
+      if (workspace.status !== "active") {
+        return yield* new InvitationNotAccessible();
+      }
+      const inviter = yield* reader
+        .table("users")
+        .get(asGenericId<"users">(invitation.invitedByUserId))
+        .pipe(Effect.orDie);
+      return {
+        workspace: {
+          id: workspace._id,
+          slug: workspace.slug,
+          name: workspace.name,
+        },
+        invitedBy: inviter?.displayName ?? inviter?.email ?? null,
+      };
+    }),
+);
 
 const create = FunctionImpl.make(
   databaseSchema,
@@ -108,7 +155,7 @@ const create = FunctionImpl.make(
           templateModelJson: JSON.stringify({
             workspace_name: workspace.name,
             invitation_id: invitationId,
-            invitation_url: `${new URL(publicBaseUrl).origin}/invitations/${invitationId}`,
+            invitation_url: buildInvitationUrl(publicBaseUrl, invitationId),
           }),
           idempotencyKey: `invitation.${invitationId}`,
         })
@@ -322,6 +369,7 @@ const requireLoadedInvitation = (
     : Effect.succeed(invitation);
 
 export default GroupImpl.make(databaseSchema, invitations).pipe(
+  Layer.provide(view),
   Layer.provide(create),
   Layer.provide(accept),
   Layer.provide(decline),

@@ -18,6 +18,7 @@ export {
   buildWorkspaceInvitation,
   cancelInvitation,
   declineInvitation,
+  inspectInvitation,
   INVITATION_TTL_MS,
 } from "./lifecycleInvitations";
 export type { InvitationRef } from "./lifecycleInvitations";

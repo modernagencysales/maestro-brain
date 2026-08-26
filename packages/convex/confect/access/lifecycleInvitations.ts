@@ -95,6 +95,27 @@ export const buildInvitationCreatedEvent = (
   metadata: { email: invitation.email, role: invitation.role },
 });
 
+export const inspectInvitation = (input: {
+  readonly invitation: InvitationRef | null;
+  readonly verifiedEmail: string | null | undefined;
+  readonly now: number;
+}): PlannerResult<
+  InvitationRef,
+  InvitationExpired | InvitationNotAccessible | InvitationNotPending
+> => {
+  const invitation = requireAccessibleInvitation(
+    input.invitation,
+    input.verifiedEmail,
+  );
+  if (Result.isFailure(invitation)) return fail(invitation.failure);
+  const pending = requireInvitationPending(invitation.success);
+  if (Result.isFailure(pending)) return fail(pending.failure);
+  if (invitation.success.expiresAt <= input.now) {
+    return fail(new InvitationExpired({ invitationId: invitation.success.id }));
+  }
+  return succeed(invitation.success);
+};
+
 export const acceptInvitation = (input: {
   readonly invitation: InvitationRef | null;
   readonly verifiedEmail: string | null | undefined;
@@ -113,16 +134,8 @@ export const acceptInvitation = (input: {
   },
   InvitationExpired | InvitationNotAccessible | InvitationNotPending
 > => {
-  const invitation = requireAccessibleInvitation(
-    input.invitation,
-    input.verifiedEmail,
-  );
+  const invitation = inspectInvitation(input);
   if (Result.isFailure(invitation)) return fail(invitation.failure);
-  const pending = requireInvitationPending(invitation.success);
-  if (Result.isFailure(pending)) return fail(pending.failure);
-  if (invitation.success.expiresAt <= input.now) {
-    return fail(new InvitationExpired({ invitationId: invitation.success.id }));
-  }
 
   return succeed({
     invitationPatch: {

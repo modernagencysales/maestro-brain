@@ -9,6 +9,7 @@ import {
   cancelInvitation,
   changeMemberRole,
   declineInvitation,
+  inspectInvitation,
   removeMember,
   transferOwnership,
   type InvitationRef,
@@ -358,6 +359,38 @@ describe("workspace invitation lifecycle policy", () => {
     expect(Result.isFailure(blankEmailResult)).toBe(true);
     if (Result.isFailure(blankEmailResult)) {
       expect(blankEmailResult.failure).toBeInstanceOf(InvitationNotAccessible);
+    }
+  });
+
+  it("exposes only a pending unexpired invitation to its verified invitee", () => {
+    const visible = inspectInvitation({
+      invitation: invitation({ email: "ADA@EXAMPLE.COM" }),
+      verifiedEmail: "ada@example.com",
+      now,
+    });
+    expect(Result.isSuccess(visible)).toBe(true);
+    if (Result.isSuccess(visible)) {
+      expect(visible.success.id).toBe("invitations_1");
+    }
+
+    for (const hidden of [
+      inspectInvitation({
+        invitation: invitation({ email: "ada@example.com" }),
+        verifiedEmail: "grace@example.com",
+        now,
+      }),
+      inspectInvitation({
+        invitation: invitation({ status: "accepted" }),
+        verifiedEmail: "ada@example.com",
+        now,
+      }),
+      inspectInvitation({
+        invitation: invitation({ expiresAt: now }),
+        verifiedEmail: "ada@example.com",
+        now,
+      }),
+    ]) {
+      expect(Result.isFailure(hidden)).toBe(true);
     }
   });
 
