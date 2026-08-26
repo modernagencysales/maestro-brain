@@ -34,7 +34,11 @@ import {
   type EvidenceProviderHealth,
 } from './connections-adapter'
 import { runSlackConnect } from './slack-connect'
-import { ProviderSyncDialog } from './provider-sync-dialog'
+import {
+  ProviderSyncDialog,
+  type ProviderScopeDiscovery,
+  type SyncProvider,
+} from './provider-sync-dialog'
 
 const listConnectionsRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.list,
@@ -57,6 +61,9 @@ const beginProviderOauthRef = getFunctionReference(
 const completeProviderOauthRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.completeProviderOauth,
 )
+const discoverProviderScopesRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.discoverProviderScopes,
+)
 const syncSlackRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.syncSlack,
 )
@@ -73,6 +80,11 @@ const evidenceHealthRef = getFunctionReference(
 const evidenceProvider = (provider: ConnectionCardModel['id']) =>
   provider === 'google-drive' ? 'google_drive' : provider
 
+const indexedLabel = (timestamp: number | null | undefined) =>
+  timestamp == null
+    ? ''
+    : ` · Indexed ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(timestamp)}`
+
 const connectionType = (
   status: ConnectionStatus,
   integration: ConnectionCardModel,
@@ -87,7 +99,7 @@ const connectionType = (
   if (status === 'connected' && health?.lastConnectorRun?.status === 'running')
     return `Connected · Synchronizing · ${health.activeSourceCount} sources${schedule}`
   if (status === 'connected' && health !== undefined)
-    return `Connected · ${health.currentEntryCount}/${health.activeSourceCount} sources indexed${schedule}`
+    return `Connected · ${health.currentEntryCount}/${health.activeSourceCount} sources indexed${indexedLabel(health.latestIndexedAt)}${schedule}`
   if (integration.id !== 'slack' || status !== 'connected')
     return connectionCardType(status)
   if (connection?.syncStatus === 'syncing') return 'Connected · Synchronizing'
@@ -129,6 +141,7 @@ export const ConnectionsPage = () => {
   const completeSlackOauth = useConvexAction(completeSlackOauthRef)
   const beginProviderOauth = useConvexAction(beginProviderOauthRef)
   const completeProviderOauth = useConvexAction(completeProviderOauthRef)
+  const discoverProviderScopes = useConvexAction(discoverProviderScopesRef)
   const syncSlack = useConvexAction(syncSlackRef)
   const liveConnections = (
     isolatedContracts
@@ -150,6 +163,18 @@ export const ConnectionsPage = () => {
   )
   const syncGoogleDrive = useConvexAction(syncGoogleDriveRef)
   const syncHubSpot = useConvexAction(syncHubSpotRef)
+  const discoverScopes = React.useCallback(
+    async (
+      provider: SyncProvider,
+      containerId?: string,
+    ): Promise<ProviderScopeDiscovery> =>
+      (await discoverProviderScopes({
+        workspaceId: workspace.id,
+        provider,
+        ...(containerId === undefined ? {} : { containerId }),
+      })) as ProviderScopeDiscovery,
+    [discoverProviderScopes, workspace.id],
+  )
 
   const transition = async (
     id: ConnectionCardModel['id'],
@@ -287,6 +312,7 @@ export const ConnectionsPage = () => {
         }
         initialRootFolderIds={syncConnection?.googleDriveRootFolderIds}
         initialChannelIds={syncConnection?.slackChannelIds}
+        onDiscover={discoverScopes}
         onClose={() => setSyncProvider(null)}
         onSync={async ({
           provider,

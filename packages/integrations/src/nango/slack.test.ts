@@ -1,10 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  discoverSlackChannels,
   fetchSlackSnapshot,
   SlackChannelAllowlistInvalid,
   SlackSnapshotCapacityExceeded,
 } from "./slack";
+
+describe("discoverSlackChannels", () => {
+  it("returns readable channels without selecting a scope", async () => {
+    const request = vi.fn(async () =>
+      Response.json({
+        ok: true,
+        channels: [
+          { id: "C02", name: "sales", is_private: true },
+          { id: "C01", name: "general", is_private: false },
+        ],
+        response_metadata: { next_cursor: "" },
+      }),
+    );
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toEqual([
+      { id: "C01", name: "general", isPrivate: false },
+      { id: "C02", name: "sales", isPrivate: true },
+    ]);
+  });
+});
 
 const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });

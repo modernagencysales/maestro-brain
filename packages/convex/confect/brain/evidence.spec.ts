@@ -92,6 +92,11 @@ const HealthReturns = S.Struct({
         "current-index-covers-active-sources",
         "current-index-has-extra-entries",
       ]),
+      latestSourceModifiedAt: S.NullOr(S.Number),
+      latestObservedAt: S.NullOr(S.Number),
+      latestIndexedAt: S.NullOr(S.Number),
+      lastSuccessfulReconciliationAt: S.NullOr(S.Number),
+      freshnessState: S.Literal("unknown-no-policy"),
       lastConnectorRun: S.NullOr(
         S.Struct({
           runKey: S.String,

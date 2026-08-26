@@ -74,6 +74,43 @@ export class HubSpotCapacityExceeded extends Error {
   }
 }
 
+export type HubSpotAccountOption = Readonly<{
+  portalId: string;
+  displayName: string;
+}>;
+
+export const discoverHubSpotAccount = async (input: {
+  readonly secretKey: string;
+  readonly providerConfigKey: string;
+  readonly connectionId: string;
+  readonly request?: Request;
+}): Promise<HubSpotAccountOption> => {
+  const response = await (input.request ?? fetch)(
+    nangoProxyUrl("account-info/v3/details", {}),
+    { headers: nangoProxyHeaders(input) },
+  );
+  if (!response.ok) throw new HubSpotAdapterError("provider_unavailable");
+  let body: Readonly<Record<string, unknown>> | undefined;
+  try {
+    body = record(await response.json());
+  } catch {
+    throw new HubSpotAdapterError("invalid_response");
+  }
+  const portalIdValue = body?.portalId;
+  const portalId =
+    typeof portalIdValue === "number" && Number.isSafeInteger(portalIdValue)
+      ? String(portalIdValue)
+      : nonEmptyString(portalIdValue);
+  if (portalId === undefined) throw new HubSpotAdapterError("invalid_response");
+  return {
+    portalId,
+    displayName:
+      nonEmptyString(body?.uiDomain) ??
+      nonEmptyString(body?.accountName) ??
+      `HubSpot portal ${portalId}`,
+  };
+};
+
 export const defaultHubSpotObjectTypes = [
   {
     objectType: "companies",

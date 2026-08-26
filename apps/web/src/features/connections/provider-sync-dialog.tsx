@@ -1,51 +1,117 @@
 'use client'
 
 import * as React from 'react'
-import { Field, Input, Text, VStack } from '@chakra-ui/react'
+import {
+  Box,
+  Field,
+  Input,
+  NativeSelect,
+  Spinner,
+  Text,
+  VStack,
+} from '@chakra-ui/react'
 import { Button, Dialog } from '@saas-ui/react'
+import { Checkbox } from '#components/ui/checkbox'
 
-type Provider = 'slack' | 'google-drive' | 'hubspot'
+export type SyncProvider = 'slack' | 'google-drive' | 'hubspot'
+
+export type ProviderScopeDiscovery = Readonly<{
+  provider: SyncProvider
+  containers: readonly Readonly<{ id: string; label: string }>[]
+  scopes: readonly Readonly<{
+    id: string
+    label: string
+    description?: string
+  }>[]
+  resolvedContainerId?: string
+}>
 
 export function ProviderSyncDialog(props: {
   open: boolean
-  provider: Provider | null
+  provider: SyncProvider | null
   initialContainerId?: string
   initialRootFolderIds?: readonly string[]
   initialChannelIds?: readonly string[]
   onClose: () => void
+  onDiscover: (
+    provider: SyncProvider,
+    containerId?: string,
+  ) => Promise<ProviderScopeDiscovery>
   onSync: (input: {
-    provider: Provider
+    provider: SyncProvider
     containerId: string
     rootFolderIds: readonly string[]
     channelIds: readonly string[]
   }) => Promise<void>
 }) {
   const [containerId, setContainerId] = React.useState('')
-  const [roots, setRoots] = React.useState('')
+  const [selectedScopeIds, setSelectedScopeIds] = React.useState<string[]>([])
+  const [manualScopes, setManualScopes] = React.useState('')
+  const [discovery, setDiscovery] = React.useState<ProviderScopeDiscovery>()
+  const [discovering, setDiscovering] = React.useState(false)
+  const [discoveryFailed, setDiscoveryFailed] = React.useState(false)
+  const [manualMode, setManualMode] = React.useState(false)
   const [pending, setPending] = React.useState(false)
   const drive = props.provider === 'google-drive'
   const slack = props.provider === 'slack'
-  const initialContainerId = props.initialContainerId ?? ''
-  const initialRoots = (
-    slack ? props.initialChannelIds : props.initialRootFolderIds
-  )?.join(', ') ?? ''
+
+  const loadScopes = React.useCallback(
+    async (provider: SyncProvider, selectedContainerId?: string) => {
+      setDiscovering(true)
+      setDiscoveryFailed(false)
+      try {
+        const result = await props.onDiscover(provider, selectedContainerId)
+        setDiscovery(result)
+        if (result.resolvedContainerId !== undefined)
+          setContainerId(result.resolvedContainerId)
+      } catch {
+        setDiscoveryFailed(true)
+      } finally {
+        setDiscovering(false)
+      }
+    },
+    [props.onDiscover],
+  )
 
   React.useEffect(() => {
-    setContainerId(props.open ? initialContainerId : '')
-    setRoots(props.open ? initialRoots : '')
-  }, [initialContainerId, initialRoots, props.open])
+    if (!props.open || props.provider === null) return
+    const initialContainerId = props.initialContainerId ?? ''
+    const initialScopes = [
+      ...(props.provider === 'slack' ? (props.initialChannelIds ?? []) : []),
+      ...(props.provider === 'google-drive'
+        ? (props.initialRootFolderIds ?? [])
+        : []),
+    ]
+    setContainerId(initialContainerId)
+    setSelectedScopeIds([...initialScopes])
+    setManualScopes(initialScopes.join(', '))
+    setDiscovery(undefined)
+    setManualMode(false)
+    void loadScopes(
+      props.provider,
+      props.provider === 'google-drive' && initialContainerId.length > 0
+        ? initialContainerId
+        : undefined,
+    )
+  }, [
+    loadScopes,
+    props.initialChannelIds,
+    props.initialContainerId,
+    props.initialRootFolderIds,
+    props.open,
+    props.provider,
+  ])
 
-  const rootFolderIds = roots
+  const manualIds = manualScopes
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean)
-  const channelIds = slack ? rootFolderIds : []
+  const scopeIds = manualMode ? manualIds : selectedScopeIds
   const valid =
     props.provider !== null &&
     (slack
-      ? channelIds.length > 0
-      : containerId.trim().length > 0 &&
-        (!drive || rootFolderIds.length > 0))
+      ? scopeIds.length > 0
+      : containerId.trim().length > 0 && (!drive || scopeIds.length > 0))
 
   return (
     <Dialog.Root
@@ -61,7 +127,7 @@ export function ProviderSyncDialog(props: {
               ? 'Choose Slack channels'
               : drive
                 ? 'Choose Google Drive scope'
-                : 'Choose HubSpot portal'}
+                : 'Confirm HubSpot portal'}
           </Dialog.Title>
           <Dialog.CloseButton />
         </Dialog.Header>
@@ -69,42 +135,156 @@ export function ProviderSyncDialog(props: {
           <VStack align="stretch" gap="4">
             <Text color="fg.muted" textStyle="sm">
               {slack
-                ? 'Only these approved Slack channels enter the Company Brain. Scheduled reconciliation reuses this exact allowlist.'
+                ? 'Nothing is selected automatically. Only channels you approve below enter the Company Brain.'
                 : drive
-                ? 'Only files under these approved Shared Drive folders enter the Company Brain.'
-                : 'Companies, contacts, and deals from this portal enter the shared Company Brain.'}
+                  ? 'Choose one Shared Drive, then explicitly approve its full root or specific folders.'
+                  : 'The portal below was detected from the account you authorized.'}
             </Text>
-            {!slack ? (
+
+            {discovering ? (
+              <Box display="flex" alignItems="center" gap="2" py="4">
+                <Spinner size="sm" />
+                <Text textStyle="sm">Loading available provider scopes…</Text>
+              </Box>
+            ) : null}
+
+            {!discovering && !manualMode && drive ? (
               <Field.Root required>
-                <Field.Label>
-                  {drive ? 'Shared Drive ID' : 'HubSpot portal ID'}
-                </Field.Label>
+                <Field.Label>Shared Drive</Field.Label>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    value={containerId}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setContainerId(value)
+                      setSelectedScopeIds([])
+                      if (value.length > 0)
+                        void loadScopes('google-drive', value)
+                    }}
+                  >
+                    <option value="">Choose a Shared Drive</option>
+                    {discovery?.containers.map((container) => (
+                      <option key={container.id} value={container.id}>
+                        {container.label}
+                      </option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </Field.Root>
+            ) : null}
+
+            {!discovering && !manualMode && !drive && !slack ? (
+              <Field.Root required>
+                <Field.Label>HubSpot portal</Field.Label>
                 <Input
-                  value={containerId}
-                  onChange={(event) => setContainerId(event.target.value)}
-                  placeholder={drive ? '0AExampleSharedDrive' : '12345678'}
-                  autoFocus
+                  value={
+                    discovery?.containers.find(({ id }) => id === containerId)
+                      ?.label ?? containerId
+                  }
+                  readOnly
                 />
               </Field.Root>
             ) : null}
-            {drive || slack ? (
+
+            {!discovering && !manualMode && (slack || drive) && discovery ? (
               <Field.Root required>
                 <Field.Label>
-                  {slack ? 'Slack channel IDs' : 'Root folder IDs'}
+                  {slack ? 'Approved channels' : 'Approved folders'}
                 </Field.Label>
-                <Input
-                  value={roots}
-                  onChange={(event) => setRoots(event.target.value)}
-                  placeholder={
-                    slack ? 'C01234567, C07654321' : 'folder-id-1, folder-id-2'
-                  }
-                  autoFocus={slack}
-                />
+                <VStack
+                  align="stretch"
+                  maxH="72"
+                  overflowY="auto"
+                  borderWidth="1px"
+                  borderRadius="md"
+                  p="3"
+                >
+                  {discovery.scopes.length === 0 ? (
+                    <Text color="fg.muted" textStyle="sm">
+                      {drive && containerId.length === 0
+                        ? 'Choose a Shared Drive first.'
+                        : 'No available scopes were returned.'}
+                    </Text>
+                  ) : (
+                    discovery.scopes.map((scope) => (
+                      <Checkbox
+                        key={scope.id}
+                        checked={selectedScopeIds.includes(scope.id)}
+                        onCheckedChange={({ checked }) =>
+                          setSelectedScopeIds((current) =>
+                            checked === true
+                              ? [...new Set([...current, scope.id])]
+                              : current.filter((id) => id !== scope.id),
+                          )
+                        }
+                      >
+                        {scope.label}
+                        {scope.description ? ` · ${scope.description}` : ''}
+                      </Checkbox>
+                    ))
+                  )}
+                </VStack>
                 <Field.HelperText>
-                  Separate multiple {slack ? 'channel' : 'folder'} IDs with
-                  commas.
+                  {selectedScopeIds.length} selected
                 </Field.HelperText>
               </Field.Root>
+            ) : null}
+
+            {manualMode ? (
+              <VStack align="stretch" gap="3">
+                {!slack ? (
+                  <Field.Root required>
+                    <Field.Label>
+                      {drive ? 'Shared Drive ID' : 'HubSpot portal ID'}
+                    </Field.Label>
+                    <Input
+                      value={containerId}
+                      onChange={(event) => setContainerId(event.target.value)}
+                    />
+                  </Field.Root>
+                ) : null}
+                {drive || slack ? (
+                  <Field.Root required>
+                    <Field.Label>
+                      {slack ? 'Slack channel IDs' : 'Root folder IDs'}
+                    </Field.Label>
+                    <Input
+                      value={manualScopes}
+                      onChange={(event) => setManualScopes(event.target.value)}
+                      placeholder="Separate IDs with commas"
+                    />
+                  </Field.Root>
+                ) : null}
+              </VStack>
+            ) : null}
+
+            {discoveryFailed && !manualMode ? (
+              <Text color="fg.error" textStyle="sm">
+                Automatic scope discovery failed. You can retry or enter the
+                provider IDs manually.
+              </Text>
+            ) : null}
+
+            {discoveryFailed || manualMode ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                alignSelf="start"
+                onClick={() => {
+                  if (manualMode && props.provider !== null) {
+                    setManualMode(false)
+                    void loadScopes(
+                      props.provider,
+                      drive && containerId.length > 0 ? containerId : undefined,
+                    )
+                    return
+                  }
+                  setManualMode(true)
+                }}
+              >
+                {manualMode ? 'Try automatic discovery' : 'Enter IDs manually'}
+              </Button>
             ) : null}
           </VStack>
         </Dialog.Body>
@@ -113,7 +293,7 @@ export function ProviderSyncDialog(props: {
             Cancel
           </Button>
           <Button
-            disabled={!valid || pending}
+            disabled={!valid || pending || discovering}
             loading={pending}
             onClick={async () => {
               if (!valid || props.provider === null) return
@@ -122,8 +302,8 @@ export function ProviderSyncDialog(props: {
                 await props.onSync({
                   provider: props.provider,
                   containerId: containerId.trim(),
-                  rootFolderIds,
-                  channelIds,
+                  rootFolderIds: drive ? scopeIds : [],
+                  channelIds: slack ? scopeIds : [],
                 })
                 props.onClose()
               } finally {

@@ -1,9 +1,55 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  discoverGoogleDriveFolders,
+  discoverGoogleDrives,
   fetchGoogleDriveInventory,
   GoogleDriveCapacityExceeded,
 } from "./googleDrive";
+
+describe("Google Drive scope discovery", () => {
+  it("lists readable shared drives", async () => {
+    const request = vi.fn(async (_input: string | URL) => {
+      void _input;
+      return Response.json({
+        drives: [{ id: "drive-1", name: "Apero Shared" }],
+      });
+    });
+    await expect(
+      discoverGoogleDrives({
+        secretKey: "secret",
+        providerConfigKey: "google-drive",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toEqual([{ id: "drive-1", name: "Apero Shared" }]);
+  });
+
+  it("lists readable folders within only the selected drive", async () => {
+    const request = vi.fn(async (_input: string | URL) => {
+      void _input;
+      return Response.json({
+        files: [{ id: "folder-1", name: "Clients", parents: ["drive-1"] }],
+      });
+    });
+    await expect(
+      discoverGoogleDriveFolders({
+        secretKey: "secret",
+        providerConfigKey: "google-drive",
+        connectionId: "conn",
+        driveId: "drive-1",
+        request,
+      }),
+    ).resolves.toEqual([
+      {
+        id: "folder-1",
+        name: "Clients",
+        parentFolderIds: ["drive-1"],
+      },
+    ]);
+    expect(String(request.mock.calls[0]?.[0])).toContain("driveId=drive-1");
+  });
+});
 
 const response = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });
