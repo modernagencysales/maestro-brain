@@ -2,16 +2,19 @@ import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
+import { Id } from "../confect/_generated/id";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
-import { Id } from "../confect/_generated/id";
-import { DatabaseWriter } from "../confect/_generated/services";
 import {
   MemberNotInWorkspace,
   StaleRevision,
   ValidationFailed,
 } from "../confect/errors";
-import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
+import {
+  SeededTenancy,
+  seedTenancy,
+  seedWorkspaceForMember,
+} from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
@@ -144,36 +147,12 @@ describe("brain pages Confect contract", () => {
         email: "member@example.com",
       });
       const otherWorkspaceId = yield* confect.run(
-        Effect.gen(function* () {
-          const writer = yield* DatabaseWriter;
-          const workspaceId = yield* writer
-            .table("workspaces")
-            .insert({
-              organizationId: seeded.organizationId,
-              ownerUserId: seeded.memberUserId,
-              name: "Other Workspace",
-              slug: "other-workspace",
-              status: "active",
-              dataClassification: "internal",
-              createdAt: now,
-              updatedAt: now,
-            })
-            .pipe(Effect.orDie);
-          yield* writer
-            .table("workspaceMembers")
-            .insert({
-              workspaceId,
-              userId: seeded.memberUserId,
-              role: "editor",
-              status: "active",
-              acceptedAt: now,
-              revokedAt: null,
-              deletedAt: null,
-              createdAt: now,
-              updatedAt: now,
-            })
-            .pipe(Effect.orDie);
-          return workspaceId;
+        seedWorkspaceForMember({
+          organizationId: seeded.organizationId,
+          ownerUserId: seeded.memberUserId,
+          name: "Other Workspace",
+          slug: "other-workspace",
+          now,
         }),
         Id("workspaces"),
       );
