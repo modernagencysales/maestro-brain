@@ -7,8 +7,7 @@ import {
   type BrainConfig,
 } from "./config.js";
 import { linkTerminal } from "./terminalLink.js";
-
-export const cliVersion = "0.1.1";
+export { cliVersion } from "./version.js";
 
 export type CliDependencies = {
   readonly cwd: string;

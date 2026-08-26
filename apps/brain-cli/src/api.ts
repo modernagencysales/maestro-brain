@@ -1,4 +1,5 @@
 import { apiKeySettingsUrl, type BrainConfig } from "./config.js";
+import { cliVersion } from "./version.js";
 
 export type CliResult = {
   readonly exitCode: number;
@@ -47,10 +48,24 @@ const apiResponseResult = async (
       `Brain API returned HTTP ${response.status} with invalid JSON.`,
     );
   }
+  const ok = successfulApiBody(response, body);
+  const errorTag =
+    !ok &&
+    body !== null &&
+    typeof body === "object" &&
+    "error" in body &&
+    body.error !== null &&
+    typeof body.error === "object" &&
+    "_tag" in body.error &&
+    typeof body.error._tag === "string"
+      ? ` (${body.error._tag})`
+      : "";
   return {
-    exitCode: successfulApiBody(response, body) ? 0 : 1,
+    exitCode: ok ? 0 : 1,
     stdout: `${JSON.stringify(body, null, 2)}\n`,
-    stderr: "",
+    stderr: ok
+      ? ""
+      : `Brain API request failed with HTTP ${response.status}${errorTag}.\n`,
   };
 };
 
@@ -98,7 +113,7 @@ export const callMcp = async (
       ? {
           protocolVersion: "2025-03-26",
           capabilities: {},
-          clientInfo: { name: "maestro-brain-cli", version: "0.1.1" },
+          clientInfo: { name: "maestro-brain-cli", version: cliVersion },
         }
       : {};
   try {

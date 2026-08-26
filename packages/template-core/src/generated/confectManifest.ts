@@ -428,6 +428,16 @@ const sharedConfectJsonSchemasValue1 = {
       type: "string",
       enum: ["markdown", "link", "note"],
     },
+    importSourceKey: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     parentPageId: {
       anyOf: [
         {
@@ -1448,6 +1458,16 @@ const sharedConfectJsonSchemas = {
       markdown: {
         type: "string",
       },
+      importSourceKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
       parentPageId: {
         anyOf: [
           {
@@ -1969,6 +1989,16 @@ const sharedConfectJsonSchemas = {
           type: "string",
           enum: ["markdown", "link", "note"],
         },
+        importSourceKey: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         parentPageId: {
           anyOf: [
             {
@@ -2332,6 +2362,36 @@ const sharedConfectJsonSchemas = {
       },
       markdown: {
         type: "string",
+      },
+      title: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      expectedImportSourceKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      adoptImportSourceKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
       },
       expectedUpdatedAt: {
         anyOf: [

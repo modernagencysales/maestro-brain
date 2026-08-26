@@ -6,7 +6,11 @@ import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import { DatabaseWriter } from "../confect/_generated/services";
-import { MemberNotInWorkspace, StaleRevision } from "../confect/errors";
+import {
+  MemberNotInWorkspace,
+  StaleRevision,
+  ValidationFailed,
+} from "../confect/errors";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
@@ -37,6 +41,98 @@ describe("brain pages Confect contract", () => {
 
     expect(result).toBeInstanceOf(MemberNotInWorkspace);
     expect(result._tag).toBe("MemberNotInWorkspace");
+  });
+
+  it("enforces unique page identities and imported-page ownership", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const manualId = yield* actor.mutation(
+        refs.public.brain.pages.createMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          slug: "manual-icp",
+          title: "Manual ICP",
+          markdown: "# Manual ICP",
+        },
+      );
+      const manual = yield* actor.query(refs.public.brain.pages.get, {
+        workspaceId: seeded.workspaceId,
+        pageId: manualId,
+      });
+      const duplicateSlug = yield* actor
+        .mutation(refs.public.brain.pages.createMarkdown, {
+          workspaceId: seeded.workspaceId,
+          slug: "manual-icp",
+          title: "Duplicate",
+          markdown: "# Duplicate",
+          importSourceKey: "cli-import:manual-icp",
+        })
+        .pipe(Effect.flip);
+      const adopted = yield* actor.mutation(
+        refs.public.brain.pages.updateMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          pageId: manualId,
+          title: "Adopted ICP",
+          markdown: "# Adopted ICP",
+          adoptImportSourceKey: "cli-import:manual-icp",
+          expectedUpdatedAt: manual.updatedAt,
+        },
+      );
+      const importedId = yield* actor.mutation(
+        refs.public.brain.pages.createMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          slug: "imported-icp",
+          title: "Imported ICP",
+          markdown: "# Imported ICP",
+          importSourceKey: "cli-import:imported-icp",
+        },
+      );
+      const imported = yield* actor.query(refs.public.brain.pages.get, {
+        workspaceId: seeded.workspaceId,
+        pageId: importedId,
+      });
+      const updated = yield* actor.mutation(
+        refs.public.brain.pages.updateMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          pageId: importedId,
+          title: "Updated ICP",
+          markdown: "# Updated ICP",
+          expectedImportSourceKey: "cli-import:imported-icp",
+          expectedUpdatedAt: imported.updatedAt,
+        },
+      );
+      const wrongOwner = yield* actor
+        .mutation(refs.public.brain.pages.updateMarkdown, {
+          workspaceId: seeded.workspaceId,
+          pageId: importedId,
+          markdown: "# Wrong owner",
+          expectedImportSourceKey: "cli-import:someone-else",
+          expectedUpdatedAt: updated.updatedAt,
+        })
+        .pipe(Effect.flip);
+      return { duplicateSlug, adopted, imported, updated, wrongOwner };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.duplicateSlug).toBeInstanceOf(ValidationFailed);
+    expect(result.adopted.importSourceKey).toBe("cli-import:manual-icp");
+    expect(result.imported.importSourceKey).toBe("cli-import:imported-icp");
+    expect(result.updated).toMatchObject({
+      title: "Updated ICP",
+      markdown: "# Updated ICP",
+    });
+    expect(result.wrongOwner).toBeInstanceOf(ValidationFailed);
   });
 
   it("persists revision-fenced page lifecycle", async () => {

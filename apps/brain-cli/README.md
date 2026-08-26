@@ -32,5 +32,15 @@ the same hosted HTTP MCP tools that Codex, Claude Code, and Cowork discover.
 the latest connector-run state. It is an operational observation, not a
 readiness claim.
 
+`maestro-brain import <folder>` is repeatable: it creates missing pages, updates
+changed Markdown and titles only on pages carrying the same persisted import
+identity, and skips unchanged pages. Manual, archived, or duplicate collisions
+fail closed before writes. It never archives a Brain page merely because the
+corresponding local file is absent.
+
+For a folder first imported with CLI `0.1.1`, review the same-slug pages and run
+`maestro-brain import <folder> --adopt-existing` once. Adoption is explicit,
+revision-fenced, and limited to active pages with no existing import owner.
+
 `logout` removes the local CLI configuration. It cannot revoke a server-side API
 key; use browser settings for revocation.

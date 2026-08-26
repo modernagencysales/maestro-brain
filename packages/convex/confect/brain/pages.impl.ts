@@ -217,6 +217,7 @@ const createMarkdownPage = (args: {
   readonly slug: string;
   readonly title: string;
   readonly markdown: string;
+  readonly importSourceKey?: string | undefined;
   readonly parentPageId?: GenericId<"brainPages"> | null | undefined;
   readonly sortKey?: string | undefined;
   readonly actorUserId: GenericId<"users">;
@@ -228,6 +229,46 @@ const createMarkdownPage = (args: {
         field: "title",
         message: "Title must contain between 1 and 160 characters.",
       });
+    const importSourceKey = args.importSourceKey?.trim();
+    if (
+      args.importSourceKey !== undefined &&
+      (importSourceKey === undefined ||
+        importSourceKey.length === 0 ||
+        importSourceKey.length > 240)
+    )
+      return yield* new ValidationFailed({
+        field: "importSourceKey",
+        message: "Import source key must contain between 1 and 240 characters.",
+      });
+    const reader = yield* DatabaseReader;
+    const slugMatches = yield* reader
+      .table("brainPages")
+      .index("by_workspace_slug", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("slug", args.slug),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (slugMatches.length > 0)
+      return yield* new ValidationFailed({
+        field: "slug",
+        message: "A Brain page with this slug already exists.",
+      });
+    if (importSourceKey !== undefined) {
+      const sourceMatches = yield* reader
+        .table("brainPages")
+        .index("by_workspace_import_source", (q) =>
+          q
+            .eq("workspaceId", args.workspaceId)
+            .eq("importSourceKey", importSourceKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      if (sourceMatches.length > 0)
+        return yield* new ValidationFailed({
+          field: "importSourceKey",
+          message: "A Brain page for this import source already exists.",
+        });
+    }
     if (args.parentPageId !== undefined && args.parentPageId !== null) {
       const parent = yield* requirePage(args.workspaceId, args.parentPageId);
       if (currentState(parent).status !== "active")
@@ -252,6 +293,7 @@ const createMarkdownPage = (args: {
         title,
         markdown: args.markdown,
         sourceKind: "markdown",
+        ...(importSourceKey === undefined ? {} : { importSourceKey }),
         ...state,
         createdAt: updatedAt,
         updatedAt,
@@ -305,20 +347,76 @@ const patchPage = (input: {
   readonly expectedUpdatedAt: number;
   readonly causation: Exclude<RevisionCausation, "create" | "restore">;
   readonly patch: Record<string, unknown>;
+  readonly expectedImportSourceKey?: string | undefined;
+  readonly adoptImportSourceKey?: string | undefined;
   readonly actorUserId: GenericId<"users">;
 }) =>
   Effect.gen(function* () {
     const page = yield* requirePage(input.workspaceId, input.pageId);
+    if (
+      input.expectedImportSourceKey !== undefined &&
+      input.adoptImportSourceKey !== undefined
+    )
+      return yield* new ValidationFailed({
+        field: "adoptImportSourceKey",
+        message: "Import ownership cannot be asserted and adopted together.",
+      });
+    if (
+      input.expectedImportSourceKey !== undefined &&
+      page.importSourceKey !== input.expectedImportSourceKey
+    )
+      return yield* new ValidationFailed({
+        field: "expectedImportSourceKey",
+        message: "The page is not owned by this import source.",
+      });
+    const adoptImportSourceKey = input.adoptImportSourceKey?.trim();
+    if (input.adoptImportSourceKey !== undefined) {
+      if (
+        adoptImportSourceKey === undefined ||
+        adoptImportSourceKey.length === 0 ||
+        adoptImportSourceKey.length > 240
+      )
+        return yield* new ValidationFailed({
+          field: "adoptImportSourceKey",
+          message: "Adopted import source key is invalid.",
+        });
+      if (page.importSourceKey !== undefined)
+        return yield* new ValidationFailed({
+          field: "adoptImportSourceKey",
+          message: "The page already belongs to an import source.",
+        });
+      const reader = yield* DatabaseReader;
+      const sourceMatches = yield* reader
+        .table("brainPages")
+        .index("by_workspace_import_source", (q) =>
+          q
+            .eq("workspaceId", input.workspaceId)
+            .eq("importSourceKey", adoptImportSourceKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      if (sourceMatches.length > 0)
+        return yield* new ValidationFailed({
+          field: "adoptImportSourceKey",
+          message: "This import source already belongs to another page.",
+        });
+    }
     yield* requireCurrentRevision(page, input.expectedUpdatedAt);
     const updatedAt = nextPageUpdatedAt(
       page.updatedAt,
       yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
     );
-    const patchedPage = { ...page, ...input.patch, updatedAt };
+    const patch = {
+      ...input.patch,
+      ...(adoptImportSourceKey === undefined
+        ? {}
+        : { importSourceKey: adoptImportSourceKey }),
+    };
+    const patchedPage = { ...page, ...patch, updatedAt };
     const writer = yield* DatabaseWriter;
     yield* writer
       .table("brainPages")
-      .patch(page._id, { ...input.patch, updatedAt })
+      .patch(page._id, { ...patch, updatedAt })
       .pipe(Effect.orDie);
     yield* writeRevision({
       workspaceId: input.workspaceId,
@@ -344,13 +442,25 @@ const updateMarkdown = FunctionImpl.make(
     withMutationErrorCapture(
       "brain/pages.updateMarkdown",
       Effect.gen(function* () {
+        const title = args.title?.trim();
+        if (
+          args.title !== undefined &&
+          (title === undefined || title.length === 0 || title.length > 160)
+        )
+          return yield* new ValidationFailed({
+            field: "title",
+            message: "Title must contain between 1 and 160 characters.",
+          });
         const access = yield* unsafeAssumeClockProvided(
           requireWorkspaceAccess(args.workspaceId, "editor"),
         );
         return yield* patchPage({
           ...args,
           causation: "update",
-          patch: { markdown: args.markdown },
+          patch: {
+            markdown: args.markdown,
+            ...(title === undefined ? {} : { title }),
+          },
           actorUserId: access.userId,
         });
       }),
@@ -581,13 +691,25 @@ const updateMarkdownForActor = FunctionImpl.make(
     withMutationErrorCapture(
       "brain/pages.updateMarkdownForActor",
       Effect.gen(function* () {
+        const title = args.title?.trim();
+        if (
+          args.title !== undefined &&
+          (title === undefined || title.length === 0 || title.length > 160)
+        )
+          return yield* new ValidationFailed({
+            field: "title",
+            message: "Title must contain between 1 and 160 characters.",
+          });
         yield* unsafeAssumeClockProvided(
           requireWorkspaceActorAccess(args.workspaceId, userId, "editor"),
         );
         return yield* patchPage({
           ...args,
           causation: "update",
-          patch: { markdown: args.markdown },
+          patch: {
+            markdown: args.markdown,
+            ...(title === undefined ? {} : { title }),
+          },
           actorUserId: userId,
         });
       }),
