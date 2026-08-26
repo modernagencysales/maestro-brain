@@ -8,6 +8,8 @@ maestro-brain setup
 eval "$(maestro-brain env)"
 maestro-brain doctor
 maestro-brain ask "What is our ICP?"
+maestro-brain evidence search "What is our ICP?"
+maestro-brain evidence health
 ```
 
 Run `maestro-brain update` later to print the stable install command for the
@@ -22,6 +24,13 @@ variable, so source it into each agent terminal with the printed `eval` command.
 Claude Cowork may require adding the generated `.cowork/maestro-brain.json` HTTP
 connector through its connector UI when project descriptors are not discovered
 automatically.
+
+The canonical read flow is `evidence search` followed by `evidence source-get`
+with the exact source and revision keys returned by search. Both commands use
+the same hosted HTTP MCP tools that Codex, Claude Code, and Cowork discover.
+`evidence health` reports bounded provider counts, index coverage, capacity, and
+the latest connector-run state. It is an operational observation, not a
+readiness claim.
 
 `logout` removes the local CLI configuration. It cannot revoke a server-side API
 key; use browser settings for revocation.

@@ -1,6 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { callApi, callMcp, failure, success, type CliResult } from "./api.js";
+import {
+  callApi,
+  callMcp,
+  callMcpTool,
+  failure,
+  success,
+  type CliResult,
+} from "./api.js";
 import { apiKeySettingsUrl, readConfig } from "./config.js";
 import {
   cliVersion,
@@ -22,16 +29,43 @@ export const doctorCommand = async (
     input: {},
   });
   const mcp = await callMcp(config, dependencies.fetch, "initialize");
-  const ok = api.exitCode === 0 && mcp.exitCode === 0;
+  const tools = await callMcp(config, dependencies.fetch, "tools/list");
+  const evidence = await callMcpTool(
+    config,
+    dependencies.fetch,
+    "template.brain.evidence.health",
+    {},
+  );
+  const checks = {
+    config: { ok: true },
+    api: { ok: api.exitCode === 0, detail: api.stderr.trim() || undefined },
+    mcpProtocol: {
+      ok: mcp.exitCode === 0,
+      detail: mcp.stderr.trim() || undefined,
+    },
+    mcpTools: {
+      ok: tools.exitCode === 0,
+      detail: tools.stderr.trim() || undefined,
+    },
+    workspaceEvidence: {
+      ok: evidence.exitCode === 0,
+      detail: evidence.stderr.trim() || undefined,
+    },
+  };
+  const ok = Object.values(checks).every(({ ok }) => ok);
   return {
     ...success({
       ok,
-      checks: {
-        config: true,
-        credential: true,
-        api: api.exitCode === 0,
-        mcp: mcp.exitCode === 0,
-      },
+      checks,
+      ...(ok
+        ? {}
+        : {
+            next: [
+              "Run maestro-brain status and confirm the expected workspace.",
+              "Rerun maestro-brain setup if the key or workspace is stale.",
+              "Run maestro-brain mcp tools for the raw MCP response.",
+            ],
+          }),
     }),
     exitCode: ok ? 0 : 1,
   };
@@ -52,7 +86,9 @@ export const statusCommand = (dependencies: CliDependencies): CliResult => {
           apiKeyPresent,
           settingsUrl: apiKeySettingsUrl(config),
         }
-      : {}),
+      : {
+          next: "Run maestro-brain setup from the project to link a workspace.",
+        }),
   });
 };
 

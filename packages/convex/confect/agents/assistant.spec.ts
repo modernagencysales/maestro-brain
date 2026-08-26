@@ -6,6 +6,7 @@ import {
   collectContractSchemas,
   defineContractFunction,
 } from "../capabilities/_kit/capability";
+import { BrainEvidenceProvider } from "../tables/brainEvidenceSources";
 
 export const StartThreadArgs = S.Struct({
   workspaceId: Id("workspaces"),
@@ -45,12 +46,16 @@ export const AnswerCitation = S.Struct({
   citationKey: S.String,
   sourceId: S.String,
   sourceRevisionId: S.String,
-  pageId: Id("brainPages"),
-  revisionUpdatedAt: S.Number,
+  provider: BrainEvidenceProvider,
+  revisionKey: S.String,
   title: S.String,
   excerpt: S.String,
   startOffset: S.Number,
   endOffset: S.Number,
+  contentHash: S.String,
+  locator: S.optional(S.String),
+  sourceModifiedAt: S.Number,
+  observedAt: S.Number,
   freshness: S.Literals(["current", "review-due", "stale"]),
 });
 

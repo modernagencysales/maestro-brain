@@ -144,3 +144,80 @@ export const callMcp = async (
     return failure(`HTTP MCP ${method} could not reach ${config.apiUrl}/mcp.`);
   }
 };
+
+export const callMcpTool = async (
+  config: BrainConfig,
+  fetcher: typeof fetch,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<CliResult> => {
+  if (!config.apiKey) return failure("No API key is configured.");
+  try {
+    const response = await fetcher(`${config.apiUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.apiKey}`,
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name, arguments: args },
+      }),
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const text = redacted(await response.text(), config.apiKey);
+    if (!response.ok)
+      return failure(`HTTP MCP tool call failed with HTTP ${response.status}.`);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return failure("HTTP MCP tool call returned invalid JSON.");
+    }
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      !("result" in body) ||
+      body.result === null ||
+      typeof body.result !== "object" ||
+      !("content" in body.result) ||
+      !Array.isArray(body.result.content)
+    )
+      return failure("HTTP MCP tool call returned a JSON-RPC error.");
+    const textBlock = body.result.content.find(
+      (candidate): candidate is { type: "text"; text: string } =>
+        candidate !== null &&
+        typeof candidate === "object" &&
+        "type" in candidate &&
+        candidate.type === "text" &&
+        "text" in candidate &&
+        typeof candidate.text === "string",
+    );
+    if (textBlock === undefined)
+      return failure("HTTP MCP tool call returned no text result.");
+    let payload: unknown;
+    try {
+      payload = JSON.parse(textBlock.text);
+    } catch {
+      return failure("HTTP MCP tool call returned invalid tool JSON.");
+    }
+    if (
+      payload === null ||
+      typeof payload !== "object" ||
+      !("ok" in payload) ||
+      payload.ok !== true
+    )
+      return {
+        exitCode: 1,
+        stdout: `${JSON.stringify(payload, null, 2)}\n`,
+        stderr: "",
+      };
+    return success(payload);
+  } catch {
+    return failure(`HTTP MCP tool call could not reach ${config.apiUrl}/mcp.`);
+  }
+};

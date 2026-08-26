@@ -106,10 +106,10 @@ describe("hosted Brain MCP", () => {
         messages: readonly [{ content: { text: string } }];
       }
     ).messages[0].content.text;
-    expect(text).toContain("template.agents.assistant.answerQuestion");
-    expect(text).toContain("ContextPack schema version 3");
-    expect(text).toContain("candidate-manifest version 2");
-    expect(text).toContain("exact citation identities");
+    expect(text).toContain("template.brain.evidence.search");
+    expect(text).toContain("template.brain.evidence.sourceGet");
+    expect(text).toContain("sourceKey and revisionKey");
+    expect(text).toContain("Search excerpts alone are not sufficient");
     expect(text).toContain("abstain");
   });
 
@@ -132,6 +132,9 @@ describe("hosted Brain MCP", () => {
     ).tools;
     expect(tools.map(({ name }) => name)).toEqual([
       "template.agents.assistant.answerQuestion",
+      "template.brain.evidence.search",
+      "template.brain.evidence.sourceGet",
+      "template.brain.evidence.health",
       "template.brain.pages.list",
       "template.brain.pages.get",
       "template.brain.pages.createMarkdown",
@@ -157,6 +160,64 @@ describe("hosted Brain MCP", () => {
         openWorldHint: false,
       });
     }
+  });
+
+  it("derives the evidence actor and reopens the caller-selected exact revision", async () => {
+    const calls: { kind: string; input: Record<string, unknown> }[] = [];
+    const ctx: HeadlessHttpCtx = {
+      ...noopCtx,
+      runQuery: async (_ref, input) => {
+        calls.push({ kind: "query", input });
+        if ("requiredScope" in input)
+          return {
+            ok: true,
+            keyId: "key_1",
+            workspaceId: "workspaces_derived",
+            userId: "users_derived",
+          };
+        return {
+          sourceKey: "drive:file-1",
+          revisionKey: "revision-2",
+          provider: "google_drive",
+          scopeKey: "drive:approved",
+          title: "Positioning",
+          markdown: "# Positioning",
+          contentHash: "hash-2",
+          sourceModifiedAt: 2,
+          observedAt: 3,
+          tombstone: false,
+        };
+      },
+    };
+    const response = await readJson(
+      await handleTemplateHttpRequest(
+        ctx,
+        mcpRequest(
+          "tools/call",
+          {
+            name: "template.brain.evidence.sourceGet",
+            arguments: {
+              sourceKey: "drive:file-1",
+              revisionKey: "revision-2",
+            },
+          },
+          "Bearer mtk_live_test",
+        ),
+      ),
+    );
+
+    expect(calls[0]?.input).toMatchObject({
+      requiredScope: "workspace:read",
+    });
+    expect(calls[1]?.input).toEqual({
+      sourceKey: "drive:file-1",
+      revisionKey: "revision-2",
+      workspaceId: "workspaces_derived",
+      userId: "users_derived",
+    });
+    expect(response).toMatchObject({
+      result: { content: [{ type: "text" }] },
+    });
   });
 
   it("derives the read workspace and user from the credential", async () => {

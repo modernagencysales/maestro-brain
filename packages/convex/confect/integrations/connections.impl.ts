@@ -4,6 +4,8 @@ import {
   verifyNangoConnection,
 } from "@maestro-template/integrations/nango/connect";
 import { fetchSlackSnapshot } from "@maestro-template/integrations/nango/slack";
+import { fetchGoogleDriveInventory } from "@maestro-template/integrations/nango/googleDrive";
+import { fetchHubSpotInventory } from "@maestro-template/integrations/nango/hubspot";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -23,7 +25,7 @@ import {
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
-import { readNangoConnectConfig } from "../shared/env";
+import { readNangoConnectConfig, readNangoProviderConfig } from "../shared/env";
 import {
   beginConnection,
   completeConnection,
@@ -32,7 +34,7 @@ import {
   type ProviderKey,
 } from "./connectionLifecycle";
 import connections from "./connections.spec";
-import { buildSlackPages } from "./slackSnapshot";
+import { buildSlackEvidenceItems } from "./slackSnapshot";
 
 const withConfectClock = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -264,7 +266,7 @@ const begin = FunctionImpl.make(
 const providerFailure = () =>
   new ValidationFailed({
     field: "provider",
-    message: "Slack authorization is temporarily unavailable. Try again.",
+    message: "Provider authorization is temporarily unavailable. Try again.",
   });
 
 const beginSlackOauth = FunctionImpl.make(
@@ -312,6 +314,54 @@ const beginSlackOauth = FunctionImpl.make(
     }),
 );
 
+const beginProviderOauth = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "beginProviderOauth",
+  ({ workspaceId, provider }) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      const begun = yield* runMutation(
+        refs.public.integrations.connections.begin,
+        { workspaceId, provider },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const config = readNangoProviderConfig(provider);
+      if (config === undefined) {
+        yield* runMutation(refs.public.integrations.connections.complete, {
+          workspaceId,
+          provider,
+          generation: begun.generation,
+          completion: { status: "error", errorCode: "provider_unavailable" },
+        }).pipe(Effect.ignore);
+        return yield* providerFailure();
+      }
+      const now = yield* Clock.currentTimeMillis;
+      const session = yield* Effect.tryPromise({
+        try: () =>
+          createNangoConnectSession({
+            ...config,
+            workspaceId,
+            generation: begun.generation,
+            now,
+          }),
+        catch: providerFailure,
+      }).pipe(
+        Effect.tapError(() =>
+          runMutation(refs.public.integrations.connections.complete, {
+            workspaceId,
+            provider,
+            generation: begun.generation,
+            completion: {
+              status: "error",
+              errorCode: "provider_unavailable",
+            },
+          }).pipe(Effect.ignore),
+        ),
+      );
+      return { ...session, generation: begun.generation };
+    }),
+);
+
 const completeSlackOauth = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -349,6 +399,307 @@ const completeSlackOauth = FunctionImpl.make(
     }),
 );
 
+const completeProviderOauth = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "completeProviderOauth",
+  ({ workspaceId, provider, generation, connectionId }) =>
+    Effect.gen(function* () {
+      const config = readNangoProviderConfig(provider);
+      if (config === undefined) return yield* providerFailure();
+      const runMutation = yield* MutationRunner;
+      yield* Effect.tryPromise({
+        try: () =>
+          verifyNangoConnection({
+            ...config,
+            workspaceId,
+            generation,
+            connectionId,
+          }),
+        catch: providerFailure,
+      }).pipe(
+        Effect.tapError(() =>
+          runMutation(refs.public.integrations.connections.complete, {
+            workspaceId,
+            provider,
+            generation,
+            completion: { status: "error", errorCode: "verification_failed" },
+          }).pipe(Effect.ignore),
+        ),
+      );
+      return yield* runMutation(refs.public.integrations.connections.complete, {
+        workspaceId,
+        provider,
+        generation,
+        completion: { status: "active", connectionRef: connectionId },
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    }),
+);
+
+const activeConnectionFromRows = (
+  rows: readonly ProviderConnectionsDoc[],
+  provider: ProviderKey,
+): CurrentProviderConnectionDocument | undefined =>
+  rows
+    .flatMap((row) => {
+      const current = currentConnectionOrNull(row);
+      return current === null ? [] : [current];
+    })
+    .find(
+      (row) =>
+        row.provider === provider &&
+        row.status === "active" &&
+        typeof row.connectionRef === "string",
+    );
+
+const requireActiveConnection = (
+  rows: readonly ProviderConnectionsDoc[],
+  provider: ProviderKey,
+) => {
+  const connection = activeConnectionFromRows(rows, provider);
+  return connection === undefined
+    ? Effect.fail(
+        new ValidationFailed({
+          field: "provider",
+          message: `Connect ${provider} before synchronizing it.`,
+        }),
+      )
+    : Effect.succeed(connection);
+};
+
+const driveMarkdown = (
+  observation: Awaited<
+    ReturnType<typeof fetchGoogleDriveInventory>
+  >["observations"][number],
+) =>
+  [
+    `# ${observation.metadata.name}`,
+    "",
+    `- MIME type: ${observation.metadata.mimeType}`,
+    `- Drive: ${observation.metadata.driveId}`,
+    `- Modified: ${new Date(observation.sourceModifiedAt).toISOString()}`,
+    `- Source: ${observation.sourceLocator}`,
+    ...(observation.metadata.version === null
+      ? []
+      : [`- Provider version: ${observation.metadata.version}`]),
+    ...(observation.metadata.contentText === null
+      ? ["", "> Content extraction is not available for this MIME type."]
+      : ["", "## Content", "", observation.metadata.contentText]),
+  ].join("\n");
+
+const hubSpotMarkdown = (
+  observation: Awaited<
+    ReturnType<typeof fetchHubSpotInventory>
+  >["observations"][number],
+) =>
+  [
+    `# HubSpot ${observation.metadata.objectType} ${observation.providerObjectId}`,
+    "",
+    ...Object.entries(observation.metadata.properties).map(
+      ([key, value]) => `- ${key}: ${value ?? ""}`,
+    ),
+    `- Source: ${observation.sourceLocator}`,
+  ].join("\n");
+
+const syncGoogleDrive = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncGoogleDrive",
+  ({ workspaceId, driveId, rootFolderIds, allowlistGeneration }) =>
+    Effect.gen(function* () {
+      const config = readNangoProviderConfig("google-drive");
+      if (config === undefined) return yield* providerFailure();
+      const query = yield* QueryRunner;
+      const mutation = yield* MutationRunner;
+      const rows = yield* query(refs.public.integrations.connections.list, {
+        workspaceId,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const connection = yield* requireActiveConnection(rows, "google-drive");
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        { workspaceId, provider: "google-drive", status: "syncing" },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const observedAt = yield* Clock.currentTimeMillis;
+      const runKey = `google-drive:${connection.generation}:${observedAt}`;
+      return yield* Effect.gen(function* () {
+        const inventory = yield* Effect.tryPromise({
+          try: () =>
+            fetchGoogleDriveInventory({
+              ...config,
+              connectionId: connection.connectionRef as string,
+              connectionGeneration: connection.generation,
+              driveId,
+              rootFolderIds,
+              allowlistGeneration: allowlistGeneration ?? 1,
+              observedAt,
+              limits: { maxSources: 1_000 },
+            }),
+          catch: providerFailure,
+        });
+        yield* mutation(refs.internal.brain.evidence.beginRun, {
+          workspaceId,
+          provider: "google_drive",
+          scopeKey: inventory.scope.scopeKey,
+          runKey,
+          startedAt: observedAt,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        const active = inventory.observations.filter(
+          ({ tombstone }) => !tombstone,
+        );
+        for (const observation of active)
+          yield* mutation(refs.internal.brain.evidence.publishRunItem, {
+            workspaceId,
+            provider: "google_drive",
+            scopeKey: inventory.scope.scopeKey,
+            runKey,
+            sourceKey: observation.sourceKey,
+            revisionKey: observation.revisionKey,
+            title: observation.metadata.name,
+            markdown: driveMarkdown(observation),
+            locator: observation.sourceLocator,
+            sourceModifiedAt: observation.sourceModifiedAt,
+            observedAt: observation.observedAt,
+          }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        yield* mutation(refs.internal.brain.evidence.completeRun, {
+          workspaceId,
+          runKey,
+          discoveredCount: active.length,
+          completedAt: inventory.completedAt,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        yield* mutation(
+          refs.internal.integrations.connections.recordProviderSync,
+          {
+            workspaceId,
+            provider: "google-drive",
+            status: "ready",
+            syncedAt: inventory.completedAt,
+            sourceCount: active.length,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        return { sourceCount: active.length, syncedAt: inventory.completedAt };
+      }).pipe(
+        Effect.tapError(() =>
+          Effect.all([
+            mutation(refs.internal.brain.evidence.failRun, {
+              workspaceId,
+              runKey,
+              failureCode: "google_drive_sync_failed",
+              failedAt: observedAt,
+            }).pipe(Effect.ignore),
+            mutation(
+              refs.internal.integrations.connections.recordProviderSync,
+              {
+                workspaceId,
+                provider: "google-drive",
+                status: "error",
+                errorCode: "google_drive_sync_failed",
+              },
+            ).pipe(Effect.ignore),
+          ]),
+        ),
+      );
+    }),
+);
+
+const syncHubSpot = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncHubSpot",
+  ({ workspaceId, portalId, allowlistGeneration }) =>
+    Effect.gen(function* () {
+      const config = readNangoProviderConfig("hubspot");
+      if (config === undefined) return yield* providerFailure();
+      const query = yield* QueryRunner;
+      const mutation = yield* MutationRunner;
+      const rows = yield* query(refs.public.integrations.connections.list, {
+        workspaceId,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const connection = yield* requireActiveConnection(rows, "hubspot");
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        { workspaceId, provider: "hubspot", status: "syncing" },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const observedAt = yield* Clock.currentTimeMillis;
+      const runKey = `hubspot:${connection.generation}:${observedAt}`;
+      return yield* Effect.gen(function* () {
+        const inventory = yield* Effect.tryPromise({
+          try: () =>
+            fetchHubSpotInventory({
+              ...config,
+              connectionId: connection.connectionRef as string,
+              connectionGeneration: connection.generation,
+              portalId,
+              allowlistGeneration: allowlistGeneration ?? 1,
+              observedAt,
+              limits: { maxSources: 1_000 },
+            }),
+          catch: providerFailure,
+        });
+        yield* mutation(refs.internal.brain.evidence.beginRun, {
+          workspaceId,
+          provider: "hubspot",
+          scopeKey: inventory.scope.scopeKey,
+          runKey,
+          startedAt: observedAt,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        const active = inventory.observations.filter(
+          ({ tombstone }) => !tombstone,
+        );
+        for (const observation of active)
+          yield* mutation(refs.internal.brain.evidence.publishRunItem, {
+            workspaceId,
+            provider: "hubspot",
+            scopeKey: inventory.scope.scopeKey,
+            runKey,
+            sourceKey: observation.sourceKey,
+            revisionKey: observation.revisionKey,
+            title: `${observation.metadata.objectType} ${observation.providerObjectId}`,
+            markdown: hubSpotMarkdown(observation),
+            locator: observation.sourceLocator,
+            sourceModifiedAt: observation.sourceModifiedAt,
+            observedAt: observation.observedAt,
+          }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        yield* mutation(refs.internal.brain.evidence.completeRun, {
+          workspaceId,
+          runKey,
+          discoveredCount: active.length,
+          completedAt: inventory.completedAt,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        yield* mutation(
+          refs.internal.integrations.connections.recordProviderSync,
+          {
+            workspaceId,
+            provider: "hubspot",
+            status: "ready",
+            syncedAt: inventory.completedAt,
+            sourceCount: active.length,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        return { sourceCount: active.length, syncedAt: inventory.completedAt };
+      }).pipe(
+        Effect.tapError(() =>
+          Effect.all([
+            mutation(refs.internal.brain.evidence.failRun, {
+              workspaceId,
+              runKey,
+              failureCode: "hubspot_sync_failed",
+              failedAt: observedAt,
+            }).pipe(Effect.ignore),
+            mutation(
+              refs.internal.integrations.connections.recordProviderSync,
+              {
+                workspaceId,
+                provider: "hubspot",
+                status: "error",
+                errorCode: "hubspot_sync_failed",
+              },
+            ).pipe(Effect.ignore),
+          ]),
+        ),
+      );
+    }),
+);
+
 const syncSlack = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -382,37 +733,44 @@ const syncSlack = FunctionImpl.make(
         workspaceId,
         status: "syncing",
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const startedAt = yield* Clock.currentTimeMillis;
+      const runKey = `slack:${connection.generation}:${startedAt}`;
+      const scopeKey = `slack:${connection.connectionRef}`;
+      yield* mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId,
+        provider: "slack",
+        scopeKey,
+        runKey,
+        startedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
       return yield* Effect.gen(function* () {
         const snapshot = yield* Effect.tryPromise({
           try: () =>
             fetchSlackSnapshot({
               ...config,
               connectionId: connection.connectionRef as string,
+              limits: { maxMessagesTotal: 1_000 },
             }),
           catch: providerFailure,
         });
         const syncedAt = yield* Clock.currentTimeMillis;
-        const pages = buildSlackPages(snapshot, syncedAt);
-        const existing = yield* query(refs.public.brain.pages.list, {
+        const items = buildSlackEvidenceItems(snapshot, {
           workspaceId,
-          includeArchived: true,
+          connectionRef: connection.connectionRef as string,
+          runKey,
+          observedAt: syncedAt,
+        });
+        for (const item of items)
+          yield* mutation(
+            refs.internal.brain.evidence.publishRunItem,
+            item,
+          ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        yield* mutation(refs.internal.brain.evidence.completeRun, {
+          workspaceId,
+          runKey,
+          discoveredCount: items.length,
+          completedAt: syncedAt,
         }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        for (const page of pages) {
-          const current = existing.find(({ slug }) => slug === page.slug);
-          if (current === undefined) {
-            yield* mutation(refs.public.brain.pages.createMarkdown, {
-              workspaceId,
-              ...page,
-            }).pipe(Effect.catchTag("SchemaError", providerFailure));
-          } else if (current.markdown !== page.markdown) {
-            yield* mutation(refs.public.brain.pages.updateMarkdown, {
-              workspaceId,
-              pageId: current._id,
-              markdown: page.markdown,
-              expectedUpdatedAt: current.updatedAt,
-            }).pipe(Effect.catchTag("SchemaError", providerFailure));
-          }
-        }
         yield* mutation(
           refs.internal.integrations.connections.recordSlackSync,
           {
@@ -420,21 +778,29 @@ const syncSlack = FunctionImpl.make(
             status: "ready",
             syncedAt,
             messageCount: snapshot.messageCount,
-            pageCount: pages.length,
+            pageCount: snapshot.channels.length,
           },
         ).pipe(Effect.catchTag("SchemaError", providerFailure));
         return {
-          pageCount: pages.length,
+          pageCount: snapshot.channels.length,
           messageCount: snapshot.messageCount,
           syncedAt,
         };
       }).pipe(
         Effect.tapError(() =>
-          mutation(refs.internal.integrations.connections.recordSlackSync, {
-            workspaceId,
-            status: "error",
-            errorCode: "slack_sync_failed",
-          }).pipe(Effect.ignore),
+          Effect.all([
+            mutation(refs.internal.brain.evidence.failRun, {
+              workspaceId,
+              runKey,
+              failureCode: "slack_sync_failed",
+              failedAt: startedAt,
+            }).pipe(Effect.ignore),
+            mutation(refs.internal.integrations.connections.recordSlackSync, {
+              workspaceId,
+              status: "error",
+              errorCode: "slack_sync_failed",
+            }).pipe(Effect.ignore),
+          ]),
         ),
       );
     }),
@@ -472,6 +838,39 @@ const recordSlackSync = FunctionImpl.make(
         .get(connection._id)
         .pipe(Effect.orDie);
       return yield* requireCurrentConnectionRow(updated, "slack");
+    }),
+);
+
+const recordProviderSync = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "recordProviderSync",
+  ({ workspaceId, provider, status, syncedAt, sourceCount, errorCode }) =>
+    Effect.gen(function* () {
+      const connection = yield* currentConnection(workspaceId, provider);
+      if (connection === null)
+        return yield* new NotFound({
+          resource: "providerConnections",
+          id: provider,
+        });
+      const now = yield* withConfectClock(Clock.currentTimeMillis);
+      yield* (yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(connection._id, {
+          syncStatus: status,
+          syncErrorCode: errorCode,
+          ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
+          ...(sourceCount === undefined
+            ? {}
+            : { lastSyncSourceCount: sourceCount }),
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      const updated = yield* (yield* DatabaseReader)
+        .table("providerConnections")
+        .get(connection._id)
+        .pipe(Effect.orDie);
+      return yield* requireCurrentConnectionRow(updated, provider);
     }),
 );
 
@@ -555,9 +954,14 @@ export default GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(list),
   Layer.provide(begin),
   Layer.provide(beginSlackOauth),
+  Layer.provide(beginProviderOauth),
   Layer.provide(completeSlackOauth),
+  Layer.provide(completeProviderOauth),
   Layer.provide(syncSlack),
+  Layer.provide(syncGoogleDrive),
+  Layer.provide(syncHubSpot),
   Layer.provide(recordSlackSync),
+  Layer.provide(recordProviderSync),
   Layer.provide(complete),
   Layer.provide(revoke),
   Layer.provide(listForActor),

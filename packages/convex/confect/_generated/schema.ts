@@ -7,7 +7,13 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainConnectorRunSeen from "./tables/brainConnectorRunSeen";
+import brainConnectorRuns from "./tables/brainConnectorRuns";
+import brainEvidenceRevisions from "./tables/brainEvidenceRevisions";
+import brainEvidenceSources from "./tables/brainEvidenceSources";
 import brainPages from "./tables/brainPages";
+import brainRetrievalEntries from "./tables/brainRetrievalEntries";
+import brainRetrievalTokens from "./tables/brainRetrievalTokens";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
 import concepts from "./tables/concepts";
@@ -68,7 +74,13 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof actionTriggers |
   typeof apiKeys |
   typeof billingPlans |
+  typeof brainConnectorRunSeen |
+  typeof brainConnectorRuns |
+  typeof brainEvidenceRevisions |
+  typeof brainEvidenceSources |
   typeof brainPages |
+  typeof brainRetrievalEntries |
+  typeof brainRetrievalTokens |
   typeof citations |
   typeof claims |
   typeof concepts |
@@ -128,7 +140,13 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   actionTriggers,
   apiKeys,
   billingPlans,
+  brainConnectorRunSeen,
+  brainConnectorRuns,
+  brainEvidenceRevisions,
+  brainEvidenceSources,
   brainPages,
+  brainRetrievalEntries,
+  brainRetrievalTokens,
   citations,
   claims,
   concepts,

@@ -68,12 +68,12 @@ const askBrainPrompt = {
 
 const askBrainMessage = (
   question: string,
-): string => `Answer the question below using only approved Company Brain evidence.
+): string => `Answer the question below using only canonical Company Brain evidence.
 
-Call \`template.agents.assistant.answerQuestion\` with this exact question:
+Call \`template.brain.evidence.search\` once with this exact query:
 ${JSON.stringify(question)}
 
-Continue only when the result contains ContextPack schema version 3 and candidate-manifest version 2. Cite every material claim using the returned exact citation identities and state freshness and as-of time. If the tool returns insufficient context, authorization fails, the contract is wrong, or citations cannot be reopened, abstain and name the missing evidence. Do not invent company facts or send workspace, user, organization, or tenant identifiers.`;
+Reopen every material candidate with \`template.brain.evidence.sourceGet\` using the exact sourceKey and revisionKey returned by search. Reject a source when its keys or content hash differ, or when it is a tombstone. Search excerpts alone are not sufficient for material claims. Cite the reopened title, provider, revision key, freshness, and locator when present. State material freshness limitations, label inference, and abstain when evidence is absent, inaccessible, stale enough to change the answer, or cannot be reopened. Never send workspace, user, organization, client, or tenant selectors.`;
 
 const mcpReply = (
   respond: JsonResponder,
@@ -225,6 +225,9 @@ const executeTool = async (
 ): Promise<unknown> => {
   const args = {
     ...admission.input,
+    ...(admission.operationId === "brain.evidence.search"
+      ? { asOf: Date.now() }
+      : {}),
     workspaceId: admission.actor.workspaceId,
     userId: admission.actor.userId,
   };

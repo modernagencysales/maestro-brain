@@ -9,7 +9,13 @@ export const currentLifecycleResourceIds = [
   "actionTriggers",
   "apiKeys",
   "billingPlans",
+  "brainConnectorRunSeen",
+  "brainConnectorRuns",
+  "brainEvidenceRevisions",
+  "brainEvidenceSources",
   "brainPages",
+  "brainRetrievalEntries",
+  "brainRetrievalTokens",
   "citations",
   "claims",
   "concepts",
@@ -103,11 +109,53 @@ export const workspaceLifecycleResourcePlans = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    id: "brainConnectorRunSeen",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
+  },
+  {
+    id: "brainConnectorRuns",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+  },
+  {
+    id: "brainEvidenceRevisions",
+    owner: "workspace",
+    exportMode: "markdown",
+    deleteMode: "delete",
+    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+  },
+  {
+    id: "brainEvidenceSources",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+  },
+  {
     id: "brainPages",
     owner: "workspace",
     exportMode: "markdown",
     deleteMode: "delete",
     detail: "brainPages is durable Knowledge Brain state governed by the canonical knowledge-brain lifecycle."
+  },
+  {
+    id: "brainRetrievalEntries",
+    owner: "workspace",
+    exportMode: "markdown",
+    deleteMode: "delete",
+    detail: "Bounded current and retired retrieval projections for provider-neutral evidence search."
+  },
+  {
+    id: "brainRetrievalTokens",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Bounded token postings derived from current evidence and replaced transactionally with retrieval entries."
   },
   {
     id: "citations",
@@ -422,9 +470,39 @@ export const workspaceRetentionRules = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    resourceId: "brainConnectorRunSeen",
+    action: "retain-until-workspace-delete",
+    detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
+  },
+  {
+    resourceId: "brainConnectorRuns",
+    action: "retain-until-workspace-delete",
+    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+  },
+  {
+    resourceId: "brainEvidenceRevisions",
+    action: "retain-until-workspace-delete",
+    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+  },
+  {
+    resourceId: "brainEvidenceSources",
+    action: "retain-until-workspace-delete",
+    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+  },
+  {
     resourceId: "brainPages",
     action: "retain-until-workspace-delete",
     detail: "brainPages is durable Knowledge Brain state governed by the canonical knowledge-brain lifecycle."
+  },
+  {
+    resourceId: "brainRetrievalEntries",
+    action: "retain-until-workspace-delete",
+    detail: "Bounded current and retired retrieval projections for provider-neutral evidence search."
+  },
+  {
+    resourceId: "brainRetrievalTokens",
+    action: "retain-until-workspace-delete",
+    detail: "Bounded token postings derived from current evidence and replaced transactionally with retrieval entries."
   },
   {
     resourceId: "citations",

@@ -17,6 +17,7 @@ export const CurrentProviderConnectionRow = Schema.Struct({
   lastSyncedAt: Schema.optional(Schema.Number),
   lastSyncMessageCount: Schema.optional(Schema.Number),
   lastSyncPageCount: Schema.optional(Schema.Number),
+  lastSyncSourceCount: Schema.optional(Schema.Number),
   syncErrorCode: Schema.optional(Schema.NonEmptyString),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,

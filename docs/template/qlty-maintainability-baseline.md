@@ -47,6 +47,20 @@ below its configured threshold. Proof requires the focused deployment-authority
 tests, the configuration-drift tests for `_project-config.mjs`, and the commands
 in the removal contract below. New rules or neighboring paths remain visible.
 
+## Apero Company Brain launch ledger
+
+The Company Brain release adds exact monitored rule/path pairs across its
+provider-neutral evidence projection and retrieval, bounded Slack, Google Drive,
+and HubSpot inventory adapters, connection controls, and terminal clients. The
+`modernagencysales/maestro-brain` maintainers own this launch debt. The launch
+proof is the focused Convex, integration, and Brain CLI suites plus
+`pnpm acceptance:required`; all passed before the pairs were recorded.
+
+The ledger does not monitor either gitleaks or OSV findings, and it does not
+monitor new rules or neighboring paths. Remove a path from a rule as soon as a
+behavior-preserving extraction clears the configured threshold, using the
+focused suite for that surface and the removal contract below.
+
 ## Removal contract
 
 When a listed path is refactored:

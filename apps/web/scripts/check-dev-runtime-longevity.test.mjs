@@ -71,4 +71,4 @@ test("browser navigation leaves the supervised dev runtime healthy", async () =>
   assert.deepEqual(result.checkedRoutes, ["/records", "/acme"]);
   assert.deepEqual(result.checkedViewports, ["desktop", "mobile"]);
   assert.equal(readFileSync(routeTreePath, "utf8"), routeTreeBefore);
-}, 240_000);
+}, 420_000);

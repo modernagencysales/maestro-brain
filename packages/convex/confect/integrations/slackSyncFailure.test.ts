@@ -11,15 +11,19 @@ const syncSlack = source.slice(
 );
 
 describe("Slack sync failure lifecycle", () => {
-  it("records an error when any snapshot or Brain page operation fails", () => {
-    const createPage = syncSlack.indexOf("pages.createMarkdown");
-    const updatePage = syncSlack.indexOf("pages.updateMarkdown");
+  it("fails the evidence run without reconciling removals when traversal fails", () => {
+    const beginRun = syncSlack.indexOf("evidence.beginRun");
+    const publishItem = syncSlack.indexOf("evidence.publishRunItem");
+    const completeRun = syncSlack.indexOf("evidence.completeRun");
     const failureHandler = syncSlack.indexOf("Effect.tapError");
+    const failRun = syncSlack.indexOf("evidence.failRun", failureHandler);
     const errorStatus = syncSlack.indexOf('status: "error"', failureHandler);
 
-    expect(createPage).toBeGreaterThan(-1);
-    expect(updatePage).toBeGreaterThan(createPage);
-    expect(failureHandler).toBeGreaterThan(updatePage);
+    expect(beginRun).toBeGreaterThan(-1);
+    expect(publishItem).toBeGreaterThan(beginRun);
+    expect(completeRun).toBeGreaterThan(publishItem);
+    expect(failureHandler).toBeGreaterThan(completeRun);
+    expect(failRun).toBeGreaterThan(failureHandler);
     expect(errorStatus).toBeGreaterThan(failureHandler);
     expect(syncSlack.slice(failureHandler)).toContain(
       'errorCode: "slack_sync_failed"',

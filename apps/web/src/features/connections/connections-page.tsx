@@ -31,12 +31,13 @@ import {
   type ConnectionCardModel,
   type ConnectionStatus,
   type DurableConnection,
+  type EvidenceProviderHealth,
 } from './connections-adapter'
 import {
-  isLiveSlackOauthTransition,
   runSlackConnect,
   runSlackSyncWithFeedback,
 } from './slack-connect'
+import { ProviderSyncDialog } from './provider-sync-dialog'
 
 const listConnectionsRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.list,
@@ -53,15 +54,40 @@ const beginSlackOauthRef = getFunctionReference(
 const completeSlackOauthRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.completeSlackOauth,
 )
+const beginProviderOauthRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.beginProviderOauth,
+)
+const completeProviderOauthRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.completeProviderOauth,
+)
 const syncSlackRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.syncSlack,
 )
+const syncGoogleDriveRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.syncGoogleDrive,
+)
+const syncHubSpotRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.syncHubSpot,
+)
+const evidenceHealthRef = getFunctionReference(
+  templateConfectRefs.public.brain.evidence.health,
+)
+
+const evidenceProvider = (provider: ConnectionCardModel['id']) =>
+  provider === 'google-drive' ? 'google_drive' : provider
 
 const connectionType = (
   status: ConnectionStatus,
   integration: ConnectionCardModel,
   connection: DurableConnection | undefined,
+  health: EvidenceProviderHealth | undefined,
 ) => {
+  if (status === 'connected' && health?.lastConnectorRun?.status === 'failed')
+    return `Connected · Sync failed · ${health.activeSourceCount} sources`
+  if (status === 'connected' && health?.lastConnectorRun?.status === 'running')
+    return `Connected · Synchronizing · ${health.activeSourceCount} sources`
+  if (status === 'connected' && health !== undefined)
+    return `Connected · ${health.currentEntryCount}/${health.activeSourceCount} sources indexed`
   if (integration.id !== 'slack' || status !== 'connected')
     return connectionCardType(status)
   if (connection?.syncStatus === 'syncing') return 'Connected · Synchronizing'
@@ -83,6 +109,12 @@ export const ConnectionsPage = () => {
       ? 'skip'
       : { workspaceId: workspace.id },
   )
+  const evidenceHealth = useConvexQuery(
+    evidenceHealthRef,
+    fixtureRuntime || isolatedContracts
+      ? 'skip'
+      : { workspaceId: workspace.id },
+  ) as { providers: readonly EvidenceProviderHealth[] } | undefined
   const isolatedConnections = useQuery({
     queryKey: ['provider-connections', 'isolated-contracts', workspace.id],
     queryFn: () =>
@@ -95,6 +127,8 @@ export const ConnectionsPage = () => {
   const revokeConnection = useConvexMutation(revokeConnectionRef)
   const beginSlackOauth = useConvexAction(beginSlackOauthRef)
   const completeSlackOauth = useConvexAction(completeSlackOauthRef)
+  const beginProviderOauth = useConvexAction(beginProviderOauthRef)
+  const completeProviderOauth = useConvexAction(completeProviderOauthRef)
   const syncSlack = useConvexAction(syncSlackRef)
   const syncSlackWithFeedback = () =>
     runSlackSyncWithFeedback({
@@ -117,23 +151,41 @@ export const ConnectionsPage = () => {
       connectionFixtures.map(({ id, status }) => [id, status]),
     ),
   )
+  const [syncProvider, setSyncProvider] = React.useState<
+    'google-drive' | 'hubspot' | null
+  >(null)
+  const syncGoogleDrive = useConvexAction(syncGoogleDriveRef)
+  const syncHubSpot = useConvexAction(syncHubSpotRef)
 
   const transition = async (
     id: ConnectionCardModel['id'],
     event: 'connect' | 'disconnect',
   ) => {
     const mode = connectionRuntimeMode(isolatedContracts, fixtureRuntime)
-    if (isLiveSlackOauthTransition({ mode, provider: id, event })) {
+    if (mode === 'live' && event === 'connect') {
       await runSlackConnect({
-        begin: () => beginSlackOauth({ workspaceId: workspace.id }),
+        begin: () =>
+          id === 'slack'
+            ? beginSlackOauth({ workspaceId: workspace.id })
+            : beginProviderOauth({ workspaceId: workspace.id, provider: id }),
         open: openNangoConnect,
         complete: async ({ connectionId, generation }) => {
-          await completeSlackOauth({
-            workspaceId: workspace.id,
-            generation,
-            connectionId,
-          })
-          await syncSlackWithFeedback()
+          if (id === 'slack') {
+            await completeSlackOauth({
+              workspaceId: workspace.id,
+              generation,
+              connectionId,
+            })
+            await syncSlackWithFeedback()
+          } else {
+            await completeProviderOauth({
+              workspaceId: workspace.id,
+              provider: id,
+              generation,
+              connectionId,
+            })
+            setSyncProvider(id)
+          }
         },
       })
       return
@@ -194,8 +246,9 @@ export const ConnectionsPage = () => {
   }
 
   return (
-    <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-      {connectionFixtures.map((integration) => (
+    <>
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+        {connectionFixtures.map((integration) => (
         (() => {
           const status = connectionStatusForCard({
             fixtureRuntime,
@@ -206,24 +259,62 @@ export const ConnectionsPage = () => {
           const connection = liveConnections.find(
             (candidate) => candidate.provider === integration.id,
           )
+          const health = evidenceHealth?.providers.find(
+            (candidate) => candidate.provider === evidenceProvider(integration.id),
+          )
           return (
         <IntegrationCard
           key={integration.id}
           {...integration}
-          type={connectionType(status, integration, connection)}
+          type={connectionType(status, integration, connection, health)}
           isConnected={status === 'connected'}
           onConnect={() => transition(integration.id, 'connect')}
           onDisconnect={() => transition(integration.id, 'disconnect')}
           onSync={
-            integration.id === 'slack' && status === 'connected'
-              ? syncSlackWithFeedback
-              : undefined
+            status !== 'connected'
+              ? undefined
+              : integration.id === 'slack'
+                ? syncSlackWithFeedback
+                : () =>
+                    setSyncProvider(
+                      integration.id === 'google-drive'
+                        ? 'google-drive'
+                        : 'hubspot',
+                    )
           }
           onDocs={() => window.open(integration.docs, '_blank', 'noopener')}
         />
           )
         })()
-      ))}
-    </SimpleGrid>
+        ))}
+      </SimpleGrid>
+      <ProviderSyncDialog
+        open={syncProvider !== null}
+        provider={syncProvider}
+        onClose={() => setSyncProvider(null)}
+        onSync={async ({ provider, containerId, rootFolderIds }) => {
+          try {
+            if (provider === 'google-drive')
+              await syncGoogleDrive({
+                workspaceId: workspace.id,
+                driveId: containerId,
+                rootFolderIds: [...rootFolderIds],
+              })
+            else
+              await syncHubSpot({
+                workspaceId: workspace.id,
+                portalId: containerId,
+              })
+            toast.success({ title: 'Company Brain sync complete' })
+          } catch {
+            toast.error({
+              title: 'Company Brain sync failed',
+              description: 'Check the approved scope IDs and try again.',
+            })
+            throw new Error('provider sync failed')
+          }
+        }}
+      />
+    </>
   )
 }

@@ -2,7 +2,9 @@ import {
   confectJsonSchemas,
   confectManifest,
 } from "@maestro-template/template-core/generated/confectManifest";
+import { Ref } from "@confect/core";
 import { makeFunctionReference } from "convex/server";
+import refs from "./_generated/refs";
 import type { ApiKeyScope } from "./headless/auth";
 
 export type McpToolConfig = {
@@ -10,7 +12,39 @@ export type McpToolConfig = {
   readonly requiredScope: ApiKeyScope;
   readonly kind: "query" | "mutation";
   readonly ref: unknown;
+  readonly contractRef?: unknown;
+  readonly inputSchema?: Record<string, unknown>;
 };
+
+const objectSchema = (
+  properties: Record<string, unknown>,
+  required: readonly string[],
+): Record<string, unknown> => ({
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties,
+  required,
+  additionalProperties: false,
+});
+
+const evidenceSearchContractRef = Ref.getFunctionReference(
+  refs.public.brain.evidence.search,
+);
+const evidenceSourceGetContractRef = Ref.getFunctionReference(
+  refs.public.brain.evidence.sourceGet,
+);
+const evidenceHealthContractRef = Ref.getFunctionReference(
+  refs.public.brain.evidence.health,
+);
+const evidenceSearchForActorRef = Ref.getFunctionReference(
+  refs.internal.brain.evidence.searchForActor,
+);
+const evidenceSourceGetForActorRef = Ref.getFunctionReference(
+  refs.internal.brain.evidence.sourceGetForActor,
+);
+const evidenceHealthForActorRef = Ref.getFunctionReference(
+  refs.internal.brain.evidence.healthForActor,
+);
 
 export const brainMcpToolConfigs = {
   "agents.assistant.answerQuestion": {
@@ -21,6 +55,45 @@ export const brainMcpToolConfigs = {
     ref: makeFunctionReference<"query">(
       "agents/assistant:answerQuestionForActor",
     ),
+  },
+  "brain.evidence.search": {
+    description:
+      "Search current canonical Brain evidence and return exact source and revision identities for reopening.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    contractRef: evidenceSearchContractRef,
+    ref: evidenceSearchForActorRef,
+    inputSchema: objectSchema(
+      {
+        query: { type: "string", minLength: 1 },
+        limit: { type: "integer", minimum: 1, maximum: 10 },
+      },
+      ["query"],
+    ),
+  },
+  "brain.evidence.sourceGet": {
+    description:
+      "Reopen one exact canonical evidence revision by its source and revision keys.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    contractRef: evidenceSourceGetContractRef,
+    ref: evidenceSourceGetForActorRef,
+    inputSchema: objectSchema(
+      {
+        sourceKey: { type: "string", minLength: 1 },
+        revisionKey: { type: "string", minLength: 1 },
+      },
+      ["sourceKey", "revisionKey"],
+    ),
+  },
+  "brain.evidence.health": {
+    description:
+      "Report bounded per-provider evidence counts, index coverage, capacity, and the latest connector run without claiming readiness.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    contractRef: evidenceHealthContractRef,
+    ref: evidenceHealthForActorRef,
+    inputSchema: objectSchema({}, []),
   },
   "brain.pages.list": {
     description: "List Brain pages available to the credential's workspace.",
@@ -107,6 +180,9 @@ const safeRequiredFor = (source: Record<string, unknown>): readonly string[] =>
 const inputSchemaFor = (
   operationId: McpToolOperationId,
 ): Record<string, unknown> => {
+  const config: McpToolConfig = brainMcpToolConfigs[operationId];
+  const configured = config.inputSchema;
+  if (configured !== undefined) return configured;
   const source = generatedSchemaFor(operationId);
   return {
     ...source,
