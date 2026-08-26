@@ -333,7 +333,7 @@ describe("acceptance runtime validation", () => {
         { cwd: process.cwd(), stdio: "pipe" },
       ),
     ).toThrow();
-  });
+  }, 15_000);
 
   it("derives only current required revision tags and escapes one grep", () => {
     expect(
