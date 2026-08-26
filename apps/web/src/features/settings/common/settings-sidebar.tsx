@@ -13,6 +13,7 @@ import {
   LuCreditCard,
   LuShieldCheck,
   LuTags,
+  LuTerminal,
   LuUser,
   LuUsersRound,
 } from 'react-icons/lu'
@@ -121,6 +122,10 @@ export const SettingsSidebar = () => {
                 <SettingsLink {...getLinkOptions('/account/security')}>
                   <LuShieldCheck />
                   Security
+                </SettingsLink>
+                <SettingsLink {...getLinkOptions('/account/api')}>
+                  <LuTerminal />
+                  Terminal &amp; MCP
                 </SettingsLink>
               </Sidebar.GroupContent>
             </Sidebar.Group>

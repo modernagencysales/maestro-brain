@@ -11,11 +11,12 @@ import {
 import { useConvexQuery } from '@convex-dev/react-query'
 import { useMutation as useConvexMutation } from 'convex/react'
 import { Editor } from '@workspace/ui/editor'
-import { Skeleton } from '@chakra-ui/react'
+import { Box, HStack, Skeleton, Text, VStack } from '@chakra-ui/react'
 import {
   ButtonGroup,
   IconButton,
   Menu,
+  Page,
   Tooltip,
   toast,
 } from '@saas-ui/react'
@@ -23,14 +24,14 @@ import {
   LuArchive,
   LuChevronLeft,
   LuEllipsisVertical,
-  LuFileText,
   LuHistory,
+  LuPanelRightOpen,
   LuPencil,
   LuStar,
 } from 'react-icons/lu'
 import { useModals } from '@workspace/ui/modals'
 
-import { productShell } from '#config/product-shell'
+import * as Drawer from '#components/ui/drawer/drawer'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import {
   isFixtureAuthRuntime,
@@ -38,15 +39,18 @@ import {
 } from '#lib/auth/route-auth'
 import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
-import { brainInboxFixtures } from './brain-inbox-adapter'
+import { brainPageFixtures } from './brain-inbox-adapter'
 import { BrainPageOrganizeDialog } from './brain-page-organize-dialog'
 import { BrainPageHistoryDialog } from './brain-page-history-dialog'
+import {
+  BrainProvenanceRail,
+  type BrainPageRevisionSummary,
+} from './brain-provenance-rail'
 import {
   classifyBrainSaveFailure,
   shouldPersistBrainMarkdown,
   type BrainSaveState,
 } from './brain-page-editor-state'
-import { ContactPageComposition } from '../view/contact-page'
 
 const getPageRef = getFunctionReference(templateConfectRefs.public.brain.pages.get)
 const updatePageRef = getFunctionReference(
@@ -58,6 +62,9 @@ const favoritePageRef = getFunctionReference(
 const archivePageRef = getFunctionReference(
   templateConfectRefs.public.brain.pages.archive,
 )
+const historyRef = getFunctionReference(
+  templateConfectRefs.public.brain.pages.history,
+)
 
 const fixtureMarkdown = `# Client overview
 
@@ -67,6 +74,7 @@ type BrainEditorPage = Readonly<{
   _id: string
   title: string
   markdown: string
+  sourceKind: 'markdown' | 'link' | 'note'
   updatedAt: number
   favorite?: boolean
   status?: 'active' | 'archived'
@@ -75,13 +83,59 @@ type BrainEditorPage = Readonly<{
 }>
 
 const fixturePage = (pageId: string): BrainEditorPage => {
-  const fixture = brainInboxFixtures.find((page) => page._id === pageId)
+  const fixture = brainPageFixtures.find((page) => page._id === pageId)
   return {
     _id: fixture?._id ?? pageId,
     title: fixture?.title ?? 'Agency Brain page',
     markdown: fixtureMarkdown,
+    sourceKind: fixture?.sourceKind ?? 'markdown',
     updatedAt: fixture?.updatedAt ?? 1_782_924_800_000,
+    favorite: fixture?.favorite,
+    status: fixture?.status,
+    parentPageId: fixture?.parentPageId,
+    sortKey: fixture?.sortKey,
   }
+}
+
+const fixtureHistory: readonly BrainPageRevisionSummary[] = [
+  {
+    _id: 'revision-current',
+    title: 'Company overview',
+    causation: 'update',
+    updatedAt: 1_782_924_800_000,
+  },
+  {
+    _id: 'revision-created',
+    title: 'Company overview',
+    causation: 'create',
+    updatedAt: 1_782_838_400_000,
+  },
+]
+
+const useBrainHistory = (input: {
+  fixtureRuntime: boolean
+  isolatedContracts: boolean
+  pageId: string
+  workspaceId: string
+}): readonly BrainPageRevisionSummary[] => {
+  const convexHistory = useConvexQuery(
+    historyRef,
+    input.fixtureRuntime || input.isolatedContracts
+      ? 'skip'
+      : { workspaceId: input.workspaceId, pageId: input.pageId as never },
+  )
+  const contractHistory = useQuery({
+    queryKey: ['brain-page-history', 'isolated-contracts', input.pageId],
+    queryFn: () =>
+      runIsolatedHeadlessOperation<readonly BrainPageRevisionSummary[]>({
+        operationId: 'brain.pages.history',
+        operationInput: { pageId: input.pageId },
+      }),
+    enabled: input.isolatedContracts,
+  })
+  if (input.fixtureRuntime) return fixtureHistory
+  if (input.isolatedContracts) return contractHistory.data ?? []
+  return (convexHistory ?? []) as readonly BrainPageRevisionSummary[]
 }
 
 const showBrainSaveFailure = (error: unknown) => {
@@ -248,9 +302,9 @@ const isBrainMutationDisabled = (input: {
 function BrainPageToolbar(props: {
   disabled: boolean
   favorite: boolean
-  inboxLabel: string
   onArchive: () => Promise<void>
   onBack: () => Promise<void>
+  onDetails: () => void
   onFavorite: () => Promise<void>
   onHistory: () => void
   onOrganize: () => void
@@ -261,7 +315,7 @@ function BrainPageToolbar(props: {
     <ButtonGroup>
       <IconButton
         display={{ base: 'inline-flex', lg: 'none' }}
-        aria-label={`All ${props.inboxLabel}`}
+        aria-label="All Brain pages"
         variant="ghost"
         onClick={props.onBack}
       >
@@ -275,6 +329,16 @@ function BrainPageToolbar(props: {
           onClick={props.onFavorite}
         >
           <LuStar fill={starFill} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip content="Page context">
+        <IconButton
+          display={{ base: 'inline-flex', xl: 'none' }}
+          aria-label="Show page context"
+          variant="ghost"
+          onClick={props.onDetails}
+        >
+          <LuPanelRightOpen />
         </IconButton>
       </Tooltip>
       <Menu.Root>
@@ -320,6 +384,12 @@ export function BrainInboxViewPage({
     pageId: params.id,
     workspaceId: workspace.id,
   })
+  const revisions = useBrainHistory({
+    fixtureRuntime,
+    isolatedContracts,
+    pageId: params.id,
+    workspaceId: workspace.id,
+  })
   const {
     markdown,
     setMarkdown,
@@ -336,6 +406,7 @@ export function BrainInboxViewPage({
   const favoritePage = useConvexMutation(favoritePageRef)
   const archivePage = useConvexMutation(archivePageRef)
   const [actionPending, setActionPending] = React.useState(false)
+  const [detailsOpen, setDetailsOpen] = React.useState(false)
   const mutationDisabled = isBrainMutationDisabled({
     fixtureRuntime,
     pageLoaded: page !== undefined,
@@ -402,9 +473,9 @@ export function BrainInboxViewPage({
     <BrainPageToolbar
       disabled={mutationDisabled}
       favorite={page?.favorite === true}
-      inboxLabel={productShell.labels.inbox}
       onArchive={onArchive}
       onBack={onBack}
+      onDetails={() => setDetailsOpen(true)}
       onFavorite={onFavorite}
       onHistory={onHistory}
       onOrganize={onOrganize}
@@ -412,29 +483,80 @@ export function BrainInboxViewPage({
   )
 
   return (
-    <ContactPageComposition
-      params={params}
-      toolbarItems={brainToolbar}
-      rootLabel={productShell.labels.inbox}
-      rootTo="/$workspace/inbox"
-      title={page?.title ?? 'Loading page'}
-      primaryLabel="Page"
-      primaryIcon={<LuFileText />}
-      primaryContent={
-        page ? (
-          <Editor
-            aria-label="Agency Brain page editor"
-            value={markdown}
-            onChange={setMarkdown}
-            format="markdown"
-            toolbar
-            minHeight="60vh"
-            placeholder="Write the company context your team and agents should know…"
-          />
-        ) : (
-          <Skeleton aria-label="Loading Agency Brain page" height="60vh" />
-        )
-      }
-    />
+    <Page.Root minW="0">
+      <Page.Header
+        title={page?.title ?? 'Loading page'}
+        description={
+          saveState === 'saving'
+            ? 'Saving…'
+            : saveState === 'saved'
+              ? 'Saved'
+              : hasPendingChanges
+                ? 'Unsaved changes'
+                : undefined
+        }
+        actions={brainToolbar}
+      />
+      <Page.Body p="0" overflow="hidden">
+        <HStack align="stretch" height="100%" gap="0">
+          <Box
+            as="main"
+            aria-label="Brain page editor"
+            flex="1"
+            minW="0"
+            overflowY="auto"
+            p={{ base: '4', md: '8' }}
+          >
+            {page ? (
+              <Editor
+                aria-label="Agency Brain page editor"
+                value={markdown}
+                onChange={setMarkdown}
+                format="markdown"
+                toolbar
+                minHeight="60vh"
+                placeholder="Write the company context your team and agents should know…"
+              />
+            ) : (
+              <Skeleton aria-label="Loading Agency Brain page" height="60vh" />
+            )}
+          </Box>
+          {page ? (
+            <Box
+              as="aside"
+              display={{ base: 'none', xl: 'block' }}
+              width="320px"
+              flex="none"
+              borderLeftWidth="1px"
+            >
+              <BrainProvenanceRail page={page} revisions={revisions} />
+            </Box>
+          ) : null}
+        </HStack>
+      </Page.Body>
+      <Drawer.Root
+        open={detailsOpen}
+        onOpenChange={({ open }) => setDetailsOpen(open)}
+        placement="end"
+        size="sm"
+      >
+        <Drawer.Backdrop />
+        <Drawer.Content>
+          <Drawer.Header>
+            <Drawer.Title>Page context</Drawer.Title>
+            <Drawer.CloseButton />
+          </Drawer.Header>
+          <Drawer.Body p="0">
+            {page ? (
+              <BrainProvenanceRail page={page} revisions={revisions} />
+            ) : (
+              <VStack p="4">
+                <Text color="fg.muted">Page context is loading.</Text>
+              </VStack>
+            )}
+          </Drawer.Body>
+        </Drawer.Content>
+      </Drawer.Root>
+    </Page.Root>
   )
 }

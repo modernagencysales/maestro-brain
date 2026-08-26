@@ -342,7 +342,7 @@
       "source": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "destination": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "sourceSha256": "bc5baf32043a6d9e67b10b79e01f7efcae44120ea12b3fd54fee9bb6e60fb56f",
-      "sha256": "c6bc8cb5653469990f5dc797e2510938e2fff80063d7b3ae22f38ae9c6b6dcf5",
+      "sha256": "ca5c15ed787934c80a1731b0b27ca009e68af232da95e01a9de9e6e1eeb85e76",
       "adapted": true
     },
     {
@@ -608,8 +608,8 @@
       "source": "apps/web/src/features/settings/account/account-api-page.tsx",
       "destination": "apps/web/src/features/settings/account/account-api-page.tsx",
       "sourceSha256": "93355ce79f482cc0102527064c8a3f62799218876c7a01248c1fc39ed5b3fdb4",
-      "sha256": "93355ce79f482cc0102527064c8a3f62799218876c7a01248c1fc39ed5b3fdb4",
-      "adapted": false
+      "sha256": "1046a6348d500c614e942c00de82e3042ec34c004a05afa8996c15910bb9c22b",
+      "adapted": true
     },
     {
       "source": "apps/web/src/features/settings/account/account-notifications-page.tsx",
@@ -706,7 +706,7 @@
       "source": "apps/web/src/features/settings/common/settings-sidebar.tsx",
       "destination": "apps/web/src/features/settings/common/settings-sidebar.tsx",
       "sourceSha256": "bea225dd07d211543d8445a918f192c7bde6cdcacf42fdc9280be96315f90a84",
-      "sha256": "9c40348df3c39e0e9e3ef2c1d7b82a3cf523dc2af8e866262e9bdc13388596c5",
+      "sha256": "9c7e528a6d13ff0c667c93ccb32d3f5dcb361c2dfb3de5f8ad4ac72b5ef81141",
       "adapted": true
     },
     {
@@ -1077,7 +1077,7 @@
       "source": "apps/web/src/routeTree.gen.ts",
       "destination": "apps/web/src/routeTree.gen.ts",
       "sourceSha256": "45d73c4b308bfb015325284e5b601a8c4edc97e07768436c4eefdedfb000c8fa",
-      "sha256": "f148a35f29da39f44108d32d4ac2cfa6e40ffa0f72bc4fd573264c111c942855",
+      "sha256": "124791dabd277c1289d3bb438d52ce48eb8defb68f9f63ffd655caf89962c642",
       "adapted": true
     },
     {
