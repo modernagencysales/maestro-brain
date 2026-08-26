@@ -1,7 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { linkTerminal } from "./terminalLink.js";
+import { linkTerminal, openBrowser } from "./terminalLink.js";
 
 describe("terminal browser linking", () => {
+  it("keeps headless setup alive when the browser launcher is unavailable", () => {
+    let onError: (() => void) | undefined;
+    let unrefCalled = false;
+    expect(() =>
+      openBrowser("https://app.example.test/terminal-link", "linux", () => ({
+        once: (_event, listener) => {
+          onError = listener;
+        },
+        unref: () => {
+          unrefCalled = true;
+        },
+      })),
+    ).not.toThrow();
+    expect(unrefCalled).toBe(true);
+    expect(() => onError?.()).not.toThrow();
+    expect(() =>
+      openBrowser("https://app.example.test/terminal-link", "linux", () => {
+        throw new Error("spawn xdg-open ENOENT");
+      }),
+    ).not.toThrow();
+  });
+
   it("uses loopback, strong state, and validates the returned origin", async () => {
     let opened: URL | undefined;
     const linked = linkTerminal({

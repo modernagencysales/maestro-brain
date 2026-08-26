@@ -10,17 +10,40 @@ export type TerminalLinkResult = {
   readonly origin: string;
 };
 
-const openBrowser = (url: string, platform: NodeJS.Platform): void => {
+type BrowserProcess = {
+  once(event: "error", listener: () => void): unknown;
+  unref(): void;
+};
+
+type BrowserSpawn = (
+  command: string,
+  args: readonly string[],
+) => BrowserProcess;
+
+export const openBrowser = (
+  url: string,
+  platform: NodeJS.Platform,
+  run: BrowserSpawn = (command, args) =>
+    spawn(command, [...args], {
+      detached: true,
+      stdio: "ignore",
+    }),
+): void => {
   const command =
     platform === "darwin"
       ? ["open", url]
       : platform === "win32"
         ? ["cmd", "/c", "start", "", url]
         : ["xdg-open", url];
-  spawn(command[0] as string, command.slice(1), {
-    detached: true,
-    stdio: "ignore",
-  }).unref();
+  try {
+    const child = run(command[0] as string, command.slice(1));
+    // Headless machines commonly have no browser launcher. The fallback URL is
+    // already printed, so keep the callback server alive for copy/paste setup.
+    child.once("error", () => undefined);
+    child.unref();
+  } catch {
+    // Spawning can also fail synchronously. Linking still works via fallback URL.
+  }
 };
 
 export const linkTerminal = async (input: {
