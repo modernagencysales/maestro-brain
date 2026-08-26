@@ -15,8 +15,8 @@ Requires Node 22. Run these commands from the project where the agent will work:
 ```bash
 npm install --global https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz
 maestro-brain setup
-eval "$(maestro-brain env)"
 maestro-brain doctor
+maestro-brain run -- codex
 ```
 
 For setup without a global install, the web app's `Terminal & MCP` settings
@@ -36,8 +36,9 @@ printed in the terminal. Restart the agent after setup so it loads the new
 configuration.
 
 The linked API key stays in the user's local Maestro Brain config; it is not
-committed to the repository. Run `eval "$(maestro-brain env)"` in each new agent
-terminal so Codex can pass the bearer key to HTTP MCP.
+committed to the repository. `maestro-brain run -- codex` (or `-- claude`)
+injects it only into the launched agent process. Users who prefer to start their
+agent normally can instead run `eval "$(maestro-brain env)"` once in that shell.
 
 ## Confirm it works
 

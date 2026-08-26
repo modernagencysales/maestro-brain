@@ -4,38 +4,48 @@ import * as React from 'react'
 import { Field, Input, Text, VStack } from '@chakra-ui/react'
 import { Button, Dialog } from '@saas-ui/react'
 
-type Provider = 'google-drive' | 'hubspot'
+type Provider = 'slack' | 'google-drive' | 'hubspot'
 
 export function ProviderSyncDialog(props: {
   open: boolean
   provider: Provider | null
+  initialContainerId?: string
+  initialRootFolderIds?: readonly string[]
+  initialChannelIds?: readonly string[]
   onClose: () => void
   onSync: (input: {
     provider: Provider
     containerId: string
     rootFolderIds: readonly string[]
+    channelIds: readonly string[]
   }) => Promise<void>
 }) {
   const [containerId, setContainerId] = React.useState('')
   const [roots, setRoots] = React.useState('')
   const [pending, setPending] = React.useState(false)
   const drive = props.provider === 'google-drive'
+  const slack = props.provider === 'slack'
+  const initialContainerId = props.initialContainerId ?? ''
+  const initialRoots = (
+    slack ? props.initialChannelIds : props.initialRootFolderIds
+  )?.join(', ') ?? ''
 
   React.useEffect(() => {
-    if (!props.open) {
-      setContainerId('')
-      setRoots('')
-    }
-  }, [props.open, props.provider])
+    setContainerId(props.open ? initialContainerId : '')
+    setRoots(props.open ? initialRoots : '')
+  }, [initialContainerId, initialRoots, props.open])
 
   const rootFolderIds = roots
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean)
+  const channelIds = slack ? rootFolderIds : []
   const valid =
     props.provider !== null &&
-    containerId.trim().length > 0 &&
-    (!drive || rootFolderIds.length > 0)
+    (slack
+      ? channelIds.length > 0
+      : containerId.trim().length > 0 &&
+        (!drive || rootFolderIds.length > 0))
 
   return (
     <Dialog.Root
@@ -47,37 +57,53 @@ export function ProviderSyncDialog(props: {
       <Dialog.Content>
         <Dialog.Header>
           <Dialog.Title>
-            {drive ? 'Choose Google Drive scope' : 'Choose HubSpot portal'}
+            {slack
+              ? 'Choose Slack channels'
+              : drive
+                ? 'Choose Google Drive scope'
+                : 'Choose HubSpot portal'}
           </Dialog.Title>
           <Dialog.CloseButton />
         </Dialog.Header>
         <Dialog.Body>
           <VStack align="stretch" gap="4">
             <Text color="fg.muted" textStyle="sm">
-              {drive
+              {slack
+                ? 'Only these approved Slack channels enter the Company Brain. Scheduled reconciliation reuses this exact allowlist.'
+                : drive
                 ? 'Only files under these approved Shared Drive folders enter the Company Brain.'
                 : 'Companies, contacts, and deals from this portal enter the shared Company Brain.'}
             </Text>
-            <Field.Root required>
-              <Field.Label>
-                {drive ? 'Shared Drive ID' : 'HubSpot portal ID'}
-              </Field.Label>
-              <Input
-                value={containerId}
-                onChange={(event) => setContainerId(event.target.value)}
-                placeholder={drive ? '0AExampleSharedDrive' : '12345678'}
-                autoFocus
-              />
-            </Field.Root>
-            {drive ? (
+            {!slack ? (
               <Field.Root required>
-                <Field.Label>Root folder IDs</Field.Label>
+                <Field.Label>
+                  {drive ? 'Shared Drive ID' : 'HubSpot portal ID'}
+                </Field.Label>
+                <Input
+                  value={containerId}
+                  onChange={(event) => setContainerId(event.target.value)}
+                  placeholder={drive ? '0AExampleSharedDrive' : '12345678'}
+                  autoFocus
+                />
+              </Field.Root>
+            ) : null}
+            {drive || slack ? (
+              <Field.Root required>
+                <Field.Label>
+                  {slack ? 'Slack channel IDs' : 'Root folder IDs'}
+                </Field.Label>
                 <Input
                   value={roots}
                   onChange={(event) => setRoots(event.target.value)}
-                  placeholder="folder-id-1, folder-id-2"
+                  placeholder={
+                    slack ? 'C01234567, C07654321' : 'folder-id-1, folder-id-2'
+                  }
+                  autoFocus={slack}
                 />
-                <Field.HelperText>Separate multiple folder IDs with commas.</Field.HelperText>
+                <Field.HelperText>
+                  Separate multiple {slack ? 'channel' : 'folder'} IDs with
+                  commas.
+                </Field.HelperText>
               </Field.Root>
             ) : null}
           </VStack>
@@ -97,6 +123,7 @@ export function ProviderSyncDialog(props: {
                   provider: props.provider,
                   containerId: containerId.trim(),
                   rootFolderIds,
+                  channelIds,
                 })
                 props.onClose()
               } finally {

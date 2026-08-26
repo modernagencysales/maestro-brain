@@ -52,6 +52,58 @@ const seedSlackConnection = (
   });
 
 describe("Company Brain evidence publication", () => {
+  it("ranks matching passages instead of combining distant whole-document terms", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(seedSlackConnection(seeded.workspaceId, now));
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:apero",
+        runKey: "run-passages",
+        startedAt: now,
+      });
+      yield* confect.mutation(
+        refs.internal.brain.evidence.publishRunItem,
+        evidence(
+          seeded.workspaceId,
+          "run-passages",
+          "source-distant",
+          "revision-1",
+          `quasar ${"padding ".repeat(500)} nebula`,
+        ),
+      );
+      yield* confect.mutation(
+        refs.internal.brain.evidence.publishRunItem,
+        evidence(
+          seeded.workspaceId,
+          "run-passages",
+          "source-together",
+          "revision-1",
+          "The approved positioning pairs quasar nebula for the pilot.",
+        ),
+      );
+      const results = yield* actor.query(refs.public.brain.evidence.search, {
+        workspaceId: seeded.workspaceId,
+        query: "quasar nebula",
+        asOf: now,
+        limit: 1,
+      });
+      return results;
+    });
+
+    const [result] = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toMatchObject({ sourceKey: "source-together" });
+    expect(result?.excerpt).toContain("quasar nebula");
+  });
+
   it("keeps immutable revisions and rejects changed content under one revision key", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

@@ -8,6 +8,7 @@ import { fetchGoogleDriveInventory } from "@maestro-template/integrations/nango/
 import { fetchHubSpotInventory } from "@maestro-template/integrations/nango/hubspot";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -19,6 +20,7 @@ import {
   DatabaseWriter,
   MutationRunner,
   QueryRunner,
+  Scheduler,
 } from "../_generated/services";
 import {
   requireWorkspaceAccess,
@@ -115,6 +117,13 @@ const listConnectionRows = (workspaceId: GenericId<"workspaces">) =>
     );
   });
 
+const connectionForSync = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "connectionForSync",
+  ({ workspaceId, provider }) => currentConnection(workspaceId, provider),
+);
+
 const beginConnectionRow = (
   workspaceId: GenericId<"workspaces">,
   provider: ProviderKey,
@@ -146,6 +155,12 @@ const beginConnectionRow = (
           generation: state.generation,
           connectionRef: undefined,
           errorCode: undefined,
+          scheduledSyncEnabled: undefined,
+          slackChannelIds: undefined,
+          googleDriveId: undefined,
+          googleDriveRootFolderIds: undefined,
+          hubSpotPortalId: undefined,
+          syncAllowlistGeneration: undefined,
           updatedAt: now,
         })
         .pipe(Effect.orDie);
@@ -467,6 +482,19 @@ const requireActiveConnection = (
     : Effect.succeed(connection);
 };
 
+const scheduledConnectionRows = (
+  workspaceId: GenericId<"workspaces">,
+  provider: ProviderKey,
+) =>
+  Effect.gen(function* () {
+    const query = yield* QueryRunner;
+    const connection = yield* query(
+      refs.internal.integrations.connections.connectionForSync,
+      { workspaceId, provider },
+    ).pipe(Effect.catchTag("SchemaError", providerFailure));
+    return connection === null ? [] : [connection];
+  });
+
 const driveMarkdown = (
   observation: Awaited<
     ReturnType<typeof fetchGoogleDriveInventory>
@@ -501,308 +529,376 @@ const hubSpotMarkdown = (
     `- Source: ${observation.sourceLocator}`,
   ].join("\n");
 
-const syncGoogleDrive = FunctionImpl.make(
-  databaseSchema,
-  connections,
-  "syncGoogleDrive",
-  ({ workspaceId, driveId, rootFolderIds, allowlistGeneration }) =>
-    Effect.gen(function* () {
-      const config = readNangoProviderConfig("google-drive");
-      if (config === undefined) return yield* providerFailure();
-      const query = yield* QueryRunner;
-      const mutation = yield* MutationRunner;
-      const rows = yield* query(refs.public.integrations.connections.list, {
+const runGoogleDriveSync = (
+  {
+    workspaceId,
+    driveId,
+    rootFolderIds,
+    allowlistGeneration,
+  }: {
+    readonly workspaceId: GenericId<"workspaces">;
+    readonly driveId: string;
+    readonly rootFolderIds: readonly string[];
+    readonly allowlistGeneration?: number | undefined;
+  },
+  rows: readonly ProviderConnectionsDoc[],
+) =>
+  Effect.gen(function* () {
+    const config = readNangoProviderConfig("google-drive");
+    if (config === undefined) return yield* providerFailure();
+    const mutation = yield* MutationRunner;
+    const connection = yield* requireActiveConnection(rows, "google-drive");
+    yield* mutation(refs.internal.integrations.connections.recordProviderSync, {
+      workspaceId,
+      provider: "google-drive",
+      status: "syncing",
+      driveId,
+      rootFolderIds,
+      allowlistGeneration: allowlistGeneration ?? 1,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    const observedAt = yield* Clock.currentTimeMillis;
+    const runKey = `google-drive:${connection.generation}:${observedAt}`;
+    return yield* Effect.gen(function* () {
+      const inventory = yield* Effect.tryPromise({
+        try: () =>
+          fetchGoogleDriveInventory({
+            ...config,
+            connectionId: connection.connectionRef as string,
+            connectionGeneration: connection.generation,
+            driveId,
+            rootFolderIds,
+            allowlistGeneration: allowlistGeneration ?? 1,
+            observedAt,
+            limits: { maxSources: 1_000 },
+          }),
+        catch: providerFailure,
+      });
+      yield* mutation(refs.internal.brain.evidence.beginRun, {
         workspaceId,
+        provider: "google_drive",
+        scopeKey: inventory.scope.scopeKey,
+        runKey,
+        startedAt: observedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const connection = yield* requireActiveConnection(rows, "google-drive");
-      yield* mutation(
-        refs.internal.integrations.connections.recordProviderSync,
-        { workspaceId, provider: "google-drive", status: "syncing" },
-      ).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const observedAt = yield* Clock.currentTimeMillis;
-      const runKey = `google-drive:${connection.generation}:${observedAt}`;
-      return yield* Effect.gen(function* () {
-        const inventory = yield* Effect.tryPromise({
-          try: () =>
-            fetchGoogleDriveInventory({
-              ...config,
-              connectionId: connection.connectionRef as string,
-              connectionGeneration: connection.generation,
-              driveId,
-              rootFolderIds,
-              allowlistGeneration: allowlistGeneration ?? 1,
-              observedAt,
-              limits: { maxSources: 1_000 },
-            }),
-          catch: providerFailure,
-        });
-        yield* mutation(refs.internal.brain.evidence.beginRun, {
+      const active = inventory.observations.filter(
+        ({ tombstone }) => !tombstone,
+      );
+      for (const observation of active)
+        yield* mutation(refs.internal.brain.evidence.publishRunItem, {
           workspaceId,
           provider: "google_drive",
           scopeKey: inventory.scope.scopeKey,
           runKey,
-          startedAt: observedAt,
+          sourceKey: observation.sourceKey,
+          revisionKey: observation.revisionKey,
+          title: observation.metadata.name,
+          markdown: driveMarkdown(observation),
+          locator: observation.sourceLocator,
+          sourceModifiedAt: observation.sourceModifiedAt,
+          observedAt: observation.observedAt,
         }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        const active = inventory.observations.filter(
-          ({ tombstone }) => !tombstone,
-        );
-        for (const observation of active)
-          yield* mutation(refs.internal.brain.evidence.publishRunItem, {
-            workspaceId,
-            provider: "google_drive",
-            scopeKey: inventory.scope.scopeKey,
-            runKey,
-            sourceKey: observation.sourceKey,
-            revisionKey: observation.revisionKey,
-            title: observation.metadata.name,
-            markdown: driveMarkdown(observation),
-            locator: observation.sourceLocator,
-            sourceModifiedAt: observation.sourceModifiedAt,
-            observedAt: observation.observedAt,
-          }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(refs.internal.brain.evidence.completeRun, {
+      yield* mutation(refs.internal.brain.evidence.completeRun, {
+        workspaceId,
+        runKey,
+        discoveredCount: active.length,
+        completedAt: inventory.completedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        {
           workspaceId,
-          runKey,
-          discoveredCount: active.length,
-          completedAt: inventory.completedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(
-          refs.internal.integrations.connections.recordProviderSync,
-          {
+          provider: "google-drive",
+          status: "ready",
+          syncedAt: inventory.completedAt,
+          sourceCount: active.length,
+        },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      return { sourceCount: active.length, syncedAt: inventory.completedAt };
+    }).pipe(
+      Effect.tapError(() =>
+        Effect.all([
+          mutation(refs.internal.brain.evidence.failRun, {
+            workspaceId,
+            runKey,
+            failureCode: "google_drive_sync_failed",
+            failedAt: observedAt,
+          }).pipe(Effect.ignore),
+          mutation(refs.internal.integrations.connections.recordProviderSync, {
             workspaceId,
             provider: "google-drive",
-            status: "ready",
-            syncedAt: inventory.completedAt,
-            sourceCount: active.length,
-          },
-        ).pipe(Effect.catchTag("SchemaError", providerFailure));
-        return { sourceCount: active.length, syncedAt: inventory.completedAt };
-      }).pipe(
-        Effect.tapError(() =>
-          Effect.all([
-            mutation(refs.internal.brain.evidence.failRun, {
-              workspaceId,
-              runKey,
-              failureCode: "google_drive_sync_failed",
-              failedAt: observedAt,
-            }).pipe(Effect.ignore),
-            mutation(
-              refs.internal.integrations.connections.recordProviderSync,
-              {
-                workspaceId,
-                provider: "google-drive",
-                status: "error",
-                errorCode: "google_drive_sync_failed",
-              },
-            ).pipe(Effect.ignore),
-          ]),
-        ),
-      );
+            status: "error",
+            errorCode: "google_drive_sync_failed",
+          }).pipe(Effect.ignore),
+        ]),
+      ),
+    );
+  });
+
+const syncGoogleDrive = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncGoogleDrive",
+  (args) =>
+    Effect.gen(function* () {
+      const query = yield* QueryRunner;
+      const rows = yield* query(refs.public.integrations.connections.list, {
+        workspaceId: args.workspaceId,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      return yield* runGoogleDriveSync(args, rows);
     }),
 );
+
+const syncGoogleDriveScheduled = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncGoogleDriveScheduled",
+  (args) =>
+    Effect.gen(function* () {
+      const rows = yield* scheduledConnectionRows(
+        args.workspaceId,
+        "google-drive",
+      );
+      return yield* runGoogleDriveSync(args, rows);
+    }),
+);
+
+const runHubSpotSync = (
+  {
+    workspaceId,
+    portalId,
+    allowlistGeneration,
+  }: {
+    readonly workspaceId: GenericId<"workspaces">;
+    readonly portalId: string;
+    readonly allowlistGeneration?: number | undefined;
+  },
+  rows: readonly ProviderConnectionsDoc[],
+) =>
+  Effect.gen(function* () {
+    const config = readNangoProviderConfig("hubspot");
+    if (config === undefined) return yield* providerFailure();
+    const mutation = yield* MutationRunner;
+    const connection = yield* requireActiveConnection(rows, "hubspot");
+    yield* mutation(refs.internal.integrations.connections.recordProviderSync, {
+      workspaceId,
+      provider: "hubspot",
+      status: "syncing",
+      portalId,
+      allowlistGeneration: allowlistGeneration ?? 1,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    const observedAt = yield* Clock.currentTimeMillis;
+    const runKey = `hubspot:${connection.generation}:${observedAt}`;
+    return yield* Effect.gen(function* () {
+      const inventory = yield* Effect.tryPromise({
+        try: () =>
+          fetchHubSpotInventory({
+            ...config,
+            connectionId: connection.connectionRef as string,
+            connectionGeneration: connection.generation,
+            portalId,
+            allowlistGeneration: allowlistGeneration ?? 1,
+            observedAt,
+            limits: { maxSources: 1_000 },
+          }),
+        catch: providerFailure,
+      });
+      yield* mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId,
+        provider: "hubspot",
+        scopeKey: inventory.scope.scopeKey,
+        runKey,
+        startedAt: observedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const active = inventory.observations.filter(
+        ({ tombstone }) => !tombstone,
+      );
+      for (const observation of active)
+        yield* mutation(refs.internal.brain.evidence.publishRunItem, {
+          workspaceId,
+          provider: "hubspot",
+          scopeKey: inventory.scope.scopeKey,
+          runKey,
+          sourceKey: observation.sourceKey,
+          revisionKey: observation.revisionKey,
+          title: `${observation.metadata.objectType} ${observation.providerObjectId}`,
+          markdown: hubSpotMarkdown(observation),
+          locator: observation.sourceLocator,
+          sourceModifiedAt: observation.sourceModifiedAt,
+          observedAt: observation.observedAt,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* mutation(refs.internal.brain.evidence.completeRun, {
+        workspaceId,
+        runKey,
+        discoveredCount: active.length,
+        completedAt: inventory.completedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        {
+          workspaceId,
+          provider: "hubspot",
+          status: "ready",
+          syncedAt: inventory.completedAt,
+          sourceCount: active.length,
+        },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      return { sourceCount: active.length, syncedAt: inventory.completedAt };
+    }).pipe(
+      Effect.tapError(() =>
+        Effect.all([
+          mutation(refs.internal.brain.evidence.failRun, {
+            workspaceId,
+            runKey,
+            failureCode: "hubspot_sync_failed",
+            failedAt: observedAt,
+          }).pipe(Effect.ignore),
+          mutation(refs.internal.integrations.connections.recordProviderSync, {
+            workspaceId,
+            provider: "hubspot",
+            status: "error",
+            errorCode: "hubspot_sync_failed",
+          }).pipe(Effect.ignore),
+        ]),
+      ),
+    );
+  });
 
 const syncHubSpot = FunctionImpl.make(
   databaseSchema,
   connections,
   "syncHubSpot",
-  ({ workspaceId, portalId, allowlistGeneration }) =>
+  (args) =>
     Effect.gen(function* () {
-      const config = readNangoProviderConfig("hubspot");
-      if (config === undefined) return yield* providerFailure();
       const query = yield* QueryRunner;
-      const mutation = yield* MutationRunner;
       const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId,
+        workspaceId: args.workspaceId,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const connection = yield* requireActiveConnection(rows, "hubspot");
-      yield* mutation(
-        refs.internal.integrations.connections.recordProviderSync,
-        { workspaceId, provider: "hubspot", status: "syncing" },
-      ).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const observedAt = yield* Clock.currentTimeMillis;
-      const runKey = `hubspot:${connection.generation}:${observedAt}`;
-      return yield* Effect.gen(function* () {
-        const inventory = yield* Effect.tryPromise({
-          try: () =>
-            fetchHubSpotInventory({
-              ...config,
-              connectionId: connection.connectionRef as string,
-              connectionGeneration: connection.generation,
-              portalId,
-              allowlistGeneration: allowlistGeneration ?? 1,
-              observedAt,
-              limits: { maxSources: 1_000 },
-            }),
-          catch: providerFailure,
-        });
-        yield* mutation(refs.internal.brain.evidence.beginRun, {
-          workspaceId,
-          provider: "hubspot",
-          scopeKey: inventory.scope.scopeKey,
-          runKey,
-          startedAt: observedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        const active = inventory.observations.filter(
-          ({ tombstone }) => !tombstone,
-        );
-        for (const observation of active)
-          yield* mutation(refs.internal.brain.evidence.publishRunItem, {
-            workspaceId,
-            provider: "hubspot",
-            scopeKey: inventory.scope.scopeKey,
-            runKey,
-            sourceKey: observation.sourceKey,
-            revisionKey: observation.revisionKey,
-            title: `${observation.metadata.objectType} ${observation.providerObjectId}`,
-            markdown: hubSpotMarkdown(observation),
-            locator: observation.sourceLocator,
-            sourceModifiedAt: observation.sourceModifiedAt,
-            observedAt: observation.observedAt,
-          }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(refs.internal.brain.evidence.completeRun, {
-          workspaceId,
-          runKey,
-          discoveredCount: active.length,
-          completedAt: inventory.completedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(
-          refs.internal.integrations.connections.recordProviderSync,
-          {
-            workspaceId,
-            provider: "hubspot",
-            status: "ready",
-            syncedAt: inventory.completedAt,
-            sourceCount: active.length,
-          },
-        ).pipe(Effect.catchTag("SchemaError", providerFailure));
-        return { sourceCount: active.length, syncedAt: inventory.completedAt };
-      }).pipe(
-        Effect.tapError(() =>
-          Effect.all([
-            mutation(refs.internal.brain.evidence.failRun, {
-              workspaceId,
-              runKey,
-              failureCode: "hubspot_sync_failed",
-              failedAt: observedAt,
-            }).pipe(Effect.ignore),
-            mutation(
-              refs.internal.integrations.connections.recordProviderSync,
-              {
-                workspaceId,
-                provider: "hubspot",
-                status: "error",
-                errorCode: "hubspot_sync_failed",
-              },
-            ).pipe(Effect.ignore),
-          ]),
-        ),
-      );
+      return yield* runHubSpotSync(args, rows);
     }),
 );
+
+const syncHubSpotScheduled = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncHubSpotScheduled",
+  (args) =>
+    Effect.gen(function* () {
+      const rows = yield* scheduledConnectionRows(args.workspaceId, "hubspot");
+      return yield* runHubSpotSync(args, rows);
+    }),
+);
+
+const runSlackSync = (
+  {
+    workspaceId,
+    channelIds,
+  }: {
+    readonly workspaceId: GenericId<"workspaces">;
+    readonly channelIds: readonly string[];
+  },
+  rows: readonly ProviderConnectionsDoc[],
+) =>
+  Effect.gen(function* () {
+    const config = readNangoConnectConfig();
+    if (config === undefined) return yield* providerFailure();
+    const mutation = yield* MutationRunner;
+    const connection = yield* requireActiveConnection(rows, "slack");
+    yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
+      workspaceId,
+      status: "syncing",
+      channelIds,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    const startedAt = yield* Clock.currentTimeMillis;
+    const runKey = `slack:${connection.generation}:${startedAt}`;
+    const scopeKey = `slack:${connection.connectionRef}`;
+    yield* mutation(refs.internal.brain.evidence.beginRun, {
+      workspaceId,
+      provider: "slack",
+      scopeKey,
+      runKey,
+      startedAt,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    return yield* Effect.gen(function* () {
+      const snapshot = yield* Effect.tryPromise({
+        try: () =>
+          fetchSlackSnapshot({
+            ...config,
+            connectionId: connection.connectionRef as string,
+            channelIds,
+            limits: { maxMessagesTotal: 1_000 },
+          }),
+        catch: providerFailure,
+      });
+      const syncedAt = yield* Clock.currentTimeMillis;
+      const items = buildSlackEvidenceItems(snapshot, {
+        workspaceId,
+        connectionRef: connection.connectionRef as string,
+        runKey,
+        observedAt: syncedAt,
+      });
+      for (const item of items)
+        yield* mutation(refs.internal.brain.evidence.publishRunItem, item).pipe(
+          Effect.catchTag("SchemaError", providerFailure),
+        );
+      yield* mutation(refs.internal.brain.evidence.completeRun, {
+        workspaceId,
+        runKey,
+        discoveredCount: items.length,
+        completedAt: syncedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
+        workspaceId,
+        status: "ready",
+        syncedAt,
+        messageCount: snapshot.messageCount,
+        pageCount: snapshot.channels.length,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      return {
+        pageCount: snapshot.channels.length,
+        messageCount: snapshot.messageCount,
+        syncedAt,
+      };
+    }).pipe(
+      Effect.tapError(() =>
+        Effect.all([
+          mutation(refs.internal.brain.evidence.failRun, {
+            workspaceId,
+            runKey,
+            failureCode: "slack_sync_failed",
+            failedAt: startedAt,
+          }).pipe(Effect.ignore),
+          mutation(refs.internal.integrations.connections.recordSlackSync, {
+            workspaceId,
+            status: "error",
+            errorCode: "slack_sync_failed",
+          }).pipe(Effect.ignore),
+        ]),
+      ),
+    );
+  });
 
 const syncSlack = FunctionImpl.make(
   databaseSchema,
   connections,
   "syncSlack",
-  ({ workspaceId }) =>
+  (args) =>
     Effect.gen(function* () {
-      const config = readNangoConnectConfig();
-      if (config === undefined) return yield* providerFailure();
       const query = yield* QueryRunner;
-      const mutation = yield* MutationRunner;
       const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId,
+        workspaceId: args.workspaceId,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const connection = rows.find(
-        (row) =>
-          "workspaceId" in row &&
-          row.provider === "slack" &&
-          row.status === "active",
-      );
-      if (
-        connection === undefined ||
-        !("connectionRef" in connection) ||
-        typeof connection.connectionRef !== "string"
-      ) {
-        return yield* new ValidationFailed({
-          field: "provider",
-          message: "Connect Slack before synchronizing it.",
-        });
-      }
-      yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
-        workspaceId,
-        status: "syncing",
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      const startedAt = yield* Clock.currentTimeMillis;
-      const runKey = `slack:${connection.generation}:${startedAt}`;
-      const scopeKey = `slack:${connection.connectionRef}`;
-      yield* mutation(refs.internal.brain.evidence.beginRun, {
-        workspaceId,
-        provider: "slack",
-        scopeKey,
-        runKey,
-        startedAt,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      return yield* Effect.gen(function* () {
-        const snapshot = yield* Effect.tryPromise({
-          try: () =>
-            fetchSlackSnapshot({
-              ...config,
-              connectionId: connection.connectionRef as string,
-              limits: { maxMessagesTotal: 1_000 },
-            }),
-          catch: providerFailure,
-        });
-        const syncedAt = yield* Clock.currentTimeMillis;
-        const items = buildSlackEvidenceItems(snapshot, {
-          workspaceId,
-          connectionRef: connection.connectionRef as string,
-          runKey,
-          observedAt: syncedAt,
-        });
-        for (const item of items)
-          yield* mutation(
-            refs.internal.brain.evidence.publishRunItem,
-            item,
-          ).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(refs.internal.brain.evidence.completeRun, {
-          workspaceId,
-          runKey,
-          discoveredCount: items.length,
-          completedAt: syncedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
-        yield* mutation(
-          refs.internal.integrations.connections.recordSlackSync,
-          {
-            workspaceId,
-            status: "ready",
-            syncedAt,
-            messageCount: snapshot.messageCount,
-            pageCount: snapshot.channels.length,
-          },
-        ).pipe(Effect.catchTag("SchemaError", providerFailure));
-        return {
-          pageCount: snapshot.channels.length,
-          messageCount: snapshot.messageCount,
-          syncedAt,
-        };
-      }).pipe(
-        Effect.tapError(() =>
-          Effect.all([
-            mutation(refs.internal.brain.evidence.failRun, {
-              workspaceId,
-              runKey,
-              failureCode: "slack_sync_failed",
-              failedAt: startedAt,
-            }).pipe(Effect.ignore),
-            mutation(refs.internal.integrations.connections.recordSlackSync, {
-              workspaceId,
-              status: "error",
-              errorCode: "slack_sync_failed",
-            }).pipe(Effect.ignore),
-          ]),
-        ),
-      );
+      return yield* runSlackSync(args, rows);
+    }),
+);
+
+const syncSlackScheduled = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncSlackScheduled",
+  (args) =>
+    Effect.gen(function* () {
+      const rows = yield* scheduledConnectionRows(args.workspaceId, "slack");
+      return yield* runSlackSync(args, rows);
     }),
 );
 
@@ -810,7 +906,15 @@ const recordSlackSync = FunctionImpl.make(
   databaseSchema,
   connections,
   "recordSlackSync",
-  ({ workspaceId, status, syncedAt, messageCount, pageCount, errorCode }) =>
+  ({
+    workspaceId,
+    status,
+    syncedAt,
+    messageCount,
+    pageCount,
+    channelIds,
+    errorCode,
+  }) =>
     Effect.gen(function* () {
       const connection = yield* currentConnection(workspaceId, "slack");
       if (connection === null) {
@@ -825,6 +929,12 @@ const recordSlackSync = FunctionImpl.make(
         .patch(connection._id, {
           syncStatus: status,
           syncErrorCode: errorCode,
+          ...(channelIds === undefined
+            ? {}
+            : {
+                scheduledSyncEnabled: true,
+                slackChannelIds: [...new Set(channelIds)].sort(),
+              }),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
           ...(messageCount === undefined
             ? {}
@@ -845,7 +955,18 @@ const recordProviderSync = FunctionImpl.make(
   databaseSchema,
   connections,
   "recordProviderSync",
-  ({ workspaceId, provider, status, syncedAt, sourceCount, errorCode }) =>
+  ({
+    workspaceId,
+    provider,
+    status,
+    syncedAt,
+    sourceCount,
+    driveId,
+    rootFolderIds,
+    portalId,
+    allowlistGeneration,
+    errorCode,
+  }) =>
     Effect.gen(function* () {
       const connection = yield* currentConnection(workspaceId, provider);
       if (connection === null)
@@ -859,6 +980,21 @@ const recordProviderSync = FunctionImpl.make(
         .patch(connection._id, {
           syncStatus: status,
           syncErrorCode: errorCode,
+          ...(driveId === undefined || rootFolderIds === undefined
+            ? {}
+            : {
+                scheduledSyncEnabled: true,
+                googleDriveId: driveId,
+                googleDriveRootFolderIds: [...new Set(rootFolderIds)].sort(),
+                syncAllowlistGeneration: allowlistGeneration ?? 1,
+              }),
+          ...(portalId === undefined
+            ? {}
+            : {
+                scheduledSyncEnabled: true,
+                hubSpotPortalId: portalId,
+                syncAllowlistGeneration: allowlistGeneration ?? 1,
+              }),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
           ...(sourceCount === undefined
             ? {}
@@ -871,6 +1007,101 @@ const recordProviderSync = FunctionImpl.make(
         .get(connection._id)
         .pipe(Effect.orDie);
       return yield* requireCurrentConnectionRow(updated, provider);
+    }),
+);
+
+const SCHEDULED_CONNECTION_LIMIT = 200;
+
+const dispatchScheduledSyncs = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "dispatchScheduledSyncs",
+  () =>
+    Effect.gen(function* () {
+      const rows = yield* (yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_status", (q) => q.eq("status", "active"))
+        .take(SCHEDULED_CONNECTION_LIMIT + 1)
+        .pipe(Effect.orDie);
+      if (rows.length > SCHEDULED_CONNECTION_LIMIT)
+        return yield* new ValidationFailed({
+          field: "providerConnections",
+          message:
+            "Scheduled connector capacity was exceeded; partition the dispatcher before enabling more connections.",
+        });
+      const scheduler = yield* Scheduler;
+      let scheduledCount = 0;
+      let skippedCount = 0;
+      for (const row of rows) {
+        const connection = currentConnectionOrNull(row);
+        if (
+          connection === null ||
+          connection.scheduledSyncEnabled !== true ||
+          connection.syncStatus === "syncing"
+        ) {
+          skippedCount += 1;
+          continue;
+        }
+        if (
+          connection.provider === "slack" &&
+          connection.slackChannelIds !== undefined &&
+          connection.slackChannelIds.length > 0
+        ) {
+          yield* scheduler
+            .runAfter(
+              Duration.zero,
+              refs.internal.integrations.connections.syncSlackScheduled,
+              {
+                workspaceId: connection.workspaceId,
+                channelIds: connection.slackChannelIds,
+              },
+            )
+            .pipe(Effect.orDie);
+          scheduledCount += 1;
+          continue;
+        }
+        if (
+          connection.provider === "google-drive" &&
+          connection.googleDriveId !== undefined &&
+          connection.googleDriveRootFolderIds !== undefined &&
+          connection.googleDriveRootFolderIds.length > 0
+        ) {
+          yield* scheduler
+            .runAfter(
+              Duration.zero,
+              refs.internal.integrations.connections.syncGoogleDriveScheduled,
+              {
+                workspaceId: connection.workspaceId,
+                driveId: connection.googleDriveId,
+                rootFolderIds: connection.googleDriveRootFolderIds,
+                allowlistGeneration: connection.syncAllowlistGeneration ?? 1,
+              },
+            )
+            .pipe(Effect.orDie);
+          scheduledCount += 1;
+          continue;
+        }
+        if (
+          connection.provider === "hubspot" &&
+          connection.hubSpotPortalId !== undefined
+        ) {
+          yield* scheduler
+            .runAfter(
+              Duration.zero,
+              refs.internal.integrations.connections.syncHubSpotScheduled,
+              {
+                workspaceId: connection.workspaceId,
+                portalId: connection.hubSpotPortalId,
+                allowlistGeneration: connection.syncAllowlistGeneration ?? 1,
+              },
+            )
+            .pipe(Effect.orDie);
+          scheduledCount += 1;
+          continue;
+        }
+        skippedCount += 1;
+      }
+      return { scheduledCount, skippedCount };
     }),
 );
 
@@ -950,7 +1181,7 @@ const revokeForActor = FunctionImpl.make(
     }),
 );
 
-export default GroupImpl.make(databaseSchema, connections).pipe(
+const connectionGroup = GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(list),
   Layer.provide(begin),
   Layer.provide(beginSlackOauth),
@@ -958,8 +1189,16 @@ export default GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(completeSlackOauth),
   Layer.provide(completeProviderOauth),
   Layer.provide(syncSlack),
+  Layer.provide(syncSlackScheduled),
   Layer.provide(syncGoogleDrive),
+  Layer.provide(syncGoogleDriveScheduled),
   Layer.provide(syncHubSpot),
+  Layer.provide(syncHubSpotScheduled),
+  Layer.provide(connectionForSync),
+  Layer.provide(dispatchScheduledSyncs),
+);
+
+export default connectionGroup.pipe(
   Layer.provide(recordSlackSync),
   Layer.provide(recordProviderSync),
   Layer.provide(complete),

@@ -8,6 +8,14 @@ import { sha256Hex } from "../shared/sha256";
 export type EvidenceProvider =
   "brain_page" | "slack" | "google_drive" | "hubspot" | "transcript";
 
+const PASSAGE_LENGTH = 640;
+const PASSAGE_OVERLAP = 100;
+const MAX_PASSAGES = 48;
+const MAX_TOKENS_PER_PASSAGE = 80;
+const RETRIEVAL_PROJECTION_VERSION = 2;
+export const MAX_RETRIEVAL_TOKENS_PER_ENTRY =
+  MAX_PASSAGES * MAX_TOKENS_PER_PASSAGE;
+
 const STOP_WORDS = new Set([
   "about",
   "and",
@@ -27,6 +35,7 @@ const STOP_WORDS = new Set([
 export const evidenceTokens = (
   title: string,
   markdown: string,
+  limit = 128,
 ): readonly Readonly<{ token: string; weight: number }>[] => {
   const weights = new Map<string, number>();
   const add = (text: string, weight: number) => {
@@ -39,8 +48,50 @@ export const evidenceTokens = (
   add(markdown, 1);
   return [...weights.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
-    .slice(0, 128)
+    .slice(0, limit)
     .map(([token, weight]) => ({ token, weight }));
+};
+
+export const evidencePassages = (title: string, markdown: string) => {
+  const passages: Array<{
+    readonly passageKey: string;
+    readonly startOffset: number;
+    readonly endOffset: number;
+    readonly tokens: readonly Readonly<{ token: string; weight: number }>[];
+  }> = [];
+  let startOffset = 0;
+  while (startOffset < markdown.length || passages.length === 0) {
+    if (passages.length >= MAX_PASSAGES)
+      return { passages, capacityExceeded: true } as const;
+    const targetEnd = Math.min(markdown.length, startOffset + PASSAGE_LENGTH);
+    const boundaryWindowStart = Math.max(startOffset, targetEnd - 240);
+    const boundary =
+      targetEnd === markdown.length
+        ? targetEnd
+        : Math.max(
+            markdown.lastIndexOf("\n", targetEnd),
+            markdown.lastIndexOf(" ", targetEnd),
+          );
+    const endOffset =
+      boundary >= boundaryWindowStart ? boundary + 1 : targetEnd;
+    const passageText = markdown.slice(startOffset, endOffset);
+    const tokens = evidenceTokens(
+      title,
+      passageText,
+      MAX_TOKENS_PER_PASSAGE + 1,
+    );
+    if (tokens.length > MAX_TOKENS_PER_PASSAGE)
+      return { passages, capacityExceeded: true } as const;
+    passages.push({
+      passageKey: `${passages.length}:${startOffset}:${endOffset}`,
+      startOffset,
+      endOffset,
+      tokens,
+    });
+    if (endOffset >= markdown.length) break;
+    startOffset = Math.max(startOffset + 1, endOffset - PASSAGE_OVERLAP);
+  }
+  return { passages, capacityExceeded: false } as const;
 };
 
 export const evidenceContentHash = (title: string, markdown: string) =>
@@ -91,9 +142,9 @@ const removeEntryTokens = (input: {
       .index("by_workspace_and_entry_key", (q) =>
         q.eq("workspaceId", input.workspaceId).eq("entryKey", input.entryKey),
       )
-      .take(129)
+      .take(MAX_RETRIEVAL_TOKENS_PER_ENTRY + 1)
       .pipe(Effect.orDie);
-    if (rows.length > 128)
+    if (rows.length > MAX_RETRIEVAL_TOKENS_PER_ENTRY)
       return yield* new ValidationFailed({
         field: "entryKey",
         message: "Retrieval token capacity was exceeded.",
@@ -199,9 +250,20 @@ export const projectEvidence = (input: {
         message: "Evidence source has multiple current retrieval entries.",
       });
     const current = entries[0];
-    if (current?.revisionKey === input.revisionKey)
+    if (
+      current?.revisionKey === input.revisionKey &&
+      current.projectionVersion === RETRIEVAL_PROJECTION_VERSION
+    )
       return { changed: false, entryKey: current.entryKey } as const;
-    if (current !== undefined) {
+    const projection = evidencePassages(title, input.markdown);
+    if (projection.capacityExceeded)
+      return yield* new ValidationFailed({
+        field: "markdown",
+        message:
+          "Evidence passage capacity was exceeded; split the source before indexing it.",
+      });
+    const reprojectingCurrent = current?.revisionKey === input.revisionKey;
+    if (current !== undefined && !reprojectingCurrent) {
       yield* writer
         .table("brainRetrievalEntries")
         .patch(current._id, { status: "retired", updatedAt: input.observedAt })
@@ -212,37 +274,56 @@ export const projectEvidence = (input: {
       });
     }
     const entryKey = `${input.sourceKey}:revision:${input.revisionKey}`;
-    yield* writer
-      .table("brainRetrievalEntries")
-      .insert({
+    if (reprojectingCurrent && current !== undefined) {
+      yield* removeEntryTokens({
         workspaceId: input.workspaceId,
-        provider: input.provider,
-        entryKey,
-        sourceKey: input.sourceKey,
-        revisionKey: input.revisionKey,
-        title,
-        markdown: input.markdown,
-        contentHash,
-        ...(input.locator === undefined ? {} : { locator: input.locator }),
-        sourceModifiedAt: input.sourceModifiedAt,
-        observedAt: input.observedAt,
-        status: "current",
-        createdAt: input.observedAt,
-        updatedAt: input.observedAt,
-      })
-      .pipe(Effect.orDie);
-    yield* Effect.forEach(evidenceTokens(title, input.markdown), (token) =>
-      writer
-        .table("brainRetrievalTokens")
+        entryKey: current.entryKey,
+      });
+      yield* writer
+        .table("brainRetrievalEntries")
+        .patch(current._id, {
+          projectionVersion: RETRIEVAL_PROJECTION_VERSION,
+          updatedAt: input.observedAt,
+        })
+        .pipe(Effect.orDie);
+    } else
+      yield* writer
+        .table("brainRetrievalEntries")
         .insert({
           workspaceId: input.workspaceId,
-          ...token,
+          provider: input.provider,
           entryKey,
           sourceKey: input.sourceKey,
           revisionKey: input.revisionKey,
+          title,
+          markdown: input.markdown,
+          contentHash,
+          projectionVersion: RETRIEVAL_PROJECTION_VERSION,
+          ...(input.locator === undefined ? {} : { locator: input.locator }),
+          sourceModifiedAt: input.sourceModifiedAt,
+          observedAt: input.observedAt,
+          status: "current",
           createdAt: input.observedAt,
+          updatedAt: input.observedAt,
         })
-        .pipe(Effect.orDie),
+        .pipe(Effect.orDie);
+    yield* Effect.forEach(projection.passages, (passage) =>
+      Effect.forEach(passage.tokens, (token) =>
+        writer
+          .table("brainRetrievalTokens")
+          .insert({
+            workspaceId: input.workspaceId,
+            ...token,
+            entryKey,
+            passageKey: passage.passageKey,
+            passageStartOffset: passage.startOffset,
+            passageEndOffset: passage.endOffset,
+            sourceKey: input.sourceKey,
+            revisionKey: input.revisionKey,
+            createdAt: input.observedAt,
+          })
+          .pipe(Effect.orDie),
+      ),
     );
     return { changed: true, entryKey } as const;
   });

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchSlackSnapshot, SlackSnapshotCapacityExceeded } from "./slack";
+import {
+  fetchSlackSnapshot,
+  SlackChannelAllowlistInvalid,
+  SlackSnapshotCapacityExceeded,
+} from "./slack";
 
 const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });
@@ -37,6 +41,7 @@ describe("Nango Slack snapshot", () => {
       secretKey: "nango-secret",
       providerConfigKey: "slack",
       connectionId: "connection-1",
+      channelIds: ["C01"],
       request,
     });
 
@@ -106,6 +111,7 @@ describe("Nango Slack snapshot", () => {
       secretKey: "nango-secret",
       providerConfigKey: "slack",
       connectionId: "connection-1",
+      channelIds: ["C01", "C02"],
       request,
     });
 
@@ -165,6 +171,7 @@ describe("Nango Slack snapshot", () => {
       secretKey: "nango-secret",
       providerConfigKey: "slack",
       connectionId: "connection-1",
+      channelIds: ["C01"],
       request,
     });
 
@@ -213,6 +220,7 @@ describe("Nango Slack snapshot", () => {
         secretKey: "nango-secret",
         providerConfigKey: "slack",
         connectionId: "connection-1",
+        channelIds: ["C01", "C02"],
         request,
         limits: { maxChannels: 1 },
       }),
@@ -221,7 +229,7 @@ describe("Nango Slack snapshot", () => {
       resource: "channels",
       capacity: 1,
     } satisfies Partial<SlackSnapshotCapacityExceeded>);
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("counts thread replies against per-channel message capacity", async () => {
@@ -261,6 +269,7 @@ describe("Nango Slack snapshot", () => {
         secretKey: "nango-secret",
         providerConfigKey: "slack",
         connectionId: "connection-1",
+        channelIds: ["C01"],
         request,
         limits: { maxMessagesPerChannel: 1 },
       }),
@@ -285,6 +294,7 @@ describe("Nango Slack snapshot", () => {
         secretKey: "nango-secret",
         providerConfigKey: "slack",
         connectionId: "connection-1",
+        channelIds: ["C01"],
         request,
         limits: { maxPagesPerCollection: 1 },
       }),
@@ -293,5 +303,59 @@ describe("Nango Slack snapshot", () => {
       resource: "pages",
       capacity: 1,
     } satisfies Partial<SlackSnapshotCapacityExceeded>);
+  });
+
+  it("fetches only explicitly approved channels", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          channels: [
+            { id: "C01", name: "company-context" },
+            { id: "C02", name: "private-operations" },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          messages: [{ ts: "1.0", user: "U01", text: "Approved" }],
+        }),
+      );
+
+    const result = await fetchSlackSnapshot({
+      secretKey: "nango-secret",
+      providerConfigKey: "slack",
+      connectionId: "connection-1",
+      channelIds: ["C01"],
+      request,
+    });
+
+    expect(result.channels.map(({ id }) => id)).toEqual(["C01"]);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed when an approved channel is unavailable", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      jsonResponse({
+        ok: true,
+        channels: [{ id: "C01", name: "company-context" }],
+      }),
+    );
+
+    await expect(
+      fetchSlackSnapshot({
+        secretKey: "nango-secret",
+        providerConfigKey: "slack",
+        connectionId: "connection-1",
+        channelIds: ["C01", "C99"],
+        request,
+      }),
+    ).rejects.toMatchObject({
+      name: "SlackChannelAllowlistInvalid",
+      missingChannelIds: ["C99"],
+    } satisfies Partial<SlackChannelAllowlistInvalid>);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

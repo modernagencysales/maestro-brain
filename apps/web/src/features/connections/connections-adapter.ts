@@ -17,6 +17,12 @@ export type DurableConnection = Readonly<{
   lastSyncMessageCount?: number
   lastSyncPageCount?: number
   lastSyncSourceCount?: number
+  scheduledSyncEnabled?: boolean
+  slackChannelIds?: readonly string[]
+  googleDriveId?: string
+  googleDriveRootFolderIds?: readonly string[]
+  hubSpotPortalId?: string
+  syncAllowlistGeneration?: number
 }>
 
 export type EvidenceProviderHealth = Readonly<{

@@ -33,10 +33,7 @@ import {
   type DurableConnection,
   type EvidenceProviderHealth,
 } from './connections-adapter'
-import {
-  runSlackConnect,
-  runSlackSyncWithFeedback,
-} from './slack-connect'
+import { runSlackConnect } from './slack-connect'
 import { ProviderSyncDialog } from './provider-sync-dialog'
 
 const listConnectionsRef = getFunctionReference(
@@ -82,12 +79,15 @@ const connectionType = (
   connection: DurableConnection | undefined,
   health: EvidenceProviderHealth | undefined,
 ) => {
+  const schedule = connection?.scheduledSyncEnabled
+    ? ' · Hourly reconciliation'
+    : ''
   if (status === 'connected' && health?.lastConnectorRun?.status === 'failed')
-    return `Connected · Sync failed · ${health.activeSourceCount} sources`
+    return `Connected · Sync failed · ${health.activeSourceCount} sources${schedule}`
   if (status === 'connected' && health?.lastConnectorRun?.status === 'running')
-    return `Connected · Synchronizing · ${health.activeSourceCount} sources`
+    return `Connected · Synchronizing · ${health.activeSourceCount} sources${schedule}`
   if (status === 'connected' && health !== undefined)
-    return `Connected · ${health.currentEntryCount}/${health.activeSourceCount} sources indexed`
+    return `Connected · ${health.currentEntryCount}/${health.activeSourceCount} sources indexed${schedule}`
   if (integration.id !== 'slack' || status !== 'connected')
     return connectionCardType(status)
   if (connection?.syncStatus === 'syncing') return 'Connected · Synchronizing'
@@ -130,15 +130,6 @@ export const ConnectionsPage = () => {
   const beginProviderOauth = useConvexAction(beginProviderOauthRef)
   const completeProviderOauth = useConvexAction(completeProviderOauthRef)
   const syncSlack = useConvexAction(syncSlackRef)
-  const syncSlackWithFeedback = () =>
-    runSlackSyncWithFeedback({
-      sync: () => syncSlack({ workspaceId: workspace.id }),
-      onError: () =>
-        toast.error({
-          title: 'Slack is connected, but sync failed',
-          description: 'Try Sync now again.',
-        }),
-    })
   const liveConnections = (
     isolatedContracts
       ? (isolatedConnections.data ?? [])
@@ -152,8 +143,11 @@ export const ConnectionsPage = () => {
     ),
   )
   const [syncProvider, setSyncProvider] = React.useState<
-    'google-drive' | 'hubspot' | null
+    'slack' | 'google-drive' | 'hubspot' | null
   >(null)
+  const syncConnection = liveConnections.find(
+    (connection) => connection.provider === syncProvider,
+  )
   const syncGoogleDrive = useConvexAction(syncGoogleDriveRef)
   const syncHubSpot = useConvexAction(syncHubSpotRef)
 
@@ -176,7 +170,7 @@ export const ConnectionsPage = () => {
               generation,
               connectionId,
             })
-            await syncSlackWithFeedback()
+            setSyncProvider('slack')
           } else {
             await completeProviderOauth({
               workspaceId: workspace.id,
@@ -273,14 +267,7 @@ export const ConnectionsPage = () => {
           onSync={
             status !== 'connected'
               ? undefined
-              : integration.id === 'slack'
-                ? syncSlackWithFeedback
-                : () =>
-                    setSyncProvider(
-                      integration.id === 'google-drive'
-                        ? 'google-drive'
-                        : 'hubspot',
-                    )
+              : () => setSyncProvider(integration.id)
           }
           onDocs={() => window.open(integration.docs, '_blank', 'noopener')}
         />
@@ -291,10 +278,29 @@ export const ConnectionsPage = () => {
       <ProviderSyncDialog
         open={syncProvider !== null}
         provider={syncProvider}
+        initialContainerId={
+          syncProvider === 'google-drive'
+            ? syncConnection?.googleDriveId
+            : syncProvider === 'hubspot'
+              ? syncConnection?.hubSpotPortalId
+              : undefined
+        }
+        initialRootFolderIds={syncConnection?.googleDriveRootFolderIds}
+        initialChannelIds={syncConnection?.slackChannelIds}
         onClose={() => setSyncProvider(null)}
-        onSync={async ({ provider, containerId, rootFolderIds }) => {
+        onSync={async ({
+          provider,
+          containerId,
+          rootFolderIds,
+          channelIds,
+        }) => {
           try {
-            if (provider === 'google-drive')
+            if (provider === 'slack')
+              await syncSlack({
+                workspaceId: workspace.id,
+                channelIds: [...channelIds],
+              })
+            else if (provider === 'google-drive')
               await syncGoogleDrive({
                 workspaceId: workspace.id,
                 driveId: containerId,
