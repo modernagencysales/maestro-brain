@@ -12,6 +12,10 @@ export type DurableConnection = Readonly<{
   provider: ConnectionCardModel['id']
   status: 'authorizing' | 'verifying' | 'active' | 'error' | 'revoked'
   generation: number
+  syncStatus?: 'syncing' | 'ready' | 'error'
+  lastSyncedAt?: number
+  lastSyncMessageCount?: number
+  lastSyncPageCount?: number
 }>
 
 export type ConnectionCardModel = Readonly<{

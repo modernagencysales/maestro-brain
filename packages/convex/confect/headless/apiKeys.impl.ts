@@ -8,8 +8,132 @@ import * as Option from "effect/Option";
 import { env } from "../../convex/_generated/server";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import { NotFound, ValidationFailed } from "../errors";
 import apiKeys from "./apiKeys.spec";
-import { verifyApiKeyHash } from "./auth";
+import { createApiKey, verifyApiKeyHash, type ApiKeyRow } from "./auth";
+
+const ninetyDaysMs = 90 * 24 * 60 * 60 * 1_000;
+
+const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
+
+const linkedKeyMetadata = (key: ApiKeyRow) => ({
+  id: key.id,
+  name: key.name,
+  displayPrefix: key.displayPrefix,
+  scopes: key.scopes.filter((scope) => scope !== "creator:self"),
+  status: key.status,
+  createdAt: key.createdAt,
+  expiresAt: key.expiresAt,
+  lastUsedAt: key.lastUsedAt,
+});
+
+const createLinkedKey = FunctionImpl.make(
+  databaseSchema,
+  apiKeys,
+  "createLinkedKey",
+  ({ workspaceId, name }) =>
+    Effect.gen(function* () {
+      const trimmedName = name.trim();
+      if (trimmedName.length < 1 || trimmedName.length > 80) {
+        return yield* new ValidationFailed({
+          field: "name",
+          message: "Device name must contain between 1 and 80 characters.",
+        });
+      }
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      const now = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      const created = yield* Effect.promise(() =>
+        createApiKey({
+          workspaceId,
+          name: trimmedName,
+          scopes:
+            access.role === "viewer"
+              ? ["workspace:read"]
+              : ["workspace:read", "workspace:write"],
+          createdByUserId: access.userId,
+          nowMs: now,
+          expiresAt: now + ninetyDaysMs,
+        }),
+      );
+      const reader = yield* DatabaseReader;
+      const collision = yield* reader
+        .table("apiKeys")
+        .index("by_key_hash", (query) =>
+          query.eq("keyHash", created.row.keyHash),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (collision !== null) {
+        return yield* new ValidationFailed({
+          field: "name",
+          message: "Could not create a unique terminal credential. Try again.",
+        });
+      }
+      yield* (yield* DatabaseWriter)
+        .table("apiKeys")
+        .insert(created.row)
+        .pipe(Effect.orDie);
+      return {
+        displayKey: created.displayKey,
+        key: linkedKeyMetadata(created.row),
+      };
+    }),
+);
+
+const listLinkedKeys = FunctionImpl.make(
+  databaseSchema,
+  apiKeys,
+  "listLinkedKeys",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      const keys = yield* (yield* DatabaseReader)
+        .table("apiKeys")
+        .index("by_workspace", (query) => query.eq("workspaceId", workspaceId))
+        .take(100)
+        .pipe(Effect.orDie);
+      return keys
+        .filter((key) => key.createdByUserId === access.userId)
+        .sort((left, right) => right.createdAt - left.createdAt)
+        .map(linkedKeyMetadata);
+    }),
+);
+
+const revokeLinkedKey = FunctionImpl.make(
+  databaseSchema,
+  apiKeys,
+  "revokeLinkedKey",
+  ({ workspaceId, keyId }) =>
+    Effect.gen(function* () {
+      const access = yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      const keys = yield* (yield* DatabaseReader)
+        .table("apiKeys")
+        .index("by_workspace", (query) => query.eq("workspaceId", workspaceId))
+        .take(100)
+        .pipe(Effect.orDie);
+      const key = keys.find(
+        (candidate) =>
+          candidate.id === keyId && candidate.createdByUserId === access.userId,
+      );
+      if (key === undefined) {
+        return yield* new NotFound({ resource: "apiKeys", id: keyId });
+      }
+      const now = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      yield* (yield* DatabaseWriter)
+        .table("apiKeys")
+        .patch(key._id, { status: "revoked", revokedAt: now })
+        .pipe(Effect.orDie);
+      return null;
+    }),
+);
 
 const scopesForContractsRole = (role: "primary" | "observer") =>
   role === "primary"
@@ -400,8 +524,57 @@ const resolve = FunctionImpl.make(
     }),
 );
 
+const resolveCredential = FunctionImpl.make(
+  databaseSchema,
+  apiKeys,
+  "resolveCredential",
+  ({ keyHash, requiredScope, nowMs }) =>
+    Effect.gen(function* () {
+      const reader = yield* DatabaseReader;
+      const rows = yield* reader
+        .table("apiKeys")
+        .index("by_key_hash", (q) => q.eq("keyHash", keyHash))
+        .take(2)
+        .pipe(Effect.orDie);
+      const verified = yield* Effect.promise(() =>
+        verifyApiKeyHash({
+          presentedHash: keyHash,
+          rows,
+          requiredScope,
+          nowMs,
+        }),
+      );
+      if (!verified.ok) {
+        return {
+          ok: false as const,
+          code: verified.error.code,
+          message: verified.error.message,
+        };
+      }
+
+      const key = rows.find(({ id }) => id === verified.keyId);
+      if (!key) {
+        return {
+          ok: false as const,
+          code: "API_KEY_NOT_FOUND" as const,
+          message: "API key was not found.",
+        };
+      }
+      return {
+        ok: true as const,
+        keyId: verified.keyId,
+        workspaceId: verified.workspaceId as GenericId<"workspaces">,
+        userId: key.createdByUserId as GenericId<"users">,
+      };
+    }),
+);
+
 export default GroupImpl.make(databaseSchema, apiKeys).pipe(
+  Layer.provide(createLinkedKey),
+  Layer.provide(listLinkedKeys),
+  Layer.provide(revokeLinkedKey),
   Layer.provide(seedLocalContracts),
   Layer.provide(resolve),
+  Layer.provide(resolveCredential),
   GroupImpl.finalize,
 );

@@ -3,6 +3,7 @@ import {
   createNangoConnectSession,
   verifyNangoConnection,
 } from "@maestro-template/integrations/nango/connect";
+import { fetchSlackSnapshot } from "@maestro-template/integrations/nango/slack";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -15,6 +16,7 @@ import {
   DatabaseReader,
   DatabaseWriter,
   MutationRunner,
+  QueryRunner,
 } from "../_generated/services";
 import {
   requireWorkspaceAccess,
@@ -30,6 +32,7 @@ import {
   type ProviderKey,
 } from "./connectionLifecycle";
 import connections from "./connections.spec";
+import { buildSlackPages } from "./slackSnapshot";
 
 const withConfectClock = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -346,6 +349,132 @@ const completeSlackOauth = FunctionImpl.make(
     }),
 );
 
+const syncSlack = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "syncSlack",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      const config = readNangoConnectConfig();
+      if (config === undefined) return yield* providerFailure();
+      const query = yield* QueryRunner;
+      const mutation = yield* MutationRunner;
+      const rows = yield* query(refs.public.integrations.connections.list, {
+        workspaceId,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const connection = rows.find(
+        (row) =>
+          "workspaceId" in row &&
+          row.provider === "slack" &&
+          row.status === "active",
+      );
+      if (
+        connection === undefined ||
+        !("connectionRef" in connection) ||
+        typeof connection.connectionRef !== "string"
+      ) {
+        return yield* new ValidationFailed({
+          field: "provider",
+          message: "Connect Slack before synchronizing it.",
+        });
+      }
+      yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
+        workspaceId,
+        status: "syncing",
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      return yield* Effect.gen(function* () {
+        const snapshot = yield* Effect.tryPromise({
+          try: () =>
+            fetchSlackSnapshot({
+              ...config,
+              connectionId: connection.connectionRef as string,
+            }),
+          catch: providerFailure,
+        });
+        const syncedAt = yield* Clock.currentTimeMillis;
+        const pages = buildSlackPages(snapshot, syncedAt);
+        const existing = yield* query(refs.public.brain.pages.list, {
+          workspaceId,
+          includeArchived: true,
+        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+        for (const page of pages) {
+          const current = existing.find(({ slug }) => slug === page.slug);
+          if (current === undefined) {
+            yield* mutation(refs.public.brain.pages.createMarkdown, {
+              workspaceId,
+              ...page,
+            }).pipe(Effect.catchTag("SchemaError", providerFailure));
+          } else if (current.markdown !== page.markdown) {
+            yield* mutation(refs.public.brain.pages.updateMarkdown, {
+              workspaceId,
+              pageId: current._id,
+              markdown: page.markdown,
+              expectedUpdatedAt: current.updatedAt,
+            }).pipe(Effect.catchTag("SchemaError", providerFailure));
+          }
+        }
+        yield* mutation(
+          refs.internal.integrations.connections.recordSlackSync,
+          {
+            workspaceId,
+            status: "ready",
+            syncedAt,
+            messageCount: snapshot.messageCount,
+            pageCount: pages.length,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        return {
+          pageCount: pages.length,
+          messageCount: snapshot.messageCount,
+          syncedAt,
+        };
+      }).pipe(
+        Effect.tapError(() =>
+          mutation(refs.internal.integrations.connections.recordSlackSync, {
+            workspaceId,
+            status: "error",
+            errorCode: "slack_sync_failed",
+          }).pipe(Effect.ignore),
+        ),
+      );
+    }),
+);
+
+const recordSlackSync = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "recordSlackSync",
+  ({ workspaceId, status, syncedAt, messageCount, pageCount, errorCode }) =>
+    Effect.gen(function* () {
+      const connection = yield* currentConnection(workspaceId, "slack");
+      if (connection === null) {
+        return yield* new NotFound({
+          resource: "providerConnections",
+          id: "slack",
+        });
+      }
+      const now = yield* withConfectClock(Clock.currentTimeMillis);
+      yield* (yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(connection._id, {
+          syncStatus: status,
+          syncErrorCode: errorCode,
+          ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
+          ...(messageCount === undefined
+            ? {}
+            : { lastSyncMessageCount: messageCount }),
+          ...(pageCount === undefined ? {} : { lastSyncPageCount: pageCount }),
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      const updated = yield* (yield* DatabaseReader)
+        .table("providerConnections")
+        .get(connection._id)
+        .pipe(Effect.orDie);
+      return yield* requireCurrentConnectionRow(updated, "slack");
+    }),
+);
+
 const complete = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -427,6 +556,8 @@ export default GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(begin),
   Layer.provide(beginSlackOauth),
   Layer.provide(completeSlackOauth),
+  Layer.provide(syncSlack),
+  Layer.provide(recordSlackSync),
   Layer.provide(complete),
   Layer.provide(revoke),
   Layer.provide(listForActor),

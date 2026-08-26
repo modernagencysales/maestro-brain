@@ -17,6 +17,7 @@ import { Route as AppWorkspaceRouteImport } from './routes/_app/$workspace'
 import { Route as AppAcceptInviteRouteImport } from './routes/_app/accept-invite'
 import { Route as AppBrainRouteImport } from './routes/_app/brain'
 import { Route as AppGettingStartedRouteImport } from './routes/_app/getting-started'
+import { Route as AppTerminalLinkRouteImport } from './routes/_app/terminal-link'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
@@ -48,6 +49,7 @@ import { Route as AppWorkspaceDashboardContactsTypeRouteImport } from './routes/
 import { Route as AppWorkspaceDashboardInboxIdRouteImport } from './routes/_app/$workspace/_dashboard/inbox/$id'
 import { Route as AppWorkspaceDashboardTagTagRouteImport } from './routes/_app/$workspace/_dashboard/tag/$tag'
 import { Route as AppWorkspaceSettingsAccountIndexRouteImport } from './routes/_app/$workspace/settings/account/index'
+import { Route as AppWorkspaceSettingsAccountApiRouteImport } from './routes/_app/$workspace/settings/account/api'
 import { Route as AppWorkspaceSettingsAccountProfileRouteImport } from './routes/_app/$workspace/settings/account/profile'
 import { Route as AppWorkspaceSettingsAccountSecurityRouteImport } from './routes/_app/$workspace/settings/account/security'
 import { Route as AppWorkspaceDashboardContactsViewIdRouteImport } from './routes/_app/$workspace/_dashboard/contacts/view/$id'
@@ -88,6 +90,11 @@ const AppBrainRoute = AppBrainRouteImport.update({
 const AppGettingStartedRoute = AppGettingStartedRouteImport.update({
   id: '/getting-started',
   path: '/getting-started',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTerminalLinkRoute = AppTerminalLinkRouteImport.update({
+  id: '/terminal-link',
+  path: '/terminal-link',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -261,6 +268,12 @@ const AppWorkspaceSettingsAccountIndexRoute =
     path: '/account/',
     getParentRoute: () => AppWorkspaceSettingsRoute,
   } as any)
+const AppWorkspaceSettingsAccountApiRoute =
+  AppWorkspaceSettingsAccountApiRouteImport.update({
+    id: '/account/api',
+    path: '/account/api',
+    getParentRoute: () => AppWorkspaceSettingsRoute,
+  } as any)
 const AppWorkspaceSettingsAccountProfileRoute =
   AppWorkspaceSettingsAccountProfileRouteImport.update({
     id: '/account/profile',
@@ -287,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/brain': typeof AppBrainRoute
   '/getting-started': typeof AppGettingStartedRouteWithChildren
+  '/terminal-link': typeof AppTerminalLinkRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
@@ -315,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/$workspace/contacts/$type': typeof AppWorkspaceDashboardContactsTypeRoute
   '/$workspace/inbox/$id': typeof AppWorkspaceDashboardInboxIdRoute
   '/$workspace/tag/$tag': typeof AppWorkspaceDashboardTagTagRoute
+  '/$workspace/settings/account/api': typeof AppWorkspaceSettingsAccountApiRoute
   '/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/$workspace/contacts/': typeof AppWorkspaceDashboardContactsIndexRoute
@@ -327,6 +342,7 @@ export interface FileRoutesByTo {
   '/$workspace': typeof AppWorkspaceDashboardIndexRoute
   '/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/brain': typeof AppBrainRoute
+  '/terminal-link': typeof AppTerminalLinkRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
@@ -353,6 +369,7 @@ export interface FileRoutesByTo {
   '/$workspace/contacts/$type': typeof AppWorkspaceDashboardContactsTypeRoute
   '/$workspace/inbox/$id': typeof AppWorkspaceDashboardInboxIdRoute
   '/$workspace/tag/$tag': typeof AppWorkspaceDashboardTagTagRoute
+  '/$workspace/settings/account/api': typeof AppWorkspaceSettingsAccountApiRoute
   '/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/$workspace/contacts': typeof AppWorkspaceDashboardContactsIndexRoute
@@ -368,6 +385,7 @@ export interface FileRoutesById {
   '/_app/accept-invite': typeof AppAcceptInviteRouteWithChildren
   '/_app/brain': typeof AppBrainRoute
   '/_app/getting-started': typeof AppGettingStartedRouteWithChildren
+  '/_app/terminal-link': typeof AppTerminalLinkRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
@@ -398,6 +416,7 @@ export interface FileRoutesById {
   '/_app/$workspace/_dashboard/contacts/$type': typeof AppWorkspaceDashboardContactsTypeRoute
   '/_app/$workspace/_dashboard/inbox/$id': typeof AppWorkspaceDashboardInboxIdRoute
   '/_app/$workspace/_dashboard/tag/$tag': typeof AppWorkspaceDashboardTagTagRoute
+  '/_app/$workspace/settings/account/api': typeof AppWorkspaceSettingsAccountApiRoute
   '/_app/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/_app/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/_app/$workspace/_dashboard/contacts/': typeof AppWorkspaceDashboardContactsIndexRoute
@@ -413,6 +432,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/brain'
     | '/getting-started'
+    | '/terminal-link'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
@@ -441,6 +461,7 @@ export interface FileRouteTypes {
     | '/$workspace/contacts/$type'
     | '/$workspace/inbox/$id'
     | '/$workspace/tag/$tag'
+    | '/$workspace/settings/account/api'
     | '/$workspace/settings/account/profile'
     | '/$workspace/settings/account/security'
     | '/$workspace/contacts/'
@@ -453,6 +474,7 @@ export interface FileRouteTypes {
     | '/$workspace'
     | '/accept-invite'
     | '/brain'
+    | '/terminal-link'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
@@ -479,6 +501,7 @@ export interface FileRouteTypes {
     | '/$workspace/contacts/$type'
     | '/$workspace/inbox/$id'
     | '/$workspace/tag/$tag'
+    | '/$workspace/settings/account/api'
     | '/$workspace/settings/account/profile'
     | '/$workspace/settings/account/security'
     | '/$workspace/contacts'
@@ -493,6 +516,7 @@ export interface FileRouteTypes {
     | '/_app/accept-invite'
     | '/_app/brain'
     | '/_app/getting-started'
+    | '/_app/terminal-link'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/reset-password'
@@ -523,6 +547,7 @@ export interface FileRouteTypes {
     | '/_app/$workspace/_dashboard/contacts/$type'
     | '/_app/$workspace/_dashboard/inbox/$id'
     | '/_app/$workspace/_dashboard/tag/$tag'
+    | '/_app/$workspace/settings/account/api'
     | '/_app/$workspace/settings/account/profile'
     | '/_app/$workspace/settings/account/security'
     | '/_app/$workspace/_dashboard/contacts/'
@@ -598,6 +623,13 @@ declare module '@tanstack/react-router' {
       path: '/getting-started'
       fullPath: '/getting-started'
       preLoaderRoute: typeof AppGettingStartedRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/terminal-link': {
+      id: '/_app/terminal-link'
+      path: '/terminal-link'
+      fullPath: '/terminal-link'
+      preLoaderRoute: typeof AppTerminalLinkRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/forgot-password': {
@@ -817,6 +849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceSettingsAccountIndexRouteImport
       parentRoute: typeof AppWorkspaceSettingsRoute
     }
+    '/_app/$workspace/settings/account/api': {
+      id: '/_app/$workspace/settings/account/api'
+      path: '/account/api'
+      fullPath: '/$workspace/settings/account/api'
+      preLoaderRoute: typeof AppWorkspaceSettingsAccountApiRouteImport
+      parentRoute: typeof AppWorkspaceSettingsRoute
+    }
     '/_app/$workspace/settings/account/profile': {
       id: '/_app/$workspace/settings/account/profile'
       path: '/account/profile'
@@ -896,6 +935,7 @@ interface AppWorkspaceSettingsRouteChildren {
   AppWorkspaceSettingsTagsRoute: typeof AppWorkspaceSettingsTagsRoute
   AppWorkspaceSettingsWorkspaceRoute: typeof AppWorkspaceSettingsWorkspaceRoute
   AppWorkspaceSettingsIndexRoute: typeof AppWorkspaceSettingsIndexRoute
+  AppWorkspaceSettingsAccountApiRoute: typeof AppWorkspaceSettingsAccountApiRoute
   AppWorkspaceSettingsAccountProfileRoute: typeof AppWorkspaceSettingsAccountProfileRoute
   AppWorkspaceSettingsAccountSecurityRoute: typeof AppWorkspaceSettingsAccountSecurityRoute
   AppWorkspaceSettingsAccountIndexRoute: typeof AppWorkspaceSettingsAccountIndexRoute
@@ -908,6 +948,7 @@ const AppWorkspaceSettingsRouteChildren: AppWorkspaceSettingsRouteChildren = {
   AppWorkspaceSettingsTagsRoute: AppWorkspaceSettingsTagsRoute,
   AppWorkspaceSettingsWorkspaceRoute: AppWorkspaceSettingsWorkspaceRoute,
   AppWorkspaceSettingsIndexRoute: AppWorkspaceSettingsIndexRoute,
+  AppWorkspaceSettingsAccountApiRoute: AppWorkspaceSettingsAccountApiRoute,
   AppWorkspaceSettingsAccountProfileRoute:
     AppWorkspaceSettingsAccountProfileRoute,
   AppWorkspaceSettingsAccountSecurityRoute:
@@ -960,6 +1001,7 @@ interface AppRouteChildren {
   AppAcceptInviteRoute: typeof AppAcceptInviteRouteWithChildren
   AppBrainRoute: typeof AppBrainRoute
   AppGettingStartedRoute: typeof AppGettingStartedRouteWithChildren
+  AppTerminalLinkRoute: typeof AppTerminalLinkRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -968,6 +1010,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAcceptInviteRoute: AppAcceptInviteRouteWithChildren,
   AppBrainRoute: AppBrainRoute,
   AppGettingStartedRoute: AppGettingStartedRouteWithChildren,
+  AppTerminalLinkRoute: AppTerminalLinkRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

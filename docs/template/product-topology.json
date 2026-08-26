@@ -122,6 +122,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "route:terminal-link",
+      "kind": "route",
+      "system": "access-and-tenancy",
+      "path": "apps/web/src/routes/_app/terminal-link.tsx",
+      "responsibility": "link a local agent terminal to an authenticated workspace credential",
+      "surfaces": ["web", "cli", "mcp"],
+      "uses": [],
+      "lifecycle": "active"
+    },
+    {
       "id": "route:$workspace/kanban",
       "kind": "route",
       "system": "workflow-runtime",
@@ -188,6 +198,16 @@
       "path": "apps/web/src/routes/_app/$workspace/settings/account/security.tsx",
       "responsibility": "present purchased Starter security settings",
       "surfaces": ["web"],
+      "uses": [],
+      "lifecycle": "active"
+    },
+    {
+      "id": "route:$workspace/settings/account/api",
+      "kind": "route",
+      "system": "access-and-tenancy",
+      "path": "apps/web/src/routes/_app/$workspace/settings/account/api.tsx",
+      "responsibility": "issue and revoke workspace-bound credentials for terminal and MCP clients",
+      "surfaces": ["web", "cli", "mcp"],
       "uses": [],
       "lifecycle": "active"
     },

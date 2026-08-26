@@ -18,6 +18,7 @@ const scannedRoots = ["apps", "packages"] as const;
 
 const allowedEnvBoundaryFiles = new Set([
   "apps/cli/src/index.ts",
+  "apps/brain-cli/src/runtime.ts",
   "apps/web/src/components/default-error-page.tsx",
   "apps/web/src/env.ts",
   "apps/web/src/start.ts",

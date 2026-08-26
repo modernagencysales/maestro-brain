@@ -12,219 +12,168 @@ import {
   useBreakpointValue,
 } from '@saas-ui/react'
 import { useNavigate } from '@tanstack/react-router'
-import { LuBookOpen, LuInbox } from 'react-icons/lu'
-import type { NotificationDTO } from '@workspace/api/types'
+import { LuInbox } from 'react-icons/lu'
 import { useModals } from '@workspace/ui/modals'
 
+import { api } from '#lib/trpc/react'
+import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace.ts'
 import { useOpenState } from '#hooks/use-open-state.ts'
-import { productShell } from '#config/product-shell'
 
-import { inboxDataHooks } from './brain-inbox-adapter'
-import { inboxToolbarComponents } from './brain-inbox-toolbar'
+import {
+  projectBrainPagesToTree,
+  useBrainPages,
+} from './brain-inbox-adapter'
 import { BrainPageCreateDialog } from './brain-page-create-dialog'
+import { BrainPagesPanel } from './brain-pages-panel'
+import { inboxToolbarComponents } from './brain-inbox-toolbar'
 import { InboxList } from './inbox-list.tsx'
 
-const BrainInboxEmptyState = ({ workspace }: { workspace: string }) => {
+type InboxLayoutProps = {
+  params: { workspace: string; id?: string }
+  children: React.ReactElement
+}
+
+function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
   const navigate = useNavigate()
   const modals = useModals()
+  const [workspace] = useCurrentWorkspace()
+  const [, startTransition] = React.useTransition()
+  const { pages, isLoading } = useBrainPages({ workspaceId: workspace.id })
+  const rows = React.useMemo(() => projectBrainPagesToTree(pages), [pages])
+  const isMobile = useBreakpointValue(
+    { base: true, lg: false },
+    { fallback: 'lg' },
+  )
+  const [width, setWidth] = useLocalStorage('app.brain-pages.width', 300)
+  const { open, setOpen } = useOpenState({ defaultOpen: Boolean(params.id) })
+
+  const selectPage = React.useCallback(
+    (pageId: string) => {
+      startTransition(() => {
+        navigate({
+          to: '/$workspace/inbox/$id',
+          params: { workspace: params.workspace, id: pageId },
+          search: { contactId: pageId },
+        })
+      })
+      setOpen(true)
+    },
+    [navigate, params.workspace, setOpen],
+  )
+
+  React.useEffect(() => {
+    if (!params.id && !isLoading && isMobile === false && rows[0]) {
+      selectPage(rows[0].page._id)
+    }
+  }, [isLoading, isMobile, params.id, rows, selectPage])
+
+  React.useEffect(() => {
+    if (params.id) setOpen(true)
+    else if (isMobile) setOpen(false)
+  }, [isMobile, params.id, setOpen])
+
+  const createPage = () =>
+    modals.open(BrainPageCreateDialog, { workspaceSlug: params.workspace })
+
   return (
-    <EmptyState
-      icon={<LuBookOpen />}
-      title="Build your company Brain"
-      description="Create a page for company context, positioning, processes, or client knowledge. Pages are available to your team and connected agents."
-      height="100%"
+    <SplitPage
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
+      breakpoint="lg"
+      data-testid="brain-split-page"
     >
-      <Button
-        variant="primary"
-        colorPalette="accent"
-        onClick={() =>
-          modals.open(BrainPageCreateDialog, { workspaceSlug: workspace })
-        }
+      <Resizer
+        defaultWidth={width}
+        onResize={({ width: nextWidth }) => setWidth(nextWidth)}
+        enabled={isMobile === false}
       >
-        Create first page
-      </Button>
-      <Button
-        variant="outline"
-        onClick={() =>
-          navigate({ to: '/$workspace', params: { workspace } })
-        }
-      >
-        Connect a source
-      </Button>
-    </EmptyState>
+        <Page.Root
+          as="section"
+          aria-label="Brain page tree"
+          borderRightWidth={{ base: 0, lg: '1px' }}
+          minWidth="260px"
+          maxW={{ base: '100%', lg: '520px' }}
+          position="relative"
+          loading={isLoading}
+          flex={{ base: '1', lg: 'none' }}
+        >
+          <Page.Header title="Brain" />
+          <Page.Body p="0">
+            {rows.length > 0 ? (
+              <BrainPagesPanel
+                activePageId={params.id}
+                rows={rows}
+                onCreate={createPage}
+                onSelect={selectPage}
+              />
+            ) : (
+              <EmptyState
+                title="Build your company Brain"
+                description="Create a page for company context, positioning, processes, or client knowledge."
+                height="100%"
+              >
+                <Button
+                  variant="primary"
+                  colorPalette="accent"
+                  onClick={createPage}
+                >
+                  Create first page
+                </Button>
+              </EmptyState>
+            )}
+          </Page.Body>
+          <ResizeHandle />
+        </Page.Root>
+      </Resizer>
+      {children}
+    </SplitPage>
   )
 }
 
-const ContactsInboxEmptyState = () => (
-  <EmptyState
-    icon={<LuInbox />}
-    title="Inbox zero"
-    description="Nothing to do here"
-    height="100%"
-  />
-)
-
-const inboxEmptyStateComponents = {
-  brain: BrainInboxEmptyState,
-  contacts: ContactsInboxEmptyState,
-} as const
-
-const InboxCollection = ({
-  emptyState,
-  items,
-  open,
-}: {
-  emptyState: React.ReactNode
-  items: NotificationDTO[]
-  open: boolean
-}) => {
-  if (items.length === 0 && !open) return emptyState
-  return <InboxList items={items} />
-}
-
-export function InboxLayout({
-  params,
-  children,
-}: {
-  params: { workspace: string; id?: string }
-  children: React.ReactElement
-}) {
+function ContactsInboxLayout({ params, children }: InboxLayoutProps) {
   const navigate = useNavigate()
-
   const [workspace] = useCurrentWorkspace()
-
   const [, startTransition] = React.useTransition()
-
-  const useInboxData = inboxDataHooks[productShell.inbox]
-  const InboxToolbar = inboxToolbarComponents[productShell.inbox]
-  const InboxEmptyState = inboxEmptyStateComponents[productShell.inbox]
-  const { data, isLoading } = useInboxData({ workspaceId: workspace.id })
-
+  const { data, isLoading } = api.notifications.inbox.useQuery({
+    workspaceId: workspace.id,
+  })
+  const InboxToolbar = inboxToolbarComponents.contacts
   const isMobile = useBreakpointValue(
     { base: true, lg: false },
     { fallback: 'base' },
   )
-
-  const { open, setOpen } = useOpenState({
-    defaultOpen: !!params.id,
-  })
-
+  const { open, setOpen } = useOpenState({ defaultOpen: Boolean(params.id) })
   const [width, setWidth] = useLocalStorage('app.inbox-list.width', 280)
-
-  React.useEffect(() => {
-    if (!params.id && !isLoading && !isMobile) {
-      const firstItem = data?.notifications[0]
-      if (firstItem) {
-        // redirect to the first inbox notification if it's available.
-        startTransition(() => {
-          navigate({
-            to: '/$workspace/inbox/$id',
-            params: {
-              workspace: params.workspace,
-              id: firstItem.id,
-            },
-            search: {
-              contactId: firstItem.subjectId,
-            },
-            mask: {
-              to: '/$workspace/contacts/view/$id',
-              params: {
-                workspace: params.workspace,
-                id: firstItem.subjectId,
-              },
-            },
-          })
-        })
-      }
-    }
-  }, [data, isLoading, isMobile, params])
-
-  React.useEffect(() => {
-    if (params.id) {
-      setOpen(true)
-    }
-    // the isMobile dep is needed so that the SplitPage
-    // will open again when the screen size changes to lg
-  }, [params, isMobile, setOpen])
-
-  // const [visibleProps, setVisibleProps] = React.useState<string[]>([])
-
   const notifications = data?.notifications ?? []
 
-  // const displayProperties = (
-  //   <ToggleButtonGroup
-  //     type="checkbox"
-  //     isAttached={false}
-  //     size="xs"
-  //     spacing="0"
-  //     flexWrap="wrap"
-  //     value={visibleProps}
-  //     onChange={setVisibleProps}
-  //   >
-  //     {['id'].map((id) => {
-  //       return (
-  //         <ToggleButton
-  //           key={id}
-  //           value={id}
-  //           mb="1"
-  //           me="1"
-  //           color="muted"
-  //           _checked={{ color: 'app-text', bg: 'whiteAlpha.200' }}
-  //         >
-  //           {id.charAt(0).toUpperCase() + id.slice(1)}
-  //         </ToggleButton>
-  //       )
-  //     })}
-  //   </ToggleButtonGroup>
-  // )
+  React.useEffect(() => {
+    if (!params.id && !isLoading && !isMobile && notifications[0]) {
+      const firstItem = notifications[0]
+      startTransition(() => {
+        navigate({
+          to: '/$workspace/inbox/$id',
+          params: { workspace: params.workspace, id: firstItem.id },
+          search: { contactId: firstItem.subjectId },
+        })
+      })
+    }
+  }, [isLoading, isMobile, navigate, notifications, params.id, params.workspace])
 
-  const toolbar = (
-    <ButtonGroup>
-      <InboxToolbar
-        workspaceId={workspace.id}
-        workspaceSlug={params.workspace}
-      />
-      {/* <Menu>
-        <Tooltip label="Display settings">
-          <MenuButton
-            as={IconButton}
-            icon={<LuSlidersHorizontal />}
-            aria-label="Display settings"
-            variant="tertiary"
-            size="xs"
-          />
-        </Tooltip>
-        <Portal>
-          <MenuList maxW="260px">
-            <MenuProperty
-              label="Show snoozed"
-              value={<Switch size="sm" defaultChecked={false} />}
-            />
-            <MenuProperty label="Show read" value={<Switch size="sm" />} />
-            <Divider />
-            <MenuProperty
-              label="Display properties"
-              value={displayProperties}
-              orientation="vertical"
-            />
-          </MenuList>
-        </Portal>
-      </Menu> */}
-    </ButtonGroup>
-  )
-
-  const emptyState = <InboxEmptyState workspace={params.workspace} />
+  React.useEffect(() => {
+    if (params.id) setOpen(true)
+  }, [isMobile, params.id, setOpen])
 
   return (
     <SplitPage
-      open={!!open}
+      open={open}
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
     >
       <Resizer
         defaultWidth={width}
-        onResize={({ width }) => setWidth(width)}
+        onResize={({ width: nextWidth }) => setWidth(nextWidth)}
         enabled={!isMobile}
       >
         <Page.Root
@@ -236,18 +185,41 @@ export function InboxLayout({
           loading={isLoading}
           flex={{ base: '1', lg: 'unset' }}
         >
-          <Page.Header title={productShell.labels.inbox} actions={toolbar} />
+          <Page.Header
+            title={productShell.labels.inbox}
+            actions={
+              <ButtonGroup>
+                <InboxToolbar
+                  workspaceId={workspace.id}
+                  workspaceSlug={params.workspace}
+                />
+              </ButtonGroup>
+            }
+          />
           <Page.Body p="0">
-            <InboxCollection
-              emptyState={emptyState}
-              items={notifications}
-              open={!!open}
-            />
+            {notifications.length > 0 ? (
+              <InboxList items={notifications} />
+            ) : (
+              <EmptyState
+                icon={<LuInbox />}
+                title="Inbox zero"
+                description="Nothing to do here"
+                height="100%"
+              />
+            )}
           </Page.Body>
           <ResizeHandle />
         </Page.Root>
       </Resizer>
       {children}
     </SplitPage>
+  )
+}
+
+export function InboxLayout(props: InboxLayoutProps) {
+  return productShell.inbox === 'brain' ? (
+    <BrainWorkspaceLayout {...props} />
+  ) : (
+    <ContactsInboxLayout {...props} />
   )
 }

@@ -111,7 +111,14 @@ export const SignupPage = () => {
             title="Sign up"
             footer={
               <Text color="fg.muted">
-                Already have an account? <Link to="/login">Log in</Link>.
+                Already have an account?{' '}
+                <Link
+                  to="/login"
+                  search={{ redirectTo: search.redirectTo }}
+                >
+                  Log in
+                </Link>
+                .
               </Text>
             }
           >
@@ -210,9 +217,7 @@ export const SignupPage = () => {
           </AuthCard>
 
           <Text textAlign="center" color="fg.muted" mt="4">
-            By signing up, you agree to our{' '}
-              <a href="/terms">Terms of Service</a> and{' '}
-              <a href="/privacy">Privacy Policy</a>.
+            Use Maestro Brain only for company data you are authorized to share.
           </Text>
         </Container>
       </Stack>

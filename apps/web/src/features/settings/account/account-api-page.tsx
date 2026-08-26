@@ -9,31 +9,88 @@ import {
   Text,
   useClipboard,
 } from '@saas-ui/react'
-import { LuCheck, LuCopy, LuX } from 'react-icons/lu'
+import { useConvexQuery } from '@convex-dev/react-query'
+import {
+  getFunctionReference,
+  templateConfectRefs,
+} from '@maestro-template/convex/refs'
+import { useMutation as useConvexMutation } from 'convex/react'
+import { LuCheck, LuCopy, LuLaptop, LuX } from 'react-icons/lu'
 
 import { LinkButton } from '@workspace/ui/button'
 import { SettingsPage } from '@workspace/ui/settings-page'
 
+import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
+import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
+
 import { SettingsCard } from '../common/settings-card'
 
-function AccessToken({ token, onRemove }: any) {
-  const { value, copy, copied } = useClipboard(token)
+const setupCommand = 'npx --yes @modernagencysales/maestro-brain setup'
 
-  const handleRemove = () => {
-    onRemove?.(token)
-  }
+const listLinkedKeysRef = getFunctionReference(
+  templateConfectRefs.public.headless.apiKeys.listLinkedKeys,
+)
+const revokeLinkedKeyRef = getFunctionReference(
+  templateConfectRefs.public.headless.apiKeys.revokeLinkedKey,
+)
+
+type LinkedKey = Readonly<{
+  id: string
+  name: string
+  displayPrefix: string
+  status: 'active' | 'revoked' | 'expired'
+  createdAt: number
+}>
+
+function SetupCommand() {
+  const { copy, copied } = useClipboard({ value: setupCommand })
 
   return (
-    <GridList.Item onClick={copy}>
-      <GridList.Cell flex="1">
-        <Text textStyle="sm">{value}</Text>
+    <Section.Root>
+      <Section.Header
+        title="Connect a terminal"
+        description="One command links the shared workspace and configures Codex, Claude Code, or Cowork."
+      />
+      <Section.Body>
+        <SettingsCard
+          footer={
+            <Button variant="primary" onClick={copy}>
+              {copied ? <LuCheck /> : <LuCopy />}
+              {copied ? 'Copied' : 'Copy setup command'}
+            </Button>
+          }
+        >
+          <Text as="code" textStyle="sm">
+            {setupCommand}
+          </Text>
+        </SettingsCard>
+      </Section.Body>
+    </Section.Root>
+  )
+}
+
+function LinkedTerminal(props: {
+  readonly terminal: LinkedKey
+  readonly onRevoke: (id: string) => void
+}) {
+  return (
+    <GridList.Item>
+      <GridList.Cell>
+        <LuLaptop />
       </GridList.Cell>
-      <GridList.Cell px="4">{copied ? <LuCheck /> : <LuCopy />}</GridList.Cell>
+      <GridList.Cell flex="1">
+        <Text textStyle="sm">{props.terminal.name}</Text>
+        <Text color="fg.muted" textStyle="xs">
+          {props.terminal.status} · {props.terminal.displayPrefix}… · linked{' '}
+          {new Date(props.terminal.createdAt).toLocaleDateString()}
+        </Text>
+      </GridList.Cell>
       <GridList.Cell>
         <IconButton
-          aria-label="Remove access token"
+          aria-label={`Revoke ${props.terminal.name}`}
+          disabled={props.terminal.status !== 'active'}
           variant="ghost"
-          onClick={handleRemove}
+          onClick={() => props.onRevoke(props.terminal.id)}
         >
           <LuX />
         </IconButton>
@@ -42,19 +99,40 @@ function AccessToken({ token, onRemove }: any) {
   )
 }
 
-function PersonalAccessTokens() {
-  const onRemove = () => null
+function LinkedTerminals() {
+  const [workspace] = useCurrentWorkspace()
+  const fixtureRuntime = isFixtureAuthRuntime()
+  const keys = useConvexQuery(
+    listLinkedKeysRef,
+    fixtureRuntime ? 'skip' : { workspaceId: workspace.id },
+  ) as readonly LinkedKey[] | undefined
+  const revoke = useConvexMutation(revokeLinkedKeyRef)
 
   return (
     <Section.Root>
-      <Section.Header title="Personal access tokens" />
+      <Section.Header
+        title="Linked terminals"
+        description="Revoke a terminal immediately if it is lost or no longer used."
+      />
       <Section.Body>
-        <SettingsCard
-          footer={<Button variant="primary">Create new token</Button>}
-        >
-          <GridList.Root p="0">
-            <AccessToken token="12345" onRemove={onRemove} />
-          </GridList.Root>
+        <SettingsCard>
+          {keys === undefined && !fixtureRuntime ? (
+            <Text color="fg.muted">Loading linked terminals…</Text>
+          ) : (keys?.length ?? 0) === 0 ? (
+            <Text color="fg.muted">No terminals linked yet.</Text>
+          ) : (
+            <GridList.Root p="0">
+              {keys?.map((terminal) => (
+                <LinkedTerminal
+                  key={terminal.id}
+                  terminal={terminal}
+                  onRevoke={(keyId) =>
+                    void revoke({ workspaceId: workspace.id, keyId })
+                  }
+                />
+              ))}
+            </GridList.Root>
+          )}
         </SettingsCard>
       </Section.Body>
     </Section.Root>
@@ -64,15 +142,16 @@ function PersonalAccessTokens() {
 export function AccountApiPage() {
   return (
     <SettingsPage
-      title="API access"
-      description="Access the our API."
+      title="Terminal & MCP"
+      description="Connect terminal agents to this workspace and manage linked devices."
       actions={
         <ButtonGroup>
-          <LinkButton href="#">API documentation</LinkButton>
+          <LinkButton href="/api/docs">API documentation</LinkButton>
         </ButtonGroup>
       }
     >
-      <PersonalAccessTokens />
+      <SetupCommand />
+      <LinkedTerminals />
     </SettingsPage>
   )
 }

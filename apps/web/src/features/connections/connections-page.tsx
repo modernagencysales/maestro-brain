@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { SimpleGrid } from '@chakra-ui/react'
+import { toast } from '@saas-ui/react'
 import { useConvexQuery } from '@convex-dev/react-query'
 import {
   getFunctionReference,
@@ -34,6 +35,7 @@ import {
 import {
   isLiveSlackOauthTransition,
   runSlackConnect,
+  runSlackSyncWithFeedback,
 } from './slack-connect'
 
 const listConnectionsRef = getFunctionReference(
@@ -51,6 +53,23 @@ const beginSlackOauthRef = getFunctionReference(
 const completeSlackOauthRef = getFunctionReference(
   templateConfectRefs.public.integrations.connections.completeSlackOauth,
 )
+const syncSlackRef = getFunctionReference(
+  templateConfectRefs.public.integrations.connections.syncSlack,
+)
+
+const connectionType = (
+  status: ConnectionStatus,
+  integration: ConnectionCardModel,
+  connection: DurableConnection | undefined,
+) => {
+  if (integration.id !== 'slack' || status !== 'connected')
+    return connectionCardType(status)
+  if (connection?.syncStatus === 'syncing') return 'Connected · Synchronizing'
+  if (connection?.syncStatus === 'error') return 'Connected · Sync needs attention'
+  if (connection?.syncStatus === 'ready')
+    return `Connected · ${connection.lastSyncMessageCount ?? 0} messages synced`
+  return connectionCardType(status)
+}
 
 /** Exact Pro IntegrationCard story composition with an installed import seam. */
 export const ConnectionsPage = () => {
@@ -76,6 +95,16 @@ export const ConnectionsPage = () => {
   const revokeConnection = useConvexMutation(revokeConnectionRef)
   const beginSlackOauth = useConvexAction(beginSlackOauthRef)
   const completeSlackOauth = useConvexAction(completeSlackOauthRef)
+  const syncSlack = useConvexAction(syncSlackRef)
+  const syncSlackWithFeedback = () =>
+    runSlackSyncWithFeedback({
+      sync: () => syncSlack({ workspaceId: workspace.id }),
+      onError: () =>
+        toast.error({
+          title: 'Slack is connected, but sync failed',
+          description: 'Try Sync now again.',
+        }),
+    })
   const liveConnections = (
     isolatedContracts
       ? (isolatedConnections.data ?? [])
@@ -98,12 +127,14 @@ export const ConnectionsPage = () => {
       await runSlackConnect({
         begin: () => beginSlackOauth({ workspaceId: workspace.id }),
         open: openNangoConnect,
-        complete: ({ connectionId, generation }) =>
-          completeSlackOauth({
+        complete: async ({ connectionId, generation }) => {
+          await completeSlackOauth({
             workspaceId: workspace.id,
             generation,
             connectionId,
-          }),
+          })
+          await syncSlackWithFeedback()
+        },
       })
       return
     }
@@ -172,14 +203,22 @@ export const ConnectionsPage = () => {
             provider: integration.id,
             liveConnections,
           })
+          const connection = liveConnections.find(
+            (candidate) => candidate.provider === integration.id,
+          )
           return (
         <IntegrationCard
           key={integration.id}
           {...integration}
-          type={connectionCardType(status)}
+          type={connectionType(status, integration, connection)}
           isConnected={status === 'connected'}
           onConnect={() => transition(integration.id, 'connect')}
           onDisconnect={() => transition(integration.id, 'disconnect')}
+          onSync={
+            integration.id === 'slack' && status === 'connected'
+              ? syncSlackWithFeedback
+              : undefined
+          }
           onDocs={() => window.open(integration.docs, '_blank', 'noopener')}
         />
           )
