@@ -5,6 +5,8 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { chromium } from "@playwright/test";
 
+const coldOptimizerNavigationTimeoutMs = 180_000;
+
 async function waitForHealth(url, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -89,7 +91,10 @@ export async function checkDevRuntimeLongevity({
     for (const route of checkedRoutes) {
       await page.goto(`http://127.0.0.1:${webPort}${route}`, {
         waitUntil: "domcontentloaded",
-        timeout: 90_000,
+        // A clean CI worker must build both Vite's SSR and browser dependency
+        // graphs before the first route can finish loading. Keep the runtime
+        // health assertions strict while allowing that one-time cold start.
+        timeout: coldOptimizerNavigationTimeoutMs,
       });
       const body = await page.locator("body").innerText();
       if (body.includes("Something went wrong!"))
@@ -100,7 +105,7 @@ export async function checkDevRuntimeLongevity({
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`http://127.0.0.1:${webPort}/acme`, {
       waitUntil: "domcontentloaded",
-      timeout: 90_000,
+      timeout: coldOptimizerNavigationTimeoutMs,
     });
     if (
       (await page
