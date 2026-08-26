@@ -89,7 +89,6 @@ export function MembersSettingsPage() {
         description: shareText,
       })
     }
-    return invitations
   }
 
   const onCancelInvite = async (member: Member) => {

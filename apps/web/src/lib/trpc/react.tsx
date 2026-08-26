@@ -24,6 +24,8 @@ import {
   isIsolatedContractsRuntime,
 } from "#lib/auth/route-auth";
 
+import { executeWorkspaceMemberMutation } from "./workspace-member-mutations";
+
 export const realRefs = {
   "auth.me": getFunctionReference(
     templateConfectRefs.public.auth.workspaces.me,
@@ -499,12 +501,6 @@ export const neutralMutationValue = (
   return null;
 };
 
-const memberRole = (value: unknown): "admin" | "editor" | "viewer" => {
-  if (value === "admin") return "admin";
-  if (value === "viewer") return "viewer";
-  return "editor";
-};
-
 const executeRealMutation = async (
   client: ConvexReactClient,
   key: string,
@@ -516,45 +512,13 @@ const executeRealMutation = async (
     });
     return { handled: true, value };
   }
-  if (key === "workspaceMembers.invite") {
-    const workspaceId = inputString(input, "workspaceId", "");
-    const emails = Array.isArray(input.emails)
-      ? input.emails.filter(
-          (email): email is string => typeof email === "string",
-        )
-      : [];
-    const invitationIds = await Promise.all(
-      emails.map(async (email) => ({
-        email,
-        invitationId: await client.mutation(realMutationRefs[key], {
-          workspaceId,
-          email,
-          role: memberRole(input.role),
-        }),
-      })),
-    );
-    return { handled: true, value: invitationIds };
-  }
-  if (key === "workspaceMembers.acceptInvitation") {
-    const value = await client.mutation(realMutationRefs[key], {
-      invitationId: inputString(input, "token", ""),
-    });
-    return { handled: true, value };
-  }
-  if (key === "workspaceMembers.removeMember") {
-    const value = await client.mutation(realMutationRefs[key], {
-      membershipId: inputString(input, "id", ""),
-    });
-    return { handled: true, value };
-  }
-  if (key === "workspaceMembers.updateRoles") {
-    const roles = Array.isArray(input.roles) ? input.roles : [];
-    const value = await client.mutation(realMutationRefs[key], {
-      membershipId: inputString(input, "userId", ""),
-      newRole: memberRole(roles[0]),
-    });
-    return { handled: true, value };
-  }
+  const workspaceMember = await executeWorkspaceMemberMutation(
+    key,
+    input,
+    (mutationKey, mutationInput) =>
+      client.mutation(realMutationRefs[mutationKey], mutationInput),
+  );
+  if (workspaceMember.handled) return workspaceMember;
   const ref = realMutationRefs[key as keyof typeof realMutationRefs];
   if (ref === undefined) return { handled: false, value: undefined };
   const value = await client.mutation(ref as never, input as never);
