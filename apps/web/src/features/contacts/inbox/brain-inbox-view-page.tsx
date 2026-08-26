@@ -17,6 +17,7 @@ import {
   IconButton,
   Menu,
   Page,
+  Tabs,
   Tooltip,
   toast,
 } from '@saas-ui/react'
@@ -24,6 +25,7 @@ import {
   LuArchive,
   LuChevronLeft,
   LuEllipsisVertical,
+  LuFileText,
   LuHistory,
   LuPanelRightOpen,
   LuPencil,
@@ -31,6 +33,7 @@ import {
 } from 'react-icons/lu'
 import { useModals } from '@workspace/ui/modals'
 
+import { Breadcrumbs } from '#components/breadcrumbs'
 import * as Drawer from '#components/ui/drawer/drawer'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import {
@@ -482,10 +485,23 @@ export function BrainInboxViewPage({
     />
   )
 
+  const breadcrumbs = (
+    <Breadcrumbs
+      items={[
+        {
+          to: '/$workspace/inbox',
+          params: { workspace: params.workspace },
+          title: 'Brain',
+        },
+        { title: page?.title },
+      ]}
+    />
+  )
+
   return (
     <Page.Root minW="0">
       <Page.Header
-        title={page?.title ?? 'Loading page'}
+        title={breadcrumbs}
         description={
           saveState === 'saving'
             ? 'Saving…'
@@ -498,41 +514,64 @@ export function BrainInboxViewPage({
         actions={brainToolbar}
       />
       <Page.Body p="0" overflow="hidden">
-        <HStack align="stretch" height="100%" gap="0">
-          <Box
-            as="main"
-            aria-label="Brain page editor"
-            flex="1"
-            minW="0"
-            overflowY="auto"
-            p={{ base: '4', md: '8' }}
-          >
-            {page ? (
-              <Editor
-                aria-label="Agency Brain page editor"
-                value={markdown}
-                onChange={setMarkdown}
-                format="markdown"
-                toolbar
-                minHeight="60vh"
-                placeholder="Write the company context your team and agents should know…"
-              />
-            ) : (
-              <Skeleton aria-label="Loading Agency Brain page" height="60vh" />
-            )}
-          </Box>
-          {page ? (
-            <Box
-              as="aside"
-              display={{ base: 'none', xl: 'block' }}
-              width="320px"
-              flex="none"
-              borderLeftWidth="1px"
-            >
-              <BrainProvenanceRail page={page} revisions={revisions} />
-            </Box>
-          ) : null}
-        </HStack>
+        <Tabs.Root
+          defaultValue="page"
+          variant="pills"
+          size="xs"
+          colorPalette="gray"
+          height="100%"
+          minH="0"
+          display="flex"
+          flexDirection="column"
+        >
+          <Tabs.List px="4" py="2" borderBottomWidth="1px">
+            <Tabs.Trigger value="page">
+              <LuFileText /> Page
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.ContentGroup flex="1" minH="0">
+            <Tabs.Content value="page" height="100%" p="0">
+              <HStack align="stretch" height="100%" gap="0">
+                <Box
+                  as="main"
+                  aria-label="Brain page editor"
+                  flex="1"
+                  minW="0"
+                  overflowY="auto"
+                  p={{ base: '4', md: '8' }}
+                >
+                  {page ? (
+                    <Editor
+                      aria-label="Agency Brain page editor"
+                      value={markdown}
+                      onChange={setMarkdown}
+                      format="markdown"
+                      toolbar
+                      minHeight="60vh"
+                      placeholder="Write the company context your team and agents should know…"
+                    />
+                  ) : (
+                    <Skeleton
+                      aria-label="Loading Agency Brain page"
+                      height="60vh"
+                    />
+                  )}
+                </Box>
+                {page ? (
+                  <Box
+                    as="aside"
+                    display={{ base: 'none', xl: 'block' }}
+                    width="320px"
+                    flex="none"
+                    borderLeftWidth="1px"
+                  >
+                    <BrainProvenanceRail page={page} revisions={revisions} />
+                  </Box>
+                ) : null}
+              </HStack>
+            </Tabs.Content>
+          </Tabs.ContentGroup>
+        </Tabs.Root>
       </Page.Body>
       <Drawer.Root
         open={detailsOpen}
