@@ -61,14 +61,39 @@ app's Slack integration and appear as Brain pages with source provenance.
 
 ## Report or fix a bug
 
+Install the GitHub CLI and authenticate once before cloning:
+
 ```bash
+gh auth login
 maestro-brain bug-bundle --output maestro-brain-bug.json
+```
+
+Teammates with write access to the repository can use the direct path:
+
+```bash
 gh repo clone modernagencysales/maestro-brain
 cd maestro-brain
 pnpm install --frozen-lockfile
 git switch -c fix/short-description
+git push -u origin fix/short-description
+gh pr create --base main
+```
+
+Teammates without write access should fork first:
+
+```bash
+gh repo fork modernagencysales/maestro-brain --clone
+cd maestro-brain
+pnpm install --frozen-lockfile
+git switch -c fix/short-description
+git push -u origin fix/short-description
+gh pr create \
+  --repo modernagencysales/maestro-brain \
+  --base main \
+  --head YOUR_GITHUB_LOGIN:fix/short-description
 ```
 
 The bug bundle is allowlisted and omits the API key. Attach it to an issue, or
-make the change, run the focused tests plus `pnpm acceptance:required`, push the
-branch, and open a pull request with `gh pr create`.
+make the change and run the focused tests plus `pnpm acceptance:required` before
+pushing. Use a full clone; shallow clones do not contain the ancestry needed by
+the acceptance gate.
