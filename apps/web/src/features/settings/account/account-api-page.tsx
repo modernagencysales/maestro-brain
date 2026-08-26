@@ -25,7 +25,8 @@ import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
 
 import { SettingsCard } from '../common/settings-card'
 
-const setupCommand = 'npx --yes @modernagencysales/maestro-brain setup'
+export const setupCommand =
+  'npx --yes https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz setup'
 
 const listLinkedKeysRef = getFunctionReference(
   templateConfectRefs.public.headless.apiKeys.listLinkedKeys,

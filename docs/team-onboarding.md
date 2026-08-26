@@ -2,7 +2,10 @@
 
 Everyone uses the same Maestro Brain workspace. A workspace admin first opens
 `Settings -> Members` in the web app and invites each teammate. The teammate
-accepts the invitation and logs in before linking a terminal.
+receives the invitation email when outbound email is configured. The app also
+copies each new invitation link so the admin can send it directly. The teammate
+logs in with the invited email, accepts the invitation, and then links a
+terminal.
 
 ## Connect a terminal
 
@@ -13,6 +16,13 @@ npm install --global https://github.com/modernagencysales/maestro-brain/releases
 maestro-brain setup
 eval "$(maestro-brain env)"
 maestro-brain doctor
+```
+
+For setup without a global install, the web app's `Terminal & MCP` settings
+screen copies this equivalent one-command path:
+
+```bash
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app, asks the teammate to choose their shared

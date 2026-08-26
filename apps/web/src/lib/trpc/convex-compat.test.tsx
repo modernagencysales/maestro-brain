@@ -8,6 +8,7 @@ import {
   neutralPaths,
   realImperativeQueryRefs,
   realMutationRefs,
+  realQueryInput,
   realRefs,
 } from "#lib/trpc/react";
 
@@ -114,6 +115,9 @@ describe("Convex starter query compatibility", () => {
     expect(getFunctionName(realRefs["workspaceMembers.list"])).toBe(
       "access/members:list",
     );
+    expect(getFunctionName(realRefs["workspaceMembers.invitation"])).toBe(
+      "access/invitations:view",
+    );
     expect(getFunctionName(realMutationRefs["workspaces.create"])).toBe(
       "auth/workspaces:create",
     );
@@ -126,6 +130,9 @@ describe("Convex starter query compatibility", () => {
     expect(getFunctionName(realMutationRefs["workspaceMembers.invite"])).toBe(
       "access/invitations:create",
     );
+    expect(
+      getFunctionName(realMutationRefs["workspaceMembers.acceptInvitation"]),
+    ).toBe("access/invitations:accept");
     expect(
       getFunctionName(realMutationRefs["workspaceMembers.removeMember"]),
     ).toBe("access/members:remove");
@@ -148,8 +155,6 @@ describe("Convex starter query compatibility", () => {
         "billing.account",
         "workspaceMembers.notificationSettings",
         "workspaceMembers.updateNotificationSettings",
-        "workspaceMembers.invitation",
-        "workspaceMembers.acceptInvitation",
         "users.subscribeToNewsletter",
         "users.updateProfile",
         "auth.listAccounts",
@@ -158,6 +163,14 @@ describe("Convex starter query compatibility", () => {
         "tags.delete",
       ]),
     );
+  });
+
+  it("maps the Starter invite token to the canonical invitation id", () => {
+    expect(
+      realQueryInput("workspaceMembers.invitation", {
+        token: "invitation_123",
+      }),
+    ).toEqual({ invitationId: "invitation_123" });
   });
 
   it("does not route real access mutations through neutral no-ops", () => {

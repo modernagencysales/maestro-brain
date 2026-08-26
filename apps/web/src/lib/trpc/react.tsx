@@ -24,6 +24,8 @@ import {
   isIsolatedContractsRuntime,
 } from "#lib/auth/route-auth";
 
+import { executeWorkspaceMemberMutation } from "./workspace-member-mutations";
+
 export const realRefs = {
   "auth.me": getFunctionReference(
     templateConfectRefs.public.auth.workspaces.me,
@@ -33,6 +35,9 @@ export const realRefs = {
   ),
   "workspaceMembers.list": getFunctionReference(
     templateConfectRefs.public.access.members.list,
+  ),
+  "workspaceMembers.invitation": getFunctionReference(
+    templateConfectRefs.public.access.invitations.view,
   ),
 };
 
@@ -45,6 +50,9 @@ export const realMutationRefs = {
   ),
   "workspaceMembers.invite": getFunctionReference(
     templateConfectRefs.public.access.invitations.create,
+  ),
+  "workspaceMembers.acceptInvitation": getFunctionReference(
+    templateConfectRefs.public.access.invitations.accept,
   ),
   "workspaceMembers.removeMember": getFunctionReference(
     templateConfectRefs.public.access.members.remove,
@@ -153,6 +161,10 @@ type NotificationSettingsInput = {
   readonly topics?: WorkspaceMemberSettingsDTO["topics"];
   readonly newsletters?: WorkspaceMemberSettingsDTO["newsletters"];
 };
+export type WorkspaceInvitationResult = Readonly<{
+  email: string;
+  invitationId: string;
+}>;
 export type CompatibilityApi = {
   readonly auth: {
     readonly me: StarterProcedure<CurrentUser>;
@@ -167,7 +179,15 @@ export type CompatibilityApi = {
   };
   readonly workspaceMembers: {
     readonly list: StarterProcedure<readonly WorkspaceMember[]>;
-    readonly invite: StarterProcedure;
+    readonly invite: StarterProcedure<
+      unknown,
+      readonly WorkspaceInvitationResult[],
+      {
+        readonly workspaceId: string;
+        readonly emails: readonly string[];
+        readonly role?: "admin" | "editor" | "viewer" | string;
+      }
+    >;
     readonly removeMember: StarterProcedure;
     readonly updateRoles: StarterProcedure;
     readonly notificationSettings: StarterProcedure<WorkspaceMemberSettingsDTO>;
@@ -178,9 +198,13 @@ export type CompatibilityApi = {
     >;
     readonly invitation: StarterProcedure<{
       workspace: Workspace;
-      invitedBy?: string;
+      invitedBy?: string | null;
     } | null>;
-    readonly acceptInvitation: StarterProcedure;
+    readonly acceptInvitation: StarterProcedure<
+      unknown,
+      { readonly workspaceId: string },
+      { readonly token: string }
+    >;
   };
   readonly contacts: {
     readonly listByType: StarterProcedure<{ contacts: ContactDTO[] }>;
@@ -240,8 +264,6 @@ export const neutralPaths = [
   "billing.setSubscriptionPlan",
   "workspaceMembers.notificationSettings",
   "workspaceMembers.updateNotificationSettings",
-  "workspaceMembers.invitation",
-  "workspaceMembers.acceptInvitation",
   "users.subscribeToNewsletter",
   "users.updateProfile",
   "auth.listAccounts",
@@ -273,7 +295,6 @@ const neutralData = (path: string) => {
   if (path === "workspaceMembers.notificationSettings") {
     return { channels: {}, topics: {}, newsletters: {} };
   }
-  if (path === "workspaceMembers.invitation") return null;
   return [];
 };
 
@@ -351,12 +372,38 @@ const normalizeWorkspace = (value: unknown): Workspace | null => {
   return normalized;
 };
 
-const adaptProcedureData = <TData,>(key: string, value: unknown): TData =>
-  (key === "workspaces.bySlug" ||
-  key === "workspaces.create" ||
-  key === "workspaces.update"
-    ? normalizeWorkspace(value)
-    : value) as TData;
+const normalizeWorkspaceInvitation = (value: unknown): unknown => {
+  if (value === null || typeof value !== "object") return value;
+  if (!("workspace" in value)) return value;
+  return {
+    ...value,
+    workspace: normalizeWorkspace(value.workspace),
+  };
+};
+
+const workspaceResultPaths = [
+  "workspaces.bySlug",
+  "workspaces.create",
+  "workspaces.update",
+] as const;
+
+const adaptProcedureData = <TData,>(key: string, value: unknown): TData => {
+  if (key === "workspaceMembers.invitation") {
+    return normalizeWorkspaceInvitation(value) as TData;
+  }
+  if (workspaceResultPaths.some((path) => path === key)) {
+    return normalizeWorkspace(value) as TData;
+  }
+  return value as TData;
+};
+
+export const realQueryInput = (
+  key: string,
+  input: Record<string, unknown> | undefined,
+): Record<string, unknown> =>
+  key === "workspaceMembers.invitation"
+    ? { invitationId: inputString(input, "token", "") }
+    : (input ?? {});
 
 const workspaceFixture = (
   slug: string,
@@ -464,12 +511,6 @@ export const neutralMutationValue = (
   return null;
 };
 
-const memberRole = (value: unknown): "admin" | "editor" | "viewer" => {
-  if (value === "admin") return "admin";
-  if (value === "viewer") return "viewer";
-  return "editor";
-};
-
 const executeRealMutation = async (
   client: ConvexReactClient,
   key: string,
@@ -481,38 +522,13 @@ const executeRealMutation = async (
     });
     return { handled: true, value };
   }
-  if (key === "workspaceMembers.invite") {
-    const workspaceId = inputString(input, "workspaceId", "");
-    const emails = Array.isArray(input.emails)
-      ? input.emails.filter(
-          (email): email is string => typeof email === "string",
-        )
-      : [];
-    await Promise.all(
-      emails.map((email) =>
-        client.mutation(realMutationRefs[key], {
-          workspaceId,
-          email,
-          role: memberRole(input.role),
-        }),
-      ),
-    );
-    return { handled: true, value: null };
-  }
-  if (key === "workspaceMembers.removeMember") {
-    const value = await client.mutation(realMutationRefs[key], {
-      membershipId: inputString(input, "id", ""),
-    });
-    return { handled: true, value };
-  }
-  if (key === "workspaceMembers.updateRoles") {
-    const roles = Array.isArray(input.roles) ? input.roles : [];
-    const value = await client.mutation(realMutationRefs[key], {
-      membershipId: inputString(input, "userId", ""),
-      newRole: memberRole(roles[0]),
-    });
-    return { handled: true, value };
-  }
+  const workspaceMember = await executeWorkspaceMemberMutation(
+    key,
+    input,
+    (mutationKey, mutationInput) =>
+      client.mutation(realMutationRefs[mutationKey], mutationInput),
+  );
+  if (workspaceMember.handled) return workspaceMember;
   const ref = realMutationRefs[key as keyof typeof realMutationRefs];
   if (ref === undefined) return { handled: false, value: undefined };
   const value = await client.mutation(ref as never, input as never);
@@ -550,7 +566,7 @@ function procedure<
           isPending: false,
         };
       }
-      const data = useConvexQuery(convexRef, input ?? {});
+      const data = useConvexQuery(convexRef, realQueryInput(key, input));
       return {
         data: adaptProcedureData<TQueryData>(key, data),
         isLoading: data === undefined,
@@ -586,9 +602,10 @@ function procedure<
           },
         ];
       }
-      const queryOptions = convexQuery(convexRef, input ?? {}) as Parameters<
-        typeof useTanstackSuspenseQuery
-      >[0];
+      const queryOptions = convexQuery(
+        convexRef,
+        realQueryInput(key, input),
+      ) as Parameters<typeof useTanstackSuspenseQuery>[0];
       const result = useTanstackSuspenseQuery(queryOptions);
       const data = adaptProcedureData<TQueryData>(key, result.data);
       return [data, { ...result, data } as QueryResult<TQueryData>];
@@ -604,7 +621,7 @@ function procedure<
         throw new Error(`Router Convex client is required for ${key}`);
       const data = await client.query(
         convexRef as never,
-        (input ?? {}) as never,
+        realQueryInput(key, input) as never,
       );
       return adaptProcedureData<TQueryData>(key, data);
     },
@@ -675,7 +692,7 @@ export const createCompatibilityApi = (
       >(["workspaceMembers", "updateNotificationSettings"]),
       invitation: procedure<{
         workspace: Workspace;
-        invitedBy?: string;
+        invitedBy?: string | null;
       } | null>(["workspaceMembers", "invitation"]),
       acceptInvitation: procedure(["workspaceMembers", "acceptInvitation"]),
     },
