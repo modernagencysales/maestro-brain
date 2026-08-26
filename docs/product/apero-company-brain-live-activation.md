@@ -11,7 +11,7 @@ claim
 
 - Workspace: `Apero Company Brain`
 - Slug: `apero`
-- App: `https://maestro-brain-staging.tim-bb0.workers.dev/apero/brain`
+- App: `https://maestro-brain-staging.tim-bb0.workers.dev/apero/inbox`
 - Context API: `https://perfect-sparrow-808.convex.site/mcp`
 - `tim@keen.digital` is an active owner.
 - `timkeen+tester@gmail.com` accepted an app-native invitation and is an active
@@ -67,6 +67,41 @@ title was `Brain CLI 0.1.2 Live Import Proof — Updated`. `doctor`, evidence
 health, MCP initialization, and MCP tool discovery also passed after deployment.
 The temporary Convex deploy key used for the fallback was revoked immediately
 after deployment.
+
+## CLI 0.1.3 and completion deployment receipt
+
+- Merge commit: `d36010c255c7839cd4e2d5bc9f2956c23ecb30c6`
+- Release: `brain-cli-v0.1.3`
+- Stable asset:
+  `https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz`
+- Artifact SHA-256:
+  `8d872ace1ea352bda5251774df125e8f37f8867618ef8e8eaeebbba2fbbaa74e`
+- Convex deployment: `perfect-sparrow-808`
+- Cloudflare Worker version: `58e1b43f-b8f3-456d-b529-d7eda21e5547`
+- GitHub deployment: `6107125261`
+
+The exact merged backend was deployed with the already-green repository and CI
+typecheck gates. The live function catalog contains `dispatchScheduledSyncs`,
+`syncSlackScheduled`, `syncGoogleDriveScheduled`, and `syncHubSpotScheduled`.
+The pushed cron module registers
+`reconcile approved Company Brain provider scopes` on a one-hour interval. A
+live dispatcher invocation returned zero scheduled and zero skipped connections;
+no Slack, Drive, or HubSpot source was ingested. The temporary deployment-scoped
+key was revoked immediately.
+
+The exact merged frontend passed the production build and static Worker smoke
+gate before deployment. After deployment, the Connections (`/apero`), Brain
+(`/apero/inbox`), Clients, login, and signup shells returned HTTP 200. The
+canonical Brain page-tree/editor/provenance and Connections adapter tests passed
+12/12. The authenticated live HTTP MCP passed initialize and tool discovery; CLI
+doctor passed config, API, MCP protocol, MCP catalog, and workspace evidence
+checks; evidence health reported two current Brain pages and zero active real
+provider sources; and the recorded `Start Here` revision reopened with its exact
+content hash.
+
+The public stable-download URL installed CLI `0.1.3`. `maestro-brain version`
+returned `0.1.3`, and `maestro-brain run` passed the linked credential to a
+harmless child-process presence check without printing the key.
 
 A separate controlled staging workspace proved create, immediate publication,
 exact citation reopening, optimistic update, current-entry replacement, old
