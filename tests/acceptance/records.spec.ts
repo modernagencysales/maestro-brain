@@ -3,6 +3,12 @@ import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
 test.setTimeout(120_000);
 
+// The acceptance CLI runs from TypeScript source so a cold process can spend
+// several seconds loading the repository command graph before making its HTTP
+// request. Keep the product assertion strict while giving that real process a
+// budget larger than its measured cold-start time.
+const HEADLESS_OBSERVATION_TIMEOUT_MS = 15_000;
+
 const commandArgs = (
   operationId: "records.create" | "records.list",
   workspace: string,
@@ -96,7 +102,7 @@ test(
             scenario,
             `${scenario.namespace}-list-primary-${++listAttempt}`,
           ),
-        { timeout: 5_000 },
+        { timeout: HEADLESS_OBSERVATION_TIMEOUT_MS },
       )
       .toContain(title);
   },
