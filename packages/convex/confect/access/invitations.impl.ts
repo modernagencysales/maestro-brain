@@ -76,7 +76,13 @@ const view = FunctionImpl.make(
       const inviter = yield* reader
         .table("users")
         .get(asGenericId<"users">(invitation.invitedByUserId))
-        .pipe(Effect.orDie);
+        .pipe(
+          Effect.catch((error) =>
+            error._tag === "GetByIdFailure"
+              ? Effect.succeed(null)
+              : Effect.die(error),
+          ),
+        );
       return {
         workspace: {
           id: workspace._id,

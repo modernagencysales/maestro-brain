@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
@@ -58,6 +59,38 @@ describe("workspace invitation contract", () => {
         })
         .query(refs.public.access.invitations.view, { invitationId })
         .pipe(Effect.flip);
+      const inviteWithInviter = yield* confect
+        .withIdentity({
+          subject: "outsider-subject",
+          email: "outsider@example.com",
+        })
+        .query(refs.public.access.invitations.view, { invitationId });
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          const deletedInviterId = yield* writer
+            .table("users")
+            .insert({
+              subject: "deleted-inviter-subject",
+              email: "deleted-inviter@example.com",
+              displayName: "Deleted Inviter",
+              status: "active",
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("invitations")
+            .patch(invitationId, { invitedByUserId: deletedInviterId })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("users")
+            .delete(deletedInviterId)
+            .pipe(Effect.orDie);
+          return null;
+        }),
+        Schema.Null,
+      );
       const invite = yield* confect
         .withIdentity({
           subject: "outsider-subject",
@@ -88,6 +121,7 @@ describe("workspace invitation contract", () => {
 
       return {
         wrongIdentityError,
+        inviteWithInviter,
         invite,
         accepted,
         acceptedInviteError,
@@ -100,9 +134,10 @@ describe("workspace invitation contract", () => {
     );
 
     expect(result.wrongIdentityError).toBeInstanceOf(InvitationNotAccessible);
+    expect(result.inviteWithInviter.invitedBy).toBe("Member");
     expect(result.invite).toMatchObject({
       workspace: { slug: "acme-demo", name: "Acme Workspace" },
-      invitedBy: "Member",
+      invitedBy: null,
     });
     expect(result.accepted.workspaceId).toBe(result.invite.workspace.id);
     expect(result.acceptedInviteError).toBeInstanceOf(InvitationNotPending);
