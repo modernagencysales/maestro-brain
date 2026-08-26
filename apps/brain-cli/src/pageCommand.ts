@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
-import { failure, type CliResult } from "./api.js";
+import { failure, success, type CliResult } from "./api.js";
 import { option, request, type CliDependencies } from "./runtime.js";
 
 export const markdownTitle = (path: string, markdown: string): string =>
@@ -18,6 +18,27 @@ export const slugFor = (value: string): string =>
     .slice(0, 80) || "page";
 
 type MarkdownFile = { readonly path: string; readonly markdown: string };
+
+const compactPageList = (result: CliResult): CliResult => {
+  if (result.exitCode !== 0) return result;
+  try {
+    const body = JSON.parse(result.stdout) as { result?: unknown };
+    if (!Array.isArray(body.result)) return result;
+    const pages = body.result.map((page) => {
+      if (page === null || typeof page !== "object") return page;
+      const { markdown, ...metadata } = page as Record<string, unknown>;
+      return {
+        ...metadata,
+        ...(typeof markdown === "string"
+          ? { markdownBytes: Buffer.byteLength(markdown, "utf8") }
+          : {}),
+      };
+    });
+    return success({ ...body, result: pages });
+  } catch {
+    return result;
+  }
+};
 
 const markdownFile = (path: string | undefined): MarkdownFile | CliResult => {
   if (!path || extname(path).toLowerCase() !== ".md")
@@ -73,22 +94,34 @@ const updatePage = async (
   });
 };
 
+const getPage = async (
+  pageId: string,
+  dependencies: CliDependencies,
+): Promise<CliResult> => {
+  const result = await request(dependencies, {
+    operationId: "brain.pages.get",
+    input: { pageId },
+  });
+  return result.exitCode !== 0 && result.stderr.includes("(NotFound)")
+    ? failure(`Brain page not found: ${pageId}`)
+    : result;
+};
+
 export const pageCommand = async (
   argv: readonly string[],
   dependencies: CliDependencies,
 ): Promise<CliResult> => {
   const handlers: Record<string, (() => Promise<CliResult>) | undefined> = {
-    list: async () =>
-      await request(dependencies, {
+    list: async () => {
+      const result = await request(dependencies, {
         operationId: "brain.pages.list",
         input: { includeArchived: argv.includes("--include-archived") },
-      }),
+      });
+      return argv.includes("--full") ? result : compactPageList(result);
+    },
     get: async () =>
       argv[2]
-        ? await request(dependencies, {
-            operationId: "brain.pages.get",
-            input: { pageId: argv[2] },
-          })
+        ? await getPage(argv[2], dependencies)
         : failure("page get requires a page id."),
     create: async () => await createPage(argv, dependencies),
     update: async () => await updatePage(argv, dependencies),

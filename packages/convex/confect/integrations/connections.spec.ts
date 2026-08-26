@@ -278,6 +278,34 @@ const completeProviderOauth = FunctionSpec.publicAction({
   error: () => MutationError,
 });
 
+const discoverProviderScopes = FunctionSpec.publicAction({
+  name: "discoverProviderScopes",
+  args: () =>
+    Schema.Struct({
+      ...WorkspaceProviderArgs.fields,
+      containerId: Schema.optional(Schema.NonEmptyString),
+    }),
+  returns: () =>
+    Schema.Struct({
+      provider: ProviderKey,
+      containers: Schema.Array(
+        Schema.Struct({
+          id: Schema.NonEmptyString,
+          label: Schema.NonEmptyString,
+        }),
+      ),
+      scopes: Schema.Array(
+        Schema.Struct({
+          id: Schema.NonEmptyString,
+          label: Schema.NonEmptyString,
+          description: Schema.optional(Schema.NonEmptyString),
+        }),
+      ),
+      resolvedContainerId: Schema.optional(Schema.NonEmptyString),
+    }),
+  error: () => MutationError,
+});
+
 const syncSlack = FunctionSpec.publicAction({
   name: "syncSlack",
   args: () => SlackSyncArgs,
@@ -404,6 +432,7 @@ export default GroupSpec.make()
   .addFunction(beginProviderOauth)
   .addFunction(completeSlackOauth)
   .addFunction(completeProviderOauth)
+  .addFunction(discoverProviderScopes)
   .addFunction(syncSlack)
   .addFunction(syncGoogleDrive)
   .addFunction(syncHubSpot)

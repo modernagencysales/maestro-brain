@@ -9,6 +9,8 @@ export const completeForActor = registeredFunctions.completeForActor;
 export const completeProviderOauth = registeredFunctions.completeProviderOauth;
 export const completeSlackOauth = registeredFunctions.completeSlackOauth;
 export const connectionForSync = registeredFunctions.connectionForSync;
+export const discoverProviderScopes =
+  registeredFunctions.discoverProviderScopes;
 export const dispatchScheduledSyncs =
   registeredFunctions.dispatchScheduledSyncs;
 export const list = registeredFunctions.list;

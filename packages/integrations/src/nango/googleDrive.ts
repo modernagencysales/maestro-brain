@@ -62,6 +62,13 @@ export type GoogleDriveLimits = Readonly<{
   maxContentBytes?: number;
 }>;
 
+export type GoogleDriveOption = Readonly<{ id: string; name: string }>;
+export type GoogleDriveFolderOption = Readonly<{
+  id: string;
+  name: string;
+  parentFolderIds: readonly string[];
+}>;
+
 export class GoogleDriveAdapterError extends Error {
   readonly _tag = "GoogleDriveAdapterError";
 
@@ -78,7 +85,8 @@ export class GoogleDriveCapacityExceeded extends Error {
   readonly _tag = "GoogleDriveCapacityExceeded";
 
   constructor(
-    readonly resource: "folders" | "sources" | "pages" | "content_bytes",
+    readonly resource:
+      "drives" | "folders" | "sources" | "pages" | "content_bytes",
     readonly capacity: number,
   ) {
     super(`Google Drive ${resource} capacity of ${capacity} was exceeded.`);
@@ -91,6 +99,120 @@ const DEFAULT_MAX_SOURCES = 20_000;
 const DEFAULT_MAX_PAGES = 5_000;
 const DEFAULT_MAX_CONTENT_BYTES = 2_000_000;
 const GOOGLE_DOCUMENT_MIME_TYPE = "application/vnd.google-apps.document";
+
+const readDiscoveryBody = async (
+  response: Response,
+): Promise<Readonly<Record<string, unknown>>> => {
+  if (!response.ok) throw new GoogleDriveAdapterError("provider_unavailable");
+  try {
+    const body = record(await response.json());
+    if (body === undefined)
+      throw new GoogleDriveAdapterError("invalid_response");
+    return body;
+  } catch (error) {
+    if (error instanceof GoogleDriveAdapterError) throw error;
+    throw new GoogleDriveAdapterError("invalid_response");
+  }
+};
+
+export const discoverGoogleDrives = async (input: {
+  readonly secretKey: string;
+  readonly providerConfigKey: string;
+  readonly connectionId: string;
+  readonly request?: Request;
+  readonly maxDrives?: number;
+}): Promise<readonly GoogleDriveOption[]> => {
+  const request = input.request ?? fetch;
+  const maxDrives = positiveInteger(input.maxDrives, 100);
+  const drives: GoogleDriveOption[] = [];
+  let pageToken: string | undefined;
+  const seenTokens = new Set<string>();
+  do {
+    const body = await readDiscoveryBody(
+      await request(
+        nangoProxyUrl("drive/v3/drives", {
+          pageSize: "100",
+          fields: "nextPageToken,drives(id,name)",
+          ...(pageToken === undefined ? {} : { pageToken }),
+        }),
+        { headers: nangoProxyHeaders(input) },
+      ),
+    );
+    const rows = recordArray(body.drives);
+    if (rows === undefined)
+      throw new GoogleDriveAdapterError("invalid_response");
+    for (const row of rows) {
+      const id = nonEmptyString(row.id);
+      const name = nonEmptyString(row.name);
+      if (id === undefined || name === undefined)
+        throw new GoogleDriveAdapterError("invalid_response");
+      if (drives.length >= maxDrives)
+        throw new GoogleDriveCapacityExceeded("drives", maxDrives);
+      drives.push({ id, name });
+    }
+    pageToken = nonEmptyString(body.nextPageToken);
+    if (pageToken !== undefined) {
+      if (seenTokens.has(pageToken))
+        throw new GoogleDriveAdapterError("invalid_response");
+      seenTokens.add(pageToken);
+    }
+  } while (pageToken !== undefined);
+  return drives.sort((left, right) => left.name.localeCompare(right.name));
+};
+
+export const discoverGoogleDriveFolders = async (input: {
+  readonly secretKey: string;
+  readonly providerConfigKey: string;
+  readonly connectionId: string;
+  readonly driveId: string;
+  readonly request?: Request;
+  readonly maxFolders?: number;
+}): Promise<readonly GoogleDriveFolderOption[]> => {
+  if (input.driveId.trim().length === 0)
+    throw new GoogleDriveAdapterError("invalid_input");
+  const request = input.request ?? fetch;
+  const maxFolders = positiveInteger(input.maxFolders, 500);
+  const folders: GoogleDriveFolderOption[] = [];
+  let pageToken: string | undefined;
+  const seenTokens = new Set<string>();
+  do {
+    const body = await readDiscoveryBody(
+      await request(
+        nangoProxyUrl("drive/v3/files", {
+          q: `mimeType = '${DRIVE_FOLDER_MIME_TYPE}' and trashed = false`,
+          pageSize: "1000",
+          corpora: "drive",
+          driveId: input.driveId,
+          spaces: "drive",
+          includeItemsFromAllDrives: "true",
+          supportsAllDrives: "true",
+          fields: "nextPageToken,files(id,name,parents)",
+          ...(pageToken === undefined ? {} : { pageToken }),
+        }),
+        { headers: nangoProxyHeaders(input) },
+      ),
+    );
+    const rows = recordArray(body.files);
+    if (rows === undefined)
+      throw new GoogleDriveAdapterError("invalid_response");
+    for (const row of rows) {
+      const id = nonEmptyString(row.id);
+      const name = nonEmptyString(row.name);
+      if (id === undefined || name === undefined)
+        throw new GoogleDriveAdapterError("invalid_response");
+      if (folders.length >= maxFolders)
+        throw new GoogleDriveCapacityExceeded("folders", maxFolders);
+      folders.push({ id, name, parentFolderIds: stringArray(row.parents) });
+    }
+    pageToken = nonEmptyString(body.nextPageToken);
+    if (pageToken !== undefined) {
+      if (seenTokens.has(pageToken))
+        throw new GoogleDriveAdapterError("invalid_response");
+      seenTokens.add(pageToken);
+    }
+  } while (pageToken !== undefined);
+  return folders.sort((left, right) => left.name.localeCompare(right.name));
+};
 
 const requireString = (value: unknown): string => {
   const parsed = nonEmptyString(value);

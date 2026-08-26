@@ -369,6 +369,27 @@ const getEvidenceHealth = (workspaceId: GenericId<"workspaces">) =>
                     : latest,
                 null,
               ) ?? null);
+          const maxTimestamp = <Row>(
+            rows: readonly Row[],
+            read: (row: Row) => number,
+          ): number | null =>
+            rows.reduce<number | null>((latest, row) => {
+              const value = read(row);
+              return latest === null || value > latest ? value : latest;
+            }, null);
+          const latestSuccessfulRun = capacityExceeded
+            ? null
+            : latestRuns.reduce<(typeof latestRuns)[number] | null>(
+                (latest, run) =>
+                  run.status !== "complete" || run.completedAt === undefined
+                    ? latest
+                    : latest === null ||
+                        latest.completedAt === undefined ||
+                        run.completedAt > latest.completedAt
+                      ? run
+                      : latest,
+                null,
+              );
 
           return {
             provider,
@@ -379,6 +400,21 @@ const getEvidenceHealth = (workspaceId: GenericId<"workspaces">) =>
               ? ("exceeded" as const)
               : ("within-bounds" as const),
             coverageState,
+            latestSourceModifiedAt: capacityExceeded
+              ? null
+              : maxTimestamp(
+                  boundedSources,
+                  (source) => source.sourceModifiedAt,
+                ),
+            latestObservedAt: capacityExceeded
+              ? null
+              : maxTimestamp(boundedSources, (source) => source.observedAt),
+            latestIndexedAt: capacityExceeded
+              ? null
+              : maxTimestamp(currentEntries, (entry) => entry.updatedAt),
+            lastSuccessfulReconciliationAt:
+              latestSuccessfulRun?.completedAt ?? null,
+            freshnessState: "unknown-no-policy" as const,
             lastConnectorRun:
               latestRun === null
                 ? null

@@ -56,6 +56,38 @@ describe("standalone teammate CLI", () => {
     expect(result.stdout).toContain("bug-bundle");
   });
 
+  it("shows subcommand help without executing the command", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    const setup = await runCli(["setup", "--help"], deps);
+    const nested = await runCli(["evidence", "search", "--help"], deps);
+
+    expect(setup.exitCode).toBe(0);
+    expect(setup.stdout).toContain("Usage: maestro-brain setup");
+    expect(nested.stdout).toContain("evidence source-get");
+    expect(deps.linkAccount).not.toHaveBeenCalled();
+    expect(existsSync(join(deps.configDirectory, "config.json"))).toBe(false);
+  });
+
+  it("does not store credentials or partially write when setup finds a conflict", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(join(deps.assetDirectory, "SKILL.md"), "# Ask Apero\n");
+    writeFileSync(join(root, ".mcp.json"), "not json\n");
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("No credential was stored");
+    expect(existsSync(join(deps.configDirectory, "config.json"))).toBe(false);
+    expect(existsSync(join(root, ".codex/config.toml"))).toBe(false);
+    expect(readFileSync(join(root, ".mcp.json"), "utf8")).toBe("not json\n");
+  });
+
   it("sets up all three agent runtimes and the Ask Apero skill", async () => {
     const root = temp();
     const deps = dependencies(root);
@@ -303,6 +335,61 @@ describe("standalone teammate CLI", () => {
       "https://api.example.test/api/brain.pages.createMarkdown",
       "https://api.example.test/api/brain.pages.updateMarkdown",
     ]);
+  });
+
+  it("renders a missing Brain page as a concise teammate error", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: false,
+          error: { _tag: "NotFound", resource: "brainPages" },
+          requestId: "request-secret-noise",
+        }),
+        { status: 500 },
+      ),
+    );
+    const result = await runCli(["page", "get", "missing-page"], {
+      ...configured(root),
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("Brain page not found: missing-page\n");
+    expect(result.stdout).toBe("");
+  });
+
+  it("keeps page discovery compact unless full bodies are requested", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: [
+              {
+                _id: "page_1",
+                slug: "icp",
+                title: "ICP",
+                markdown: "# ICP\n\nAgency context.",
+                updatedAt: 123,
+              },
+            ],
+          }),
+        ),
+    );
+    const deps = { ...configured(root), fetch };
+
+    const compact = await runCli(["page", "list"], deps);
+    const full = await runCli(["page", "list", "--full"], deps);
+
+    expect(compact.stdout).not.toContain("Agency context");
+    expect(JSON.parse(compact.stdout).result[0]).toMatchObject({
+      _id: "page_1",
+      slug: "icp",
+      markdownBytes: 22,
+    });
+    expect(full.stdout).toContain("Agency context");
   });
 
   it("imports Markdown recursively in stable relative-path order", async () => {
@@ -557,10 +644,12 @@ describe("standalone teammate CLI", () => {
   it("reports status, logout limits, version, and update guidance", async () => {
     const root = temp();
     const deps = configured(root);
-    expect((await runCli(["status"], deps)).stdout).not.toContain("secret-key");
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.3\n");
+    const status = (await runCli(["status"], deps)).stdout;
+    expect(status).not.toContain("secret-key");
+    expect(status).toContain('"cliVersion": "0.1.4"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.4\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/latest/download/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.4/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');
@@ -591,12 +680,35 @@ describe("standalone teammate CLI", () => {
               }),
             )
           : new Response(
-              '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}',
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                result:
+                  body.method === "tools/list"
+                    ? {
+                        tools: [
+                          {
+                            name: "template.brain.evidence.search",
+                            description: "Search Brain evidence",
+                            inputSchema: {
+                              type: "object",
+                              properties: { query: { type: "string" } },
+                            },
+                          },
+                        ],
+                      }
+                    : { protocolVersion: "2025-03-26" },
+              }),
             );
       });
     const deps = { ...configured(root), fetch };
     expect((await runCli(["doctor"], deps)).exitCode).toBe(0);
-    expect((await runCli(["mcp", "tools"], deps)).exitCode).toBe(0);
+    const compactTools = await runCli(["mcp", "tools"], deps);
+    const fullTools = await runCli(["mcp", "tools", "--full"], deps);
+    expect(compactTools.exitCode).toBe(0);
+    expect(compactTools.stdout).toContain("template.brain.evidence.search");
+    expect(compactTools.stdout).not.toContain("inputSchema");
+    expect(fullTools.stdout).toContain("inputSchema");
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/mcp"))).toBe(
       true,
     );
@@ -614,5 +726,66 @@ describe("standalone teammate CLI", () => {
         ),
     });
     expect(rejected.exitCode).toBe(1);
+  });
+
+  it("does not mistake empty evidence coverage for runtime readiness", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (url, init) => {
+        if (!String(url).endsWith("/mcp"))
+          return new Response(JSON.stringify({ ok: true, result: [] }));
+        const request = JSON.parse(String(init?.body)) as {
+          method: string;
+        };
+        if (request.method === "tools/call")
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      ok: true,
+                      result: {
+                        providers: [
+                          {
+                            provider: "slack",
+                            activeSourceCount: 0,
+                            coverageState: "no-active-sources",
+                          },
+                        ],
+                      },
+                    }),
+                  },
+                ],
+              },
+            }),
+          );
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result:
+              request.method === "initialize"
+                ? { protocolVersion: "2025-03-26" }
+                : { tools: [] },
+          }),
+        );
+      });
+
+    const result = await runCli(["doctor"], {
+      ...configured(root),
+      fetch,
+    });
+    const body = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(body.warnings).toContain(
+      "No provider currently has active evidence. Connectivity passed, but company context is empty.",
+    );
+    expect(body.notChecked).toContain("Claude Cowork connector import");
   });
 });

@@ -1,10 +1,67 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  discoverSlackChannels,
   fetchSlackSnapshot,
   SlackChannelAllowlistInvalid,
   SlackSnapshotCapacityExceeded,
 } from "./slack";
+
+describe("discoverSlackChannels", () => {
+  it("returns readable channels without selecting a scope", async () => {
+    const request = vi.fn(async () =>
+      Response.json({
+        ok: true,
+        channels: [
+          { id: "C02", name: "sales", is_private: true },
+          { id: "C01", name: "general", is_private: false },
+        ],
+        response_metadata: { next_cursor: "" },
+      }),
+    );
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toEqual([
+      { id: "C01", name: "general", isPrivate: false },
+      { id: "C02", name: "sales", isPrivate: true },
+    ]);
+  });
+
+  it("paginates discovery and enforces its channel bound", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C01", name: "general" }],
+          response_metadata: { next_cursor: "page-2" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C02", name: "sales" }],
+          response_metadata: { next_cursor: "" },
+        }),
+      );
+
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+        maxChannels: 1,
+      }),
+    ).rejects.toBeInstanceOf(SlackSnapshotCapacityExceeded);
+    expect(String(request.mock.calls[1]?.[0])).toContain("cursor=page-2");
+  });
+});
 
 const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });

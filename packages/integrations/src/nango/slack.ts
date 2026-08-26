@@ -23,6 +23,12 @@ export type SlackSnapshotLimits = Readonly<{
   maxPagesPerCollection?: number;
 }>;
 
+export type SlackChannelOption = Readonly<{
+  id: string;
+  name: string;
+  isPrivate: boolean;
+}>;
+
 export class SlackSnapshotCapacityExceeded extends Error {
   readonly resource: "channels" | "messages" | "pages";
   readonly capacity: number;
@@ -55,6 +61,7 @@ const DEFAULT_MAX_CHANNELS = 500;
 const DEFAULT_MAX_MESSAGES_PER_CHANNEL = 10_000;
 const DEFAULT_MAX_MESSAGES_TOTAL = 20_000;
 const DEFAULT_MAX_PAGES_PER_COLLECTION = 100;
+const DEFAULT_MAX_DISCOVERY_CHANNELS = 500;
 
 const positiveLimit = (value: number | undefined, fallback: number): number =>
   value === undefined || !Number.isSafeInteger(value) || value < 1
@@ -146,6 +153,51 @@ const fetchCollection = async (input: {
   } while (cursor !== undefined);
 
   return items;
+};
+
+export const discoverSlackChannels = async (input: {
+  readonly secretKey: string;
+  readonly providerConfigKey: string;
+  readonly connectionId: string;
+  readonly request?: Request;
+  readonly maxChannels?: number;
+  readonly maxPages?: number;
+}): Promise<readonly SlackChannelOption[]> => {
+  const maxChannels = positiveLimit(
+    input.maxChannels,
+    DEFAULT_MAX_DISCOVERY_CHANNELS,
+  );
+  const records = await fetchCollection({
+    method: "conversations.list",
+    itemKey: "channels",
+    query: {
+      exclude_archived: "true",
+      limit: "100",
+      types: "public_channel,private_channel",
+    },
+    headers: nangoHeaders(input),
+    request: input.request ?? fetch,
+    maxPages: positiveLimit(input.maxPages, DEFAULT_MAX_PAGES_PER_COLLECTION),
+  });
+  const channels = records.flatMap((channel) => {
+    const id = channel.id;
+    const name = channel.name;
+    return typeof id === "string" &&
+      id.trim().length > 0 &&
+      typeof name === "string" &&
+      name.trim().length > 0
+      ? [
+          {
+            id: id.trim(),
+            name: name.trim(),
+            isPrivate: channel.is_private === true,
+          },
+        ]
+      : [];
+  });
+  if (channels.length > maxChannels)
+    throw new SlackSnapshotCapacityExceeded("channels", maxChannels);
+  return channels.sort((left, right) => left.name.localeCompare(right.name));
 };
 
 type SlackMessage = SlackSnapshot["channels"][number]["messages"][number];

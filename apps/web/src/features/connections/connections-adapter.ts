@@ -30,6 +30,11 @@ export type EvidenceProviderHealth = Readonly<{
   activeSourceCount: number
   currentEntryCount: number
   coverageState: string
+  latestSourceModifiedAt: number | null
+  latestObservedAt: number | null
+  latestIndexedAt: number | null
+  lastSuccessfulReconciliationAt: number | null
+  freshnessState: 'unknown-no-policy'
   lastConnectorRun: Readonly<{
     status: 'running' | 'complete' | 'failed'
     updatedAt: number

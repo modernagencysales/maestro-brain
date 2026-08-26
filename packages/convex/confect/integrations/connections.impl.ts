@@ -3,9 +3,19 @@ import {
   createNangoConnectSession,
   verifyNangoConnection,
 } from "@maestro-template/integrations/nango/connect";
-import { fetchSlackSnapshot } from "@maestro-template/integrations/nango/slack";
-import { fetchGoogleDriveInventory } from "@maestro-template/integrations/nango/googleDrive";
-import { fetchHubSpotInventory } from "@maestro-template/integrations/nango/hubspot";
+import {
+  discoverSlackChannels,
+  fetchSlackSnapshot,
+} from "@maestro-template/integrations/nango/slack";
+import {
+  discoverGoogleDriveFolders,
+  discoverGoogleDrives,
+  fetchGoogleDriveInventory,
+} from "@maestro-template/integrations/nango/googleDrive";
+import {
+  discoverHubSpotAccount,
+  fetchHubSpotInventory,
+} from "@maestro-template/integrations/nango/hubspot";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
@@ -31,6 +41,7 @@ import { readNangoConnectConfig, readNangoProviderConfig } from "../shared/env";
 import {
   beginConnection,
   completeConnection,
+  providerKeys,
   revokeConnection,
   type ProviderConnectionState,
   type ProviderKey,
@@ -109,7 +120,7 @@ const listConnectionRows = (workspaceId: GenericId<"workspaces">) =>
     const rows = yield* reader
       .table("providerConnections")
       .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-      .collect()
+      .take(providerKeys.length + 1)
       .pipe(Effect.orDie);
     return rows.filter(
       (row): row is CurrentProviderConnectionDocument =>
@@ -448,6 +459,108 @@ const completeProviderOauth = FunctionImpl.make(
         generation,
         completion: { status: "active", connectionRef: connectionId },
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    }),
+);
+
+const discoverProviderScopes = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "discoverProviderScopes",
+  ({ workspaceId, provider, containerId }) =>
+    Effect.gen(function* () {
+      const query = yield* QueryRunner;
+      const rows = yield* query(refs.public.integrations.connections.list, {
+        workspaceId,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const connection = yield* requireActiveConnection(rows, provider);
+      const config =
+        provider === "slack"
+          ? readNangoConnectConfig()
+          : readNangoProviderConfig(provider);
+      if (config === undefined) return yield* providerFailure();
+      const connectionId = connection.connectionRef as string;
+      return yield* Effect.tryPromise({
+        try: async () => {
+          if (provider === "slack") {
+            const channels = await discoverSlackChannels({
+              ...config,
+              connectionId,
+              maxChannels: 500,
+            });
+            return {
+              provider,
+              containers: [],
+              scopes: channels.map((channel) => ({
+                id: channel.id,
+                label: `#${channel.name}`,
+                ...(channel.isPrivate
+                  ? { description: "Private channel" }
+                  : {}),
+              })),
+            };
+          }
+          if (provider === "google-drive") {
+            const drives = await discoverGoogleDrives({
+              ...config,
+              connectionId,
+              maxDrives: 100,
+            });
+            const selectedDrive =
+              containerId === undefined
+                ? undefined
+                : drives.find(({ id }) => id === containerId);
+            if (containerId !== undefined && selectedDrive === undefined)
+              return Promise.reject(
+                new Error("Selected Shared Drive is unavailable."),
+              );
+            const folders =
+              selectedDrive === undefined
+                ? []
+                : await discoverGoogleDriveFolders({
+                    ...config,
+                    connectionId,
+                    driveId: selectedDrive.id,
+                    maxFolders: 500,
+                  });
+            return {
+              provider,
+              containers: drives.map((drive) => ({
+                id: drive.id,
+                label: drive.name,
+              })),
+              scopes:
+                selectedDrive === undefined
+                  ? []
+                  : [
+                      {
+                        id: selectedDrive.id,
+                        label: "Entire Shared Drive",
+                        description: selectedDrive.name,
+                      },
+                      ...folders.map((folder) => ({
+                        id: folder.id,
+                        label: folder.name,
+                        description: "Folder",
+                      })),
+                    ],
+              ...(selectedDrive === undefined
+                ? {}
+                : { resolvedContainerId: selectedDrive.id }),
+            };
+          }
+          const account = await discoverHubSpotAccount({
+            ...config,
+            connectionId,
+          });
+          return {
+            provider,
+            containers: [{ id: account.portalId, label: account.displayName }],
+            scopes: [],
+            resolvedContainerId: account.portalId,
+          };
+        },
+        catch: providerFailure,
+      });
     }),
 );
 
@@ -1188,6 +1301,7 @@ const connectionGroup = GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(beginProviderOauth),
   Layer.provide(completeSlackOauth),
   Layer.provide(completeProviderOauth),
+  Layer.provide(discoverProviderScopes),
   Layer.provide(syncSlack),
   Layer.provide(syncSlackScheduled),
   Layer.provide(syncGoogleDrive),

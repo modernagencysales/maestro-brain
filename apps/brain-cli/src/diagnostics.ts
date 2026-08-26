@@ -17,6 +17,56 @@ import {
   type CliDependencies,
 } from "./runtime.js";
 
+const evidenceCoverage = (
+  result: CliResult,
+):
+  | { readonly providers: unknown[]; readonly warnings: string[] }
+  | undefined => {
+  if (result.exitCode !== 0) return undefined;
+  try {
+    const body = JSON.parse(result.stdout) as {
+      result?: { providers?: unknown[] };
+    };
+    if (!Array.isArray(body.result?.providers)) return undefined;
+    const providers = body.result.providers;
+    const activeProviders = providers.filter(
+      (provider) =>
+        provider !== null &&
+        typeof provider === "object" &&
+        "activeSourceCount" in provider &&
+        typeof provider.activeSourceCount === "number" &&
+        provider.activeSourceCount > 0,
+    );
+    const emptyProviderNames = providers.flatMap((provider) => {
+      if (
+        provider === null ||
+        typeof provider !== "object" ||
+        !("provider" in provider) ||
+        typeof provider.provider !== "string" ||
+        !("activeSourceCount" in provider) ||
+        provider.activeSourceCount !== 0
+      )
+        return [];
+      return [provider.provider];
+    });
+    return {
+      providers,
+      warnings: [
+        ...(activeProviders.length === 0
+          ? [
+              "No provider currently has active evidence. Connectivity passed, but company context is empty.",
+            ]
+          : []),
+        ...(emptyProviderNames.length > 0
+          ? [`No active evidence for: ${emptyProviderNames.join(", ")}.`]
+          : []),
+      ],
+    };
+  } catch {
+    return undefined;
+  }
+};
+
 export const doctorCommand = async (
   dependencies: CliDependencies,
 ): Promise<CliResult> => {
@@ -53,10 +103,18 @@ export const doctorCommand = async (
     },
   };
   const ok = Object.values(checks).every(({ ok }) => ok);
+  const coverage = evidenceCoverage(evidence);
   return {
     ...success({
       ok,
       checks,
+      ...(coverage ? { evidenceCoverage: coverage.providers } : {}),
+      warnings: coverage?.warnings ?? [],
+      notChecked: [
+        "Codex or Claude project trust/approval",
+        "Claude account login",
+        "Claude Cowork connector import",
+      ],
       ...(ok
         ? {}
         : {
@@ -77,6 +135,7 @@ export const statusCommand = (dependencies: CliDependencies): CliResult => {
     dependencies.environment.MAESTRO_BRAIN_API_KEY ?? config?.apiKey,
   );
   return success({
+    cliVersion,
     configured: Boolean(config),
     ...(config
       ? {
@@ -134,7 +193,40 @@ export const mcpCommand = async (
     prompts: "prompts/list",
   } as const;
   const method = methods[argv[1] as keyof typeof methods];
-  return method
-    ? await callMcp(config, dependencies.fetch, method)
-    : failure("Usage: maestro-brain mcp doctor|tools|prompts");
+  if (!method)
+    return failure("Usage: maestro-brain mcp doctor|tools [--full]|prompts");
+  const result = await callMcp(config, dependencies.fetch, method);
+  if (
+    method !== "tools/list" ||
+    argv.includes("--full") ||
+    result.exitCode !== 0
+  )
+    return result;
+  try {
+    const body = JSON.parse(result.stdout) as {
+      response?: { result?: { tools?: unknown[] } };
+    };
+    const tools = Array.isArray(body.response?.result?.tools)
+      ? body.response.result.tools.flatMap((tool) => {
+          if (
+            tool === null ||
+            typeof tool !== "object" ||
+            !("name" in tool) ||
+            typeof tool.name !== "string"
+          )
+            return [];
+          return [
+            {
+              name: tool.name,
+              ...("description" in tool && typeof tool.description === "string"
+                ? { description: tool.description }
+                : {}),
+            },
+          ];
+        })
+      : [];
+    return success({ ok: true, tools, count: tools.length });
+  } catch {
+    return result;
+  }
 };

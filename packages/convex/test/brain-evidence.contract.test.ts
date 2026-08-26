@@ -340,6 +340,11 @@ describe("Company Brain evidence publication", () => {
         currentEntryCount: 1,
         capacityState: "within-bounds",
         coverageState: "current-index-covers-active-sources",
+        latestSourceModifiedAt: now,
+        latestObservedAt: now + 5,
+        latestIndexedAt: expect.any(Number),
+        lastSuccessfulReconciliationAt: now + 5,
+        freshnessState: "unknown-no-policy",
         lastConnectorRun: expect.objectContaining({
           runKey: "run-complete-2",
           status: "complete",

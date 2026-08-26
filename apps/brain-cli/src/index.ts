@@ -55,6 +55,57 @@ HTTP MCP troubleshooting
   maestro-brain bug-bundle [--output <file.json>]
 `;
 
+const commandHelp: Readonly<Record<string, string | undefined>> = {
+  setup: `Usage: maestro-brain setup [--project <directory>]
+       maestro-brain setup --workspace <slug> --api-key <key> [--api-url <origin>] [--project <directory>]
+
+Links this terminal to a workspace and writes Codex, Claude Code, Claude Cowork,
+and Ask Apero project configuration. With --workspace and --api-key, setup is
+non-interactive.`,
+  env: `Usage: eval "$(maestro-brain env)"
+
+Prints a shell export for the linked API key. Use maestro-brain run when you do
+not want to modify the current shell environment.`,
+  run: `Usage: maestro-brain run -- <command> [args...]
+
+Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
+  ask: `Usage: maestro-brain ask <question>`,
+  evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
+       maestro-brain evidence source-get <source-key> <revision-key>
+       maestro-brain evidence health`,
+  page: `Usage: maestro-brain page list [--include-archived] [--full]
+       maestro-brain page get <page-id>
+       maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
+       maestro-brain page update <page-id> <file.md> --expected-updated-at <ms>
+
+page list omits Markdown bodies by default to keep agent context small. Pass
+--full to return the complete API response.`,
+  import: `Usage: maestro-brain import <folder> [--adopt-existing]
+
+Recursively creates or safely updates Markdown-backed Brain pages.`,
+  mcp: `Usage: maestro-brain mcp doctor
+       maestro-brain mcp tools [--full]
+       maestro-brain mcp prompts
+
+mcp tools returns names and descriptions by default. Pass --full to include
+the complete tool schemas.`,
+  doctor: "Usage: maestro-brain doctor",
+  status: "Usage: maestro-brain status",
+  logout: "Usage: maestro-brain logout",
+  version: "Usage: maestro-brain version",
+  update: "Usage: maestro-brain update",
+  "bug-bundle": "Usage: maestro-brain bug-bundle [--output <file.json>]",
+};
+
+const helpFor = (command: string | undefined): CliResult =>
+  command && commandHelp[command]
+    ? success(commandHelp[command] as string)
+    : command
+      ? failure(
+          `Unknown command: ${command}\nRun maestro-brain --help for commands.`,
+        )
+      : success(help.trimEnd());
+
 const setupCommand = async (
   argv: readonly string[],
   dependencies: CliDependencies,
@@ -142,7 +193,7 @@ const commandHandlers = (
   argv: readonly string[],
   dependencies: CliDependencies,
 ): Readonly<Record<string, CommandHandler | undefined>> => ({
-  help: () => success(help.trimEnd()),
+  help: () => helpFor(argv[1]),
   "--help": () => success(help.trimEnd()),
   "-h": () => success(help.trimEnd()),
   setup: async () => await setupCommand(argv, dependencies),
@@ -167,8 +218,8 @@ const commandHandlers = (
   version: () => success(cliVersion),
   update: () =>
     success({
-      command:
-        "npm install --global https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz",
+      command: `npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v${cliVersion}/maestro-brain.tgz`,
+      version: cliVersion,
       automatic: false,
     }),
   ask: async () => {
@@ -195,10 +246,16 @@ export const runCli = async (
   dependencies: CliDependencies = defaultDependencies(),
 ): Promise<CliResult> => {
   const command = argv[0] ?? "help";
+  if (
+    argv.slice(1).some((argument) => argument === "--help" || argument === "-h")
+  )
+    return helpFor(command);
   const handler = commandHandlers(argv, dependencies)[command];
   return handler
     ? await handler()
-    : failure(`Unknown command: ${argv.join(" ")}`);
+    : failure(
+        `Unknown command: ${argv.join(" ")}\nRun maestro-brain --help for commands.`,
+      );
 };
 
 export type { CliDependencies } from "./runtime.js";
