@@ -4,6 +4,7 @@ import { Id } from "../_generated/id";
 import {
   MemberNotInWorkspace,
   NotFound,
+  StaleRevision,
   Unauthorized,
   ValidationFailed,
   WorkspaceNotFound,
@@ -29,6 +30,7 @@ const AccessError = Schema.Union([
   ValidationFailed,
 ]);
 const MutationError = Schema.Union([AccessError, NotFound, ValidationFailed]);
+const SyncError = Schema.Union([MutationError, StaleRevision]);
 const WorkspaceProviderArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   provider: ProviderKey,
@@ -231,6 +233,33 @@ const completeSlackOauth = FunctionSpec.publicAction({
   error: () => MutationError,
 });
 
+const syncSlack = FunctionSpec.publicAction({
+  name: "syncSlack",
+  args: () => Schema.Struct({ workspaceId: Id("workspaces") }),
+  returns: () =>
+    Schema.Struct({
+      pageCount: Schema.Number,
+      messageCount: Schema.Number,
+      syncedAt: Schema.Number,
+    }),
+  error: () => SyncError,
+});
+
+const recordSlackSync = FunctionSpec.internalMutation({
+  name: "recordSlackSync",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      status: Schema.Literals(["syncing", "ready", "error"]),
+      syncedAt: Schema.optional(Schema.Number),
+      messageCount: Schema.optional(Schema.Number),
+      pageCount: Schema.optional(Schema.Number),
+      errorCode: Schema.optional(Schema.NonEmptyString),
+    }),
+  returns: () => CurrentProviderConnectionDoc,
+  error: () => MutationError,
+});
+
 const contractFunctions = [list, begin, complete, revoke] as const;
 export const manifest = collectContractManifest(contractFunctions);
 export const schemaRegistry = collectContractSchemas(contractFunctions);
@@ -240,6 +269,8 @@ export default GroupSpec.make()
   .addFunction(begin.spec)
   .addFunction(beginSlackOauth)
   .addFunction(completeSlackOauth)
+  .addFunction(syncSlack)
+  .addFunction(recordSlackSync)
   .addFunction(complete.spec)
   .addFunction(revoke.spec)
   .addFunction(listForActor)

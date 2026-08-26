@@ -9,7 +9,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
-import { LuExternalLink, LuLink } from "react-icons/lu";
+import { LuExternalLink, LuLink, LuRefreshCw } from "react-icons/lu";
 
 import { Button } from "@/components/ui/button/button";
 import { IconBadge } from "@/components/ui/icon-badge/icon-badge";
@@ -23,6 +23,7 @@ export type IntegrationCardProps = {
   isConnected?: boolean;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  onSync?: () => void;
   onDocs?: () => void;
 };
 
@@ -68,6 +69,11 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = (props) => {
               Disconnect
             </Button>
           )}
+          {props.isConnected && props.onSync ? (
+            <Button variant="outline" onClick={props.onSync}>
+              <Icon as={LuRefreshCw} /> Sync now
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={props.onDocs}>
             <Icon as={LuExternalLink} /> Docs
           </Button>

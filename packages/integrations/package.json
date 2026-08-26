@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./nango/connect": "./src/nango/connect.ts",
-    "./nango/connectBrowser": "./src/nango/connectBrowser.ts"
+    "./nango/connectBrowser": "./src/nango/connectBrowser.ts",
+    "./nango/slack": "./src/nango/slack.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",

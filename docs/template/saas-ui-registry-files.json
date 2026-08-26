@@ -194,7 +194,7 @@
       "source": "packages/blocks/settings/integration-card/integration-card.tsx",
       "destination": "apps/web/src/components/integration-card/integration-card.tsx",
       "sourceSha256": "6c00fbbb98bf7a58ed3d8bb83a3458e76d82e1b9f0a0846567b1afe49850777a",
-      "sha256": "554c143a316c58552992ce0315b141fb25d1779f919a6144def383cbe6bcf723",
+      "sha256": "df22586bd0d403260e03af254ab44eccdeb8248fc070b341b9642568432be578",
       "adapted": true
     },
     {
