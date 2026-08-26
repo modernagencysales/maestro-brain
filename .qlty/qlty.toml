@@ -320,6 +320,85 @@ match.file_patterns = [
 ]
 set.mode = "monitor"
 
+# Apero Company Brain launch ledger. These exact rule/path pairs shipped with
+# the provider-neutral evidence plane, bounded provider snapshots, and the
+# terminal-first client surfaces. The focused Convex, integration, CLI, and
+# required acceptance suites are the launch proof. The maestro-brain
+# maintainers own extraction of these pairs; neighboring paths and new rules
+# remain blocking. See docs/template/qlty-maintainability-baseline.md.
+[[triage]]
+match.rules = ["qlty:boolean-logic"]
+match.file_patterns = [
+  "apps/brain-cli/src/api.ts",
+  "packages/integrations/src/nango/googleDrive.ts",
+  "packages/integrations/src/nango/hubspot.ts",
+]
+set.mode = "monitor"
+
+[[triage]]
+match.rules = ["qlty:file-complexity"]
+match.file_patterns = [
+  "apps/brain-cli/src/api.ts",
+  "apps/web/src/features/connections/connections-page.tsx",
+  "packages/convex/confect/brain/evidence.impl.ts",
+  "packages/convex/confect/httpMcp.ts",
+  "packages/convex/confect/integrations/connections.impl.ts",
+  "packages/integrations/src/nango/googleDrive.ts",
+  "packages/integrations/src/nango/hubspot.ts",
+  "packages/integrations/src/nango/slack.ts",
+]
+set.mode = "monitor"
+
+[[triage]]
+match.rules = ["qlty:function-complexity"]
+match.file_patterns = [
+  "apps/brain-cli/src/api.ts",
+  "apps/brain-cli/src/evidenceCommand.ts",
+  "apps/brain-cli/src/importCommand.ts",
+  "apps/brain-cli/src/index.ts",
+  "apps/web/src/features/connections/connections-adapter.ts",
+  "apps/web/src/features/connections/connections-page.tsx",
+  "apps/web/src/features/connections/provider-sync-dialog.tsx",
+  "packages/convex/confect/agents/assistant.impl.ts",
+  "packages/convex/confect/brain/evidence.impl.ts",
+  "packages/convex/confect/brain/evidenceProjection.ts",
+  "packages/integrations/src/nango/googleDrive.ts",
+  "packages/integrations/src/nango/hubspot.ts",
+  "packages/integrations/src/nango/sha256.ts",
+  "packages/integrations/src/nango/slack.ts",
+]
+set.mode = "monitor"
+
+[[triage]]
+match.rules = ["qlty:nested-control-flow"]
+match.file_patterns = [
+  "packages/convex/confect/brain/evidence.impl.ts",
+  "packages/integrations/src/nango/googleDrive.ts",
+  "packages/integrations/src/nango/hubspot.ts",
+]
+set.mode = "monitor"
+
+[[triage]]
+match.rules = ["qlty:return-statements"]
+match.file_patterns = [
+  "apps/brain-cli/src/api.ts",
+  "apps/brain-cli/src/importCommand.ts",
+  "apps/brain-cli/src/index.ts",
+  "apps/web/src/features/connections/connections-page.tsx",
+  "packages/convex/confect/brain/evidenceProjection.ts",
+]
+set.mode = "monitor"
+
+[[triage]]
+match.rules = ["qlty:similar-code"]
+match.file_patterns = [
+  "packages/convex/confect/access/provisioning.impl.ts",
+  "packages/convex/confect/brain/pages.impl.ts",
+  "packages/convex/confect/integrations/connections.impl.ts",
+  "packages/integrations/src/nango/sha256.ts",
+]
+set.mode = "monitor"
+
 [[plugin]]
 name = "gitleaks"
 mode = "block"
