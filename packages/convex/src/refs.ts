@@ -7,6 +7,7 @@ import assistant from "../confect/agents/assistant.spec";
 import workspaces from "../confect/auth/workspaces.spec";
 import brainPages from "../confect/brain/pages.spec";
 import connections from "../confect/integrations/connections.spec";
+import apiKeys from "../confect/headless/apiKeys.spec";
 import records from "../confect/records/records.spec";
 
 const frontendSpec = Spec.make()
@@ -26,6 +27,10 @@ const frontendSpec = Spec.make()
   .addAt(
     "integrations",
     GroupSpec.makeAt("integrations").addGroupAt("connections", connections),
+  )
+  .addAt(
+    "headless",
+    GroupSpec.makeAt("headless").addGroupAt("apiKeys", apiKeys),
   )
   .addAt("records", GroupSpec.makeAt("records").addGroupAt("records", records));
 

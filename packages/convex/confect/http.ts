@@ -22,6 +22,7 @@ import {
   readJsonBody,
   type TemplateApiRequestBody,
 } from "./httpRequest";
+import { handleMcpHttpRequest } from "./httpMcp";
 import { parseBearerApiKey } from "./headless/auth";
 import { sha256Base64Url } from "./shared/tokenCrypto";
 
@@ -57,6 +58,7 @@ type TemplateRouteMatch =
   | { readonly kind: "dodoWebhook" }
   | { readonly kind: "postmarkWebhook" }
   | { readonly kind: "emailUnsubscribe" }
+  | { readonly kind: "mcp" }
   | { readonly kind: "operation"; readonly operationId: string }
   | { readonly kind: "notFound"; readonly pathname: string };
 
@@ -66,6 +68,7 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/webhooks/dodo": { kind: "dodoWebhook" },
   "/webhooks/email/postmark": { kind: "postmarkWebhook" },
   "/email/unsubscribe": { kind: "emailUnsubscribe" },
+  "/mcp": { kind: "mcp" },
   "/api/records.list": { kind: "operation", operationId: "records.list" },
   "/api/records.read": { kind: "operation", operationId: "records.read" },
   "/api/records.create": {
@@ -216,6 +219,11 @@ export const templateHttpRoutes = [
     method: "GET",
     description: "Serves the Scalar API documentation shell.",
   },
+  {
+    path: "/mcp",
+    method: "POST",
+    description: "Serves the hosted streamable HTTP MCP transport.",
+  },
   ...[
     ...new Set([
       ...confectManifest.functions
@@ -333,6 +341,9 @@ const templateRouteResponse = async (
       break;
     case "emailUnsubscribe":
       response = await emailUnsubscribeRouteResponse(ctx, request);
+      break;
+    case "mcp":
+      response = await handleMcpHttpRequest(ctx, request, jsonResponse);
       break;
     case "operation":
       response = await operationRouteResponse(ctx, request, route.operationId);
