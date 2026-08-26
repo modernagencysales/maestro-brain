@@ -23,6 +23,32 @@ describe("discoverHubSpotAccount", () => {
       displayName: "app.hubspot.com",
     });
   });
+
+  it("accepts string portal IDs and falls back to the account name", async () => {
+    const request = vi.fn(async () =>
+      Response.json({ portalId: "portal-789", accountName: "Apero" }),
+    );
+    await expect(
+      discoverHubSpotAccount({
+        secretKey: "secret",
+        providerConfigKey: "hubspot",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toEqual({ portalId: "portal-789", displayName: "Apero" });
+  });
+
+  it("rejects account responses without a portal ID", async () => {
+    const request = vi.fn(async () => Response.json({ accountName: "Apero" }));
+    await expect(
+      discoverHubSpotAccount({
+        secretKey: "secret",
+        providerConfigKey: "hubspot",
+        connectionId: "conn",
+        request,
+      }),
+    ).rejects.toMatchObject({ reason: "invalid_response" });
+  });
 });
 
 const response = (body: unknown) =>

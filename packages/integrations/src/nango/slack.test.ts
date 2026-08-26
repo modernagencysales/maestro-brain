@@ -31,6 +31,36 @@ describe("discoverSlackChannels", () => {
       { id: "C02", name: "sales", isPrivate: true },
     ]);
   });
+
+  it("paginates discovery and enforces its channel bound", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C01", name: "general" }],
+          response_metadata: { next_cursor: "page-2" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C02", name: "sales" }],
+          response_metadata: { next_cursor: "" },
+        }),
+      );
+
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+        maxChannels: 1,
+      }),
+    ).rejects.toBeInstanceOf(SlackSnapshotCapacityExceeded);
+    expect(String(request.mock.calls[1]?.[0])).toContain("cursor=page-2");
+  });
 });
 
 const jsonResponse = (body: unknown) =>

@@ -25,6 +25,31 @@ describe("Google Drive scope discovery", () => {
     ).resolves.toEqual([{ id: "drive-1", name: "Apero Shared" }]);
   });
 
+  it("paginates shared drives and enforces its discovery bound", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          drives: [{ id: "drive-1", name: "Apero" }],
+          nextPageToken: "page-2",
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ drives: [{ id: "drive-2", name: "Clients" }] }),
+      );
+
+    await expect(
+      discoverGoogleDrives({
+        secretKey: "secret",
+        providerConfigKey: "google-drive",
+        connectionId: "conn",
+        request,
+        maxDrives: 1,
+      }),
+    ).rejects.toMatchObject({ resource: "drives", capacity: 1 });
+    expect(String(request.mock.calls[1]?.[0])).toContain("pageToken=page-2");
+  });
+
   it("lists readable folders within only the selected drive", async () => {
     const request = vi.fn(async (_input: string | URL) => {
       void _input;
@@ -48,6 +73,17 @@ describe("Google Drive scope discovery", () => {
       },
     ]);
     expect(String(request.mock.calls[0]?.[0])).toContain("driveId=drive-1");
+  });
+
+  it("rejects folder discovery without an explicit Shared Drive", async () => {
+    await expect(
+      discoverGoogleDriveFolders({
+        secretKey: "secret",
+        providerConfigKey: "google-drive",
+        connectionId: "conn",
+        driveId: " ",
+      }),
+    ).rejects.toMatchObject({ reason: "invalid_input" });
   });
 });
 
