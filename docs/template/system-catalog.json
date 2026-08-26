@@ -50,9 +50,11 @@
       "kind": "product-system",
       "lifecycle": "active",
       "implementationStatus": "mixed",
-      "summary": "Owns source-backed pages, structured concepts and claims, citations, and bounded context packs used by product workflows and agents.",
+      "summary": "Owns source-backed pages, provider-neutral evidence and retrieval, structured concepts and claims, citations, and bounded context packs used by product workflows and agents.",
       "responsibilities": [
         "author brain pages",
+        "project and retrieve provider-neutral evidence",
+        "reconcile bounded connector snapshots",
         "curate concepts and claims",
         "attach evidence citations",
         "assemble source-grounded context"
@@ -69,7 +71,13 @@
         "sources"
       ],
       "tables": [
+        "brainConnectorRunSeen",
+        "brainConnectorRuns",
+        "brainEvidenceRevisions",
+        "brainEvidenceSources",
         "brainPages",
+        "brainRetrievalEntries",
+        "brainRetrievalTokens",
         "citations",
         "claims",
         "concepts",
