@@ -207,7 +207,7 @@ describe("standalone teammate CLI", () => {
     expect((await runCli(["status"], deps)).stdout).not.toContain("secret-key");
     expect((await runCli(["version"], deps)).stdout).toBe("0.1.0\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "@modernagencysales/maestro-brain@latest",
+      "/releases/latest/download/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');

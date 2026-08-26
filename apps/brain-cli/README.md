@@ -3,12 +3,15 @@
 Standalone terminal client for teammates and agents. Requires Node 22.
 
 ```bash
-npm install --global @modernagencysales/maestro-brain
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz
 maestro-brain setup
 eval "$(maestro-brain env)"
 maestro-brain doctor
 maestro-brain ask "What is our ICP?"
 ```
+
+Run `maestro-brain update` later to print the stable install command for the
+newest published CLI release.
 
 Setup opens the stable Maestro Brain terminal-link page and accepts its result
 only through a state-bound loopback callback. It stores the linked workspace key
