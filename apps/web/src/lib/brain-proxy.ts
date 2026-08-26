@@ -1,3 +1,5 @@
+import { configuredConvexRuntimeUrl } from "../env";
+
 export const convexSiteOrigin = (configured: string): string => {
   const url = new URL(configured);
   if (url.hostname.endsWith(".convex.cloud"))
@@ -9,8 +11,6 @@ export const convexSiteOrigin = (configured: string): string => {
 };
 
 export const configuredBrainApiOrigin = (): string | undefined => {
-  const value = import.meta.env.VITE_CONVEX_URL;
-  return typeof value === "string" && value.trim()
-    ? convexSiteOrigin(value.trim())
-    : undefined;
+  const value = configuredConvexRuntimeUrl();
+  return value ? convexSiteOrigin(value) : undefined;
 };
