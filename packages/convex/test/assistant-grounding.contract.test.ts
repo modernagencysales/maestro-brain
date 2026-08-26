@@ -97,4 +97,97 @@ describe("grounded assistant Confect contract", () => {
     ]);
     expect(result.answer.answerMarkdown).not.toContain("Monday");
   });
+
+  it("abstains when a multi-word question only overlaps generic operational text", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* actor.mutation(refs.public.brain.pages.createMarkdown, {
+        workspaceId: seeded.workspaceId,
+        slug: "start-here",
+        title: "Start Here",
+        markdown:
+          "This is the shared company workspace. Use evidence search followed by exact source reopening.",
+      });
+
+      return yield* actor.query(refs.public.agents.assistant.answerQuestion, {
+        workspaceId: seeded.workspaceId,
+        question: "Where is the authoritative source for our ICP?",
+      });
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toMatchObject({
+      status: "insufficient-context",
+      reason: "no-eligible-evidence",
+      answerMarkdown: null,
+      contextPack: { citations: [] },
+    });
+  });
+
+  it("drops weak trailing matches while retaining similarly strong sources", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const firstId = yield* actor.mutation(
+        refs.public.brain.pages.createMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          slug: "release-smoke",
+          title: "Release quasar live smoke",
+          markdown:
+            "The release smoke verifies canonical Brain reads and evidence indexing.",
+        },
+      );
+      const secondId = yield* actor.mutation(
+        refs.public.brain.pages.createMarkdown,
+        {
+          workspaceId: seeded.workspaceId,
+          slug: "release-smoke-receipt",
+          title: "Quasar release receipt",
+          markdown: "This release receipt verifies the quasar deployment.",
+        },
+      );
+      yield* actor.mutation(refs.public.brain.pages.createMarkdown, {
+        workspaceId: seeded.workspaceId,
+        slug: "generic-live-page",
+        title: "Import live page",
+        markdown: "This live page describes an unrelated import.",
+      });
+
+      return yield* actor
+        .query(refs.public.agents.assistant.answerQuestion, {
+          workspaceId: seeded.workspaceId,
+          question: "What does the quasar release live smoke verify?",
+        })
+        .pipe(Effect.map((answer) => ({ answer, firstId, secondId })));
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    const sourceIds = result.answer.contextPack.citations.map(
+      ({ sourceId }) => sourceId,
+    );
+
+    expect(result.answer.status).toBe("answered");
+    expect(sourceIds).toEqual(
+      expect.arrayContaining([
+        `brain-page:${result.firstId}`,
+        `brain-page:${result.secondId}`,
+      ]),
+    );
+    expect(sourceIds).toHaveLength(2);
+  });
 });

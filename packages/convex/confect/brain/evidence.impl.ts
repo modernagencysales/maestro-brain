@@ -101,6 +101,7 @@ const searchEvidence = (input: {
   readonly query: string;
   readonly limit?: number | undefined;
   readonly asOf: number;
+  readonly relevanceMode?: "broad" | "grounded" | undefined;
 }) =>
   Effect.gen(function* () {
     const queryTokens = evidenceTokens("", input.query)
@@ -157,8 +158,12 @@ const searchEvidence = (input: {
     );
     const citations = [];
     const citedEntries = new Set<string>();
+    const groundedMinimumScore =
+      input.relevanceMode === "grounded" && queryTokens.length > 1 ? 2 : 0;
+    let topEligibleScore: number | null = null;
     for (const [, candidate] of ranked) {
       if (citations.length >= citationLimit) break;
+      if (candidate.score < groundedMinimumScore) break;
       if (citedEntries.has(candidate.entryKey)) continue;
       const entry = yield* reader
         .table("brainRetrievalEntries")
@@ -172,6 +177,12 @@ const searchEvidence = (input: {
       if (entry === null || entry.status !== "current") continue;
       if (!(yield* providerIsEligible(input.workspaceId, entry.provider)))
         continue;
+      if (topEligibleScore === null) topEligibleScore = candidate.score;
+      else if (
+        input.relevanceMode === "grounded" &&
+        candidate.score < topEligibleScore * 0.4
+      )
+        break;
       if (
         entry.contentHash !== evidenceContentHash(entry.title, entry.markdown)
       )

@@ -163,6 +163,7 @@ const answerGroundedQuestion = (input: {
       workspaceId: input.workspaceId,
       query: normalizedQuestion,
       asOf: now,
+      relevanceMode: "grounded",
       ...(input.maxCitations === undefined
         ? {}
         : { limit: input.maxCitations }),
