@@ -11,6 +11,10 @@ apps/*/dist/
 apps/*/.output/
 packages/*/dist/
 tooling/*/dist/
+
+# Confect creates transient module bundles beside source files during local sync.
+/packages/convex/confect/**/*.bundled_*.mjs
+
 test-results/
 playwright-report/
 artifacts/saas-ui-golden/*
