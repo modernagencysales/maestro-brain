@@ -856,6 +856,24 @@ const sharedConfectJsonSchemasValue4 = {
         },
       ],
     },
+    lastSyncSourceCount: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     syncErrorCode: {
       anyOf: [
         {
@@ -1073,19 +1091,18 @@ const sharedConfectJsonSchemas = {
                 sourceRevisionId: {
                   type: "string",
                 },
-                pageId: {
+                provider: {
                   type: "string",
-                },
-                revisionUpdatedAt: {
-                  anyOf: [
-                    {
-                      type: "number",
-                    },
-                    {
-                      type: "string",
-                      enum: ["Infinity", "-Infinity", "NaN"],
-                    },
+                  enum: [
+                    "brain_page",
+                    "slack",
+                    "google_drive",
+                    "hubspot",
+                    "transcript",
                   ],
+                },
+                revisionKey: {
+                  type: "string",
                 },
                 title: {
                   type: "string",
@@ -1115,6 +1132,41 @@ const sharedConfectJsonSchemas = {
                     },
                   ],
                 },
+                contentHash: {
+                  type: "string",
+                },
+                locator: {
+                  anyOf: [
+                    {
+                      type: "string",
+                    },
+                    {
+                      type: "null",
+                    },
+                  ],
+                },
+                sourceModifiedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                observedAt: {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
                 freshness: {
                   type: "string",
                   enum: ["current", "review-due", "stale"],
@@ -1124,12 +1176,15 @@ const sharedConfectJsonSchemas = {
                 "citationKey",
                 "sourceId",
                 "sourceRevisionId",
-                "pageId",
-                "revisionUpdatedAt",
+                "provider",
+                "revisionKey",
                 "title",
                 "excerpt",
                 "startOffset",
                 "endOffset",
+                "contentHash",
+                "sourceModifiedAt",
+                "observedAt",
                 "freshness",
               ],
               additionalProperties: false,
@@ -2493,6 +2548,24 @@ const sharedConfectJsonSchemas = {
           ],
         },
         lastSyncPageCount: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lastSyncSourceCount: {
           anyOf: [
             {
               anyOf: [

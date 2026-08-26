@@ -584,7 +584,7 @@ const syncGoogleDrive = FunctionImpl.make(
               workspaceId,
               runKey,
               failureCode: "google_drive_sync_failed",
-              failedAt: Date.now(),
+              failedAt: observedAt,
             }).pipe(Effect.ignore),
             mutation(
               refs.internal.integrations.connections.recordProviderSync,
@@ -683,7 +683,7 @@ const syncHubSpot = FunctionImpl.make(
               workspaceId,
               runKey,
               failureCode: "hubspot_sync_failed",
-              failedAt: Date.now(),
+              failedAt: observedAt,
             }).pipe(Effect.ignore),
             mutation(
               refs.internal.integrations.connections.recordProviderSync,
@@ -793,7 +793,7 @@ const syncSlack = FunctionImpl.make(
               workspaceId,
               runKey,
               failureCode: "slack_sync_failed",
-              failedAt: Date.now(),
+              failedAt: startedAt,
             }).pipe(Effect.ignore),
             mutation(refs.internal.integrations.connections.recordSlackSync, {
               workspaceId,
