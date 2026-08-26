@@ -24,8 +24,7 @@ claim
 ## Live context receipt
 
 The workspace contains a reviewed operational `Start Here` page. It deliberately
-contains no fabricated Apero business facts. Live evidence search returned one
-current entry and exact source reopening returned:
+contains no fabricated Apero business facts. Its exact source receipt is:
 
 - source key: `brain-page:kd7byfxj74q043nqw1nzne03ex8d6rem`
 - revision key: `1787748244492`
@@ -36,6 +35,38 @@ The public CLI release `0.1.1` passed `status`, `doctor`, MCP tool discovery,
 evidence health, evidence search, exact source reopening, and page listing
 against the `apero` workspace. Doctor passed the API, MCP protocol, MCP catalog,
 and workspace-evidence checks. MCP advertised nine Company Brain tools.
+
+## CLI 0.1.2 live import receipt
+
+- Merge commit: `526ae608dc148b1080a822080474a93dea0bc18b`
+- Release: `brain-cli-v0.1.2`
+- Stable asset: `maestro-brain.tgz`
+- Artifact SHA-256:
+  `5ebb3f3e33dbea49264a33471cd305de2d42efb69feb6c5089049d82ee75ace2`
+- Staging deployment: GitHub deployment `6105262876`
+- Cloudflare Worker version: `01facc47-4aec-4558-b60b-3c17c8a18846`
+- Convex deployment: `perfect-sparrow-808`
+
+The publicly installed `0.1.2` CLI imported one deliberately non-sensitive
+operational page with marker `APERO-BRAIN-CLI-012-REPEATABLE-IMPORT`. The first
+run reported one create; an immediate replay reported one unchanged item and no
+duplicate; an edited title and body reported one update. The page retained its
+stable source key:
+
+- source key: `brain-page:kd759f2pezaej2tewwzp6c5ggd8d7ts5`
+- initial revision: `1787753092637`
+- initial content hash:
+  `be59c1c8bf86ff7a7d626d981494e8079ca5daf500fef0aeb0a887dd452c39a1`
+- updated revision: `1787753117123`
+- updated content hash:
+  `a7d4ad4526e5ed230bf2fa074a10168b57eb281838db6febccaf61936f574de0`
+
+Exact source reopening returned both the initial and updated bodies. Evidence
+search returned only the updated revision as current. The synchronized page
+title was `Brain CLI 0.1.2 Live Import Proof — Updated`. `doctor`, evidence
+health, MCP initialization, and MCP tool discovery also passed after deployment.
+The temporary Convex deploy key used for the fallback was revoked immediately
+after deployment.
 
 A separate controlled staging workspace proved create, immediate publication,
 exact citation reopening, optimistic update, current-entry replacement, old
@@ -50,7 +81,7 @@ page:
 
 | Provider     | Active sources | Current entries | Coverage state                      |
 | ------------ | -------------: | --------------: | ----------------------------------- |
-| Brain page   |              1 |               1 | current index covers active sources |
+| Brain page   |              2 |               2 | current index covers active sources |
 | Slack        |              0 |               0 | no active sources                   |
 | Google Drive |              0 |               0 | no active sources                   |
 | HubSpot      |              0 |               0 | no active sources                   |
