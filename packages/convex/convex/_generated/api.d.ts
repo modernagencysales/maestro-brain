@@ -13,6 +13,7 @@ import type * as access_members from "../access/members.js";
 import type * as access_provisioning from "../access/provisioning.js";
 import type * as agents_assistant from "../agents/assistant.js";
 import type * as auth_workspaces from "../auth/workspaces.js";
+import type * as brain_evidence from "../brain/evidence.js";
 import type * as brain_pages from "../brain/pages.js";
 import type * as capabilities__versions_publicationEcho_v1 from "../capabilities/_versions/publicationEcho/v1.js";
 import type * as capabilities_catalog from "../capabilities/catalog.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "access/provisioning": typeof access_provisioning;
   "agents/assistant": typeof agents_assistant;
   "auth/workspaces": typeof auth_workspaces;
+  "brain/evidence": typeof brain_evidence;
   "brain/pages": typeof brain_pages;
   "capabilities/_versions/publicationEcho/v1": typeof capabilities__versions_publicationEcho_v1;
   "capabilities/catalog": typeof capabilities_catalog;
