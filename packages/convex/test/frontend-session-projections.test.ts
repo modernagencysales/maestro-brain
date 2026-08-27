@@ -45,9 +45,10 @@ describe("authenticated frontend projections", () => {
         refs.public.auth.workspaces.list,
         {},
       );
-      const outsiderWorkspace = yield* outsider
-        .query(refs.public.auth.workspaces.bySlug, { slug: "acme-demo" })
-        .pipe(Effect.flip);
+      const outsiderWorkspace = yield* outsider.query(
+        refs.public.auth.workspaces.bySlug,
+        { slug: "acme-demo" },
+      );
       return { seeded, outsiderList, outsiderWorkspace };
     });
 
@@ -55,7 +56,7 @@ describe("authenticated frontend projections", () => {
       program.pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.outsiderList).toEqual([]);
-    expect(result.outsiderWorkspace).toBeInstanceOf(MemberNotInWorkspace);
+    expect(result.outsiderWorkspace).toBeNull();
   });
 
   it("creates and updates an authorized workspace for onboarding", async () => {

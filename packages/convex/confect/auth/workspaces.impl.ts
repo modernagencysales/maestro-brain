@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { Forbidden, MemberNotInWorkspace, ValidationFailed } from "../errors";
+import { Forbidden, ValidationFailed } from "../errors";
 import { isLiveWorkspaceMembership } from "../access/lifecycle";
 import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import {
@@ -188,9 +188,12 @@ const bySlug = FunctionImpl.make(
         membership === null ||
         !isLiveWorkspaceMembership(toLifecycleMember(membership))
       ) {
-        return yield* Effect.fail(
-          new MemberNotInWorkspace({ membershipId: "workspace" }),
-        );
+        // Workspace route lookup is an existence projection, not an
+        // authorization operation. Returning null keeps a non-member and a
+        // missing workspace indistinguishable, and lets the router render its
+        // normal not-found state instead of surfacing an expected access state
+        // as a generic Convex server error.
+        return null;
       }
       return frontendWorkspace(workspace);
     }),
