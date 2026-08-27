@@ -47,6 +47,7 @@ pnpm exec tsx tooling/release/src/index.ts promote-plan "${STAGED_SHA}" "${CURRE
 DEPLOY_ENVIRONMENT=production pnpm exec tsx tooling/release/src/deploy/guardedDeploy.ts convex
 (cd packages/convex && pnpm exec convex run demo/showcase:seed)
 tooling/ci/deploy-canary.sh backend
+tooling/ci/authenticated-workspace-canary.sh
 
 VITE_CONVEX_URL="$(node scripts/_project-config.mjs get production convexUrl)"
 export VITE_CONVEX_URL

@@ -90,4 +90,19 @@ describe("Woodpecker firewall and epoch pipelines", () => {
       ).not.toBe(0);
     }
   });
+
+  it("blocks deployment when authenticated workspace routing regresses", () => {
+    for (const path of [
+      "tooling/ci/staging-deploy.sh",
+      "tooling/ci/production-promote.sh",
+    ]) {
+      const script = read(path);
+      expect(script.indexOf("deploy-canary.sh backend")).toBeLessThan(
+        script.indexOf("authenticated-workspace-canary.sh"),
+      );
+      expect(script.indexOf("authenticated-workspace-canary.sh")).toBeLessThan(
+        script.indexOf("guardedDeploy.ts cloudflare"),
+      );
+    }
+  });
 });
