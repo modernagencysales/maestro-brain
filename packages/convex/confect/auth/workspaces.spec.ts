@@ -40,7 +40,7 @@ const bySlug = FunctionSpec.publicQuery({
   name: "bySlug",
   args: () => Schema.Struct({ slug: Schema.String }),
   returns: () => Schema.NullOr(frontendWorkspace),
-  error: () => Schema.Union([Unauthorized, MemberNotInWorkspace]),
+  error: () => Unauthorized,
 });
 
 const WorkspaceList = Schema.Array(workspaces.Doc);
