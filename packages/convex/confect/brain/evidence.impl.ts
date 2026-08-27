@@ -425,11 +425,9 @@ const currentGet = FunctionImpl.make(
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (entry === null || entry.status !== "current")
-        return yield* new NotFound({
-          resource: "brainRetrievalEntries",
-          id: entryKey,
-        });
+      if (entry === null || entry.status !== "current") return null;
+      if (!(yield* providerIsEligible(workspaceId, entry.provider)))
+        return null;
       return yield* getEvidenceSource({
         workspaceId,
         sourceKey: entry.sourceKey,

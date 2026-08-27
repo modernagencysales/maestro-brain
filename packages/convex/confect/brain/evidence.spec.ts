@@ -234,7 +234,7 @@ const listCurrent = FunctionSpec.publicQuery({
 const currentGet = FunctionSpec.publicQuery({
   name: "currentGet",
   args: () => CurrentGetArgs,
-  returns: () => SourceGetReturns,
+  returns: () => S.NullOr(SourceGetReturns),
   error: () => ReadError,
 });
 
