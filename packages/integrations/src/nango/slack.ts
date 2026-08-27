@@ -27,6 +27,7 @@ export type SlackChannelOption = Readonly<{
   id: string;
   name: string;
   isPrivate: boolean;
+  isMember: boolean;
 }>;
 
 export class SlackSnapshotCapacityExceeded extends Error {
@@ -54,6 +55,17 @@ export class SlackChannelAllowlistInvalid extends Error {
         : `Slack snapshot could not resolve approved channels: ${missingChannelIds.join(", ")}.`,
     );
     this.name = "SlackChannelAllowlistInvalid";
+  }
+}
+
+export class SlackChannelMembershipRequired extends Error {
+  readonly resource = "channels" as const;
+
+  constructor(readonly channelIds: readonly string[]) {
+    super(
+      `Invite Maestro Brain to the selected private Slack ${channelIds.length === 1 ? "channel" : "channels"}, then sync again.`,
+    );
+    this.name = "SlackChannelMembershipRequired";
   }
 }
 
@@ -191,6 +203,7 @@ export const discoverSlackChannels = async (input: {
             id: id.trim(),
             name: name.trim(),
             isPrivate: channel.is_private === true,
+            isMember: channel.is_member !== false,
           },
         ]
       : [];
@@ -279,6 +292,21 @@ const loadChannelMessages = async (input: {
   return messages;
 };
 
+const joinPublicChannel = async (input: {
+  readonly channelId: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly request: Request;
+}): Promise<void> => {
+  const body = await readRecord(
+    await input.request(proxyUrl("conversations.join", {}), {
+      method: "POST",
+      headers: { ...input.headers, "content-type": "application/json" },
+      body: JSON.stringify({ channel: input.channelId }),
+    }),
+  );
+  if (body.ok !== true) throw new NangoProviderUnavailable();
+};
+
 export const fetchSlackSnapshot = async (input: {
   readonly secretKey: string;
   readonly providerConfigKey: string;
@@ -328,7 +356,14 @@ export const fetchSlackSnapshot = async (input: {
     const id = channel.id;
     const name = channel.name;
     return typeof id === "string" && typeof name === "string"
-      ? [{ id, name }]
+      ? [
+          {
+            id,
+            name,
+            isPrivate: channel.is_private === true,
+            isMember: channel.is_member !== false,
+          },
+        ]
       : [];
   });
   const channelById = new Map(
@@ -341,15 +376,30 @@ export const fetchSlackSnapshot = async (input: {
     throw new SlackChannelAllowlistInvalid(missingChannelIds);
   const approvedChannels = approvedChannelIds
     .map((channelId) => channelById.get(channelId))
-    .filter(
-      (channel): channel is { readonly id: string; readonly name: string } =>
-        channel !== undefined,
+    .filter((channel): channel is NonNullable<typeof channel> =>
+      Boolean(channel),
     );
+
+  const privateChannelsNeedingInvite = approvedChannels
+    .filter((channel) => channel.isPrivate && !channel.isMember)
+    .map((channel) => channel.id);
+  if (privateChannelsNeedingInvite.length > 0)
+    throw new SlackChannelMembershipRequired(privateChannelsNeedingInvite);
+
+  for (const channel of approvedChannels) {
+    if (channel.isMember) continue;
+    await joinPublicChannel({
+      channelId: channel.id,
+      headers,
+      request,
+    });
+  }
 
   const channels: SlackSnapshot["channels"][number][] = [];
   for (const channel of approvedChannels) {
     channels.push({
-      ...channel,
+      id: channel.id,
+      name: channel.name,
       messages: await loadChannelMessages({
         channelId: channel.id,
         headers,

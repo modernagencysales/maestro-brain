@@ -26,6 +26,15 @@ export type ProviderScopeDiscovery = Readonly<{
   resolvedContainerId?: string
 }>
 
+export const toggleScopeSelection = (
+  current: readonly string[],
+  scopeId: string,
+  checked: boolean,
+): string[] =>
+  checked
+    ? [...new Set([...current, scopeId])]
+    : current.filter((id) => id !== scopeId)
+
 export function ProviderSyncDialog(props: {
   open: boolean
   provider: SyncProvider | null
@@ -189,9 +198,31 @@ export function ProviderSyncDialog(props: {
 
             {!discovering && !manualMode && (slack || drive) && discovery ? (
               <Field.Root required>
-                <Field.Label>
-                  {slack ? 'Approved channels' : 'Approved folders'}
-                </Field.Label>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Field.Label>
+                    {slack ? 'Approved channels' : 'Approved folders'}
+                  </Field.Label>
+                  <Box display="flex" gap="1">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() =>
+                        setSelectedScopeIds(
+                          discovery.scopes.map((scope) => scope.id),
+                        )
+                      }
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setSelectedScopeIds([])}
+                    >
+                      Clear
+                    </Button>
+                  </Box>
+                </Box>
                 <VStack
                   align="stretch"
                   maxH="72"
@@ -213,9 +244,11 @@ export function ProviderSyncDialog(props: {
                         checked={selectedScopeIds.includes(scope.id)}
                         onCheckedChange={({ checked }) =>
                           setSelectedScopeIds((current) =>
-                            checked === true
-                              ? [...new Set([...current, scope.id])]
-                              : current.filter((id) => id !== scope.id),
+                            toggleScopeSelection(
+                              current,
+                              scope.id,
+                              checked === true,
+                            ),
                           )
                         }
                       >

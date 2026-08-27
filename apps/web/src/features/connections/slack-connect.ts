@@ -55,3 +55,16 @@ export const runSlackSyncWithFeedback = async (input: {
     input.onError()
   }
 }
+
+export const slackSyncErrorMessage = (error: unknown): string => {
+  const data = (error as { readonly data?: unknown } | null)?.data
+  if (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { readonly _tag?: unknown })._tag === 'ValidationFailed' &&
+    typeof (data as { readonly message?: unknown }).message === 'string'
+  ) {
+    return (data as { readonly message: string }).message
+  }
+  return 'Check the approved Slack channels and try again.'
+}

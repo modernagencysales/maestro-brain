@@ -6,6 +6,7 @@ import {
 import {
   discoverSlackChannels,
   fetchSlackSnapshot,
+  SlackChannelMembershipRequired,
 } from "@maestro-template/integrations/nango/slack";
 import {
   discoverGoogleDriveFolders,
@@ -295,6 +296,11 @@ const providerFailure = () =>
     message: "Provider authorization is temporarily unavailable. Try again.",
   });
 
+const slackSyncFailure = (error: unknown) =>
+  error instanceof SlackChannelMembershipRequired
+    ? new ValidationFailed({ field: "channelIds", message: error.message })
+    : providerFailure();
+
 const beginSlackOauth = FunctionImpl.make(
   databaseSchema,
   connections,
@@ -493,9 +499,15 @@ const discoverProviderScopes = FunctionImpl.make(
               scopes: channels.map((channel) => ({
                 id: channel.id,
                 label: `#${channel.name}`,
-                ...(channel.isPrivate
-                  ? { description: "Private channel" }
-                  : {}),
+                ...(!channel.isMember
+                  ? {
+                      description: channel.isPrivate
+                        ? "Private channel · invite Maestro Brain before syncing"
+                        : "Maestro Brain will join this public channel when sync starts",
+                    }
+                  : channel.isPrivate
+                    ? { description: "Private channel" }
+                    : {}),
               })),
             };
           }
@@ -940,7 +952,7 @@ const runSlackSync = (
             channelIds,
             limits: { maxMessagesTotal: 1_000 },
           }),
-        catch: providerFailure,
+        catch: slackSyncFailure,
       });
       const syncedAt = yield* Clock.currentTimeMillis;
       const items = buildSlackEvidenceItems(snapshot, {

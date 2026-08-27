@@ -4,6 +4,7 @@ import {
   isLiveSlackOauthTransition,
   runSlackConnect,
   runSlackSyncWithFeedback,
+  slackSyncErrorMessage,
 } from './slack-connect'
 
 describe('runSlackConnect', () => {
@@ -84,5 +85,25 @@ describe('runSlackSyncWithFeedback', () => {
     })
 
     expect(onError).not.toHaveBeenCalled()
+  })
+})
+
+describe('slackSyncErrorMessage', () => {
+  it('surfaces actionable provider validation messages', () => {
+    expect(
+      slackSyncErrorMessage({
+        data: {
+          _tag: 'ValidationFailed',
+          field: 'channelIds',
+          message: 'Invite Maestro Brain to the private channel, then sync again.',
+        },
+      }),
+    ).toBe('Invite Maestro Brain to the private channel, then sync again.')
+  })
+
+  it('falls back for unknown failures', () => {
+    expect(slackSyncErrorMessage(new Error('network failed'))).toBe(
+      'Check the approved Slack channels and try again.',
+    )
   })
 })
