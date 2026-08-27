@@ -25,4 +25,8 @@ node -e 'const result=JSON.parse(process.env.CANARY_OWN_RESULT); if(result?.slug
 
 CANARY_FOREIGN_RESULT="$(cd packages/convex && pnpm exec convex run auth/workspaces:bySlug '{"slug":"demo-showcase"}' --identity "${CANARY_IDENTITY}")"
 export CANARY_FOREIGN_RESULT
-node -e 'const result=JSON.parse(process.env.CANARY_FOREIGN_RESULT); if(result!==null) throw new Error("Foreign workspace route canary must return null")'
+# Convex CLI 1.42 renders a successful null query result as empty stdout rather
+# than the JSON token `null`. Preserve the exit-status check from the command
+# substitution and normalize both representations before asserting the route
+# contract.
+node -e 'const raw=(process.env.CANARY_FOREIGN_RESULT??"").trim(); const result=raw===""?null:JSON.parse(raw); if(result!==null) throw new Error("Foreign workspace route canary must return null")'
