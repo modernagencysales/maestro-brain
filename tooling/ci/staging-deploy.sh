@@ -41,6 +41,7 @@ pnpm exec tsx tooling/release/src/index.ts deploy-doctor staging
 DEPLOY_ENVIRONMENT=staging pnpm exec tsx tooling/release/src/deploy/guardedDeploy.ts convex
 (cd packages/convex && pnpm exec convex run demo/showcase:seed)
 tooling/ci/deploy-canary.sh backend
+tooling/ci/authenticated-workspace-canary.sh
 
 VITE_CONVEX_URL="$(node scripts/_project-config.mjs get staging convexUrl)"
 export VITE_CONVEX_URL
