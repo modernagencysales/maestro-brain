@@ -111,6 +111,21 @@ test(
     await expect(page.getByLabel("Agency Brain page editor")).toBeVisible({
       timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
     });
+    const navigatorBounds = await page
+      .getByRole("region", { name: "Brain page tree" })
+      .boundingBox();
+    const editorBounds = await page
+      .getByLabel("Agency Brain page editor")
+      .boundingBox();
+    expect(navigatorBounds).not.toBeNull();
+    expect(editorBounds).not.toBeNull();
+    expect(editorBounds?.x ?? 0).toBeGreaterThan(
+      (navigatorBounds?.x ?? 0) + (navigatorBounds?.width ?? 0) - 2,
+    );
+    expect(editorBounds?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(
+      (navigatorBounds?.y ?? 0) + 200,
+    );
+    expect(navigatorBounds?.height ?? 0).toBeGreaterThan(500);
     await expect(
       page
         .getByRole("navigation", { name: "breadcrumb" })

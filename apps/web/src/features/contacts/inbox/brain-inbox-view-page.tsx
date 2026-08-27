@@ -42,7 +42,15 @@ import {
 } from '#lib/auth/route-auth'
 import { runIsolatedHeadlessOperation } from '#lib/headless-api'
 
-import { brainPageFixtures } from './brain-inbox-adapter'
+import {
+  brainEvidenceFixtures,
+  brainPageFixtures,
+} from './brain-inbox-adapter'
+import { parseBrainEvidenceRouteId } from './brain-inbox-adapter'
+import {
+  BrainEvidenceProvenanceRail,
+  type BrainEvidenceDetail,
+} from './brain-evidence-provenance-rail'
 import { BrainPageOrganizeDialog } from './brain-page-organize-dialog'
 import { BrainPageHistoryDialog } from './brain-page-history-dialog'
 import {
@@ -67,6 +75,9 @@ const archivePageRef = getFunctionReference(
 )
 const historyRef = getFunctionReference(
   templateConfectRefs.public.brain.pages.history,
+)
+const currentEvidenceRef = getFunctionReference(
+  templateConfectRefs.public.brain.evidence.currentGet,
 )
 
 const fixtureMarkdown = `# Client overview
@@ -116,6 +127,7 @@ const fixtureHistory: readonly BrainPageRevisionSummary[] = [
 ]
 
 const useBrainHistory = (input: {
+  enabled: boolean
   fixtureRuntime: boolean
   isolatedContracts: boolean
   pageId: string
@@ -123,7 +135,7 @@ const useBrainHistory = (input: {
 }): readonly BrainPageRevisionSummary[] => {
   const convexHistory = useConvexQuery(
     historyRef,
-    input.fixtureRuntime || input.isolatedContracts
+    !input.enabled || input.fixtureRuntime || input.isolatedContracts
       ? 'skip'
       : { workspaceId: input.workspaceId, pageId: input.pageId as never },
   )
@@ -134,8 +146,9 @@ const useBrainHistory = (input: {
         operationId: 'brain.pages.history',
         operationInput: { pageId: input.pageId },
       }),
-    enabled: input.isolatedContracts,
+    enabled: input.enabled && input.isolatedContracts,
   })
+  if (!input.enabled) return []
   if (input.fixtureRuntime) return fixtureHistory
   if (input.isolatedContracts) return contractHistory.data ?? []
   return (convexHistory ?? []) as readonly BrainPageRevisionSummary[]
@@ -159,6 +172,7 @@ const showBrainSaveFailure = (error: unknown) => {
 const pageMarkdown = (page: BrainEditorPage | undefined) => page?.markdown ?? ''
 const pageUpdatedAt = (page: BrainEditorPage | undefined) => page?.updatedAt ?? 0
 const useBrainPage = (input: {
+  enabled: boolean
   fixtureRuntime: boolean
   isolatedContracts: boolean
   pageId: string
@@ -166,7 +180,7 @@ const useBrainPage = (input: {
 }): BrainEditorPage | undefined => {
   const convexQuery = useConvexQuery(
     getPageRef,
-    input.fixtureRuntime
+    !input.enabled || input.fixtureRuntime
       ? 'skip'
       : { workspaceId: input.workspaceId, pageId: input.pageId as never },
   )
@@ -177,13 +191,49 @@ const useBrainPage = (input: {
         operationId: 'brain.pages.get',
         operationInput: { pageId: input.pageId },
       }),
-    enabled: input.isolatedContracts,
+    enabled: input.enabled && input.isolatedContracts,
   })
+  if (!input.enabled) return undefined
   return input.isolatedContracts
     ? contractQuery.data
     : input.fixtureRuntime
       ? fixturePage(input.pageId)
       : (convexQuery as BrainEditorPage | undefined)
+}
+
+const useBrainEvidenceDetail = (input: {
+  entryKey?: string
+  fixtureRuntime: boolean
+  isolatedContracts: boolean
+  workspaceId: string
+}): BrainEvidenceDetail | undefined => {
+  const evidence = useConvexQuery(
+    currentEvidenceRef,
+    input.entryKey === undefined ||
+      input.fixtureRuntime ||
+      input.isolatedContracts
+      ? 'skip'
+      : { workspaceId: input.workspaceId, entryKey: input.entryKey },
+  )
+  if (input.fixtureRuntime && input.entryKey !== undefined) {
+    const summary = brainEvidenceFixtures.find(
+      ({ entryKey }) => entryKey === input.entryKey,
+    )
+    if (!summary) return undefined
+    return {
+      sourceKey: summary.sourceKey,
+      revisionKey: summary.revisionKey,
+      provider: summary.provider,
+      scopeKey: 'slack:fixture-connection',
+      title: summary.title,
+      markdown: `# ${summary.title}\n\n${summary.excerpt}`,
+      ...(summary.locator === undefined ? {} : { locator: summary.locator }),
+      sourceModifiedAt: summary.sourceModifiedAt,
+      observedAt: summary.observedAt,
+      tombstone: false,
+    }
+  }
+  return evidence as BrainEvidenceDetail | undefined
 }
 
 const useBrainMarkdown = (input: {
@@ -288,6 +338,40 @@ const useBrainMarkdown = (input: {
   } as const
 }
 
+function BrainMarkdownSurface(props: {
+  readOnly: boolean
+  value: string
+  onChange?: (value: string) => void
+}) {
+  const [editor, setEditor] = React.useState<{
+    setEditable: (editable: boolean) => void
+  } | null>(null)
+  const captureEditor = React.useCallback(
+    (current: { setEditable: (editable: boolean) => void } | null) =>
+      setEditor(current),
+    [],
+  )
+  React.useEffect(() => {
+    editor?.setEditable(!props.readOnly)
+  }, [editor, props.readOnly])
+  return (
+    <Editor
+      aria-label={
+        props.readOnly
+          ? 'Synced Brain evidence viewer'
+          : 'Agency Brain page editor'
+      }
+      value={props.value}
+      onChange={props.onChange}
+      editorRef={captureEditor}
+      format="markdown"
+      toolbar={!props.readOnly}
+      minHeight="60vh"
+      placeholder="Write the company context your team and agents should know…"
+    />
+  )
+}
+
 const isBrainMutationDisabled = (input: {
   fixtureRuntime: boolean
   pageLoaded: boolean
@@ -370,6 +454,35 @@ function BrainPageToolbar(props: {
   )
 }
 
+function BrainEvidenceToolbar(props: {
+  onBack: () => Promise<void>
+  onDetails: () => void
+}) {
+  return (
+    <ButtonGroup>
+      <Tooltip content="All Brain pages and sources">
+        <IconButton
+          aria-label="All Brain pages and sources"
+          variant="ghost"
+          onClick={props.onBack}
+        >
+          <LuChevronLeft />
+        </IconButton>
+      </Tooltip>
+      <Tooltip content="Source context">
+        <IconButton
+          display={{ base: 'inline-flex', xl: 'none' }}
+          aria-label="Show source context"
+          variant="ghost"
+          onClick={props.onDetails}
+        >
+          <LuPanelRightOpen />
+        </IconButton>
+      </Tooltip>
+    </ButtonGroup>
+  )
+}
+
 export function BrainInboxViewPage({
   params,
 }: {
@@ -381,16 +494,26 @@ export function BrainInboxViewPage({
   const modals = useModals()
   const fixtureRuntime = isFixtureAuthRuntime()
   const isolatedContracts = isIsolatedContractsRuntime()
+  const evidenceEntryKey = parseBrainEvidenceRouteId(params.id)
+  const editingPage = evidenceEntryKey === undefined
   const page = useBrainPage({
+    enabled: editingPage,
     fixtureRuntime,
     isolatedContracts,
     pageId: params.id,
     workspaceId: workspace.id,
   })
   const revisions = useBrainHistory({
+    enabled: editingPage,
     fixtureRuntime,
     isolatedContracts,
     pageId: params.id,
+    workspaceId: workspace.id,
+  })
+  const evidence = useBrainEvidenceDetail({
+    entryKey: evidenceEntryKey,
+    fixtureRuntime,
+    isolatedContracts,
     workspaceId: workspace.id,
   })
   const {
@@ -472,7 +595,7 @@ export function BrainInboxViewPage({
     })
   }
 
-  const brainToolbar = (
+  const brainToolbar = editingPage ? (
     <BrainPageToolbar
       disabled={mutationDisabled}
       favorite={page?.favorite === true}
@@ -482,6 +605,11 @@ export function BrainInboxViewPage({
       onFavorite={onFavorite}
       onHistory={onHistory}
       onOrganize={onOrganize}
+    />
+  ) : (
+    <BrainEvidenceToolbar
+      onBack={onBack}
+      onDetails={() => setDetailsOpen(true)}
     />
   )
 
@@ -493,7 +621,7 @@ export function BrainInboxViewPage({
           params: { workspace: params.workspace },
           title: 'Brain',
         },
-        { title: page?.title },
+        { title: page?.title ?? evidence?.title },
       ]}
     />
   )
@@ -503,7 +631,11 @@ export function BrainInboxViewPage({
       <Page.Header
         title={breadcrumbs}
         description={
-          saveState === 'saving'
+          evidenceEntryKey !== undefined
+            ? evidence
+              ? `Read-only ${evidence.provider.replace('_', ' ')} evidence`
+              : 'Loading synced evidence…'
+            : saveState === 'saving'
             ? 'Saving…'
             : saveState === 'saved'
               ? 'Saved'
@@ -540,15 +672,11 @@ export function BrainInboxViewPage({
                   overflowY="auto"
                   p={{ base: '4', md: '8' }}
                 >
-                  {page ? (
-                    <Editor
-                      aria-label="Agency Brain page editor"
-                      value={markdown}
-                      onChange={setMarkdown}
-                      format="markdown"
-                      toolbar
-                      minHeight="60vh"
-                      placeholder="Write the company context your team and agents should know…"
+                  {page || evidence ? (
+                    <BrainMarkdownSurface
+                      readOnly={Boolean(evidence)}
+                      value={evidence?.markdown ?? markdown}
+                      onChange={evidence ? undefined : setMarkdown}
                     />
                   ) : (
                     <Skeleton
@@ -557,7 +685,7 @@ export function BrainInboxViewPage({
                     />
                   )}
                 </Box>
-                {page ? (
+                {page || evidence ? (
                   <Box
                     as="aside"
                     display={{ base: 'none', xl: 'block' }}
@@ -565,7 +693,11 @@ export function BrainInboxViewPage({
                     flex="none"
                     borderLeftWidth="1px"
                   >
-                    <BrainProvenanceRail page={page} revisions={revisions} />
+                    {evidence ? (
+                      <BrainEvidenceProvenanceRail evidence={evidence} />
+                    ) : page ? (
+                      <BrainProvenanceRail page={page} revisions={revisions} />
+                    ) : null}
                   </Box>
                 ) : null}
               </HStack>
@@ -586,7 +718,9 @@ export function BrainInboxViewPage({
             <Drawer.CloseButton />
           </Drawer.Header>
           <Drawer.Body p="0">
-            {page ? (
+            {evidence ? (
+              <BrainEvidenceProvenanceRail evidence={evidence} />
+            ) : page ? (
               <BrainProvenanceRail page={page} revisions={revisions} />
             ) : (
               <VStack p="4">

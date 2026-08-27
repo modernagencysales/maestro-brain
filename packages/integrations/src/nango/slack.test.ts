@@ -4,6 +4,7 @@ import {
   discoverSlackChannels,
   fetchSlackSnapshot,
   SlackChannelAllowlistInvalid,
+  SlackChannelMembershipRequired,
   SlackSnapshotCapacityExceeded,
 } from "./slack";
 
@@ -27,8 +28,8 @@ describe("discoverSlackChannels", () => {
         request,
       }),
     ).resolves.toEqual([
-      { id: "C01", name: "general", isPrivate: false },
-      { id: "C02", name: "sales", isPrivate: true },
+      { id: "C01", name: "general", isPrivate: false, isMember: true },
+      { id: "C02", name: "sales", isPrivate: true, isMember: true },
     ]);
   });
 
@@ -391,6 +392,85 @@ describe("Nango Slack snapshot", () => {
 
     expect(result.channels.map(({ id }) => id)).toEqual(["C01"]);
     expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("joins an approved public channel before reading its history", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          channels: [
+            {
+              id: "C01",
+              name: "company-context",
+              is_private: false,
+              is_member: false,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          channel: { id: "C01", name: "company-context", is_member: true },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          messages: [{ ts: "1.0", user: "U01", text: "Approved" }],
+        }),
+      );
+
+    await expect(
+      fetchSlackSnapshot({
+        secretKey: "nango-secret",
+        providerConfigKey: "slack",
+        connectionId: "connection-1",
+        channelIds: ["C01"],
+        request,
+      }),
+    ).resolves.toMatchObject({ messageCount: 1 });
+
+    expect(requestedUrl(request, 1).pathname).toBe("/proxy/conversations.join");
+    expect(request.mock.calls[1]?.[1]).toMatchObject({ method: "POST" });
+    expect(request.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({ channel: "C01" }),
+    );
+    expect(requestedUrl(request, 2).pathname).toBe(
+      "/proxy/conversations.history",
+    );
+  });
+
+  it("requires an explicit bot invite for selected private channels", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      jsonResponse({
+        ok: true,
+        channels: [
+          {
+            id: "C02",
+            name: "leadership",
+            is_private: true,
+            is_member: false,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      fetchSlackSnapshot({
+        secretKey: "nango-secret",
+        providerConfigKey: "slack",
+        connectionId: "connection-1",
+        channelIds: ["C02"],
+        request,
+      }),
+    ).rejects.toMatchObject({
+      name: "SlackChannelMembershipRequired",
+      channelIds: ["C02"],
+    } satisfies Partial<SlackChannelMembershipRequired>);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when an approved channel is unavailable", async () => {

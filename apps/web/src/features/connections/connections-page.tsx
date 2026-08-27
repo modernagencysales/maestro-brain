@@ -33,7 +33,7 @@ import {
   type DurableConnection,
   type EvidenceProviderHealth,
 } from './connections-adapter'
-import { runSlackConnect } from './slack-connect'
+import { runSlackConnect, slackSyncErrorMessage } from './slack-connect'
 import {
   ProviderSyncDialog,
   type ProviderScopeDiscovery,
@@ -338,10 +338,13 @@ export const ConnectionsPage = () => {
                 portalId: containerId,
               })
             toast.success({ title: 'Company Brain sync complete' })
-          } catch {
+          } catch (error) {
             toast.error({
               title: 'Company Brain sync failed',
-              description: 'Check the approved scope IDs and try again.',
+              description:
+                provider === 'slack'
+                  ? slackSyncErrorMessage(error)
+                  : 'Check the approved scope IDs and try again.',
             })
             throw new Error('provider sync failed')
           }

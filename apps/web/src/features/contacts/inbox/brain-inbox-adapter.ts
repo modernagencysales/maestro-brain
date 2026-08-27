@@ -27,6 +27,33 @@ export type BrainPageTreeRow = Readonly<{
   depth: number
 }>
 
+export type BrainEvidenceSummary = Readonly<{
+  entryKey: string
+  sourceKey: string
+  revisionKey: string
+  provider: 'brain_page' | 'slack' | 'google_drive' | 'hubspot' | 'transcript'
+  title: string
+  excerpt: string
+  locator?: string
+  sourceModifiedAt: number
+  observedAt: number
+}>
+
+const evidenceRoutePrefix = 'evidence:'
+
+export const brainEvidenceRouteId = (entryKey: string) =>
+  `${evidenceRoutePrefix}${encodeURIComponent(entryKey)}`
+
+export const parseBrainEvidenceRouteId = (routeId: string) => {
+  if (!routeId.startsWith(evidenceRoutePrefix)) return undefined
+  try {
+    const entryKey = decodeURIComponent(routeId.slice(evidenceRoutePrefix.length))
+    return entryKey.length > 0 ? entryKey : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const compareBrainPages = (left: BrainPageSummary, right: BrainPageSummary) =>
   (left.sortKey ?? '').localeCompare(right.sortKey ?? '') ||
   left.title.localeCompare(right.title)
@@ -63,6 +90,9 @@ export const projectBrainPagesToTree = (
 const brainPagesListRef = getFunctionReference(
   templateConfectRefs.public.brain.pages.list,
 )
+const brainEvidenceListRef = getFunctionReference(
+  templateConfectRefs.public.brain.evidence.listCurrent,
+)
 
 export const brainPageFixtures: readonly BrainPageSummary[] = [
   {
@@ -92,6 +122,20 @@ export const brainPageFixtures: readonly BrainPageSummary[] = [
   },
 ]
 
+export const brainEvidenceFixtures: readonly BrainEvidenceSummary[] = [
+  {
+    entryKey: 'slack:C01:message:1787920000.000100:revision:1787920000.000100',
+    sourceKey: 'slack:C01:message:1787920000.000100',
+    revisionKey: '1787920000.000100',
+    provider: 'slack',
+    title: 'Slack · #company-context · U01',
+    excerpt: 'Our approved positioning is focused on modern agency sales teams.',
+    locator: 'slack://channel/C01/message/1787920000.000100',
+    sourceModifiedAt: 1_787_920_000_000,
+    observedAt: 1_787_920_060_000,
+  },
+]
+
 export const useBrainPages = ({ workspaceId }: { workspaceId: string }) => {
   const isolatedContracts = isIsolatedContractsRuntime()
   const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
@@ -117,5 +161,26 @@ export const useBrainPages = ({ workspaceId }: { workspaceId: string }) => {
   return {
     pages: (convexResult ?? []) as readonly BrainPageSummary[],
     isLoading: convexResult === undefined,
+  }
+}
+
+export const useBrainEvidence = ({ workspaceId }: { workspaceId: string }) => {
+  const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
+  const evidence = useConvexQuery(
+    brainEvidenceListRef,
+    fixtureRuntime || isolatedContracts
+      ? 'skip'
+      : { workspaceId, limit: 200 },
+  )
+  if (fixtureRuntime)
+    return { evidence: brainEvidenceFixtures, isLoading: false }
+  if (isolatedContracts)
+    return { evidence: [] as readonly BrainEvidenceSummary[], isLoading: false }
+  return {
+    evidence: ((evidence ?? []) as readonly BrainEvidenceSummary[]).filter(
+      ({ provider }) => provider !== 'brain_page',
+    ),
+    isLoading: evidence === undefined,
   }
 }

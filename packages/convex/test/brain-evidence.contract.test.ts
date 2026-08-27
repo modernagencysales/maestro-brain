@@ -276,6 +276,21 @@ describe("Company Brain evidence publication", () => {
       const health = yield* actor.query(refs.public.brain.evidence.health, {
         workspaceId: seeded.workspaceId,
       });
+      const browsable = yield* actor.query(
+        refs.public.brain.evidence.listCurrent,
+        {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          limit: 10,
+        },
+      );
+      const current = yield* actor.query(
+        refs.public.brain.evidence.currentGet,
+        {
+          workspaceId: seeded.workspaceId,
+          entryKey: browsable[0]?.entryKey ?? "missing",
+        },
+      );
       yield* confect.run(
         Effect.gen(function* () {
           const reader = yield* DatabaseReader;
@@ -312,6 +327,8 @@ describe("Company Brain evidence publication", () => {
         afterSuccess,
         reopened,
         health,
+        browsable,
+        current,
         afterRevoke,
       };
     });
@@ -352,5 +369,17 @@ describe("Company Brain evidence publication", () => {
         }),
       }),
     );
+    expect(result.browsable).toEqual([
+      expect.objectContaining({
+        provider: "slack",
+        sourceKey: "message-a",
+        excerpt: "Apero pricing evidence alpha updated",
+      }),
+    ]);
+    expect(result.current).toMatchObject({
+      provider: "slack",
+      sourceKey: "message-a",
+      markdown: "Apero pricing evidence alpha updated",
+    });
   });
 });

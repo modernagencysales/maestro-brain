@@ -23,6 +23,7 @@ describe('Brain workspace visual structure', () => {
     expect(pages).toContain('<GridList.Item')
     expect(pages).toContain('<IconBadge')
     expect(pages).toContain('aria-current={selected')
+    expect(pages).toContain('Synced sources')
   })
 
   it('keeps Tiptap central and moves page context into a rail and drawer', () => {
@@ -31,6 +32,7 @@ describe('Brain workspace visual structure', () => {
     expect(page).toContain('as="aside"')
     expect(page).toContain('<Drawer.Root')
     expect(page).toContain('<BrainProvenanceRail')
+    expect(page).toContain('<BrainEvidenceProvenanceRail')
     expect(brainRailSectionLabels).toEqual([
       'Provenance',
       'History',
