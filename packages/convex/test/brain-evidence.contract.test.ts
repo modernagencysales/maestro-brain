@@ -321,6 +321,21 @@ describe("Company Brain evidence publication", () => {
           limit: 10,
         },
       );
+      const browsableAfterRevoke = yield* actor.query(
+        refs.public.brain.evidence.listCurrent,
+        {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          limit: 10,
+        },
+      );
+      const currentAfterRevoke = yield* actor.query(
+        refs.public.brain.evidence.currentGet,
+        {
+          workspaceId: seeded.workspaceId,
+          entryKey: browsable[0]?.entryKey ?? "missing",
+        },
+      );
       return {
         afterFailure,
         completion,
@@ -330,6 +345,8 @@ describe("Company Brain evidence publication", () => {
         browsable,
         current,
         afterRevoke,
+        browsableAfterRevoke,
+        currentAfterRevoke,
       };
     });
 
@@ -348,6 +365,8 @@ describe("Company Brain evidence publication", () => {
       tombstone: false,
     });
     expect(result.afterRevoke).toEqual([]);
+    expect(result.browsableAfterRevoke).toEqual([]);
+    expect(result.currentAfterRevoke).toBeNull();
     expect(result.health.countLimit).toBe(1_000);
     expect(result.health.providers).toContainEqual(
       expect.objectContaining({
