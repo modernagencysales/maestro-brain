@@ -104,5 +104,8 @@ describe("Woodpecker firewall and epoch pipelines", () => {
         script.indexOf("guardedDeploy.ts cloudflare"),
       );
     }
+    expect(read("tooling/ci/authenticated-workspace-canary.sh")).toContain(
+      'raw===""?null:JSON.parse(raw)',
+    );
   });
 });
