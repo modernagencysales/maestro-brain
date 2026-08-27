@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const brainMocks = vi.hoisted(() => ({
+  convexData: [] as unknown[],
+  fixtureRuntime: true,
   headless: vi.fn(async () => []),
   isolatedContracts: false,
   queryData: [] as Array<{
@@ -11,7 +13,9 @@ const brainMocks = vi.hoisted(() => ({
   }>,
 }))
 
-vi.mock('@convex-dev/react-query', () => ({ useConvexQuery: () => [] }))
+vi.mock('@convex-dev/react-query', () => ({
+  useConvexQuery: () => brainMocks.convexData,
+}))
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (options: { queryFn: () => unknown }) => {
     void options.queryFn()
@@ -19,7 +23,7 @@ vi.mock('@tanstack/react-query', () => ({
   },
 }))
 vi.mock('#lib/auth/route-auth', () => ({
-  isFixtureAuthRuntime: () => true,
+  isFixtureAuthRuntime: () => brainMocks.fixtureRuntime,
   isIsolatedContractsRuntime: () => brainMocks.isolatedContracts,
 }))
 vi.mock('#lib/headless-api', () => ({
@@ -36,6 +40,12 @@ import {
 } from './brain-inbox-adapter'
 
 describe('Brain page-tree adapter', () => {
+  afterEach(() => {
+    brainMocks.convexData = []
+    brainMocks.fixtureRuntime = true
+    brainMocks.isolatedContracts = false
+  })
+
   it('round-trips current evidence through a route-safe id', () => {
     const entryKey = 'slack:C01:message:1787920000.000100'
     expect(parseBrainEvidenceRouteId(brainEvidenceRouteId(entryKey))).toBe(
@@ -127,6 +137,37 @@ describe('Brain page-tree adapter', () => {
           title: 'Slack · #company-context · U01',
         }),
       ],
+      isLoading: false,
+    })
+  })
+
+  it('keeps curated page evidence out of the synced-source list', () => {
+    brainMocks.fixtureRuntime = false
+    brainMocks.convexData = [
+      {
+        entryKey: 'brain-page:overview:revision:1',
+        sourceKey: 'brain-page:overview',
+        revisionKey: '1',
+        provider: 'brain_page',
+        title: 'Company overview',
+        excerpt: 'Curated context',
+        sourceModifiedAt: 1,
+        observedAt: 1,
+      },
+      {
+        entryKey: 'slack:C01:message:1:revision:1',
+        sourceKey: 'slack:C01:message:1',
+        revisionKey: '1',
+        provider: 'slack',
+        title: 'Slack evidence',
+        excerpt: 'Synced context',
+        sourceModifiedAt: 1,
+        observedAt: 1,
+      },
+    ]
+
+    expect(useBrainEvidence({ workspaceId: 'agency' })).toMatchObject({
+      evidence: [expect.objectContaining({ provider: 'slack' })],
       isLoading: false,
     })
   })
