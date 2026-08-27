@@ -27,12 +27,24 @@ vi.mock('#lib/headless-api', () => ({
 }))
 
 import {
+  brainEvidenceRouteId,
   brainPageFixtures,
+  parseBrainEvidenceRouteId,
   projectBrainPagesToTree,
+  useBrainEvidence,
   useBrainPages,
 } from './brain-inbox-adapter'
 
 describe('Brain page-tree adapter', () => {
+  it('round-trips current evidence through a route-safe id', () => {
+    const entryKey = 'slack:C01:message:1787920000.000100'
+    expect(parseBrainEvidenceRouteId(brainEvidenceRouteId(entryKey))).toBe(
+      entryKey,
+    )
+    expect(parseBrainEvidenceRouteId('page-id')).toBeUndefined()
+    expect(parseBrainEvidenceRouteId('evidence:%E0%A4%A')).toBeUndefined()
+  })
+
   it('projects parent-child pages in stable tree order', () => {
     const rows = projectBrainPagesToTree([
       {
@@ -105,6 +117,18 @@ describe('Brain page-tree adapter', () => {
     })
     expect(brainPageFixtures[0]).not.toHaveProperty('subject')
     expect(brainMocks.headless).toHaveBeenCalled()
+  })
+
+  it('makes synced Slack evidence visible in the fixture Brain', () => {
+    expect(useBrainEvidence({ workspaceId: 'agency' })).toMatchObject({
+      evidence: [
+        expect.objectContaining({
+          provider: 'slack',
+          title: 'Slack · #company-context · U01',
+        }),
+      ],
+      isLoading: false,
+    })
   })
 
   it('prefers isolated contract pages over fixture pages', () => {

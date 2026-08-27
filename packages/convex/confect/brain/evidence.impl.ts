@@ -320,6 +320,124 @@ const sourceGet = FunctionImpl.make(
     }),
 );
 
+const CURRENT_EVIDENCE_LIMIT = 200;
+const CURRENT_EVIDENCE_PROVIDER_SCAN_LIMIT = 1_000;
+
+const listCurrentEvidence = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly provider?: (typeof EVIDENCE_PROVIDERS)[number] | undefined;
+  readonly limit?: number | undefined;
+}) =>
+  Effect.gen(function* () {
+    const limit = Math.min(
+      Math.max(Math.floor(input.limit ?? 100), 1),
+      CURRENT_EVIDENCE_LIMIT,
+    );
+    const providers =
+      input.provider === undefined ? EVIDENCE_PROVIDERS : [input.provider];
+    const reader = yield* DatabaseReader;
+    const entriesByProvider = yield* Effect.forEach(
+      providers,
+      (provider) =>
+        reader
+          .table("brainRetrievalEntries")
+          .index("by_workspace_and_provider_and_status", (q) =>
+            q
+              .eq("workspaceId", input.workspaceId)
+              .eq("provider", provider)
+              .eq("status", "current"),
+          )
+          .take(CURRENT_EVIDENCE_PROVIDER_SCAN_LIMIT + 1)
+          .pipe(Effect.orDie),
+      { concurrency: 1 },
+    );
+    if (
+      entriesByProvider.some(
+        (entries) => entries.length > CURRENT_EVIDENCE_PROVIDER_SCAN_LIMIT,
+      )
+    )
+      return yield* new ValidationFailed({
+        field: "provider",
+        message:
+          "Synced source browsing capacity was exceeded; narrow the provider scope.",
+      });
+    const entries = entriesByProvider
+      .flat()
+      .sort((left, right) => right.sourceModifiedAt - left.sourceModifiedAt)
+      .slice(0, limit);
+    const eligibleProviders = new Map<
+      (typeof EVIDENCE_PROVIDERS)[number],
+      boolean
+    >();
+    for (const provider of providers)
+      eligibleProviders.set(
+        provider,
+        yield* providerIsEligible(input.workspaceId, provider),
+      );
+    return entries.flatMap((entry) => {
+      if (eligibleProviders.get(entry.provider) !== true) return [];
+      if (
+        entry.contentHash !== evidenceContentHash(entry.title, entry.markdown)
+      )
+        return [];
+      return [
+        {
+          entryKey: entry.entryKey,
+          sourceKey: entry.sourceKey,
+          revisionKey: entry.revisionKey,
+          provider: entry.provider,
+          title: entry.title,
+          excerpt: entry.markdown.slice(0, 280),
+          ...(entry.locator === undefined ? {} : { locator: entry.locator }),
+          sourceModifiedAt: entry.sourceModifiedAt,
+          observedAt: entry.observedAt,
+        },
+      ];
+    });
+  });
+
+const listCurrent = FunctionImpl.make(
+  databaseSchema,
+  evidence,
+  "listCurrent",
+  ({ workspaceId, ...args }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      return yield* listCurrentEvidence({ workspaceId, ...args });
+    }),
+);
+
+const currentGet = FunctionImpl.make(
+  databaseSchema,
+  evidence,
+  "currentGet",
+  ({ workspaceId, entryKey }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      const entry = yield* (yield* DatabaseReader)
+        .table("brainRetrievalEntries")
+        .index("by_workspace_and_entry_key", (q) =>
+          q.eq("workspaceId", workspaceId).eq("entryKey", entryKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (entry === null || entry.status !== "current")
+        return yield* new NotFound({
+          resource: "brainRetrievalEntries",
+          id: entryKey,
+        });
+      return yield* getEvidenceSource({
+        workspaceId,
+        sourceKey: entry.sourceKey,
+        revisionKey: entry.revisionKey,
+      });
+    }),
+);
+
 const sourceGetForActor = FunctionImpl.make(
   databaseSchema,
   evidence,
@@ -751,6 +869,8 @@ export { searchEvidence };
 export default GroupImpl.make(databaseSchema, evidence).pipe(
   Layer.provide(search),
   Layer.provide(sourceGet),
+  Layer.provide(listCurrent),
+  Layer.provide(currentGet),
   Layer.provide(searchForActor),
   Layer.provide(sourceGetForActor),
   Layer.provide(health),

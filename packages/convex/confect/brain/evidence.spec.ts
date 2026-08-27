@@ -42,6 +42,28 @@ const SearchArgs = S.Struct({
 });
 const SearchReturns = S.Array(EvidenceCitation);
 
+const CurrentEvidenceSummary = S.Struct({
+  entryKey: S.String,
+  sourceKey: S.String,
+  revisionKey: S.String,
+  provider: BrainEvidenceProvider,
+  title: S.String,
+  excerpt: S.String,
+  locator: S.optional(S.String),
+  sourceModifiedAt: S.Number,
+  observedAt: S.Number,
+});
+const ListCurrentArgs = S.Struct({
+  workspaceId: Id("workspaces"),
+  provider: S.optional(BrainEvidenceProvider),
+  limit: S.optional(S.Number),
+});
+const ListCurrentReturns = S.Array(CurrentEvidenceSummary);
+const CurrentGetArgs = S.Struct({
+  workspaceId: Id("workspaces"),
+  entryKey: S.String,
+});
+
 const SourceGetArgs = S.Struct({
   workspaceId: Id("workspaces"),
   sourceKey: S.String,
@@ -202,6 +224,20 @@ const sourceGet = FunctionSpec.publicQuery({
   error: () => ReadError,
 });
 
+const listCurrent = FunctionSpec.publicQuery({
+  name: "listCurrent",
+  args: () => ListCurrentArgs,
+  returns: () => ListCurrentReturns,
+  error: () => AccessError,
+});
+
+const currentGet = FunctionSpec.publicQuery({
+  name: "currentGet",
+  args: () => CurrentGetArgs,
+  returns: () => SourceGetReturns,
+  error: () => ReadError,
+});
+
 const searchForActor = FunctionSpec.internalQuery({
   name: "searchForActor",
   args: () => SearchForActorArgs,
@@ -233,6 +269,8 @@ const healthForActor = FunctionSpec.internalQuery({
 export default GroupSpec.make()
   .addFunction(search)
   .addFunction(sourceGet)
+  .addFunction(listCurrent)
+  .addFunction(currentGet)
   .addFunction(searchForActor)
   .addFunction(sourceGetForActor)
   .addFunction(health)

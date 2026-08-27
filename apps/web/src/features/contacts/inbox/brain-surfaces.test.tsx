@@ -7,6 +7,15 @@ import { system } from '#theme/preset'
 import { BrainPagesPanel } from './brain-pages-panel'
 import { BrainProvenanceRail } from './brain-provenance-rail'
 
+vi.mock('#features/common/hooks/use-current-workspace', () => ({
+  useCurrentWorkspace: () => [{ id: 'workspace-1', slug: 'agency' }],
+}))
+vi.mock('@convex-dev/react-query', () => ({ useConvexQuery: () => [] }))
+vi.mock('#lib/auth/route-auth', () => ({
+  isFixtureAuthRuntime: () => true,
+  isIsolatedContractsRuntime: () => false,
+}))
+
 const render = (node: React.ReactNode) =>
   renderToStaticMarkup(<SuiProvider value={system}>{node}</SuiProvider>)
 
@@ -17,6 +26,18 @@ describe('Brain workspace surfaces', () => {
         activePageId="page-markdown"
         onCreate={vi.fn()}
         onSelect={vi.fn()}
+        evidence={[
+          {
+            entryKey: 'slack:C01:message:1',
+            sourceKey: 'slack:C01:message:1',
+            revisionKey: '1',
+            provider: 'slack',
+            title: 'Slack · #company-context · U01',
+            excerpt: 'Approved positioning',
+            sourceModifiedAt: 1_782_924_800_000,
+            observedAt: 1_782_924_800_000,
+          },
+        ]}
         rows={[
           {
             depth: 0,
@@ -50,10 +71,12 @@ describe('Brain workspace surfaces', () => {
       />,
     )
 
-    expect(html).toContain('3 company context pages')
+    expect(html).toContain('3 pages · 1 synced sources')
     expect(html).toContain('Company overview')
     expect(html).toContain('ICP notes')
     expect(html).toContain('Source link')
+    expect(html).toContain('Synced sources')
+    expect(html).toContain('Slack · #company-context · U01')
   })
 
   it('renders provenance, revision history, and source context', () => {
