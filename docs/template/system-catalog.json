@@ -73,6 +73,7 @@
       "tables": [
         "brainConnectorRunSeen",
         "brainConnectorRuns",
+        "brainEvaluationExamples",
         "brainEvidenceRevisions",
         "brainEvidenceSources",
         "brainPages",

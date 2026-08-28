@@ -40,7 +40,7 @@ Setup and diagnostics
   maestro-brain update
 
 Use company context
-  maestro-brain ask <question>
+  maestro-brain ask <question> [--save-example]
   maestro-brain evidence search <query> [--limit <1-10>]
   maestro-brain evidence source-get <source-key> <revision-key>
   maestro-brain evidence health
@@ -69,7 +69,10 @@ not want to modify the current shell environment.`,
   run: `Usage: maestro-brain run -- <command> [args...]
 
 Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
-  ask: `Usage: maestro-brain ask <question>`,
+  ask: `Usage: maestro-brain ask <question> [--save-example]
+
+--save-example explicitly stores this question and its immutable citation
+references in the shared rolling evaluation set.`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
        maestro-brain evidence source-get <source-key> <revision-key>
        maestro-brain evidence health`,
@@ -223,13 +226,89 @@ const commandHandlers = (
       automatic: false,
     }),
   ask: async () => {
-    const question = argv.slice(1).join(" ").trim();
-    return question
-      ? await request(dependencies, {
-          operationId: "agents.assistant.answerQuestion",
-          input: { question },
-        })
-      : failure("ask requires a question.");
+    const saveExample = argv.includes("--save-example");
+    const question = argv
+      .slice(1)
+      .filter((argument) => argument !== "--save-example")
+      .join(" ")
+      .trim();
+    if (!question) return failure("ask requires a question.");
+    const answer = await request(dependencies, {
+      operationId: "agents.assistant.answerQuestion",
+      input: { question },
+    });
+    if (!saveExample || answer.exitCode !== 0) return answer;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(answer.stdout);
+    } catch {
+      return failure("Answer succeeded but could not be saved as an example.");
+    }
+    if (
+      payload === null ||
+      typeof payload !== "object" ||
+      !("result" in payload) ||
+      payload.result === null ||
+      typeof payload.result !== "object" ||
+      !("status" in payload.result) ||
+      (payload.result.status !== "answered" &&
+        payload.result.status !== "insufficient-context") ||
+      !("contextPack" in payload.result) ||
+      payload.result.contextPack === null ||
+      typeof payload.result.contextPack !== "object" ||
+      !("packHash" in payload.result.contextPack) ||
+      typeof payload.result.contextPack.packHash !== "string" ||
+      !("citations" in payload.result.contextPack) ||
+      !Array.isArray(payload.result.contextPack.citations)
+    )
+      return failure("Answer succeeded but could not be saved as an example.");
+    const references = payload.result.contextPack.citations.flatMap(
+      (citation) =>
+        citation !== null &&
+        typeof citation === "object" &&
+        "sourceId" in citation &&
+        typeof citation.sourceId === "string" &&
+        "revisionKey" in citation &&
+        typeof citation.revisionKey === "string" &&
+        "contentHash" in citation &&
+        typeof citation.contentHash === "string"
+          ? [
+              {
+                sourceKey: citation.sourceId,
+                revisionKey: citation.revisionKey,
+                contentHash: citation.contentHash,
+              },
+            ]
+          : [],
+    );
+    const exampleKey = `cli:${payload.result.contextPack.packHash}`;
+    const saved = await request(dependencies, {
+      operationId: "agents.assistant.saveEvaluationExample",
+      input: {
+        exampleKey,
+        question,
+        purpose: "company-question",
+        evidenceMode: "recent_evidence",
+        surface: "cli",
+        answerStatus: payload.result.status,
+        packHash: payload.result.contextPack.packHash,
+        evidenceReferences: references,
+        captureKind: "test",
+        usefulness: "unrated",
+      },
+      idempotencyKey: exampleKey,
+    });
+    if (saved.exitCode !== 0) return saved;
+    const savedPayload: unknown = JSON.parse(saved.stdout);
+    return success({
+      answer: payload.result,
+      evaluationExample:
+        savedPayload !== null &&
+        typeof savedPayload === "object" &&
+        "result" in savedPayload
+          ? { saved: true, id: savedPayload.result }
+          : { saved: true },
+    });
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),

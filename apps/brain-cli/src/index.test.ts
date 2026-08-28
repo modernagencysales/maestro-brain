@@ -203,6 +203,70 @@ describe("standalone teammate CLI", () => {
     );
   });
 
+  it("explicitly saves a cited answer as a shared evaluation example", async () => {
+    const root = temp();
+    const packHash = `sha256:${"a".repeat(64)}`;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              status: "answered",
+              answerMarkdown: "Friday [1]",
+              contextPack: {
+                packHash,
+                citations: [
+                  {
+                    sourceId: "slack:C1:thread:1:segment:0",
+                    revisionKey: "revision-1",
+                    contentHash: "content-hash",
+                  },
+                ],
+              },
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, result: "example_1" })),
+      );
+    const result = await runCli(
+      ["ask", "When", "does", "it", "launch?", "--save-example"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"saved": true');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1]?.[0]).toBe(
+      "https://api.example.test/api/agents.assistant.saveEvaluationExample",
+    );
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+      workspaceSlug: "apero",
+      idempotencyKey: `cli:${packHash}`,
+      input: {
+        exampleKey: `cli:${packHash}`,
+        question: "When does it launch?",
+        purpose: "company-question",
+        evidenceMode: "recent_evidence",
+        surface: "cli",
+        answerStatus: "answered",
+        packHash,
+        evidenceReferences: [
+          {
+            sourceKey: "slack:C1:thread:1:segment:0",
+            revisionKey: "revision-1",
+            contentHash: "content-hash",
+          },
+        ],
+        captureKind: "test",
+        usefulness: "unrated",
+      },
+    });
+  });
+
   it("searches canonical evidence and reopens an exact source revision over HTTP MCP", async () => {
     const root = temp();
     const fetch = vi

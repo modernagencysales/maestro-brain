@@ -8,12 +8,20 @@ import {
 } from "@convex-dev/agent";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import { componentsGeneric } from "convex/server";
+import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
-import { ActionCtx, QueryCtx, QueryRunner } from "../_generated/services";
+import {
+  ActionCtx,
+  DatabaseReader,
+  DatabaseWriter,
+  QueryCtx,
+  QueryRunner,
+} from "../_generated/services";
 import {
   requireWorkspaceAccess,
   requireWorkspaceActorAccess,
@@ -25,8 +33,12 @@ import {
 } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
 import { loadLlmGatewayEnvConfig } from "../shared/env";
+import { sha256Hex } from "../shared/sha256";
 import { searchEvidence } from "../brain/evidence.impl";
-import assistant, { AssistantError } from "./assistant.spec";
+import assistant, {
+  AssistantError,
+  SaveEvaluationExampleArgs,
+} from "./assistant.spec";
 import { createAssistantLanguageModel } from "./assistantModel";
 
 const agentComponent = componentsGeneric().agent as unknown as AgentComponent;
@@ -138,6 +150,38 @@ const providerUnavailable = () =>
     message: "Assistant provider is unavailable.",
   });
 
+const packHashFor = (
+  question: string,
+  citations: readonly {
+    readonly sourceId: string;
+    readonly revisionKey: string;
+    readonly contentHash: string;
+    readonly title: string;
+    readonly excerpt: string;
+    readonly startOffset: number;
+    readonly endOffset: number;
+    readonly locator?: string | undefined;
+    readonly freshness: "current" | "review-due" | "stale";
+  }[],
+) =>
+  `sha256:${sha256Hex(
+    JSON.stringify({
+      schemaVersion: "3",
+      question,
+      citations: citations.map((citation) => ({
+        sourceKey: citation.sourceId,
+        revisionKey: citation.revisionKey,
+        contentHash: citation.contentHash,
+        title: citation.title,
+        excerpt: citation.excerpt,
+        startOffset: citation.startOffset,
+        endOffset: citation.endOffset,
+        locator: citation.locator ?? null,
+        freshness: citation.freshness,
+      })),
+    }),
+  )}`;
+
 const resolveAccess = FunctionImpl.make(
   databaseSchema,
   assistant,
@@ -197,6 +241,7 @@ const answerGroundedQuestion = (input: {
           : ("unknown" as const);
     const contextPack = {
       schemaVersion: "3" as const,
+      packHash: packHashFor(normalizedQuestion, projectedCitations),
       candidateManifest: {
         schemaVersion: "2" as const,
         candidateKeys: projectedCitations.map(
@@ -246,6 +291,181 @@ const answerQuestionForActor = FunctionImpl.make(
     Effect.gen(function* () {
       yield* assistantActorAccess(args.workspaceId, userId);
       return yield* answerGroundedQuestion(args);
+    }),
+);
+
+type SaveEvaluationExampleInput = Schema.Schema.Type<
+  typeof SaveEvaluationExampleArgs
+>;
+
+const persistEvaluationExample = (
+  args: SaveEvaluationExampleInput,
+  actorUserId: GenericId<"users">,
+) =>
+  Effect.gen(function* () {
+    const exampleKey = args.exampleKey.trim();
+    const question = args.question.trim();
+    const purpose = args.purpose.trim();
+    if (exampleKey.length === 0 || exampleKey.length > 200)
+      return yield* new AssistantError.ValidationFailed({
+        field: "exampleKey",
+        message: "Example key must contain between 1 and 200 characters.",
+      });
+    if (question.length === 0 || question.length > 2_000)
+      return yield* new AssistantError.ValidationFailed({
+        field: "question",
+        message: "Question must contain between 1 and 2000 characters.",
+      });
+    if (purpose.length === 0 || purpose.length > 120)
+      return yield* new AssistantError.ValidationFailed({
+        field: "purpose",
+        message: "Purpose must contain between 1 and 120 characters.",
+      });
+    if (!/^sha256:[a-f0-9]{64}$/u.test(args.packHash))
+      return yield* new AssistantError.ValidationFailed({
+        field: "packHash",
+        message: "Pack hash must be a canonical SHA-256 identifier.",
+      });
+    if (args.evidenceReferences.length > 10)
+      return yield* new AssistantError.ValidationFailed({
+        field: "evidenceReferences",
+        message: "At most 10 evidence references may be saved.",
+      });
+    if (
+      args.answerStatus === "answered" &&
+      args.evidenceReferences.length === 0
+    )
+      return yield* new AssistantError.ValidationFailed({
+        field: "evidenceReferences",
+        message: "Answered examples require at least one evidence reference.",
+      });
+    if (args.usefulness === "needs-work" && args.issueReason === undefined)
+      return yield* new AssistantError.ValidationFailed({
+        field: "issueReason",
+        message: "Needs-work feedback requires an issue reason.",
+      });
+
+    const referenceKeys = new Set<string>();
+    const reader = yield* DatabaseReader;
+    for (const reference of args.evidenceReferences) {
+      if (
+        reference.sourceKey.length === 0 ||
+        reference.sourceKey.length > 1_000 ||
+        reference.revisionKey.length === 0 ||
+        reference.revisionKey.length > 1_000 ||
+        reference.contentHash.length === 0 ||
+        reference.contentHash.length > 200
+      )
+        return yield* new AssistantError.ValidationFailed({
+          field: "evidenceReferences",
+          message: "Evidence reference fields exceed their bounded size.",
+        });
+      const referenceKey = `${reference.sourceKey}\u0000${reference.revisionKey}`;
+      if (referenceKeys.has(referenceKey))
+        return yield* new AssistantError.ValidationFailed({
+          field: "evidenceReferences",
+          message: "Evidence references must be unique.",
+        });
+      referenceKeys.add(referenceKey);
+      const revisions = yield* reader
+        .table("brainEvidenceRevisions")
+        .index("by_workspace_and_source_key_and_revision_key", (q) =>
+          q
+            .eq("workspaceId", args.workspaceId)
+            .eq("sourceKey", reference.sourceKey)
+            .eq("revisionKey", reference.revisionKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      if (
+        revisions.length !== 1 ||
+        revisions[0]?.contentHash !== reference.contentHash
+      )
+        return yield* new AssistantError.ValidationFailed({
+          field: "evidenceReferences",
+          message: "An evidence reference could not be reopened exactly.",
+        });
+    }
+
+    const proposed = {
+      workspaceId: args.workspaceId,
+      exampleKey,
+      question,
+      purpose,
+      evidenceMode: args.evidenceMode,
+      surface: args.surface,
+      answerStatus: args.answerStatus,
+      packHash: args.packHash,
+      evidenceReferences: [...args.evidenceReferences],
+      captureKind: args.captureKind,
+      usefulness: args.usefulness,
+      ...(args.issueReason === undefined
+        ? {}
+        : { issueReason: args.issueReason }),
+      split: "development" as const,
+      actorUserId,
+    };
+    const matches = yield* reader
+      .table("brainEvaluationExamples")
+      .index("by_workspace_and_example_key", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("exampleKey", exampleKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const existing = matches[0];
+    if (existing !== undefined) {
+      const existingPayload = {
+        workspaceId: existing.workspaceId,
+        exampleKey: existing.exampleKey,
+        question: existing.question,
+        purpose: existing.purpose,
+        evidenceMode: existing.evidenceMode,
+        surface: existing.surface,
+        answerStatus: existing.answerStatus,
+        packHash: existing.packHash,
+        evidenceReferences: existing.evidenceReferences,
+        captureKind: existing.captureKind,
+        usefulness: existing.usefulness,
+        ...(existing.issueReason === undefined
+          ? {}
+          : { issueReason: existing.issueReason }),
+        split: existing.split,
+        actorUserId: existing.actorUserId,
+      };
+      if (JSON.stringify(existingPayload) !== JSON.stringify(proposed))
+        return yield* new AssistantError.ValidationFailed({
+          field: "exampleKey",
+          message: "Example key was already used for different input.",
+        });
+      return existing._id;
+    }
+    const now = yield* withConfectClock(Clock.currentTimeMillis);
+    const writer = yield* DatabaseWriter;
+    return yield* writer
+      .table("brainEvaluationExamples")
+      .insert({ ...proposed, createdAt: now, updatedAt: now })
+      .pipe(Effect.orDie);
+  });
+
+const saveEvaluationExample = FunctionImpl.make(
+  databaseSchema,
+  assistant,
+  "saveEvaluationExample",
+  (args) =>
+    Effect.gen(function* () {
+      const access = yield* assistantAccess(args.workspaceId);
+      return yield* persistEvaluationExample(args, access.userId);
+    }),
+);
+
+const saveEvaluationExampleForActor = FunctionImpl.make(
+  databaseSchema,
+  assistant,
+  "saveEvaluationExampleForActor",
+  ({ userId, ...args }) =>
+    Effect.gen(function* () {
+      yield* assistantActorAccess(args.workspaceId, userId);
+      return yield* persistEvaluationExample(args, userId);
     }),
 );
 
@@ -372,6 +592,8 @@ const listThreadMessages = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, assistant).pipe(
   Layer.provide(answerQuestion),
   Layer.provide(answerQuestionForActor),
+  Layer.provide(saveEvaluationExample),
+  Layer.provide(saveEvaluationExampleForActor),
   Layer.provide(startThread),
   Layer.provide(continueThread),
   Layer.provide(listThreadMessages),

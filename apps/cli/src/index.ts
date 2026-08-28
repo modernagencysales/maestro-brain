@@ -19,6 +19,8 @@ export type { CliResult, CliRuntimeConfig };
 
 export const staticCliOperationRefs: Readonly<Record<string, string>> = {
   "agents.assistant.answerQuestion": "agents.assistant.answerQuestion",
+  "agents.assistant.saveEvaluationExample":
+    "agents.assistant.saveEvaluationExample",
   "brain.pages.createMarkdown": "brain.pages.createMarkdown",
   "brain.pages.get": "brain.pages.get",
   "brain.pages.history": "brain.pages.history",

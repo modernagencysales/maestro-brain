@@ -9,6 +9,7 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainConnectorRunSeen from "./tables/brainConnectorRunSeen";
 import brainConnectorRuns from "./tables/brainConnectorRuns";
+import brainEvaluationExamples from "./tables/brainEvaluationExamples";
 import brainEvidenceRevisions from "./tables/brainEvidenceRevisions";
 import brainEvidenceSources from "./tables/brainEvidenceSources";
 import brainPages from "./tables/brainPages";
@@ -76,6 +77,7 @@ export default $defineSchema({
   billingPlans: billingPlans.tableDefinition,
   brainConnectorRunSeen: brainConnectorRunSeen.tableDefinition,
   brainConnectorRuns: brainConnectorRuns.tableDefinition,
+  brainEvaluationExamples: brainEvaluationExamples.tableDefinition,
   brainEvidenceRevisions: brainEvidenceRevisions.tableDefinition,
   brainEvidenceSources: brainEvidenceSources.tableDefinition,
   brainPages: brainPages.tableDefinition,

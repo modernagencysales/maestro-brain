@@ -898,6 +898,13 @@ Deliver:
 - encrypted or externally stored customer fixture payloads with committed hashes
   and aggregate results only.
 
+**UI template gap `BRAIN-TG-002`:** the canonical Search screen is protected by
+its purchased-screen destination receipt. A direct `Useful` / `Needs work` /
+`Save as test` edit correctly fails `typecheck:saas-ui` with a destination-hash
+mismatch. Keep the shared save-example mutation available to CLI, API, and HTTP
+MCP, and add the web actions only through a generated Search extension seam or
+an upstream receipt refresh. Do not fork the canonical screen to close WP0.
+
 Focused gates:
 
 - empty and populated manifests contain no customer text;

@@ -16,6 +16,17 @@ export const confectManifest = {
       returnsSchemaName: "agents.assistant.answerQuestion.returns",
     },
     {
+      namespace: "agents.assistant",
+      name: "saveEvaluationExample",
+      operationId: "agents.assistant.saveEvaluationExample",
+      kind: "mutation",
+      surfaces: ["web", "api", "cli", "mcp"],
+      typedErrors: ["Unauthenticated", "NoWorkspaceAccess", "ValidationFailed"],
+      idempotent: true,
+      argsSchemaName: "agents.assistant.saveEvaluationExample.args",
+      returnsSchemaName: "agents.assistant.saveEvaluationExample.returns",
+    },
+    {
       namespace: "auth.workspaces",
       name: "list",
       operationId: "auth.workspaces.list",
@@ -372,6 +383,11 @@ export const confectManifest = {
 
 const sharedConfectJsonSchemasValue1 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "string",
+} as const;
+
+const sharedConfectJsonSchemasValue2 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
     workspaceId: {
@@ -673,7 +689,7 @@ const sharedConfectJsonSchemasValue1 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue2 = {
+const sharedConfectJsonSchemasValue3 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -712,7 +728,7 @@ const sharedConfectJsonSchemasValue2 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue3 = {
+const sharedConfectJsonSchemasValue4 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -745,7 +761,7 @@ const sharedConfectJsonSchemasValue3 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue4 = {
+const sharedConfectJsonSchemasValue5 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -1043,7 +1059,7 @@ const sharedConfectJsonSchemasValue4 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue5 = {
+const sharedConfectJsonSchemasValue6 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -1142,6 +1158,9 @@ const sharedConfectJsonSchemas = {
           schemaVersion: {
             type: "string",
             enum: ["3"],
+          },
+          packHash: {
+            type: "string",
           },
           candidateManifest: {
             type: "object",
@@ -1322,6 +1341,7 @@ const sharedConfectJsonSchemas = {
         },
         required: [
           "schemaVersion",
+          "packHash",
           "candidateManifest",
           "workspaceId",
           "question",
@@ -1334,6 +1354,100 @@ const sharedConfectJsonSchemas = {
       },
     },
   },
+  "agents.assistant.saveEvaluationExample.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      exampleKey: {
+        type: "string",
+      },
+      question: {
+        type: "string",
+      },
+      purpose: {
+        type: "string",
+      },
+      evidenceMode: {
+        type: "string",
+        enum: ["recent_evidence", "company_truth", "mixed"],
+      },
+      surface: {
+        type: "string",
+        enum: ["web", "cli", "api", "mcp"],
+      },
+      answerStatus: {
+        type: "string",
+        enum: ["answered", "insufficient-context"],
+      },
+      packHash: {
+        type: "string",
+      },
+      evidenceReferences: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            sourceKey: {
+              type: "string",
+            },
+            revisionKey: {
+              type: "string",
+            },
+            contentHash: {
+              type: "string",
+            },
+          },
+          required: ["sourceKey", "revisionKey", "contentHash"],
+          additionalProperties: false,
+        },
+      },
+      captureKind: {
+        type: "string",
+        enum: ["feedback", "test"],
+      },
+      usefulness: {
+        type: "string",
+        enum: ["useful", "needs-work", "unrated"],
+      },
+      issueReason: {
+        anyOf: [
+          {
+            type: "string",
+            enum: [
+              "missing-source",
+              "incorrect-answer",
+              "stale-context",
+              "citation-problem",
+              "fallback-required",
+              "other",
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: [
+      "workspaceId",
+      "exampleKey",
+      "question",
+      "purpose",
+      "evidenceMode",
+      "surface",
+      "answerStatus",
+      "packHash",
+      "evidenceReferences",
+      "captureKind",
+      "usefulness",
+    ],
+    additionalProperties: false,
+  },
+  "agents.assistant.saveEvaluationExample.returns":
+    sharedConfectJsonSchemasValue1,
   "auth.workspaces.list.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     anyOf: [
@@ -1535,7 +1649,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt"],
     additionalProperties: false,
   },
-  "brain.pages.archive.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.archive.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.createMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1593,10 +1707,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "slug", "title", "markdown"],
     additionalProperties: false,
   },
-  "brain.pages.createMarkdown.returns": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "string",
-  },
+  "brain.pages.createMarkdown.returns": sharedConfectJsonSchemasValue1,
   "brain.pages.favorite.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1625,7 +1736,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt", "favorite"],
     additionalProperties: false,
   },
-  "brain.pages.favorite.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.favorite.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.get.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1640,7 +1751,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId"],
     additionalProperties: false,
   },
-  "brain.pages.get.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.get.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.history.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2372,7 +2483,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "brain.pages.move.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.move.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.rename.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2401,7 +2512,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt", "title"],
     additionalProperties: false,
   },
-  "brain.pages.rename.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.rename.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.restore.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2443,7 +2554,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "brain.pages.restore.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.restore.returns": sharedConfectJsonSchemasValue2,
   "brain.pages.updateMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2502,14 +2613,14 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "markdown", "expectedUpdatedAt"],
     additionalProperties: false,
   },
-  "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue1,
-  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue2,
+  "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue2,
+  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue3,
   "capabilities.sourceGroundedBrief.run.returns":
-    sharedConfectJsonSchemasValue3,
+    sharedConfectJsonSchemasValue4,
   "capabilities.sourceGroundedBrief.runInternal.args":
-    sharedConfectJsonSchemasValue2,
-  "capabilities.sourceGroundedBrief.runInternal.returns":
     sharedConfectJsonSchemasValue3,
+  "capabilities.sourceGroundedBrief.runInternal.returns":
+    sharedConfectJsonSchemasValue4,
   "integrations.connections.begin.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2525,7 +2636,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider"],
     additionalProperties: false,
   },
-  "integrations.connections.begin.returns": sharedConfectJsonSchemasValue4,
+  "integrations.connections.begin.returns": sharedConfectJsonSchemasValue5,
   "integrations.connections.complete.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2594,8 +2705,8 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider", "generation", "completion"],
     additionalProperties: false,
   },
-  "integrations.connections.complete.returns": sharedConfectJsonSchemasValue4,
-  "integrations.connections.list.args": sharedConfectJsonSchemasValue5,
+  "integrations.connections.complete.returns": sharedConfectJsonSchemasValue5,
+  "integrations.connections.list.args": sharedConfectJsonSchemasValue6,
   "integrations.connections.list.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "array",
@@ -2922,7 +3033,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider", "generation"],
     additionalProperties: false,
   },
-  "integrations.connections.revoke.returns": sharedConfectJsonSchemasValue4,
+  "integrations.connections.revoke.returns": sharedConfectJsonSchemasValue5,
   "ops.dataLifecycle.createDsarRequest.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -3149,8 +3260,9 @@ const sharedConfectJsonSchemas = {
                 "actionTriggers",
                 "apiKeys",
                 "billingPlans",
-                "brainConnectorRunSeen",
                 "brainConnectorRuns",
+                "brainConnectorRunSeen",
+                "brainEvaluationExamples",
                 "brainEvidenceRevisions",
                 "brainEvidenceSources",
                 "brainPages",
@@ -3224,8 +3336,9 @@ const sharedConfectJsonSchemas = {
                 "actionTriggers",
                 "apiKeys",
                 "billingPlans",
-                "brainConnectorRunSeen",
                 "brainConnectorRuns",
+                "brainConnectorRunSeen",
+                "brainEvaluationExamples",
                 "brainEvidenceRevisions",
                 "brainEvidenceSources",
                 "brainPages",
@@ -3303,7 +3416,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue5,
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue6,
   "ops.dataLifecycle.listDsarRequests.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -3449,8 +3562,9 @@ const sharedConfectJsonSchemas = {
                       "actionTriggers",
                       "apiKeys",
                       "billingPlans",
-                      "brainConnectorRunSeen",
                       "brainConnectorRuns",
+                      "brainConnectorRunSeen",
+                      "brainEvaluationExamples",
                       "brainEvidenceRevisions",
                       "brainEvidenceSources",
                       "brainPages",
@@ -3524,8 +3638,9 @@ const sharedConfectJsonSchemas = {
                       "actionTriggers",
                       "apiKeys",
                       "billingPlans",
-                      "brainConnectorRunSeen",
                       "brainConnectorRuns",
+                      "brainConnectorRunSeen",
+                      "brainEvaluationExamples",
                       "brainEvidenceRevisions",
                       "brainEvidenceSources",
                       "brainPages",
@@ -3719,7 +3834,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue5,
+  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue6,
   "ops.email.previewBroadcast.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",

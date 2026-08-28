@@ -10,6 +10,7 @@ export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
 export type BrainConnectorRunSeenDoc = Document.Document<typeof schemaDefinition, "brainConnectorRunSeen">;
 export type BrainConnectorRunsDoc = Document.Document<typeof schemaDefinition, "brainConnectorRuns">;
+export type BrainEvaluationExamplesDoc = Document.Document<typeof schemaDefinition, "brainEvaluationExamples">;
 export type BrainEvidenceRevisionsDoc = Document.Document<typeof schemaDefinition, "brainEvidenceRevisions">;
 export type BrainEvidenceSourcesDoc = Document.Document<typeof schemaDefinition, "brainEvidenceSources">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
@@ -77,6 +78,7 @@ export interface Docs {
   billingPlans: BillingPlansDoc;
   brainConnectorRunSeen: BrainConnectorRunSeenDoc;
   brainConnectorRuns: BrainConnectorRunsDoc;
+  brainEvaluationExamples: BrainEvaluationExamplesDoc;
   brainEvidenceRevisions: BrainEvidenceRevisionsDoc;
   brainEvidenceSources: BrainEvidenceSourcesDoc;
   brainPages: BrainPagesDoc;

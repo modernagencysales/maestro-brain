@@ -132,6 +132,7 @@ describe("hosted Brain MCP", () => {
     ).tools;
     expect(tools.map(({ name }) => name)).toEqual([
       "template.agents.assistant.answerQuestion",
+      "template.agents.assistant.saveEvaluationExample",
       "template.brain.evidence.search",
       "template.brain.evidence.sourceGet",
       "template.brain.evidence.health",

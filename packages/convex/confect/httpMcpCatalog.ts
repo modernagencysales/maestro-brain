@@ -56,6 +56,15 @@ export const brainMcpToolConfigs = {
       "agents/assistant:answerQuestionForActor",
     ),
   },
+  "agents.assistant.saveEvaluationExample": {
+    description:
+      "Explicitly save one cited Ask Maestro result into the shared rolling evaluation set without copying evidence excerpts.",
+    requiredScope: "workspace:write",
+    kind: "mutation",
+    ref: makeFunctionReference<"mutation">(
+      "agents/assistant:saveEvaluationExampleForActor",
+    ),
+  },
   "brain.evidence.search": {
     description:
       "Search current canonical Brain evidence and return exact source and revision identities for reopening.",

@@ -9,8 +9,9 @@ export const currentLifecycleResourceIds = [
   "actionTriggers",
   "apiKeys",
   "billingPlans",
-  "brainConnectorRunSeen",
   "brainConnectorRuns",
+  "brainConnectorRunSeen",
+  "brainEvaluationExamples",
   "brainEvidenceRevisions",
   "brainEvidenceSources",
   "brainPages",
@@ -109,6 +110,13 @@ export const workspaceLifecycleResourcePlans = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    id: "brainConnectorRuns",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+  },
+  {
     id: "brainConnectorRunSeen",
     owner: "workspace",
     exportMode: "json",
@@ -116,11 +124,11 @@ export const workspaceLifecycleResourcePlans = [
     detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
   },
   {
-    id: "brainConnectorRuns",
+    id: "brainEvaluationExamples",
     owner: "workspace",
-    exportMode: "json",
+    exportMode: "redacted-json",
     deleteMode: "delete",
-    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+    detail: "Explicitly saved Ask Maestro evaluation examples with bounded immutable source references and no copied evidence excerpts."
   },
   {
     id: "brainEvidenceRevisions",
@@ -470,14 +478,19 @@ export const workspaceRetentionRules = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    resourceId: "brainConnectorRuns",
+    action: "retain-until-workspace-delete",
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+  },
+  {
     resourceId: "brainConnectorRunSeen",
     action: "retain-until-workspace-delete",
     detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
   },
   {
-    resourceId: "brainConnectorRuns",
+    resourceId: "brainEvaluationExamples",
     action: "retain-until-workspace-delete",
-    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+    detail: "Explicitly saved Ask Maestro evaluation examples with bounded immutable source references and no copied evidence excerpts."
   },
   {
     resourceId: "brainEvidenceRevisions",

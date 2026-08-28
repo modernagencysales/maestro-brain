@@ -102,6 +102,8 @@ const isBrainPageOperation = (
   brainPageOperationIds.some((candidate) => candidate === operationId);
 
 const assistantAnswerOperationId = "agents.assistant.answerQuestion" as const;
+const assistantSaveExampleOperationId =
+  "agents.assistant.saveEvaluationExample" as const;
 const workspaceListOperationId = "auth.workspaces.list" as const;
 
 const connectionOperationIds = [
@@ -118,6 +120,8 @@ const isConnectionOperation = (
 
 const operationRefs = {
   "agents.assistant.answerQuestion": api.agents.assistant.answerQuestion,
+  "agents.assistant.saveEvaluationExample":
+    api.agents.assistant.saveEvaluationExample,
   "auth.workspaces.list": api.auth.workspaces.list,
   "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
   "brain.pages.get": api.brain.pages.get,
@@ -566,11 +570,17 @@ const executeTemplateApiRoute = async (
             ? await workspaceListApiResponse(ctx, request, parsedBody.body)
             : operationId === assistantAnswerOperationId
               ? await assistantAnswerApiResponse(ctx, request, parsedBody.body)
-              : await responseForParsedTemplateApiBody(
-                  ctx,
-                  operationId,
-                  parsedBody.body,
-                )
+              : operationId === assistantSaveExampleOperationId
+                ? await assistantSaveExampleApiResponse(
+                    ctx,
+                    request,
+                    parsedBody.body,
+                  )
+                : await responseForParsedTemplateApiBody(
+                    ctx,
+                    operationId,
+                    parsedBody.body,
+                  )
     : jsonResponse(parsedBody);
 
   return response;
@@ -630,6 +640,9 @@ const brainPageActorRefs = {
 
 const assistantAnswerForActorRef = makeFunctionReference<"query">(
   "agents/assistant:answerQuestionForActor",
+);
+const assistantSaveExampleForActorRef = makeFunctionReference<"mutation">(
+  "agents/assistant:saveEvaluationExampleForActor",
 );
 const workspaceListForActorRef = makeFunctionReference<"query">(
   "auth/workspaces:listForActor",
@@ -829,6 +842,43 @@ const assistantAnswerApiResponse = async (
   return jsonResponse({
     ok: true,
     operationId: assistantAnswerOperationId,
+    result,
+  });
+};
+
+const assistantSaveExampleApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitAssistantApiRequest(request, body);
+  if (!admission.ok) return admission.response;
+  if (!body.idempotencyKey?.trim())
+    return jsonResponse(
+      {
+        ok: false,
+        error: {
+          _tag: "ValidationFailed",
+          message: `${assistantSaveExampleOperationId} requires a nonblank idempotencyKey.`,
+        },
+      },
+      400,
+    );
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: "workspace:write",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+  const result = await ctx.runMutation(assistantSaveExampleForActorRef, {
+    ...body.input,
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+  });
+  return jsonResponse({
+    ok: true,
+    operationId: assistantSaveExampleOperationId,
     result,
   });
 };
