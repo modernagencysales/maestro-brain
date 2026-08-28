@@ -3,6 +3,7 @@ import registeredFunctions from "../../confect/_generated/registeredFunctions/br
 export const beginRun = registeredFunctions.beginRun;
 export const completeRun = registeredFunctions.completeRun;
 export const currentGet = registeredFunctions.currentGet;
+export const failActiveScopeRun = registeredFunctions.failActiveScopeRun;
 export const failRun = registeredFunctions.failRun;
 export const health = registeredFunctions.health;
 export const healthForActor = registeredFunctions.healthForActor;

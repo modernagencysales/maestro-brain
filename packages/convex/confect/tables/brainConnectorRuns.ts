@@ -7,6 +7,7 @@ export const BrainConnectorRunRow = S.Struct({
   workspaceId: Id("workspaces"),
   provider: BrainEvidenceProvider,
   scopeKey: S.String,
+  connectionGeneration: S.optional(S.Number),
   runKey: S.String,
   status: S.Literals(["running", "complete", "failed"]),
   startedAt: S.Number,

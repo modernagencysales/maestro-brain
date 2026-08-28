@@ -13,6 +13,8 @@ export const BrainEvidenceRevisionRow = S.Struct({
   markdown: S.String,
   contentHash: S.String,
   locator: S.optional(S.String),
+  providerMetadataJson: S.optional(S.String),
+  providerMetadataHash: S.optional(S.String),
   sourceModifiedAt: S.Number,
   observedAt: S.Number,
   tombstone: S.Boolean,

@@ -86,6 +86,8 @@ const SourceGetReturns = S.Struct({
   markdown: S.String,
   contentHash: S.String,
   locator: S.optional(S.String),
+  providerMetadataJson: S.optional(S.String),
+  providerMetadataHash: S.optional(S.String),
   sourceModifiedAt: S.Number,
   observedAt: S.Number,
   tombstone: S.Boolean,
@@ -143,6 +145,8 @@ const PublishInput = {
   title: S.String,
   markdown: S.String,
   locator: S.optional(S.String),
+  providerMetadataJson: S.optional(S.String),
+  providerMetadataHash: S.optional(S.String),
   sourceModifiedAt: S.Number,
   observedAt: S.Number,
 } as const;
@@ -154,6 +158,7 @@ const beginRun = FunctionSpec.internalMutation({
       workspaceId: Id("workspaces"),
       provider: BrainEvidenceProvider,
       scopeKey: S.String,
+      connectionGeneration: S.optional(S.Number),
       runKey: S.String,
       startedAt: S.Number,
     }),
@@ -197,6 +202,20 @@ const failRun = FunctionSpec.internalMutation({
     }),
   returns: () => S.Struct({ runKey: S.String }),
   error: () => S.Union([ValidationFailed, NotFound]),
+});
+
+const failActiveScopeRun = FunctionSpec.internalMutation({
+  name: "failActiveScopeRun",
+  args: () =>
+    S.Struct({
+      workspaceId: Id("workspaces"),
+      provider: BrainEvidenceProvider,
+      scopeKey: S.String,
+      failureCode: S.String,
+      failedAt: S.Number,
+    }),
+  returns: () => S.Struct({ failedCount: S.Number }),
+  error: () => S.Union([ValidationFailed]),
 });
 
 const publishPage = FunctionSpec.internalMutation({
@@ -279,4 +298,5 @@ export default GroupSpec.make()
   .addFunction(publishRunItem)
   .addFunction(completeRun)
   .addFunction(failRun)
+  .addFunction(failActiveScopeRun)
   .addFunction(publishPage);

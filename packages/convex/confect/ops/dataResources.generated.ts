@@ -120,21 +120,21 @@ export const workspaceLifecycleResourcePlans = [
     owner: "workspace",
     exportMode: "json",
     deleteMode: "delete",
-    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
   },
   {
     id: "brainEvidenceRevisions",
     owner: "workspace",
     exportMode: "markdown",
     deleteMode: "delete",
-    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+    detail: "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
   },
   {
     id: "brainEvidenceSources",
     owner: "workspace",
     exportMode: "json",
     deleteMode: "delete",
-    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+    detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
   },
   {
     id: "brainPages",
@@ -477,17 +477,17 @@ export const workspaceRetentionRules = [
   {
     resourceId: "brainConnectorRuns",
     action: "retain-until-workspace-delete",
-    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
   },
   {
     resourceId: "brainEvidenceRevisions",
     action: "retain-until-workspace-delete",
-    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+    detail: "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
   },
   {
     resourceId: "brainEvidenceSources",
     action: "retain-until-workspace-delete",
-    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+    detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
   },
   {
     resourceId: "brainPages",

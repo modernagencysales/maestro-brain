@@ -16,11 +16,25 @@ is exceeded instead of silently truncating the source. `brainConnectorRuns` and
 `brainConnectorRunSeen` record bounded full-traversal receipts so only a
 successful complete run may infer removals.
 
+Slack projection v1 adds optional `providerMetadataJson` and
+`providerMetadataHash` to evidence sources and revisions. New Slack evidence is
+normalized as deterministic, bounded thread segments (32 messages and 24,000
+rendered characters maximum) with exact constituent-message offsets and
+locators. The thread revision identity covers rendered content and provider
+metadata; legacy evidence rows remain readable because both fields are optional.
+Connector runs optionally bind the provider connection generation so revocation
+or reauthorization prevents further publication and removal inference.
+Reconciliation queries the run's exact scope rather than every source belonging
+to the same provider.
+
 Existing Brain pages are projected lazily through the bounded repair performed
 during workspace provisioning. Provider evidence starts empty and is populated
 only by an explicit successful sync. No deployment-time full-table migration is
-required. Failed or capacity-exceeded connector runs preserve the prior active
-projection.
+required. Successful source upserts may advance independently. Failed or
+capacity-exceeded connector runs never infer removals, and only a completed
+bounded traversal may retire a source. Slack scheduled synchronization remains
+disabled until an old-thread reply/edit/delete discovery strategy is proven; V1
+uses explicit manual bounded synchronization.
 
 All six resources are workspace lifecycle managed and are deleted with the
 workspace. Evidence revisions and per-run observations are append-only;

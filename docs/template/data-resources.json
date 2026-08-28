@@ -152,7 +152,7 @@
       "workspaceLifecycle": "managed",
       "writeAuthority": "packages/convex/confect/brain/evidence.impl.ts",
       "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+      "detail": "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
     },
     {
       "id": "brainEvidenceRevisions",
@@ -169,7 +169,7 @@
       "workspaceLifecycle": "managed",
       "writeAuthority": "packages/convex/confect/brain/evidence.impl.ts",
       "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+      "detail": "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
     },
     {
       "id": "brainEvidenceSources",
@@ -186,7 +186,7 @@
       "workspaceLifecycle": "managed",
       "writeAuthority": "packages/convex/confect/brain/evidenceProjection.ts",
       "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+      "detail": "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
     },
     {
       "id": "brainPages",

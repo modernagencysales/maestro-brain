@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import { sha256Hex } from "../confect/shared/sha256";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
@@ -157,6 +158,212 @@ describe("Company Brain evidence publication", () => {
     expect(result.first.changed).toBe(true);
     expect(result.duplicate.changed).toBe(false);
     expect(result.conflict._tag).toBe("ValidationFailed");
+  });
+
+  it("rejects over-capacity evidence before changing source state", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(seedSlackConnection(seeded.workspaceId, now));
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:apero",
+        runKey: "run-capacity",
+        startedAt: now,
+      });
+      const failure = yield* confect
+        .mutation(
+          refs.internal.brain.evidence.publishRunItem,
+          evidence(
+            seeded.workspaceId,
+            "run-capacity",
+            "oversized-source",
+            "revision-1",
+            "evidence ".repeat(4_000),
+          ),
+        )
+        .pipe(Effect.flip);
+      const current = yield* actor.query(
+        refs.public.brain.evidence.listCurrent,
+        {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          limit: 10,
+        },
+      );
+      const reopening = yield* actor
+        .query(refs.public.brain.evidence.sourceGet, {
+          workspaceId: seeded.workspaceId,
+          sourceKey: "oversized-source",
+          revisionKey: "revision-1",
+        })
+        .pipe(Effect.flip);
+      return { current, failure, reopening };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.failure._tag).toBe("ValidationFailed");
+    expect(result.current).toEqual([]);
+    expect(result.reopening._tag).toBe("NotFound");
+  });
+
+  it("keeps provider metadata immutable and reopenable with the revision", async () => {
+    const providerMetadataJson = JSON.stringify({
+      schemaVersion: 1,
+      channelId: "C01",
+      threadRootTimestamp: "178.1",
+      messageRefs: [],
+    });
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(seedSlackConnection(seeded.workspaceId, now));
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:apero",
+        runKey: "run-metadata",
+        startedAt: now,
+      });
+      const item = {
+        ...evidence(
+          seeded.workspaceId,
+          "run-metadata",
+          "thread-1",
+          "revision-1",
+          "Grounded thread content",
+        ),
+        providerMetadataJson,
+        providerMetadataHash: sha256Hex(providerMetadataJson),
+      };
+      yield* confect.mutation(
+        refs.internal.brain.evidence.publishRunItem,
+        item,
+      );
+      const changedMetadataJson = JSON.stringify({
+        ...JSON.parse(providerMetadataJson),
+        channelId: "C02",
+      });
+      const conflict = yield* confect
+        .mutation(refs.internal.brain.evidence.publishRunItem, {
+          ...item,
+          providerMetadataJson: changedMetadataJson,
+          providerMetadataHash: sha256Hex(changedMetadataJson),
+        })
+        .pipe(Effect.flip);
+      const reopened = yield* actor.query(
+        refs.public.brain.evidence.sourceGet,
+        {
+          workspaceId: seeded.workspaceId,
+          sourceKey: "thread-1",
+          revisionKey: "revision-1",
+        },
+      );
+      return { conflict, reopened };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.conflict._tag).toBe("ValidationFailed");
+    expect(result.reopened).toMatchObject({
+      providerMetadataJson,
+      providerMetadataHash: sha256Hex(providerMetadataJson),
+    });
+  });
+
+  it("reconciles removals only inside the completed run scope", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(seedSlackConnection(seeded.workspaceId, now));
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      for (const [scopeKey, runKey, sourceKey] of [
+        ["slack:connection-a", "run-a-1", "source-a"],
+        ["slack:connection-b", "run-b-1", "source-b"],
+      ] as const) {
+        yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          scopeKey,
+          runKey,
+          startedAt: now,
+        });
+        yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
+          ...evidence(
+            seeded.workspaceId,
+            runKey,
+            sourceKey,
+            "revision-1",
+            `Evidence for ${sourceKey}`,
+          ),
+          scopeKey,
+        });
+        yield* confect.mutation(refs.internal.brain.evidence.completeRun, {
+          workspaceId: seeded.workspaceId,
+          runKey,
+          discoveredCount: 1,
+          completedAt: now + 1,
+        });
+      }
+      yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:connection-a",
+        runKey: "run-a-2",
+        startedAt: now + 2,
+      });
+      const completion = yield* confect.mutation(
+        refs.internal.brain.evidence.completeRun,
+        {
+          workspaceId: seeded.workspaceId,
+          runKey: "run-a-2",
+          discoveredCount: 0,
+          completedAt: now + 3,
+        },
+      );
+      const health = yield* actor.query(refs.public.brain.evidence.health, {
+        workspaceId: seeded.workspaceId,
+      });
+      const browsable = yield* actor.query(
+        refs.public.brain.evidence.listCurrent,
+        {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          limit: 10,
+        },
+      );
+      return { completion, health, browsable };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.completion.retiredCount).toBe(1);
+    expect(result.health.providers).toContainEqual(
+      expect.objectContaining({
+        provider: "slack",
+        activeSourceCount: 1,
+        removedSourceCount: 1,
+      }),
+    );
+    expect(result.browsable).toEqual([
+      expect.objectContaining({ sourceKey: "source-b" }),
+    ]);
   });
 
   it("reconciles removals only after a successful full traversal and reopens exact revisions", async () => {

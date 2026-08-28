@@ -260,6 +260,19 @@ const revokeConnectionRow = (args: {
         updatedAt: now,
       })
       .pipe(Effect.orDie);
+    if (
+      args.provider === "slack" &&
+      typeof existing.connectionRef === "string"
+    ) {
+      const mutation = yield* MutationRunner;
+      yield* mutation(refs.internal.brain.evidence.failActiveScopeRun, {
+        workspaceId: args.workspaceId,
+        provider: "slack",
+        scopeKey: `slack:${existing.connectionRef}`,
+        failureCode: "connection_revoked",
+        failedAt: now,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    }
     const reader = yield* DatabaseReader;
     const updated = yield* reader
       .table("providerConnections")
@@ -940,6 +953,7 @@ const runSlackSync = (
       workspaceId,
       provider: "slack",
       scopeKey,
+      connectionGeneration: connection.generation,
       runKey,
       startedAt,
     }).pipe(Effect.catchTag("SchemaError", providerFailure));
@@ -950,7 +964,15 @@ const runSlackSync = (
             ...config,
             connectionId: connection.connectionRef as string,
             channelIds,
-            limits: { maxMessagesTotal: 1_000 },
+            oldestTimestamp: String(
+              Math.floor((startedAt - 30 * 24 * 60 * 60 * 1_000) / 1_000),
+            ),
+            limits: {
+              maxChannels: 10,
+              maxMessagesPerChannel: 1_000,
+              maxMessagesTotal: 1_000,
+              maxPagesPerCollection: 20,
+            },
           }),
         catch: slackSyncFailure,
       });
@@ -1057,7 +1079,7 @@ const recordSlackSync = FunctionImpl.make(
           ...(channelIds === undefined
             ? {}
             : {
-                scheduledSyncEnabled: true,
+                scheduledSyncEnabled: false,
                 slackChannelIds: [...new Set(channelIds)].sort(),
               }),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
@@ -1167,22 +1189,8 @@ const dispatchScheduledSyncs = FunctionImpl.make(
           skippedCount += 1;
           continue;
         }
-        if (
-          connection.provider === "slack" &&
-          connection.slackChannelIds !== undefined &&
-          connection.slackChannelIds.length > 0
-        ) {
-          yield* scheduler
-            .runAfter(
-              Duration.zero,
-              refs.internal.integrations.connections.syncSlackScheduled,
-              {
-                workspaceId: connection.workspaceId,
-                channelIds: connection.slackChannelIds,
-              },
-            )
-            .pipe(Effect.orDie);
-          scheduledCount += 1;
+        if (connection.provider === "slack") {
+          skippedCount += 1;
           continue;
         }
         if (
