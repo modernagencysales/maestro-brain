@@ -58,7 +58,7 @@ export function startPortPlan(
     readinessPresenter,
     required,
     url,
-    readinessUrl: `${url}/health`,
+    readinessUrl: `${url}/favicon.ico`,
     buildReadinessUrl: `http://${host}:${readinessPresenter}/`,
   };
 }

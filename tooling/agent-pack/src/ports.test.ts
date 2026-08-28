@@ -16,7 +16,7 @@ describe("start ports", () => {
         { id: "readiness-presenter", port: 4174 },
       ],
       url: "http://127.0.0.1:5173",
-      readinessUrl: "http://127.0.0.1:5173/health",
+      readinessUrl: "http://127.0.0.1:5173/favicon.ico",
       buildReadinessUrl: "http://127.0.0.1:4174/",
     });
     expect(startPortPlan("local").required).toEqual([
@@ -64,7 +64,7 @@ describe("start ports", () => {
         { id: "readiness-presenter", port: 6174 },
       ],
       url: "http://127.0.0.1:6173",
-      readinessUrl: "http://127.0.0.1:6173/health",
+      readinessUrl: "http://127.0.0.1:6173/favicon.ico",
       buildReadinessUrl: "http://127.0.0.1:6174/",
     });
   });

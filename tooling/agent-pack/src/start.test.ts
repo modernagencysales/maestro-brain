@@ -105,14 +105,14 @@ describe("start command", () => {
       mode: "fake",
       app: { name: "My App", firstOutcome: "Track client requests" },
       url: "http://127.0.0.1:5173",
-      readinessUrl: "http://127.0.0.1:5173/health",
+      readinessUrl: "http://127.0.0.1:5173/favicon.ico",
       buildReadinessUrl: "http://127.0.0.1:4174/",
     });
     expect(dependencies.announce).toHaveBeenCalledWith({
       name: "My App",
       firstOutcome: "Track client requests",
       url: "http://127.0.0.1:5173",
-      readinessUrl: "http://127.0.0.1:5173/health",
+      readinessUrl: "http://127.0.0.1:5173/favicon.ico",
       buildReadinessUrl: "http://127.0.0.1:4174/",
     });
     expect(dependencies.readinessSurface.open).toHaveBeenCalledWith({
@@ -219,7 +219,7 @@ describe("start command", () => {
     );
     expect(result.data).toMatchObject({
       url: "http://127.0.0.1:6173",
-      readinessUrl: "http://127.0.0.1:6173/health",
+      readinessUrl: "http://127.0.0.1:6173/favicon.ico",
       buildReadinessUrl: "http://127.0.0.1:6174/",
       ports: [
         { id: "web", port: 6173 },
