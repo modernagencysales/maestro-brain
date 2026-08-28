@@ -1,12 +1,12 @@
 import { expect, test } from "./support/fixtures";
 import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 // Source-mode acceptance compiles the complete purchased Contacts and Inbox
 // compositions on demand. Preserve the exact UI/data assertions while allowing
 // the measured cold route to finish loading before declaring data absent.
-const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 30_000;
+const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 60_000;
 
 type BrainPage = Readonly<{
   _id: string;
