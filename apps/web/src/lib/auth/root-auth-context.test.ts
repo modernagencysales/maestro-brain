@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@fontsource-variable/inter", () => ({}));
+vi.mock("@tanstack/react-query-devtools", () => ({
+  ReactQueryDevtools: () => null,
+}));
+vi.mock("@tanstack/react-router-devtools", () => ({
+  TanStackRouterDevtools: () => null,
+}));
 vi.mock("@workos/authkit-tanstack-react-start", () => ({
   getAuth: async () => ({ user: { id: "user_1" } }),
   getAccessTokenAction: async () => "secret",
+}));
+vi.mock("@workos/authkit-tanstack-react-start/client", () => ({
+  AuthKitProvider: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("convex/react", () => ({
+  ConvexProvider: ({ children }: { children: unknown }) => children,
+  ConvexProviderWithAuth: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("../../provider.tsx", () => ({
+  Provider: ({ children }: { children: unknown }) => children,
 }));
 
 import { Route } from "../../routes/__root";

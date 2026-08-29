@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toTimelineActivity } from "./activities-panel";
+import { toTimelineActivity } from "./activities-adapter";
 
 const base = {
   id: "activity_1",

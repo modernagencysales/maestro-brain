@@ -149,6 +149,15 @@ describe("Brain knowledge review contract", () => {
           asOf: now,
         },
       );
+      const updatedPage = yield* actor.query(refs.public.brain.pages.get, {
+        workspaceId: seeded.workspaceId,
+        pageId,
+      });
+      yield* actor.mutation(refs.public.brain.pages.archive, {
+        workspaceId: seeded.workspaceId,
+        pageId,
+        expectedUpdatedAt: updatedPage.updatedAt,
+      });
       const ledger = yield* confect.run(
         Effect.gen(function* () {
           const reader = yield* DatabaseReader;
@@ -184,10 +193,17 @@ describe("Brain knowledge review contract", () => {
     expect(result.accepted).toMatchObject({
       status: "accepted",
       reviewRevision: 1,
+      citationKey: expect.any(String),
     });
     expect(result.replayed).toEqual(result.accepted);
     expect(JSON.parse(result.ledger)).toMatchObject({
-      claims: [{ status: "supported", citationIds: [expect.any(String)] }],
+      claims: [
+        {
+          status: "supported",
+          citationIds: [expect.any(String)],
+          sourceWithdrawnAt: expect.any(Number),
+        },
+      ],
       citations: [
         {
           quotedText: "$5,000 per month",

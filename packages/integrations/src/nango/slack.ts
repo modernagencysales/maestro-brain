@@ -131,6 +131,26 @@ const nextCursor = (body: Record<string, unknown>): string | undefined => {
     : undefined;
 };
 
+const requestWithRateLimitRetry = async (
+  request: Request,
+  url: string | URL,
+  init?: RequestInit,
+): Promise<Response> => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await request(url, init);
+    if (response.status !== 429 || attempt === 2) return response;
+    const retryAfterSeconds = Number(
+      response.headers.get("retry-after") ?? "1",
+    );
+    const delayMs =
+      Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
+        ? Math.min(retryAfterSeconds * 1_000, 10_000)
+        : 1_000;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new NangoProviderUnavailable();
+};
+
 const fetchCollection = async (input: {
   readonly method: string;
   readonly itemKey: string;
@@ -148,7 +168,8 @@ const fetchCollection = async (input: {
     if (pageCount >= input.maxPages)
       throw new SlackSnapshotCapacityExceeded("pages", input.maxPages);
     const body = await readRecord(
-      await input.request(
+      await requestWithRateLimitRetry(
+        input.request,
         proxyUrl(input.method, {
           ...input.query,
           ...(cursor === undefined ? {} : { cursor }),

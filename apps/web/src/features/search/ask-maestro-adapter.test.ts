@@ -14,6 +14,7 @@ describe('assistant to Starter Search adapter', () => {
         contextPack: {
           schemaVersion: '4',
           packHash: `sha256:${'a'.repeat(64)}`,
+          evidenceMode: 'mixed',
           freshness: 'current',
           citations: [
             {
@@ -39,6 +40,8 @@ describe('assistant to Starter Search adapter', () => {
         title: '[1] Launch plan',
         description:
           'The launch is Friday. · current · citation:page-1:42',
+        sourceKey: 'brain-page:page-1',
+        revisionKey: '42',
       },
     ])
   })
@@ -51,6 +54,7 @@ describe('assistant to Starter Search adapter', () => {
         contextPack: {
           schemaVersion: '4',
           packHash: `sha256:${'b'.repeat(64)}`,
+          evidenceMode: 'mixed',
           freshness: 'unknown',
           citations: [],
         },

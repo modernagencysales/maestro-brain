@@ -40,12 +40,14 @@ export const reviewBrainKnowledgeCandidateArgs = S.Struct({
   action: S.Literals(["accept", "edit_and_accept", "reject"]),
   body: S.optional(S.String),
   reason: S.optional(S.String),
+  reviewHorizonDays: S.optional(S.Number),
 });
 export const reviewBrainKnowledgeCandidateReturns = S.Struct({
   status: S.Literals(["accepted", "rejected"]),
   candidateReceiptKey: S.String,
   reviewRevision: S.Number,
   claimId: S.optional(Id("claims")),
+  citationKey: S.optional(S.String),
   reviewedAt: S.Number,
 });
 export const reviewBrainKnowledgeCandidate = FunctionSpec.publicMutation({

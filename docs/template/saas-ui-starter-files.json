@@ -433,7 +433,7 @@
       "source": "apps/web/src/features/contacts/view/activities-panel.tsx",
       "destination": "apps/web/src/features/contacts/view/activities-panel.tsx",
       "sourceSha256": "97fc9342b991a4563a3bec2088a7cc8766c08a1b0fc22de41a663000dc67bf8b",
-      "sha256": "f3dc4e12b67e1b0dc8a06929772e006994830d551cb69258bc7c049d5a28fa51",
+      "sha256": "0904b1eb9f9412672ad4bdb53c8d923797ab5e021b3d9e433b47a7a431f53b63",
       "adapted": true
     },
     {
@@ -608,7 +608,7 @@
       "source": "apps/web/src/features/search/search-page.tsx",
       "destination": "apps/web/src/features/search/search-page.tsx",
       "sourceSha256": "9295a847ad0fed878189c40ca3ef92caabc405dccb10acb3b5922385e0de5ec2",
-      "sha256": "d656739355937e28177f76b817fa154830aa7a4841984f71f16ea6e1754971ff",
+      "sha256": "9e8e0460954b0d357f2459a3f24e11b76f14c312ef4085003a01bfe93adad9a3",
       "adapted": true
     },
     {

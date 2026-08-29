@@ -46,6 +46,7 @@ export default Table.make(() => CitationRow)
   .index("by_claim", ["claimId"])
   .index("by_source", ["sourceId"])
   .index("by_workspace_page", ["workspaceId", "pageKey"])
+  .index("by_workspace_and_source_key", ["workspaceId", "sourceKey"])
   .index("by_workspace_and_source_key_and_revision_key", [
     "workspaceId",
     "sourceKey",

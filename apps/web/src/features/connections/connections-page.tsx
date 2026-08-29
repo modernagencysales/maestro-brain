@@ -319,12 +319,14 @@ export const ConnectionsPage = () => {
           containerId,
           rootFolderIds,
           channelIds,
+          lookbackDays,
         }) => {
           try {
             if (provider === 'slack')
               await syncSlack({
                 workspaceId: workspace.id,
                 channelIds: [...channelIds],
+                lookbackDays,
               })
             else if (provider === 'google-drive')
               await syncGoogleDrive({

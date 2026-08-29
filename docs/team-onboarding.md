@@ -53,8 +53,11 @@ maestro-brain page list
 For evidence-sensitive work, reopen a search result before citing it:
 
 ```bash
-maestro-brain evidence source-get <source-key> <revision-key>
+maestro-brain evidence open <source-key> --revision <revision-key>
 ```
+
+`evidence source-get <source-key> <revision-key>` remains available for older
+scripts.
 
 These evidence commands use the same read-only HTTP MCP surface available to
 Codex, Claude Code, and Cowork. Search results are candidates; the exact source
@@ -75,8 +78,24 @@ maestro-brain import ./company-context
 ```
 
 Pages are immediately available to the web Brain, CLI, Ask Apero, and HTTP MCP
-inside the linked workspace. Connected Slack channels are ingested from the web
-app's Slack integration and appear as Brain pages with source provenance.
+inside the linked workspace. Connected Slack channels and Drive documents are
+ingested as cited Brain evidence; provider structures do not become Page
+folders.
+
+The workspace knowledge owner can turn current evidence into reviewed company
+truth entirely from the terminal:
+
+```bash
+maestro-brain knowledge extract --limit 10
+maestro-brain knowledge candidates --state unreviewed --limit 5
+maestro-brain knowledge review <candidate-key> --accept --expected-revision 0
+```
+
+Use `--body "edited claim"` with `--accept` to edit before acceptance, or use
+`--review-horizon-days 180` to change the default 90-day recheck. Use
+`--reject --reason "not durable company context"` to reject. The CLI generates a
+stable idempotency key unless one is supplied explicitly. Extraction is bounded
+and asynchronous, so list candidates again after scheduled jobs finish.
 
 Directory import is safe to repeat. Each relative Markdown path maps to a stable
 page slug and persisted CLI-import identity: new files are created, changed

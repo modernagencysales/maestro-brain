@@ -51,6 +51,7 @@ export function ProviderSyncDialog(props: {
     containerId: string
     rootFolderIds: readonly string[]
     channelIds: readonly string[]
+    lookbackDays: number
   }) => Promise<void>
 }) {
   const [containerId, setContainerId] = React.useState('')
@@ -61,6 +62,7 @@ export function ProviderSyncDialog(props: {
   const [discoveryFailed, setDiscoveryFailed] = React.useState(false)
   const [manualMode, setManualMode] = React.useState(false)
   const [pending, setPending] = React.useState(false)
+  const [lookbackDays, setLookbackDays] = React.useState(30)
   const drive = props.provider === 'google-drive'
   const slack = props.provider === 'slack'
 
@@ -71,6 +73,12 @@ export function ProviderSyncDialog(props: {
       try {
         const result = await props.onDiscover(provider, selectedContainerId)
         setDiscovery(result)
+        if (provider === 'slack')
+          setSelectedScopeIds((current) =>
+            current.length > 0
+              ? current
+              : result.scopes.slice(0, 1).map(({ id }) => id),
+          )
         if (result.resolvedContainerId !== undefined)
           setContainerId(result.resolvedContainerId)
       } catch {
@@ -96,6 +104,7 @@ export function ProviderSyncDialog(props: {
     setManualScopes(initialScopes.join(', '))
     setDiscovery(undefined)
     setManualMode(false)
+    setLookbackDays(30)
     void loadScopes(
       props.provider,
       props.provider === 'google-drive' && initialContainerId.length > 0
@@ -144,7 +153,7 @@ export function ProviderSyncDialog(props: {
           <VStack align="stretch" gap="4">
             <Text color="fg.muted" textStyle="sm">
               {slack
-                ? 'Nothing is selected automatically. Only channels you approve below enter the Company Brain.'
+                ? 'Start narrow: the first available channel is selected by default. Review it and add only the channels you want in the Company Brain.'
                 : drive
                   ? 'Choose one Shared Drive, then explicitly approve its full root or specific folders.'
                   : 'The portal below was detected from the account you authorized.'}
@@ -264,6 +273,31 @@ export function ProviderSyncDialog(props: {
               </Field.Root>
             ) : null}
 
+            {slack ? (
+              <Field.Root>
+                <Field.Label>Message history</Field.Label>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    value={String(lookbackDays)}
+                    onChange={(event) =>
+                      setLookbackDays(Number(event.target.value))
+                    }
+                  >
+                    <option value="14">Last 14 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="60">Last 60 days</option>
+                    <option value="90">Last 90 days</option>
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+                <Field.HelperText>
+                  {scopeIds.length} channel{scopeIds.length === 1 ? '' : 's'} · up
+                  to 1,000 messages total. Progress appears on the connection
+                  card while the sync runs.
+                </Field.HelperText>
+              </Field.Root>
+            ) : null}
+
             {manualMode ? (
               <VStack align="stretch" gap="3">
                 {!slack ? (
@@ -337,6 +371,7 @@ export function ProviderSyncDialog(props: {
                   containerId: containerId.trim(),
                   rootFolderIds: drive ? scopeIds : [],
                   channelIds: slack ? scopeIds : [],
+                  lookbackDays,
                 })
                 props.onClose()
               } finally {

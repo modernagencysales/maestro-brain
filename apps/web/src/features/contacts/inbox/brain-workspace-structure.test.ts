@@ -42,4 +42,12 @@ describe('Brain workspace visual structure', () => {
       'Source',
     ])
   })
+
+  it('keeps knowledge review bounded and supports editing and bulk rejection', () => {
+    const review = source('./brain-knowledge-review-dialog.tsx')
+    expect(review).toContain('limit: 5')
+    expect(review).toContain("'edit_and_accept'")
+    expect(review).toContain('Reject visible candidates')
+    expect(review).toContain('candidate.evidence[0]?.quote')
+  })
 })

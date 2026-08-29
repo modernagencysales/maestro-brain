@@ -18,7 +18,7 @@ import {
 } from "./_kit/workspaceAccess";
 import group from "./reviewBrainKnowledgeCandidate.spec";
 
-const REVIEW_HORIZON_MS = 90 * 24 * 60 * 60 * 1_000;
+const DAY_MS = 24 * 60 * 60 * 1_000;
 const MAX_QUEUE_LIMIT = 50;
 const invalid = (field: string, message: string) =>
   new ValidationFailed({ field, message });
@@ -187,6 +187,7 @@ const reviewCandidate = (
     readonly action: "accept" | "edit_and_accept" | "reject";
     readonly body?: string | undefined;
     readonly reason?: string | undefined;
+    readonly reviewHorizonDays?: number | undefined;
   },
   actorUserId?: GenericId<"users">,
 ) =>
@@ -231,7 +232,12 @@ const reviewCandidate = (
         reviewRevision: candidate.reviewRevision,
         ...(candidate.claimId === undefined
           ? {}
-          : { claimId: candidate.claimId }),
+          : {
+              claimId: candidate.claimId,
+              citationKey: `citation:${sha256Hex(
+                `${candidate.candidateReceiptKey}:${candidate.evidence[0]?.startOffset}:${candidate.evidence[0]?.endOffset}`,
+              )}`,
+            }),
         reviewedAt: prior.occurredAt,
       };
     if (
@@ -266,6 +272,16 @@ const reviewCandidate = (
       );
     if ((args.reason ?? "").length > 1_000)
       return yield* invalid("reason", "Review reason exceeds capacity.");
+    const reviewHorizonDays = args.reviewHorizonDays ?? 90;
+    if (
+      !Number.isInteger(reviewHorizonDays) ||
+      reviewHorizonDays < 30 ||
+      reviewHorizonDays > 365
+    )
+      return yield* invalid(
+        "reviewHorizonDays",
+        "Review horizon must be between 30 and 365 days.",
+      );
     const nextRevision = candidate.reviewRevision + 1;
     const event = {
       revision: nextRevision,
@@ -283,7 +299,7 @@ const reviewCandidate = (
         .patch(candidate._id, {
           currentState: "rejected",
           reviewRevision: nextRevision,
-          reviewHistory: [...candidate.reviewHistory.slice(-19), event],
+          reviewHistory: [...candidate.reviewHistory.slice(-7), event],
           updatedAt: now,
         })
         .pipe(Effect.orDie);
@@ -316,7 +332,7 @@ const reviewCandidate = (
         epistemics: candidate.epistemics,
         tags: [...candidate.tags],
         verifiedAt: now,
-        nextReviewAt: now + REVIEW_HORIZON_MS,
+        nextReviewAt: now + reviewHorizonDays * DAY_MS,
         createdAt: now,
         updatedAt: now,
       })
@@ -358,7 +374,7 @@ const reviewCandidate = (
         body,
         currentState: "accepted",
         reviewRevision: nextRevision,
-        reviewHistory: [...candidate.reviewHistory.slice(-19), event],
+        reviewHistory: [...candidate.reviewHistory.slice(-7), event],
         claimId: claimDbId,
         updatedAt: now,
       })
@@ -368,6 +384,7 @@ const reviewCandidate = (
       candidateReceiptKey: candidate.candidateReceiptKey,
       reviewRevision: nextRevision,
       claimId: claimDbId,
+      citationKey,
       reviewedAt: now,
     };
   });

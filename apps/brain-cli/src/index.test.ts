@@ -381,6 +381,138 @@ describe("standalone teammate CLI", () => {
     ]);
   });
 
+  it("supports the canonical evidence open spelling", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  ok: true,
+                  operationId: "brain.evidence.sourceGet",
+                  result: { markdown: "# Exact evidence" },
+                }),
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const result = await runCli(
+      ["evidence", "open", "drive:file-1", "--revision", "revision-2"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("# Exact evidence");
+    const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(request.params).toEqual({
+      name: "template.brain.evidence.sourceGet",
+      arguments: {
+        sourceKey: "drive:file-1",
+        revisionKey: "revision-2",
+      },
+    });
+  });
+
+  it("lists and reviews grounded knowledge candidates from the terminal", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          params: { name: string };
+        };
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    ok: true,
+                    operationId: request.params.name.slice("template.".length),
+                    result: request.params.name.endsWith("candidates")
+                      ? [{ candidateReceiptKey: "candidate-1" }]
+                      : { status: "accepted", claimId: "claim-1" },
+                  }),
+                },
+              ],
+            },
+          }),
+        );
+      });
+    const deps = { ...configured(root), fetch };
+
+    const listed = await runCli(
+      ["knowledge", "candidates", "--state", "unreviewed", "--limit", "5"],
+      deps,
+    );
+    const reviewed = await runCli(
+      [
+        "knowledge",
+        "review",
+        "candidate-1",
+        "--accept",
+        "--expected-revision",
+        "0",
+        "--body",
+        "Approved company truth",
+        "--review-horizon-days",
+        "180",
+      ],
+      deps,
+    );
+
+    expect(listed.exitCode).toBe(0);
+    expect(reviewed.exitCode).toBe(0);
+    const requests = fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(requests[0]?.params).toEqual({
+      name: "template.brain.knowledge.candidates",
+      arguments: { state: "unreviewed", limit: 5 },
+    });
+    expect(requests[1]?.params).toEqual({
+      name: "template.brain.knowledge.review",
+      arguments: expect.objectContaining({
+        candidateReceiptKey: "candidate-1",
+        expectedReviewRevision: 0,
+        action: "edit_and_accept",
+        body: "Approved company truth",
+        reviewHorizonDays: 180,
+        idempotencyKey: expect.stringMatching(
+          /^brain-review-cli:[a-f0-9]{64}$/u,
+        ),
+      }),
+    });
+  });
+
+  it("rejects ambiguous knowledge reviews before making a request", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const deps = { ...configured(root), fetch };
+    const missingAction = await runCli(
+      ["knowledge", "review", "candidate-1", "--expected-revision", "0"],
+      deps,
+    );
+    const missingRevision = await runCli(
+      ["knowledge", "review", "candidate-1", "--accept"],
+      deps,
+    );
+
+    expect(missingAction.exitCode).toBe(1);
+    expect(missingRevision.exitCode).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid evidence CLI input before making a request", async () => {
     const root = temp();
     const fetch = vi.fn<typeof globalThis.fetch>();

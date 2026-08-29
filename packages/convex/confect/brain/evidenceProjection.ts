@@ -420,5 +420,43 @@ export const retireEvidence = (input: {
         updatedAt: input.observedAt,
       })
       .pipe(Effect.orDie);
+    const citations = yield* reader
+      .table("citations")
+      .index("by_workspace_and_source_key", (q) =>
+        q
+          .eq("workspaceId", String(input.workspaceId))
+          .eq("sourceKey", input.sourceKey),
+      )
+      .take(501)
+      .pipe(Effect.orDie);
+    if (citations.length > 500)
+      return yield* new ValidationFailed({
+        field: "sourceKey",
+        message:
+          "Evidence withdrawal exceeded the bounded claim propagation capacity.",
+      });
+    for (const citation of citations) {
+      const claim = yield* reader
+        .table("claims")
+        .get(citation.claimId as GenericId<"claims">)
+        .pipe(Effect.orDie);
+      if (
+        claim == null ||
+        claim.workspaceId !== String(input.workspaceId) ||
+        claim.status !== "supported"
+      )
+        continue;
+      yield* writer
+        .table("claims")
+        .patch(claim._id, {
+          sourceWithdrawnAt: input.observedAt,
+          nextReviewAt: Math.min(
+            claim.nextReviewAt ?? input.observedAt,
+            input.observedAt,
+          ),
+          updatedAt: input.observedAt,
+        })
+        .pipe(Effect.orDie);
+    }
     return true;
   });

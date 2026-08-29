@@ -13,6 +13,7 @@ import {
 } from "./diagnostics.js";
 import { evidenceCommand } from "./evidenceCommand.js";
 import { importCommand } from "./importCommand.js";
+import { knowledgeCommand } from "./knowledgeCommand.js";
 import { pageCommand } from "./pageCommand.js";
 import {
   cliVersion,
@@ -42,9 +43,12 @@ Setup and diagnostics
 Use company context
   maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example]
   maestro-brain evidence search <query> [--limit <1-10>]
+  maestro-brain evidence open <source-key> --revision <revision-key>
   maestro-brain evidence source-get <source-key> <revision-key>
   maestro-brain evidence health
   maestro-brain knowledge extract [--limit <1-25>]
+  maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
+  maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n>
   maestro-brain page list [--include-archived]
   maestro-brain page get <page-id>
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -76,12 +80,16 @@ Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
 references in the shared rolling evaluation set. --high-risk abstains when
 reviewed support is stale or possibly conflicting.`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
+       maestro-brain evidence open <source-key> --revision <revision-key>
        maestro-brain evidence source-get <source-key> <revision-key>
        maestro-brain evidence health`,
   knowledge: `Usage: maestro-brain knowledge extract [--limit <1-25>]
+       maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
+       maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n> [--body <text>] [--reason <text>] [--idempotency-key <key>]
 
 Queues grounded candidate extraction for current evidence. Review candidates in
-the Brain review queue before they become company truth.`,
+the Brain review queue before they become company truth. Review commands create
+a deterministic idempotency key when one is not supplied.`,
   page: `Usage: maestro-brain page list [--include-archived] [--full]
        maestro-brain page get <page-id>
        maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -343,21 +351,7 @@ const commandHandlers = (
     });
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
-  knowledge: async () => {
-    if (argv[1] !== "extract")
-      return failure("Usage: maestro-brain knowledge extract [--limit <1-25>]");
-    const rawLimit = option(argv, "--limit");
-    const limit = rawLimit === undefined ? undefined : Number(rawLimit);
-    if (
-      limit !== undefined &&
-      (!Number.isInteger(limit) || limit < 1 || limit > 25)
-    )
-      return failure("--limit must be an integer between 1 and 25.");
-    return await request(dependencies, {
-      operationId: "brain.knowledge.extract",
-      input: limit === undefined ? {} : { limit },
-    });
-  },
+  knowledge: async () => await knowledgeCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),
   import: async () =>
     await importCommand(argv[1], dependencies, {

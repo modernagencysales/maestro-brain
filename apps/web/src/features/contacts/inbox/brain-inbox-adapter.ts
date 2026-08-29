@@ -40,6 +40,12 @@ export type BrainEvidenceSummary = Readonly<{
 }>
 
 const evidenceRoutePrefix = 'evidence:'
+const evidenceRevisionRoutePrefix = 'evidence-revision:'
+
+export type BrainEvidenceRevisionRoute = Readonly<{
+  sourceKey: string
+  revisionKey: string
+}>
 
 export const brainEvidenceRouteId = (entryKey: string) =>
   `${evidenceRoutePrefix}${encodeURIComponent(entryKey)}`
@@ -49,6 +55,30 @@ export const parseBrainEvidenceRouteId = (routeId: string) => {
   try {
     const entryKey = decodeURIComponent(routeId.slice(evidenceRoutePrefix.length))
     return entryKey.length > 0 ? entryKey : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export const brainEvidenceRevisionRouteId = (
+  sourceKey: string,
+  revisionKey: string,
+) =>
+  `${evidenceRevisionRoutePrefix}${encodeURIComponent(sourceKey)}:${encodeURIComponent(revisionKey)}`
+
+export const parseBrainEvidenceRevisionRouteId = (
+  routeId: string,
+): BrainEvidenceRevisionRoute | undefined => {
+  if (!routeId.startsWith(evidenceRevisionRoutePrefix)) return undefined
+  const encoded = routeId.slice(evidenceRevisionRoutePrefix.length)
+  const separator = encoded.indexOf(':')
+  if (separator < 1 || separator === encoded.length - 1) return undefined
+  try {
+    const sourceKey = decodeURIComponent(encoded.slice(0, separator))
+    const revisionKey = decodeURIComponent(encoded.slice(separator + 1))
+    return sourceKey.length > 0 && revisionKey.length > 0
+      ? { sourceKey, revisionKey }
+      : undefined
   } catch {
     return undefined
   }

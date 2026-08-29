@@ -29,12 +29,20 @@ Claude Cowork may require adding the generated `.cowork/maestro-brain.json` HTTP
 connector through its connector UI when project descriptors are not discovered
 automatically.
 
-The canonical read flow is `evidence search` followed by `evidence source-get`
-with the exact source and revision keys returned by search. Both commands use
-the same hosted HTTP MCP tools that Codex, Claude Code, and Cowork discover.
-`evidence health` reports bounded provider counts, index coverage, capacity, and
-the latest connector-run state. It is an operational observation, not a
-readiness claim.
+The canonical read flow is `evidence search` followed by
+`evidence open <source-key> --revision <revision-key>` with the exact source and
+revision keys returned by search. The older `evidence source-get` spelling
+remains available. Both commands use the same hosted HTTP MCP tools that Codex,
+Claude Code, and Cowork discover. `evidence health` reports bounded provider
+counts, index coverage, capacity, and the latest connector-run state. It is an
+operational observation, not a readiness claim.
+
+Knowledge owners can run `knowledge extract`, inspect `knowledge candidates`,
+and use `knowledge review` to accept, edit-and-accept, or reject a grounded
+candidate. Review commands require the visible review revision and generate a
+deterministic idempotency key by default. Accepted truth defaults to a 90-day
+review horizon; use `--review-horizon-days <30-365>` when the source warrants a
+different freshness interval.
 
 `page list` returns metadata and Markdown byte counts by default so agents do
 not spend context on every page body. Use `page list --full` when the bodies are

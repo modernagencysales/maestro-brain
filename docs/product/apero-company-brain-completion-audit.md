@@ -7,6 +7,24 @@
 
 **Date:** 2026-08-26
 
+## 2026-08-29 local readiness update
+
+The core V4 engineering pass is locally implemented, but the V1 definition of
+done remains open. Three independent cold reviews agreed that the repository
+must not be called pilot-complete without real Slack/Drive evidence, a frozen
+evaluation set, cross-runtime live identity checks, and the elapsed Apero
+replacement pilot.
+
+Since the prior checkpoint, the local product path gained exact immutable web
+citation reopening, visible ContextPack identity/conflicts/omissions, explicit
+web evaluation capture, bounded five-item review with edit/bulk reject,
+reviewer-selected freshness horizons, accepted-claim copy-for-Page, terminal
+candidate review and exact evidence reopening, configurable narrow Slack sync,
+bounded rate-limit retry, and claim review-due propagation on source withdrawal.
+These are repository-side changes pending the clean full gate and a new
+deployment approval; they are not additions to the historical live receipt
+below.
+
 ## Current engineering checkpoint
 
 The feature branch now restores a current-stack provider-neutral evidence

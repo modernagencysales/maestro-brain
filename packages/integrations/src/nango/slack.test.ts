@@ -62,6 +62,29 @@ describe("discoverSlackChannels", () => {
     ).rejects.toBeInstanceOf(SlackSnapshotCapacityExceeded);
     expect(String(request.mock.calls[1]?.[0])).toContain("cursor=page-2");
   });
+
+  it("honors Slack Retry-After with bounded retry", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 429, headers: { "retry-after": "0" } }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C01", name: "general" }],
+        }),
+      );
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toHaveLength(1);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
 });
 
 const jsonResponse = (body: unknown) =>

@@ -915,13 +915,25 @@ const runSlackSync = (
   {
     workspaceId,
     channelIds,
+    lookbackDays,
   }: {
     readonly workspaceId: GenericId<"workspaces">;
     readonly channelIds: readonly string[];
+    readonly lookbackDays?: number | undefined;
   },
   rows: readonly ProviderConnectionsDoc[],
 ) =>
   Effect.gen(function* () {
+    const boundedLookbackDays = lookbackDays ?? 30;
+    if (
+      !Number.isInteger(boundedLookbackDays) ||
+      boundedLookbackDays < 14 ||
+      boundedLookbackDays > 90
+    )
+      return yield* new ValidationFailed({
+        field: "lookbackDays",
+        message: "Slack lookback must be between 14 and 90 days.",
+      });
     const config = readNangoConnectConfig();
     if (config === undefined) return yield* providerFailure();
     const mutation = yield* MutationRunner;
@@ -950,7 +962,10 @@ const runSlackSync = (
             connectionId: connection.connectionRef as string,
             channelIds,
             oldestTimestamp: String(
-              Math.floor((startedAt - 30 * 24 * 60 * 60 * 1_000) / 1_000),
+              Math.floor(
+                (startedAt - boundedLookbackDays * 24 * 60 * 60 * 1_000) /
+                  1_000,
+              ),
             ),
             limits: {
               maxChannels: 10,

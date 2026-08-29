@@ -1,12 +1,22 @@
 # Maestro Brain Information V1
 
-**Status:** implementation complete; clean acceptance and live pilot pending
-**Date:** 2026-08-28  
-**Pilot:** Apero  
+**Status:** core engineering implemented; local release validation and live
+pilot pending
+
+**Date:** 2026-08-29
+
+**Pilot:** Apero
+
 **Review:** rewritten after two rounds of independent blind architecture,
 product, and delivery reviews, including the zero-dataset pilot constraint
 
-### 2026-08-28 implementation audit
+### 2026-08-29 implementation audit
+
+This plan is the target contract, not evidence that every target has shipped.
+The independent blind architecture, product, and delivery reviews classified the
+repository as **not yet V1 complete**. Core ingestion, review, retrieval, and
+headless surfaces are implemented; real-provider and elapsed pilot gates remain
+open, and the local gaps listed below must stay visible until proven.
 
 - WP2 extraction is implemented with exact grounding, bounded queues, spaced
   scheduled actions, run leases, recovery, token/concurrency limits, and the
@@ -19,12 +29,32 @@ product, and delivery reviews, including the zero-dataset pilot constraint
   compatibility window.
 - Provider-backed claims reopen their immutable cited revision. Ordinary source
   edits make the claim review-due; source removal or connection withdrawal makes
-  it ineligible.
+  it ineligible and now marks its supported claim review-due.
+- Web citations reopen the exact immutable Brain revision and retain visible
+  ContextPack identity, conflicts, omissions, and evidence mode. Explicit web
+  feedback can be saved to the evaluation ledger without automatic question
+  logging.
+- Slack manual sync starts with one narrow channel, accepts a visible 14–90 day
+  lookback, declares its 1,000-message bound, and honors bounded
+  `429 Retry-After` retries.
+- Review shows at most five candidates, supports edit-and-accept and bulk
+  rejection, retains at most eight review events, lets the reviewer choose a
+  30–365 day horizon, and copies an accepted claim with its citation for pasting
+  into the Tiptap Page editor.
+- CLI users can extract, list, accept/edit/reject candidates, and reopen an
+  exact evidence revision without leaving the terminal.
 - The real-data manifest remains intentionally empty. Quality/replacement gates
   accrue during the Apero pilot and do not block implementation.
 - Deployment still requires a read-only live-row check and explicit approval.
   Legacy claim/citation `workspaceId` validators remain string-compatible, so
   the additive schema does not require a zero-row assumption.
+
+Open local release items after this audit are the workspace rollout/fallback
+decision, reviewed-claim versus newer-evidence conflict projection, ranking and
+cross-provider duplicate tuning against real questions, and the remaining
+focused failure/isolation tests. Open external gates are real Slack/Drive
+activation, the frozen holdout, cross-runtime live receipts, and the two-to-four
+week Apero replacement pilot. None may be relabeled complete from fixtures.
 
 ## 1. Decision
 

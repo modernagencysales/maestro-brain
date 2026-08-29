@@ -2,6 +2,8 @@ export type StarterSearchResult = Readonly<{
   id: string
   title: string
   description: string
+  sourceKey?: string
+  revisionKey?: string
 }>
 
 export type AnswerCitation = Readonly<{
@@ -9,6 +11,9 @@ export type AnswerCitation = Readonly<{
   sourceKey: string
   revisionKey: string
   contentHash: string
+  supportKind?: 'claim' | 'page' | 'recent_evidence'
+  provider?: 'brain_page' | 'slack' | 'google_drive' | 'hubspot' | 'transcript'
+  locator?: string
   title: string
   excerpt: string
   freshness: 'current' | 'review-due' | 'stale'
@@ -20,8 +25,22 @@ export type GroundedAnswerResult = Readonly<{
   contextPack: Readonly<{
     schemaVersion: '4'
     packHash: string
+    evidenceMode: 'recent_evidence' | 'company_truth' | 'mixed'
+    policyVersion?: string
     freshness: 'current' | 'review-due' | 'stale' | 'unknown'
     citations: readonly AnswerCitation[]
+    claims?: readonly Readonly<{
+      claimId: string
+      body: string
+      freshness: 'current' | 'review-due' | 'stale' | 'unknown'
+      citationKeys: readonly string[]
+    }>[]
+    conflicts?: readonly Readonly<{
+      propositionFingerprint: string
+      claimIds: readonly string[]
+      reason: 'possible-contradiction'
+    }>[]
+    omissions?: readonly Readonly<{ reason: string; count: number }>[]
   }>
 }>
 
@@ -49,6 +68,8 @@ export const projectGroundedAnswerToSearchResults = (
       id: `${citation.sourceKey}:${citation.revisionKey}`,
       title: `[${index + 1}] ${citation.title}`,
       description: `${citation.excerpt} · ${citation.freshness} · ${citation.citationKey}`,
+      sourceKey: citation.sourceKey,
+      revisionKey: citation.revisionKey,
     })),
   ]
 }
@@ -67,6 +88,7 @@ export const fakeAskMaestroAnswer = (
     contextPack: {
       schemaVersion: '4',
       packHash: `sha256:${'0'.repeat(64)}`,
+      evidenceMode: 'mixed',
       freshness: 'current',
       citations: [
         {

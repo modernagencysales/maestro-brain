@@ -79,6 +79,7 @@ const SlackSyncArgs = Schema.Struct({
   channelIds: Schema.Array(Schema.NonEmptyString).pipe(
     Schema.check(Schema.isMinLength(1)),
   ),
+  lookbackDays: Schema.optional(Schema.Number),
 });
 const GoogleDriveSyncArgs = Schema.Struct({
   workspaceId: Id("workspaces"),

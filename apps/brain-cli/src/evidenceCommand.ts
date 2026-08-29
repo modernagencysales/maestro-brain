@@ -55,6 +55,22 @@ const sourceGet = async (
       );
 };
 
+const open = async (
+  argv: readonly string[],
+  dependencies: CliDependencies,
+): Promise<CliResult> => {
+  const sourceKey = argv[2]?.trim();
+  const revisionKey = option(argv, "--revision")?.trim();
+  if (!sourceKey || !revisionKey || argv.length !== 5)
+    return failure(
+      "evidence open requires <source-key> --revision <revision-key>.",
+    );
+  return await sourceGet(
+    [argv[0] ?? "evidence", "source-get", sourceKey, revisionKey],
+    dependencies,
+  );
+};
+
 const health = async (dependencies: CliDependencies): Promise<CliResult> => {
   const config = configFor(dependencies);
   return isCliResult(config)
@@ -72,10 +88,11 @@ export const evidenceCommand = async (
   dependencies: CliDependencies,
 ): Promise<CliResult> => {
   if (argv[1] === "search") return await search(argv, dependencies);
+  if (argv[1] === "open") return await open(argv, dependencies);
   if (argv[1] === "source-get") return await sourceGet(argv, dependencies);
   if (argv[1] === "health" && argv.length === 2)
     return await health(dependencies);
   return failure(
-    "Usage: maestro-brain evidence search <query> [--limit <1-10>] | evidence source-get <source-key> <revision-key> | evidence health",
+    "Usage: maestro-brain evidence search <query> [--limit <1-10>] | evidence open <source-key> --revision <revision-key> | evidence source-get <source-key> <revision-key> | evidence health",
   );
 };

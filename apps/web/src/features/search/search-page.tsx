@@ -3,19 +3,27 @@
 import {
   Avatar,
   Box,
+  Button,
   EmptyState,
   GridList,
   Heading,
+  HStack,
   LoadingOverlay,
   Page,
   Text,
+  toast,
 } from '@saas-ui/react'
 import {
   getFunctionReference,
   templateConfectRefs,
 } from '@maestro-template/convex/refs'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useConvex } from 'convex/react'
+import {
+  useMutation as useTanstackMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { useConvex, useMutation as useConvexMutation } from 'convex/react'
+import * as React from 'react'
 import {
   Link,
   linkOptions,
@@ -29,6 +37,7 @@ import { SearchInput } from '@workspace/ui/search-input'
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import { useWorkspaceSlug } from '#features/common/hooks/use-workspace-slug'
+import { brainEvidenceRevisionRouteId } from '#features/contacts/inbox/brain-inbox-adapter'
 import {
   isFixtureAuthRuntime,
   isIsolatedContractsRuntime,
@@ -46,6 +55,14 @@ import {
 const answerQuestionRef = getFunctionReference(
   templateConfectRefs.public.capabilities.askCompanyBrain.askCompanyBrain,
 )
+const saveEvaluationExampleRef = getFunctionReference(
+  templateConfectRefs.public.agents.assistant.saveEvaluationExample,
+)
+
+type SearchQueryData = Readonly<{
+  results: StarterSearchResult[]
+  answer?: GroundedAnswerResult
+}>
 
 export function SearchPage() {
   const navigate = useNavigate()
@@ -69,21 +86,30 @@ export function SearchPage() {
   const { data, error, isPending } = useQuery({
     queryKey: ['search', productShell.search, workspace.id, q],
     queryFn: async () => {
-      if (productShell.search !== 'assistant') return []
+      if (productShell.search !== 'assistant') return { results: [] }
       if (isIsolatedContractsRuntime()) {
         const result = await runIsolatedHeadlessOperation<GroundedAnswerResult>({
           operationId: 'brain.ask',
           operationInput: { question: q },
         })
-        return projectGroundedAnswerToSearchResults(result)
+        return {
+          answer: result,
+          results: projectGroundedAnswerToSearchResults(result),
+        }
       }
-      if (isFixtureAuthRuntime()) return fakeAskMaestroResult(q)
+      if (isFixtureAuthRuntime()) {
+        const results = fakeAskMaestroResult(q)
+        return { results }
+      }
       const result = await convex.query(answerQuestionRef, {
         workspaceId: workspace.id,
         question: q,
         evidenceMode: 'mixed',
       })
-      return projectGroundedAnswerToSearchResults(result)
+      return {
+        answer: result,
+        results: projectGroundedAnswerToSearchResults(result),
+      }
     },
     enabled: !!q,
   })
@@ -116,7 +142,24 @@ export function SearchPage() {
               <LoadingOverlay.Spinner />
             </LoadingOverlay.Root>
           ) : (
-            <SearchResults data={data} error={error} search={q} />
+            <Box>
+              <SearchResults
+                data={data?.results}
+                error={error}
+                search={q}
+                workspace={workspace.slug}
+              />
+              {data?.answer ? (
+                <>
+                  <ContextPackDetails answer={data.answer} />
+                  <AskFeedback
+                    answer={data.answer}
+                    question={q}
+                    workspaceId={workspace.id}
+                  />
+                </>
+              ) : null}
+            </Box>
           )
         ) : (
           <RecentSearches />
@@ -140,7 +183,7 @@ function RecentSearches() {
     },
   })
 
-  const clearRecent = useMutation({
+  const clearRecent = useTanstackMutation({
     mutationFn: async () => {
       queryClient.setQueryData(['recent-searches', productShell.search], [])
     },
@@ -208,10 +251,95 @@ function RecentSearches() {
   )
 }
 
+function AskFeedback(props: {
+  answer: GroundedAnswerResult
+  question: string
+  workspaceId: string
+}) {
+  const saveExample = useConvexMutation(saveEvaluationExampleRef)
+  const [saving, setSaving] = React.useState<string | null>(null)
+
+  const save = async (
+    captureKind: 'feedback' | 'test',
+    usefulness: 'useful' | 'needs-work' | 'unrated',
+  ) => {
+    const key = `${captureKind}:${usefulness}`
+    setSaving(key)
+    try {
+      await saveExample({
+        workspaceId: props.workspaceId,
+        exampleKey: `web:${props.answer.contextPack.packHash}:${key}`,
+        question: props.question,
+        purpose: 'company-question',
+        evidenceMode: props.answer.contextPack.evidenceMode,
+        surface: 'web',
+        answerStatus: props.answer.status,
+        packHash: props.answer.contextPack.packHash,
+        evidenceReferences: props.answer.contextPack.citations.map(
+          ({ sourceKey, revisionKey, contentHash }) => ({
+            sourceKey,
+            revisionKey,
+            contentHash,
+          }),
+        ),
+        captureKind,
+        usefulness,
+        ...(usefulness === 'needs-work' ? { issueReason: 'other' } : {}),
+      })
+      toast.success({
+        title:
+          captureKind === 'test'
+            ? 'Saved to the Brain test set'
+            : 'Feedback saved',
+      })
+    } catch {
+      toast.error({ title: 'Could not save Brain feedback' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <HStack px="5" py="3" gap="2" borderTopWidth="1px" wrap="wrap">
+      <Text textStyle="sm" color="fg.muted" mr="2">
+        Help improve shared company context
+      </Text>
+      <Button
+        size="sm"
+        variant="ghost"
+        loading={saving === 'feedback:useful'}
+        disabled={saving !== null}
+        onClick={() => save('feedback', 'useful')}
+      >
+        Useful
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        loading={saving === 'feedback:needs-work'}
+        disabled={saving !== null}
+        onClick={() => save('feedback', 'needs-work')}
+      >
+        Needs work
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        loading={saving === 'test:unrated'}
+        disabled={saving !== null}
+        onClick={() => save('test', 'unrated')}
+      >
+        Save as test
+      </Button>
+    </HStack>
+  )
+}
+
 function SearchResults(props: {
   data?: StarterSearchResult[]
   error?: Error | null
   search: string
+  workspace: string
 }) {
   if (props.error) {
     return (
@@ -239,18 +367,88 @@ function SearchResults(props: {
         Results
       </Heading>
       <GridList.Root interactive>
-        {props.data?.map((result) => (
-          <GridList.Item key={result.id} textStyle="sm" px="5" py="3">
-            <GridList.Cell>
-              <Avatar name={result.title} size="2xs" />
-            </GridList.Cell>
-            <GridList.Cell flex="1">
-              <Text fontWeight="medium">{result.title}</Text>
-              <Text color="fg.muted">{result.description}</Text>
-            </GridList.Cell>
-          </GridList.Item>
-        ))}
+        {props.data?.map((result) => {
+          const revisionRouteId =
+            result.sourceKey && result.revisionKey
+              ? brainEvidenceRevisionRouteId(
+                  result.sourceKey,
+                  result.revisionKey,
+                )
+              : undefined
+          const item = (
+            <GridList.Item
+              key={result.id}
+              textStyle="sm"
+              px="5"
+              py="3"
+              asChild={revisionRouteId !== undefined}
+            >
+              {revisionRouteId ? (
+                <Link
+                  to="/$workspace/inbox/$id"
+                  params={{ workspace: props.workspace, id: revisionRouteId }}
+                  search={{ contactId: revisionRouteId }}
+                >
+                  <GridList.Cell>
+                    <Avatar name={result.title} size="2xs" />
+                  </GridList.Cell>
+                  <GridList.Cell flex="1">
+                    <Text fontWeight="medium">{result.title}</Text>
+                    <Text color="fg.muted">{result.description}</Text>
+                    <Text color="fg.subtle" textStyle="xs" mt="1">
+                      Open exact Brain revision
+                    </Text>
+                  </GridList.Cell>
+                </Link>
+              ) : (
+                <>
+                  <GridList.Cell>
+                    <Avatar name={result.title} size="2xs" />
+                  </GridList.Cell>
+                  <GridList.Cell flex="1">
+                    <Text fontWeight="medium">{result.title}</Text>
+                    <Text color="fg.muted">{result.description}</Text>
+                  </GridList.Cell>
+                </>
+              )}
+            </GridList.Item>
+          )
+          return item
+        })}
       </GridList.Root>
+    </Box>
+  )
+}
+
+function ContextPackDetails({ answer }: { answer: GroundedAnswerResult }) {
+  const { contextPack } = answer
+  const omissions = contextPack.omissions?.filter(({ count }) => count > 0) ?? []
+  return (
+    <Box px="5" py="3" borderTopWidth="1px">
+      <HStack gap="3" wrap="wrap">
+        <Text textStyle="xs" color="fg.muted">
+          Evidence mode: {contextPack.evidenceMode.replace('_', ' ')}
+        </Text>
+        <Text textStyle="xs" color="fg.muted">
+          Pack: {contextPack.packHash.slice(0, 20)}…
+        </Text>
+        <Text textStyle="xs" color="fg.muted">
+          {contextPack.claims?.length ?? 0} reviewed claims ·{' '}
+          {contextPack.citations.length} exact citations
+        </Text>
+      </HStack>
+      {contextPack.conflicts?.length ? (
+        <Text textStyle="sm" color="orange.fg" mt="2">
+          Possible conflict across {contextPack.conflicts.length} reviewed claim
+          {contextPack.conflicts.length === 1 ? '' : 's'}; inspect the cited
+          revisions before acting.
+        </Text>
+      ) : null}
+      {omissions.length ? (
+        <Text textStyle="xs" color="fg.muted" mt="2">
+          Omitted: {omissions.map(({ reason, count }) => `${count} ${reason}`).join(', ')}
+        </Text>
+      ) : null}
     </Box>
   )
 }

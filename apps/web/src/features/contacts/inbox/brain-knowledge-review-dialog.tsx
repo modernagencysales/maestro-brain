@@ -7,9 +7,11 @@ import {
   Dialog,
   HStack,
   Text,
+  Textarea,
   VStack,
   toast,
 } from '@saas-ui/react'
+import { NativeSelect } from '@chakra-ui/react'
 import { useMutation as useConvexMutation } from 'convex/react'
 import * as React from 'react'
 
@@ -43,6 +45,24 @@ type KnowledgeCandidate = Readonly<{
   evidence: readonly Readonly<{ quote: string }>[]
 }>
 
+const stableTextHash = (value: string) => {
+  let hash = 2_166_136_261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16_777_619)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+export const acceptedClaimPageMarkdown = (input: {
+  body: string
+  citationKey: string
+  sourceProvider: string
+  sourceTitle: string
+  quote: string
+}) =>
+  `${input.body}\n\n> “${input.quote}”\n> Source: ${input.sourceProvider} · ${input.sourceTitle} · ${input.citationKey}`
+
 export interface BrainKnowledgeReviewDialogProps extends Omit<
   Dialog.RootProps,
   'children'
@@ -57,12 +77,14 @@ export function BrainKnowledgeReviewDialog({
   const candidates = (useConvexQuery(listCandidatesRef, {
     workspaceId,
     state: 'unreviewed',
-    limit: 25,
+    limit: 5,
   }) ?? []) as readonly KnowledgeCandidate[]
   const review = useConvexMutation(reviewCandidateRef)
   const queueExtraction = useConvexMutation(queueExtractionRef)
   const [reviewing, setReviewing] = React.useState<string | null>(null)
   const [queueing, setQueueing] = React.useState(false)
+  const [edits, setEdits] = React.useState<Record<string, string>>({})
+  const [reviewHorizonDays, setReviewHorizonDays] = React.useState(90)
 
   const queueCurrentEvidence = async () => {
     setQueueing(true)
@@ -91,17 +113,43 @@ export function BrainKnowledgeReviewDialog({
   ) => {
     setReviewing(candidate.candidateReceiptKey)
     try {
-      await review({
+      const editedBody = edits[candidate.candidateReceiptKey]?.trim()
+      const reviewAction =
+        action === 'accept' &&
+        editedBody !== undefined &&
+        editedBody !== candidate.body
+          ? 'edit_and_accept'
+          : action
+      const result = await review({
         workspaceId,
         candidateReceiptKey: candidate.candidateReceiptKey,
         expectedReviewRevision: candidate.reviewRevision,
-        idempotencyKey: `brain-review-ui:${candidate.candidateReceiptKey}:${candidate.reviewRevision}:${action}`,
-        action,
+        idempotencyKey: `brain-review-ui:${stableTextHash(candidate.candidateReceiptKey)}:${candidate.reviewRevision}:${reviewAction}:${stableTextHash(editedBody ?? candidate.body)}`,
+        action: reviewAction,
+        ...(reviewAction === 'edit_and_accept'
+          ? { body: editedBody ?? candidate.body }
+          : {}),
+        ...(action === 'accept' ? { reviewHorizonDays } : {}),
       })
+      if (action === 'accept' && result.citationKey && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(
+            acceptedClaimPageMarkdown({
+              body: editedBody ?? candidate.body,
+              citationKey: result.citationKey,
+              sourceProvider: candidate.sourceProvider,
+              sourceTitle: candidate.sourceTitle,
+              quote: candidate.evidence[0]?.quote ?? '',
+            }),
+          )
+        } catch {
+          // Acceptance is durable even if this browser blocks clipboard access.
+        }
+      }
       toast.success({
         title:
           action === 'accept'
-            ? 'Added to company truth'
+            ? 'Added to company truth and copied for a Page'
             : 'Candidate rejected',
       })
     } catch {
@@ -111,6 +159,12 @@ export function BrainKnowledgeReviewDialog({
       })
     } finally {
       setReviewing(null)
+    }
+  }
+
+  const rejectVisible = async () => {
+    for (const candidate of candidates) {
+      await submit(candidate, 'reject')
     }
   }
 
@@ -136,6 +190,38 @@ export function BrainKnowledgeReviewDialog({
                 Extract new evidence
               </Button>
             </HStack>
+            <HStack justify="flex-end" gap="2">
+              <Text textStyle="xs" color="fg.muted">
+                Recheck accepted truth after
+              </Text>
+              <NativeSelect.Root size="sm" width="32">
+                <NativeSelect.Field
+                  aria-label="Review horizon"
+                  value={String(reviewHorizonDays)}
+                  onChange={(event) =>
+                    setReviewHorizonDays(Number(event.target.value))
+                  }
+                >
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="180">180 days</option>
+                  <option value="365">1 year</option>
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
+            </HStack>
+            {candidates.length > 1 ? (
+              <HStack justify="flex-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={reviewing !== null}
+                  onClick={rejectVisible}
+                >
+                  Reject visible candidates
+                </Button>
+              </HStack>
+            ) : null}
             {candidates.map((candidate) => (
               <VStack
                 key={candidate.candidateReceiptKey}
@@ -157,6 +243,18 @@ export function BrainKnowledgeReviewDialog({
                   ))}
                 </HStack>
                 <Text fontWeight="medium">{candidate.body}</Text>
+                <Textarea
+                  aria-label={`Edit candidate ${candidate.candidateReceiptKey}`}
+                  value={edits[candidate.candidateReceiptKey] ?? candidate.body}
+                  maxLength={500}
+                  autoresize
+                  onChange={(event) =>
+                    setEdits((current) => ({
+                      ...current,
+                      [candidate.candidateReceiptKey]: event.target.value,
+                    }))
+                  }
+                />
                 <VStack align="stretch" gap="1" bg="bg.subtle" p="3">
                   <Text textStyle="xs" color="fg.muted">
                     {candidate.sourceProvider} · {candidate.sourceTitle}
@@ -178,7 +276,7 @@ export function BrainKnowledgeReviewDialog({
                     disabled={reviewing !== null}
                     onClick={() => submit(candidate, 'accept')}
                   >
-                    Accept as truth
+                    Accept & copy for Page
                   </Button>
                 </HStack>
               </VStack>

@@ -46,7 +46,10 @@ import {
   brainEvidenceFixtures,
   brainPageFixtures,
 } from './brain-inbox-adapter'
-import { parseBrainEvidenceRouteId } from './brain-inbox-adapter'
+import {
+  parseBrainEvidenceRevisionRouteId,
+  parseBrainEvidenceRouteId,
+} from './brain-inbox-adapter'
 import {
   BrainEvidenceProvenanceRail,
   type BrainEvidenceDetail,
@@ -78,6 +81,9 @@ const historyRef = getFunctionReference(
 )
 const currentEvidenceRef = getFunctionReference(
   templateConfectRefs.public.brain.evidence.currentGet,
+)
+const sourceEvidenceRef = getFunctionReference(
+  templateConfectRefs.public.brain.evidence.sourceGet,
 )
 
 const fixtureMarkdown = `# Client overview
@@ -203,6 +209,7 @@ const useBrainPage = (input: {
 
 const useBrainEvidenceDetail = (input: {
   entryKey?: string
+  exactRevision?: Readonly<{ sourceKey: string; revisionKey: string }>
   fixtureRuntime: boolean
   isolatedContracts: boolean
   workspaceId: string
@@ -214,6 +221,18 @@ const useBrainEvidenceDetail = (input: {
       input.isolatedContracts
       ? 'skip'
       : { workspaceId: input.workspaceId, entryKey: input.entryKey },
+  )
+  const exactEvidence = useConvexQuery(
+    sourceEvidenceRef,
+    input.exactRevision === undefined ||
+      input.fixtureRuntime ||
+      input.isolatedContracts
+      ? 'skip'
+      : {
+          workspaceId: input.workspaceId,
+          sourceKey: input.exactRevision.sourceKey,
+          revisionKey: input.exactRevision.revisionKey,
+        },
   )
   if (input.fixtureRuntime && input.entryKey !== undefined) {
     const summary = brainEvidenceFixtures.find(
@@ -233,7 +252,7 @@ const useBrainEvidenceDetail = (input: {
       tombstone: false,
     }
   }
-  return evidence as BrainEvidenceDetail | undefined
+  return (exactEvidence ?? evidence) as BrainEvidenceDetail | undefined
 }
 
 const useBrainMarkdown = (input: {
@@ -495,7 +514,9 @@ export function BrainInboxViewPage({
   const fixtureRuntime = isFixtureAuthRuntime()
   const isolatedContracts = isIsolatedContractsRuntime()
   const evidenceEntryKey = parseBrainEvidenceRouteId(params.id)
-  const editingPage = evidenceEntryKey === undefined
+  const evidenceRevision = parseBrainEvidenceRevisionRouteId(params.id)
+  const editingPage =
+    evidenceEntryKey === undefined && evidenceRevision === undefined
   const page = useBrainPage({
     enabled: editingPage,
     fixtureRuntime,
@@ -512,6 +533,7 @@ export function BrainInboxViewPage({
   })
   const evidence = useBrainEvidenceDetail({
     entryKey: evidenceEntryKey,
+    exactRevision: evidenceRevision,
     fixtureRuntime,
     isolatedContracts,
     workspaceId: workspace.id,
@@ -631,7 +653,7 @@ export function BrainInboxViewPage({
       <Page.Header
         title={breadcrumbs}
         description={
-          evidenceEntryKey !== undefined
+          !editingPage
             ? evidence
               ? `Read-only ${evidence.provider.replace('_', ' ')} evidence`
               : 'Loading synced evidence…'
