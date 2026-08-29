@@ -1,146 +1,10 @@
-import {
-  cpSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "node:fs";
-import { createHash } from "node:crypto";
-import { dirname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { CliResult } from "./api.js";
 import { success } from "./api.js";
 import type { BrainConfig } from "./config.js";
 import { apiKeySettingsUrl, writeConfig } from "./config.js";
-
-type Artifact = {
-  readonly path: string;
-  readonly status: "created" | "updated" | "unchanged" | "conflict";
-};
-
-const MANAGED_ASK_APERO_SKILL_MANIFESTS = new Set([
-  "SKILL.md:f1fa5886d77ab97f70b5827ebe19a3c7f3a44bfc390ed2b29093b97e59cdef18",
-  [
-    "SKILL.md:37b4607a826d61de1c2f0bf84aa7e43ff67a23861406e2d773557abfcb96aa62",
-    "references/evidence-reading.md:aa0260241a97103a7f826a98f96a5f4344cb7dfd512d5bb981f7df7747bb8663",
-  ].join("\n"),
-]);
-
-const sha256 = (value: string): string =>
-  createHash("sha256").update(value, "utf8").digest("hex");
-
-const directoryManifest = (root: string, prefix = ""): string | undefined => {
-  const records: string[] = [];
-  for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) =>
-    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-  )) {
-    const path = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
-    const absolute = join(root, entry.name);
-    if (entry.isDirectory()) {
-      const nested = directoryManifest(absolute, path);
-      if (nested === undefined) return undefined;
-      if (nested.length > 0) records.push(nested);
-    } else if (entry.isFile()) {
-      records.push(`${path}:${sha256(readFileSync(absolute, "utf8"))}`);
-    } else {
-      return undefined;
-    }
-  }
-  return records.join("\n");
-};
-
-const writeGenerated = (
-  root: string,
-  path: string,
-  content: string,
-  commit = true,
-): Artifact => {
-  const destination = join(root, path);
-  const stat = lstatSync(destination, { throwIfNoEntry: false });
-  if (stat === undefined) {
-    if (commit) {
-      mkdirSync(dirname(destination), { recursive: true });
-      writeFileSync(destination, content, { encoding: "utf8", mode: 0o600 });
-    }
-    return { path, status: "created" };
-  }
-  if (!stat.isFile()) return { path, status: "conflict" };
-  const current = readFileSync(destination, "utf8");
-  if (current === content) return { path, status: "unchanged" };
-  if (
-    path === ".codex/config.toml" &&
-    !current.includes("[mcp_servers.maestro_brain]")
-  ) {
-    if (commit)
-      writeFileSync(destination, `${current.trimEnd()}\n\n${content}`, "utf8");
-    return { path, status: "updated" };
-  }
-  if (path === ".mcp.json") {
-    try {
-      const parsed = JSON.parse(current) as Record<string, unknown>;
-      const servers =
-        parsed.mcpServers !== null && typeof parsed.mcpServers === "object"
-          ? (parsed.mcpServers as Record<string, unknown>)
-          : {};
-      if (servers["maestro-brain"] !== undefined)
-        return { path, status: "conflict" };
-      const expected = JSON.parse(content) as {
-        mcpServers: Record<string, unknown>;
-      };
-      if (commit)
-        writeFileSync(
-          destination,
-          `${JSON.stringify({ ...parsed, mcpServers: { ...servers, ...expected.mcpServers } }, null, 2)}\n`,
-          "utf8",
-        );
-      return { path, status: "updated" };
-    } catch {
-      return { path, status: "conflict" };
-    }
-  }
-  return { path, status: "conflict" };
-};
-
-const installSkill = (
-  root: string,
-  path: string,
-  source: string,
-  commit = true,
-): Artifact => {
-  const destination = join(root, path);
-  const stat = lstatSync(destination, { throwIfNoEntry: false });
-  if (stat !== undefined) {
-    if (!stat.isDirectory()) return { path, status: "conflict" };
-    try {
-      const installedSkill = readFileSync(
-        join(destination, "SKILL.md"),
-        "utf8",
-      );
-      const packagedSkill = readFileSync(join(source, "SKILL.md"), "utf8");
-      if (installedSkill === packagedSkill)
-        return { path, status: "unchanged" };
-      if (
-        !MANAGED_ASK_APERO_SKILL_MANIFESTS.has(
-          directoryManifest(destination) ?? "",
-        )
-      )
-        return { path, status: "conflict" };
-      if (commit)
-        cpSync(source, destination, {
-          recursive: true,
-          force: true,
-        });
-      return { path, status: "updated" };
-    } catch {
-      return { path, status: "conflict" };
-    }
-  }
-  if (commit) {
-    mkdirSync(dirname(destination), { recursive: true });
-    cpSync(source, destination, { recursive: true, errorOnExist: true });
-  }
-  return { path, status: "created" };
-};
+import { writeGenerated, type SetupArtifact } from "./setupGeneratedFile.js";
+import { installSkill } from "./setupSkill.js";
 
 export const setupProject = (input: {
   readonly root: string;
@@ -151,7 +15,7 @@ export const setupProject = (input: {
   const root = resolve(input.root);
   const mcpUrl = `${input.config.apiUrl}/mcp`;
   const bearerTemplate = "Bearer ${MAESTRO_BRAIN_API_KEY}";
-  const projectArtifacts = (commit: boolean): Artifact[] => [
+  const projectArtifacts = (commit: boolean): SetupArtifact[] => [
     writeGenerated(
       root,
       ".codex/config.toml",

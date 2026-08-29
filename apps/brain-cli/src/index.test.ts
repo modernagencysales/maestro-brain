@@ -197,6 +197,65 @@ describe("standalone teammate CLI", () => {
     ).toBe(0);
   });
 
+  it("reruns setup around an existing managed Codex MCP block", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(join(deps.assetDirectory, "SKILL.md"), "# Ask Apero\n");
+    expect(
+      (
+        await runCli(
+          ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+          deps,
+        )
+      ).exitCode,
+    ).toBe(0);
+    const codexPath = join(root, ".codex/config.toml");
+    writeFileSync(
+      codexPath,
+      `${readFileSync(codexPath, "utf8").trimEnd()}\n\n  [projects."/workspace"]\ntrust_level = "trusted"\n`,
+    );
+
+    const rerun = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(rerun.exitCode).toBe(0);
+    const codex = readFileSync(codexPath, "utf8");
+    expect(codex.match(/\[mcp_servers\.maestro_brain\]/gu)).toHaveLength(1);
+    expect(codex).toContain('[projects."/workspace"]');
+    expect(codex).toContain('trust_level = "trusted"');
+  });
+
+  it("does not treat a commented Codex MCP header as managed config", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(join(deps.assetDirectory, "SKILL.md"), "# Ask Apero\n");
+    const codexDirectory = join(root, ".codex");
+    mkdirSync(codexDirectory, { recursive: true });
+    writeFileSync(
+      join(codexDirectory, "config.toml"),
+      '# [mcp_servers.maestro_brain]\nmodel = "gpt-5"\n',
+    );
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const codex = readFileSync(join(codexDirectory, "config.toml"), "utf8");
+    expect(codex).toContain("# [mcp_servers.maestro_brain]");
+    expect(codex).toContain('model = "gpt-5"');
+    expect(
+      codex
+        .split("\n")
+        .filter((line) => line.trim() === "[mcp_servers.maestro_brain]"),
+    ).toHaveLength(1);
+  });
+
   it("upgrades an older managed Ask Apero skill without blocking setup", async () => {
     const root = temp();
     const deps = dependencies(root);
@@ -799,7 +858,7 @@ describe("standalone teammate CLI", () => {
     expect(result.stdout).toContain('"providers": []');
   });
 
-  it("maps page list, get, create, and update to current API operations", async () => {
+  it("maps page list, get, history, create, and update to current API operations", async () => {
     const root = temp();
     const note = join(root, "positioning.md");
     writeFileSync(note, "# Positioning\n\nTrusted context.");
@@ -811,6 +870,10 @@ describe("standalone teammate CLI", () => {
     const deps = { ...configured(root), fetch };
     expect((await runCli(["page", "list"], deps)).exitCode).toBe(0);
     expect((await runCli(["page", "get", "page_1"], deps)).exitCode).toBe(0);
+    expect(
+      (await runCli(["page", "history", "page_1", "--limit", "10"], deps))
+        .exitCode,
+    ).toBe(0);
     expect(
       (await runCli(["page", "create", note, "--slug", "positioning"], deps))
         .exitCode,
@@ -826,9 +889,61 @@ describe("standalone teammate CLI", () => {
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
       "https://api.example.test/api/brain.pages.list",
       "https://api.example.test/api/brain.pages.get",
+      "https://api.example.test/api/brain.pages.history",
       "https://api.example.test/api/brain.pages.createMarkdown",
       "https://api.example.test/api/brain.pages.updateMarkdown",
     ]);
+  });
+
+  it("keeps page history compact unless full bodies are requested", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: [
+              {
+                _id: "revision_1",
+                pageId: "page_1",
+                markdown: "# ICP\n\nHistorical agency context.",
+                updatedAt: 123,
+              },
+            ],
+          }),
+        ),
+    );
+    const deps = { ...configured(root), fetch };
+
+    const compact = await runCli(["page", "history", "page_1"], deps);
+    const full = await runCli(["page", "history", "page_1", "--full"], deps);
+
+    expect(compact.stdout).not.toContain("Historical agency context");
+    expect(JSON.parse(compact.stdout).result[0]).toMatchObject({
+      _id: "revision_1",
+      pageId: "page_1",
+      markdownBytes: 33,
+    });
+    expect(full.stdout).toContain("Historical agency context");
+  });
+
+  it("rejects invalid page history limits locally", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const result = await runCli(
+      ["page", "history", "page_1", "--limit", "101"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("between 1 and 100");
+    const missing = await runCli(["page", "history", "page_1", "--limit"], {
+      ...configured(root),
+      fetch,
+    });
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr).toContain("requires a value");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("renders a missing Brain page as a concise teammate error", async () => {
@@ -1140,10 +1255,10 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.6"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.6\n");
+    expect(status).toContain('"cliVersion": "0.1.7"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.7\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.6/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.7/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');
