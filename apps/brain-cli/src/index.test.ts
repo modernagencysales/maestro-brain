@@ -193,11 +193,36 @@ describe("standalone teammate CLI", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(fetch).toHaveBeenCalledWith(
-      "https://api.example.test/api/agents.assistant.answerQuestion",
+      "https://api.example.test/api/brain.ask",
       expect.objectContaining({
         body: JSON.stringify({
           workspaceSlug: "apero",
           input: { question: "What is our ICP?" },
+        }),
+      }),
+    );
+  });
+
+  it("queues bounded knowledge extraction through the headless API", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ ok: true, result: { scheduledCount: 3 } }),
+        ),
+      );
+    const result = await runCli(["knowledge", "extract", "--limit", "3"], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.test/api/brain.knowledge.extract",
+      expect.objectContaining({
+        body: JSON.stringify({
+          workspaceSlug: "apero",
+          input: { limit: 3 },
         }),
       }),
     );
@@ -217,9 +242,10 @@ describe("standalone teammate CLI", () => {
               answerMarkdown: "Friday [1]",
               contextPack: {
                 packHash,
+                evidenceMode: "recent_evidence",
                 citations: [
                   {
-                    sourceId: "slack:C1:thread:1:segment:0",
+                    sourceKey: "slack:C1:thread:1:segment:0",
                     revisionKey: "revision-1",
                     contentHash: "content-hash",
                   },

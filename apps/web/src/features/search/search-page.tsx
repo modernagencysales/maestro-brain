@@ -44,7 +44,7 @@ import {
 } from './ask-maestro-adapter'
 
 const answerQuestionRef = getFunctionReference(
-  templateConfectRefs.public.agents.assistant.answerQuestion,
+  templateConfectRefs.public.capabilities.askCompanyBrain.askCompanyBrain,
 )
 
 export function SearchPage() {
@@ -66,13 +66,13 @@ export function SearchPage() {
     })
   }
 
-  const { data } = useQuery({
+  const { data, error, isPending } = useQuery({
     queryKey: ['search', productShell.search, workspace.id, q],
     queryFn: async () => {
       if (productShell.search !== 'assistant') return []
       if (isIsolatedContractsRuntime()) {
         const result = await runIsolatedHeadlessOperation<GroundedAnswerResult>({
-          operationId: 'agents.assistant.answerQuestion',
+          operationId: 'brain.ask',
           operationInput: { question: q },
         })
         return projectGroundedAnswerToSearchResults(result)
@@ -81,6 +81,7 @@ export function SearchPage() {
       const result = await convex.query(answerQuestionRef, {
         workspaceId: workspace.id,
         question: q,
+        evidenceMode: 'mixed',
       })
       return projectGroundedAnswerToSearchResults(result)
     },
@@ -109,7 +110,17 @@ export function SearchPage() {
         }
       />
       <Page.Body p="0">
-        {q ? <SearchResults data={data} search={q} /> : <RecentSearches />}
+        {q ? (
+          isPending ? (
+            <LoadingOverlay.Root>
+              <LoadingOverlay.Spinner />
+            </LoadingOverlay.Root>
+          ) : (
+            <SearchResults data={data} error={error} search={q} />
+          )
+        ) : (
+          <RecentSearches />
+        )}
       </Page.Body>
     </Page.Root>
   )
@@ -199,8 +210,18 @@ function RecentSearches() {
 
 function SearchResults(props: {
   data?: StarterSearchResult[]
+  error?: Error | null
   search: string
 }) {
+  if (props.error) {
+    return (
+      <EmptyState
+        title="Company Brain unavailable"
+        description="The Company Brain request failed. Try again, or use the CLI diagnostics if the problem continues."
+      />
+    )
+  }
+
   if (props.search && !props.data?.length) {
     return (
       <EmptyState

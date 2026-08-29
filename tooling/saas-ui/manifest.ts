@@ -86,6 +86,7 @@ export const starterCompositions = {
     source("components/default-loader.tsx"),
     source("components/link-button.tsx"),
     source("components/link.tsx"),
+    source("components/user-avatar.tsx"),
     source("lib/last-used-workspace.ts"),
     source("lib/react-query.ts"),
     source("lib/trpc/react.tsx"),

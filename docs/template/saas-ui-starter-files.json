@@ -45,6 +45,13 @@
       "adapted": true
     },
     {
+      "source": "apps/web/src/components/user-avatar.tsx",
+      "destination": "apps/web/src/components/user-avatar.tsx",
+      "sourceSha256": "5b9339fe4bda74a0813436a2e192d6035d39074ec2cbdc5b4d021547672f6be3",
+      "sha256": "8d01b0d8a560fac3756ebe747d2aa56f4bb6a4a6bdfdfb8e6ec0ea38154a9439",
+      "adapted": true
+    },
+    {
       "source": "apps/web/src/config/hotkeys.config.ts",
       "destination": "apps/web/src/config/hotkeys.config.ts",
       "sourceSha256": "71dea89d4b5ae63ce33bdc31b353845852fc8e0e5306a94bed4c82611245148e",
@@ -342,7 +349,7 @@
       "source": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "destination": "apps/web/src/features/contacts/inbox/inbox-layout.tsx",
       "sourceSha256": "bc5baf32043a6d9e67b10b79e01f7efcae44120ea12b3fd54fee9bb6e60fb56f",
-      "sha256": "55f9c0a9585da5cb92eb573f621509792043ba01d3c49dac666a692e0fb42b92",
+      "sha256": "84717909faca67eddfd21bba387bc05045103ceffa8f62c3bf30affc8540ef49",
       "adapted": true
     },
     {
@@ -601,7 +608,7 @@
       "source": "apps/web/src/features/search/search-page.tsx",
       "destination": "apps/web/src/features/search/search-page.tsx",
       "sourceSha256": "9295a847ad0fed878189c40ca3ef92caabc405dccb10acb3b5922385e0de5ec2",
-      "sha256": "9a588d7216ccfac458b2fbca3d47bbdde72384ec47577f567f0df261d0df7fe0",
+      "sha256": "d656739355937e28177f76b817fa154830aa7a4841984f71f16ea6e1754971ff",
       "adapted": true
     },
     {

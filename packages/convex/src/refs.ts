@@ -10,6 +10,9 @@ import brainEvidence from "../confect/brain/evidence.spec";
 import connections from "../confect/integrations/connections.spec";
 import apiKeys from "../confect/headless/apiKeys.spec";
 import records from "../confect/records/records.spec";
+import reviewBrainKnowledgeCandidate from "../confect/capabilities/reviewBrainKnowledgeCandidate.spec";
+import extractBrainKnowledgeCandidates from "../confect/capabilities/extractBrainKnowledgeCandidates.spec";
+import askCompanyBrain from "../confect/capabilities/askCompanyBrain.spec";
 
 const frontendSpec = Spec.make()
   .addAt(
@@ -37,6 +40,19 @@ const frontendSpec = Spec.make()
   .addAt(
     "headless",
     GroupSpec.makeAt("headless").addGroupAt("apiKeys", apiKeys),
+  )
+  .addAt(
+    "capabilities",
+    GroupSpec.makeAt("capabilities")
+      .addGroupAt("askCompanyBrain", askCompanyBrain)
+      .addGroupAt(
+        "extractBrainKnowledgeCandidates",
+        extractBrainKnowledgeCandidates,
+      )
+      .addGroupAt(
+        "reviewBrainKnowledgeCandidate",
+        reviewBrainKnowledgeCandidate,
+      ),
   )
   .addAt("records", GroupSpec.makeAt("records").addGroupAt("records", records));
 

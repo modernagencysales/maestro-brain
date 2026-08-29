@@ -106,10 +106,10 @@ describe("hosted Brain MCP", () => {
         messages: readonly [{ content: { text: string } }];
       }
     ).messages[0].content.text;
-    expect(text).toContain("template.brain.evidence.search");
-    expect(text).toContain("template.brain.evidence.sourceGet");
-    expect(text).toContain("sourceKey and revisionKey");
-    expect(text).toContain("Search excerpts alone are not sufficient");
+    expect(text).toContain("template.brain.ask");
+    expect(text).toContain('"evidenceMode":"mixed"');
+    expect(text).toContain("ContextPack V4");
+    expect(text).toContain("pack hash");
     expect(text).toContain("abstain");
   });
 
@@ -131,7 +131,11 @@ describe("hosted Brain MCP", () => {
       }
     ).tools;
     expect(tools.map(({ name }) => name)).toEqual([
+      "template.brain.knowledge.extract",
+      "template.brain.knowledge.candidates",
+      "template.brain.knowledge.review",
       "template.agents.assistant.answerQuestion",
+      "template.brain.ask",
       "template.agents.assistant.saveEvaluationExample",
       "template.brain.evidence.search",
       "template.brain.evidence.sourceGet",

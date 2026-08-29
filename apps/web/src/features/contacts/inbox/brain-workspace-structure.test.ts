@@ -18,7 +18,10 @@ describe('Brain workspace visual structure', () => {
   })
 
   it('uses the FilesListCard row hierarchy for the Brain page tree', () => {
+    const layout = source('./inbox-layout.tsx')
     const pages = source('./brain-pages-panel.tsx')
+    expect(layout).toContain('<BrainPagesPanel')
+    expect(layout).not.toContain('rows.length > 0')
     expect(pages).toContain('<GridList.Root')
     expect(pages).toContain('<GridList.Item')
     expect(pages).toContain('<IconBadge')

@@ -12,6 +12,7 @@ import brainConnectorRuns from "./tables/brainConnectorRuns";
 import brainEvaluationExamples from "./tables/brainEvaluationExamples";
 import brainEvidenceRevisions from "./tables/brainEvidenceRevisions";
 import brainEvidenceSources from "./tables/brainEvidenceSources";
+import brainKnowledgeCandidates from "./tables/brainKnowledgeCandidates";
 import brainPages from "./tables/brainPages";
 import brainRetrievalEntries from "./tables/brainRetrievalEntries";
 import brainRetrievalTokens from "./tables/brainRetrievalTokens";
@@ -80,6 +81,7 @@ export default $defineSchema({
   brainEvaluationExamples: brainEvaluationExamples.tableDefinition,
   brainEvidenceRevisions: brainEvidenceRevisions.tableDefinition,
   brainEvidenceSources: brainEvidenceSources.tableDefinition,
+  brainKnowledgeCandidates: brainKnowledgeCandidates.tableDefinition,
   brainPages: brainPages.tableDefinition,
   brainRetrievalEntries: brainRetrievalEntries.tableDefinition,
   brainRetrievalTokens: brainRetrievalTokens.tableDefinition,

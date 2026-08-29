@@ -1,0 +1,25 @@
+{
+  "capability": "askCompanyBrain",
+  "system": "knowledge-brain",
+  "disposition": "extend",
+  "description": "Answer from reviewed company knowledge and exact current evidence",
+  "exposure": "headless",
+  "authScope": "workspace member",
+  "typedErrors": ["Unauthorized", "ValidationFailed", "Forbidden"],
+  "schemas": {
+    "args": "askCompanyBrainArgs",
+    "returns": "askCompanyBrainReturns"
+  },
+  "surfaces": ["api", "cli", "mcp"],
+  "requiredFiles": [
+    "Confect spec/impl",
+    "tests",
+    "headless registry entry",
+    "docs"
+  ],
+  "migrationNotes": [
+    "Run Confect codegen before wiring generated refs.",
+    "Add migration notes when the capability writes durable tables."
+  ],
+  "frontendAdapter": "required when exposure is web"
+}

@@ -14,6 +14,7 @@ export const currentLifecycleResourceIds = [
   "brainEvaluationExamples",
   "brainEvidenceRevisions",
   "brainEvidenceSources",
+  "brainKnowledgeCandidates",
   "brainPages",
   "brainRetrievalEntries",
   "brainRetrievalTokens",
@@ -143,6 +144,13 @@ export const workspaceLifecycleResourcePlans = [
     exportMode: "json",
     deleteMode: "delete",
     detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    id: "brainKnowledgeCandidates",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "delete",
+    detail: "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
   },
   {
     id: "brainPages",
@@ -501,6 +509,11 @@ export const workspaceRetentionRules = [
     resourceId: "brainEvidenceSources",
     action: "retain-until-workspace-delete",
     detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    resourceId: "brainKnowledgeCandidates",
+    action: "retain-until-workspace-delete",
+    detail: "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
   },
   {
     resourceId: "brainPages",

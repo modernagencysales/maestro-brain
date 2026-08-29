@@ -6,6 +6,7 @@ import { FaFile, FaFileLines, FaLink } from 'react-icons/fa6'
 import {
   LuChevronRight,
   LuDatabase,
+  LuListChecks,
   LuMessageSquare,
   LuPlus,
   LuStar,
@@ -70,12 +71,14 @@ export function BrainPagesPanel({
   activePageId,
   evidence: evidenceOverride,
   onCreate,
+  onReview,
   onSelect,
   rows,
 }: {
   activePageId?: string
   evidence?: readonly BrainEvidenceSummary[]
   onCreate: () => void
+  onReview?: () => void
   onSelect: (pageId: string) => void
   rows: readonly BrainPageTreeRow[]
 }) {
@@ -115,6 +118,16 @@ export function BrainPagesPanel({
             onClick={onCreate}
           >
             <LuPlus />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="Review grounded knowledge">
+          <IconButton
+            aria-label="Review grounded knowledge"
+            size="sm"
+            variant="ghost"
+            onClick={onReview}
+          >
+            <LuListChecks />
           </IconButton>
         </Tooltip>
       </HStack>

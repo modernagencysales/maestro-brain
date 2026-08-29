@@ -40,10 +40,11 @@ Setup and diagnostics
   maestro-brain update
 
 Use company context
-  maestro-brain ask <question> [--save-example]
+  maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example]
   maestro-brain evidence search <query> [--limit <1-10>]
   maestro-brain evidence source-get <source-key> <revision-key>
   maestro-brain evidence health
+  maestro-brain knowledge extract [--limit <1-25>]
   maestro-brain page list [--include-archived]
   maestro-brain page get <page-id>
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -69,13 +70,18 @@ not want to modify the current shell environment.`,
   run: `Usage: maestro-brain run -- <command> [args...]
 
 Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
-  ask: `Usage: maestro-brain ask <question> [--save-example]
+  ask: `Usage: maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example]
 
 --save-example explicitly stores this question and its immutable citation
-references in the shared rolling evaluation set.`,
+references in the shared rolling evaluation set. --high-risk abstains when
+reviewed support is stale or possibly conflicting.`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
        maestro-brain evidence source-get <source-key> <revision-key>
        maestro-brain evidence health`,
+  knowledge: `Usage: maestro-brain knowledge extract [--limit <1-25>]
+
+Queues grounded candidate extraction for current evidence. Review candidates in
+the Brain review queue before they become company truth.`,
   page: `Usage: maestro-brain page list [--include-archived] [--full]
        maestro-brain page get <page-id>
        maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -227,15 +233,35 @@ const commandHandlers = (
     }),
   ask: async () => {
     const saveExample = argv.includes("--save-example");
-    const question = argv
-      .slice(1)
-      .filter((argument) => argument !== "--save-example")
-      .join(" ")
-      .trim();
+    const requestedMode = option(argv, "--mode");
+    if (
+      requestedMode !== undefined &&
+      requestedMode !== "recent_evidence" &&
+      requestedMode !== "company_truth" &&
+      requestedMode !== "mixed"
+    )
+      return failure(
+        "--mode must be recent_evidence, company_truth, or mixed.",
+      );
+    const questionParts: string[] = [];
+    for (let index = 1; index < argv.length; index += 1) {
+      const argument = argv[index];
+      if (argument === "--save-example" || argument === "--high-risk") continue;
+      if (argument === "--mode") {
+        index += 1;
+        continue;
+      }
+      if (argument !== undefined) questionParts.push(argument);
+    }
+    const question = questionParts.join(" ").trim();
     if (!question) return failure("ask requires a question.");
     const answer = await request(dependencies, {
-      operationId: "agents.assistant.answerQuestion",
-      input: { question },
+      operationId: "brain.ask",
+      input: {
+        question,
+        ...(requestedMode === undefined ? {} : { evidenceMode: requestedMode }),
+        ...(argv.includes("--high-risk") ? { riskLevel: "high" } : {}),
+      },
     });
     if (!saveExample || answer.exitCode !== 0) return answer;
     let payload: unknown;
@@ -266,15 +292,15 @@ const commandHandlers = (
       (citation) =>
         citation !== null &&
         typeof citation === "object" &&
-        "sourceId" in citation &&
-        typeof citation.sourceId === "string" &&
+        "sourceKey" in citation &&
+        typeof citation.sourceKey === "string" &&
         "revisionKey" in citation &&
         typeof citation.revisionKey === "string" &&
         "contentHash" in citation &&
         typeof citation.contentHash === "string"
           ? [
               {
-                sourceKey: citation.sourceId,
+                sourceKey: citation.sourceKey,
                 revisionKey: citation.revisionKey,
                 contentHash: citation.contentHash,
               },
@@ -288,7 +314,13 @@ const commandHandlers = (
         exampleKey,
         question,
         purpose: "company-question",
-        evidenceMode: "recent_evidence",
+        evidenceMode:
+          "evidenceMode" in payload.result.contextPack &&
+          (payload.result.contextPack.evidenceMode === "recent_evidence" ||
+            payload.result.contextPack.evidenceMode === "company_truth" ||
+            payload.result.contextPack.evidenceMode === "mixed")
+            ? payload.result.contextPack.evidenceMode
+            : (requestedMode ?? "mixed"),
         surface: "cli",
         answerStatus: payload.result.status,
         packHash: payload.result.contextPack.packHash,
@@ -311,6 +343,21 @@ const commandHandlers = (
     });
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
+  knowledge: async () => {
+    if (argv[1] !== "extract")
+      return failure("Usage: maestro-brain knowledge extract [--limit <1-25>]");
+    const rawLimit = option(argv, "--limit");
+    const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+    if (
+      limit !== undefined &&
+      (!Number.isInteger(limit) || limit < 1 || limit > 25)
+    )
+      return failure("--limit must be an integer between 1 and 25.");
+    return await request(dependencies, {
+      operationId: "brain.knowledge.extract",
+      input: limit === undefined ? {} : { limit },
+    });
+  },
   page: async () => await pageCommand(argv, dependencies),
   import: async () =>
     await importCommand(argv[1], dependencies, {

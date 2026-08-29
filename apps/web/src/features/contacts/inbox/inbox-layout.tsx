@@ -26,6 +26,7 @@ import {
 } from './brain-inbox-adapter'
 import { BrainPageCreateDialog } from './brain-page-create-dialog'
 import { BrainPagesPanel } from './brain-pages-panel'
+import { BrainKnowledgeReviewDialog } from './brain-knowledge-review-dialog'
 import { inboxToolbarComponents } from './brain-inbox-toolbar'
 import { InboxList } from './inbox-list.tsx'
 
@@ -101,28 +102,17 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
         >
           <Page.Header title="Brain" />
           <Page.Body p="0">
-            {rows.length > 0 ? (
-              <BrainPagesPanel
-                activePageId={params.id}
-                rows={rows}
-                onCreate={createPage}
-                onSelect={selectPage}
-              />
-            ) : (
-              <EmptyState
-                title="Build your company Brain"
-                description="Create a page for company context, positioning, processes, or client knowledge."
-                height="100%"
-              >
-                <Button
-                  variant="primary"
-                  colorPalette="accent"
-                  onClick={createPage}
-                >
-                  Create first page
-                </Button>
-              </EmptyState>
-            )}
+            <BrainPagesPanel
+              activePageId={params.id}
+              rows={rows}
+              onCreate={createPage}
+              onReview={() =>
+                modals.open(BrainKnowledgeReviewDialog, {
+                  workspaceId: workspace.id,
+                })
+              }
+              onSelect={selectPage}
+            />
           </Page.Body>
           <ResizeHandle />
         </Page.Root>

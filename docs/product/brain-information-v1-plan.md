@@ -1,10 +1,30 @@
 # Maestro Brain Information V1
 
-**Status:** reviewed execution plan  
+**Status:** implementation complete; clean acceptance and live pilot pending
 **Date:** 2026-08-28  
 **Pilot:** Apero  
 **Review:** rewritten after two rounds of independent blind architecture,
 product, and delivery reviews, including the zero-dataset pilot constraint
+
+### 2026-08-28 implementation audit
+
+- WP2 extraction is implemented with exact grounding, bounded queues, spaced
+  scheduled actions, run leases, recovery, token/concurrency limits, and the
+  existing live-generation kill switch. It is reachable from the canonical
+  review UI, CLI, API, and HTTP MCP.
+- WP3 review is implemented with exact evidence reopening, optimistic revision,
+  idempotency, atomic claim/citation creation, and bounded web/MCP queues.
+- WP4 ships as the versioned `brain.ask` V4 operation across web, CLI, API, and
+  HTTP MCP. The existing assistant operation retains ContextPack V3 during the
+  compatibility window.
+- Provider-backed claims reopen their immutable cited revision. Ordinary source
+  edits make the claim review-due; source removal or connection withdrawal makes
+  it ineligible.
+- The real-data manifest remains intentionally empty. Quality/replacement gates
+  accrue during the Apero pilot and do not block implementation.
+- Deployment still requires a read-only live-row check and explicit approval.
+  Legacy claim/citation `workspaceId` validators remain string-compatible, so
+  the additive schema does not require a zero-row assumption.
 
 ## 1. Decision
 
@@ -1012,22 +1032,20 @@ Preview:
 pnpm template:add-capability --name reviewBrainKnowledgeCandidate --system knowledge-brain --disposition extend --description "Review a grounded Brain candidate into supported company knowledge" --exposure web
 ```
 
-**UI template gap `BRAIN-TG-001`:** the intended canonical source is
-`starter-route:apps/web/src/routes/_app/$workspace/_dashboard/inbox.tsx`, but
-the current `template:add-feature` preview fails closed because
-`apps/web/src/components/user-avatar.tsx` is not bound into the selected
-screen's generated import receipt. Do not hand-copy or redesign the screen.
-Promote this slice only after the template authority repairs/regenerates the
-Starter Inbox closure and receipt following
-`docs/template/saas-ui-upstream-update.md`; then rerun and review:
+**Resolved UI template gap `BRAIN-TG-001`:** the canonical Starter Inbox import
+closure now includes `apps/web/src/components/user-avatar.tsx`; the screen
+generator preview succeeds, and the review queue is mounted through the existing
+canonical Inbox dialog extension seam. The pinned Starter layout, resizer, Page
+primitives, and receipt hashes remain the UI authority. The reviewed preview
+command is:
 
 ```text
 pnpm template:add-feature --name brainKnowledgeReview --system knowledge-brain --disposition extend --screen-catalog-id 'starter-route:apps/web/src/routes/_app/$workspace/_dashboard/inbox.tsx' --description "Review prioritized cited company-knowledge candidates"
 ```
 
-Until `BRAIN-TG-001` is resolved, candidate review may be exercised through the
-generated capability contract and a test/operator harness, but WP3 is not
-complete and the pilot cannot claim a team-ready review UI.
+The generic CRUD body from the preview was not applied because it does not match
+the candidate-review contract; the canonical screen composition and generated
+capability refs are used without introducing a parallel layout.
 
 Deliver:
 

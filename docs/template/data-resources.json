@@ -206,6 +206,23 @@
       "detail": "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
     },
     {
+      "id": "brainKnowledgeCandidates",
+      "system": "knowledge-brain",
+      "sourcePath": "packages/convex/confect/tables/brainKnowledgeCandidates.ts",
+      "tenantScope": "workspace",
+      "sensitivity": "confidential",
+      "pii": ["customer-content"],
+      "exportMode": "redacted-json",
+      "deleteMode": "delete",
+      "retention": "retain-until-workspace-delete",
+      "appendOnly": false,
+      "writePosture": "implemented",
+      "workspaceLifecycle": "managed",
+      "writeAuthority": "packages/convex/confect/capabilities/extractBrainKnowledgeCandidates.impl.ts",
+      "migrationRef": "docs/template/schema-decisions/brainKnowledgeCandidates.md",
+      "detail": "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
+    },
+    {
       "id": "brainPages",
       "system": "knowledge-brain",
       "sourcePath": "packages/convex/confect/tables/brainPages.ts",

@@ -13,6 +13,7 @@ export type BrainConnectorRunsDoc = Document.Document<typeof schemaDefinition, "
 export type BrainEvaluationExamplesDoc = Document.Document<typeof schemaDefinition, "brainEvaluationExamples">;
 export type BrainEvidenceRevisionsDoc = Document.Document<typeof schemaDefinition, "brainEvidenceRevisions">;
 export type BrainEvidenceSourcesDoc = Document.Document<typeof schemaDefinition, "brainEvidenceSources">;
+export type BrainKnowledgeCandidatesDoc = Document.Document<typeof schemaDefinition, "brainKnowledgeCandidates">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
 export type BrainRetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "brainRetrievalEntries">;
 export type BrainRetrievalTokensDoc = Document.Document<typeof schemaDefinition, "brainRetrievalTokens">;
@@ -81,6 +82,7 @@ export interface Docs {
   brainEvaluationExamples: BrainEvaluationExamplesDoc;
   brainEvidenceRevisions: BrainEvidenceRevisionsDoc;
   brainEvidenceSources: BrainEvidenceSourcesDoc;
+  brainKnowledgeCandidates: BrainKnowledgeCandidatesDoc;
   brainPages: BrainPagesDoc;
   brainRetrievalEntries: BrainRetrievalEntriesDoc;
   brainRetrievalTokens: BrainRetrievalTokensDoc;

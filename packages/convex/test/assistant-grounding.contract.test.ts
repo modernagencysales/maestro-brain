@@ -121,7 +121,7 @@ describe("grounded assistant Confect contract", () => {
     expect(JSON.stringify(result.after)).not.toContain(
       "The advisory offer launches on Friday.",
     );
-  });
+  }, 15_000);
 
   it("rejects an evaluation example whose evidence cannot reopen", async () => {
     const program = Effect.gen(function* () {

@@ -487,6 +487,54 @@ describe("template HTTP docs routes", () => {
     expect(JSON.stringify(calls)).not.toContain("mtk_live_contracts");
   });
 
+  it("routes the stable Brain ask alias through its actor-scoped query", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          calls.push(input);
+          return "keyHash" in input
+            ? {
+                ok: true,
+                keyId: "api_key_contracts",
+                workspaceId: "workspace_contracts",
+                userId: "user_contracts",
+              }
+            : {
+                status: "answered",
+                answerMarkdown: "Launches Friday. [1]",
+                contextPack: { schemaVersion: "4", citations: [] },
+              };
+        },
+      },
+      new Request("https://template.local/api/brain.ask", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceSlug: "contracts-primary",
+          input: { question: "When is launch?", evidenceMode: "mixed" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "brain.ask",
+      result: { answerMarkdown: "Launches Friday. [1]" },
+    });
+    expect(calls[1]).toEqual({
+      workspaceId: "workspace_contracts",
+      userId: "user_contracts",
+      question: "When is launch?",
+      evidenceMode: "mixed",
+    });
+  });
+
   it("requires a bearer API key for records operations", async () => {
     const response = await handleTemplateHttpRequest(
       noopCtx,

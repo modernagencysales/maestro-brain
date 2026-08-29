@@ -33,8 +33,7 @@ import {
 } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
 import { loadLlmGatewayEnvConfig } from "../shared/env";
-import { sha256Hex } from "../shared/sha256";
-import { searchEvidence } from "../brain/evidence.impl";
+import { assembleCompanyBrainContext } from "../capabilities/askCompanyBrain.impl";
 import assistant, {
   AssistantError,
   SaveEvaluationExampleArgs,
@@ -150,38 +149,6 @@ const providerUnavailable = () =>
     message: "Assistant provider is unavailable.",
   });
 
-const packHashFor = (
-  question: string,
-  citations: readonly {
-    readonly sourceId: string;
-    readonly revisionKey: string;
-    readonly contentHash: string;
-    readonly title: string;
-    readonly excerpt: string;
-    readonly startOffset: number;
-    readonly endOffset: number;
-    readonly locator?: string | undefined;
-    readonly freshness: "current" | "review-due" | "stale";
-  }[],
-) =>
-  `sha256:${sha256Hex(
-    JSON.stringify({
-      schemaVersion: "3",
-      question,
-      citations: citations.map((citation) => ({
-        sourceKey: citation.sourceId,
-        revisionKey: citation.revisionKey,
-        contentHash: citation.contentHash,
-        title: citation.title,
-        excerpt: citation.excerpt,
-        startOffset: citation.startOffset,
-        endOffset: citation.endOffset,
-        locator: citation.locator ?? null,
-        freshness: citation.freshness,
-      })),
-    }),
-  )}`;
-
 const resolveAccess = FunctionImpl.make(
   databaseSchema,
   assistant,
@@ -195,82 +162,75 @@ const answerGroundedQuestion = (input: {
   readonly question: string;
   readonly maxCitations?: number | undefined;
 }) =>
-  Effect.gen(function* () {
-    const normalizedQuestion = input.question.trim();
-    if (normalizedQuestion.length === 0)
-      return yield* new AssistantError.ValidationFailed({
-        field: "question",
-        message: "Question must not be blank.",
-      });
-    const now = yield* withConfectClock(Clock.currentTimeMillis);
-    const citations = yield* searchEvidence({
-      workspaceId: input.workspaceId,
-      query: normalizedQuestion,
-      asOf: now,
-      relevanceMode: "grounded",
-      ...(input.maxCitations === undefined
-        ? {}
-        : { limit: input.maxCitations }),
-    });
-    const projectedCitations = citations.map((citation) => ({
-      citationKey: `citation:${citation.entryKey}`,
-      sourceId: citation.sourceKey,
-      sourceRevisionId: citation.entryKey,
-      provider: citation.provider,
-      revisionKey: citation.revisionKey,
-      title: citation.title,
-      excerpt: citation.excerpt,
-      startOffset: citation.startOffset,
-      endOffset: citation.endOffset,
-      contentHash: citation.contentHash,
-      ...(citation.locator === undefined ? {} : { locator: citation.locator }),
-      sourceModifiedAt: citation.sourceModifiedAt,
-      observedAt: citation.observedAt,
-      freshness: citation.freshness,
-    }));
-    const freshness = projectedCitations.some(
-      (citation) => citation.freshness === "stale",
-    )
-      ? ("stale" as const)
-      : projectedCitations.some(
-            (citation) => citation.freshness === "review-due",
-          )
-        ? ("review-due" as const)
-        : projectedCitations.length > 0
-          ? ("current" as const)
-          : ("unknown" as const);
-    const contextPack = {
-      schemaVersion: "3" as const,
-      packHash: packHashFor(normalizedQuestion, projectedCitations),
-      candidateManifest: {
-        schemaVersion: "2" as const,
-        candidateKeys: projectedCitations.map(
-          ({ sourceRevisionId }) => sourceRevisionId,
+  assembleCompanyBrainContext({
+    ...input,
+    evidenceMode: "recent_evidence",
+  }).pipe(
+    Effect.map((result) => {
+      const citations = result.contextPack.citations.map((citation) => ({
+        citationKey: citation.citationKey,
+        sourceId: citation.sourceKey,
+        sourceRevisionId: `${citation.sourceKey}:revision:${citation.revisionKey}`,
+        provider: citation.provider,
+        revisionKey: citation.revisionKey,
+        title: citation.title,
+        excerpt: citation.excerpt,
+        startOffset: citation.startOffset,
+        endOffset: citation.endOffset,
+        contentHash: citation.contentHash,
+        ...(citation.locator === undefined
+          ? {}
+          : { locator: citation.locator }),
+        sourceModifiedAt: citation.sourceModifiedAt,
+        observedAt: citation.observedAt,
+        freshness: citation.freshness,
+      }));
+      const contextPack = {
+        schemaVersion: "3" as const,
+        packHash: result.contextPack.packHash,
+        candidateManifest: {
+          schemaVersion: "2" as const,
+          candidateKeys: citations.map(
+            ({ sourceRevisionId }) => sourceRevisionId,
+          ),
+        },
+        workspaceId: result.contextPack.workspaceId,
+        question: result.contextPack.question,
+        asOf: result.contextPack.asOf,
+        freshness: result.contextPack.freshness,
+        citations,
+        omissions: result.contextPack.omissions.flatMap(({ reason, count }) =>
+          reason === "archived" ||
+          reason === "revision-mismatch" ||
+          reason === "not-relevant"
+            ? [{ reason, count }]
+            : [],
         ),
-      },
-      workspaceId: input.workspaceId,
-      question: normalizedQuestion,
-      asOf: now,
-      freshness,
-      citations: projectedCitations,
-      omissions: [],
-    };
-
-    return projectedCitations.length > 0
-      ? {
-          status: "answered" as const,
-          answerMarkdown: projectedCitations
-            .map(({ excerpt }, index) => `${excerpt} [${index + 1}]`)
-            .join("\n\n"),
-          contextPack,
-        }
-      : {
-          status: "insufficient-context" as const,
-          reason: "no-eligible-evidence" as const,
-          answerMarkdown: null,
-          contextPack,
-        };
-  });
+      };
+      return result.status === "answered"
+        ? {
+            status: "answered" as const,
+            answerMarkdown: result.answerMarkdown,
+            contextPack,
+          }
+        : {
+            status: "insufficient-context" as const,
+            reason: "no-eligible-evidence" as const,
+            answerMarkdown: null,
+            contextPack,
+          };
+    }),
+    Effect.mapError(
+      (error) =>
+        new AssistantError.ValidationFailed({
+          field: "question",
+          message:
+            "message" in error && typeof error.message === "string"
+              ? error.message
+              : "Company Brain context could not be assembled.",
+        }),
+    ),
+  );
 
 const answerQuestion = FunctionImpl.make(
   databaseSchema,

@@ -20,7 +20,7 @@ function transplantSelectedRoute(frontend: SelectedScreenAuthority): string {
     );
   }
   const component = frontend.routeSource.match(
-    /return\s+<([A-Z][A-Za-z0-9_]*)\s+params=\{params\}/u,
+    /return\s+\(?\s*<([A-Z][A-Za-z0-9_]*)\s+params=\{params\}/u,
   )?.[1];
   if (!component) {
     throw new Error(
@@ -29,8 +29,9 @@ function transplantSelectedRoute(frontend: SelectedScreenAuthority): string {
   }
   const routeBound = frontend.routeSource
     .replace(
-      /import\s+\{\s*createFileRoute\s*\}\s+from\s+(["'])@tanstack\/react-router\1/u,
-      'import { createFileRoute, useParams } from "@tanstack/react-router"',
+      /import\s+\{([^}]*\bcreateFileRoute\b[^}]*)\}\s+from\s+(["'])@tanstack\/react-router\2/u,
+      (_match, imports: string) =>
+        `import { ${imports.trim()}, useParams } from "@tanstack/react-router"`,
     )
     .replace(
       "Route.useParams()",

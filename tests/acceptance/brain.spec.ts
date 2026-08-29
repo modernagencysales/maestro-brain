@@ -148,24 +148,23 @@ test(
     const cliAnswer = cliResult<{
       answerMarkdown: string;
       contextPack: {
-        citations: readonly { sourceRevisionId: string; title: string }[];
+        citations: readonly { revisionKey: string; title: string }[];
       };
     }>(
       await runtime.runCli(
         scenario,
         commandArgs(
-          "agents.assistant.answerQuestion",
+          "brain.ask",
           scenario.workspaceSlug,
-          { question },
+          { question, evidenceMode: "mixed" },
           `${scenario.namespace}-ask-cli`,
         ),
       ),
     );
-    const httpAnswer = (await runtime.runApi(
-      scenario,
-      "agents.assistant.answerQuestion",
-      { question },
-    )) as {
+    const httpAnswer = (await runtime.runApi(scenario, "brain.ask", {
+      question,
+      evidenceMode: "mixed",
+    })) as {
       ok: true;
       result: typeof cliAnswer;
     };
@@ -174,19 +173,21 @@ test(
     expect(httpAnswer.result.answerMarkdown).toBe(cliAnswer.answerMarkdown);
     expect(
       httpAnswer.result.contextPack.citations.map(
-        ({ sourceRevisionId }) => sourceRevisionId,
+        ({ revisionKey }) => revisionKey,
       ),
     ).toEqual(
-      cliAnswer.contextPack.citations.map(
-        ({ sourceRevisionId }) => sourceRevisionId,
-      ),
+      cliAnswer.contextPack.citations.map(({ revisionKey }) => revisionKey),
     );
     expect(cliAnswer.answerMarkdown).toContain("Friday");
 
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/search`);
     await page.getByPlaceholder("Ask Maestro anything...").fill(question);
-    await expect(page.getByText(/Friday/u).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(title, "u")).first()).toBeVisible();
+    await expect(page.getByText(/Friday/u).first()).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
+    await expect(page.getByText(new RegExp(title, "u")).first()).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
   },
 );
 
