@@ -1,17 +1,27 @@
 import { describe, expect, it } from 'vitest'
 
-import { toggleScopeSelection } from './provider-sync-dialog'
+import {
+  selectSlackChannel,
+  toggleScopeSelection,
+} from './provider-sync-dialog'
 
 describe('provider sync scope selection', () => {
-  it('keeps multiple Slack channels selected', () => {
-    const first = toggleScopeSelection([], 'C01', true)
-    const second = toggleScopeSelection(first, 'C02', true)
+  it('replaces the selected Slack channel', () => {
+    const first = selectSlackChannel('C01', true)
+    const second = selectSlackChannel('C02', true)
 
-    expect(second).toEqual(['C01', 'C02'])
-    expect(toggleScopeSelection(second, 'C01', false)).toEqual(['C02'])
+    expect(first).toEqual(['C01'])
+    expect(second).toEqual(['C02'])
+    expect(selectSlackChannel('C02', false)).toEqual([])
   })
 
-  it('does not duplicate a selected channel', () => {
-    expect(toggleScopeSelection(['C01'], 'C01', true)).toEqual(['C01'])
+  it('keeps Drive scope selection multi-folder', () => {
+    const first = toggleScopeSelection([], 'folder-1', true)
+    const second = toggleScopeSelection(first, 'folder-2', true)
+
+    expect(second).toEqual(['folder-1', 'folder-2'])
+    expect(toggleScopeSelection(second, 'folder-1', false)).toEqual([
+      'folder-2',
+    ])
   })
 })

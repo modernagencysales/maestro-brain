@@ -2,11 +2,18 @@ export type StarterSearchResult = Readonly<{
   id: string
   title: string
   description: string
+  sourceKey?: string
+  revisionKey?: string
 }>
 
 export type AnswerCitation = Readonly<{
   citationKey: string
-  sourceRevisionId: string
+  sourceKey: string
+  revisionKey: string
+  contentHash: string
+  supportKind?: 'claim' | 'page' | 'recent_evidence'
+  provider?: 'brain_page' | 'slack' | 'google_drive' | 'hubspot' | 'transcript'
+  locator?: string
   title: string
   excerpt: string
   freshness: 'current' | 'review-due' | 'stale'
@@ -16,9 +23,24 @@ export type GroundedAnswerResult = Readonly<{
   status: 'answered' | 'insufficient-context'
   answerMarkdown: string | null
   contextPack: Readonly<{
-    schemaVersion: '3'
+    schemaVersion: '4'
+    packHash: string
+    evidenceMode: 'recent_evidence' | 'company_truth' | 'mixed'
+    policyVersion?: string
     freshness: 'current' | 'review-due' | 'stale' | 'unknown'
     citations: readonly AnswerCitation[]
+    claims?: readonly Readonly<{
+      claimId: string
+      body: string
+      freshness: 'current' | 'review-due' | 'stale' | 'unknown'
+      citationKeys: readonly string[]
+    }>[]
+    conflicts?: readonly Readonly<{
+      propositionFingerprint: string
+      claimIds: readonly string[]
+      reason: 'possible-contradiction'
+    }>[]
+    omissions?: readonly Readonly<{ reason: string; count: number }>[]
   }>
 }>
 
@@ -43,9 +65,11 @@ export const projectGroundedAnswerToSearchResults = (
       description: result.answerMarkdown ?? '',
     },
     ...result.contextPack.citations.map((citation, index) => ({
-      id: citation.sourceRevisionId,
+      id: `${citation.sourceKey}:${citation.revisionKey}`,
       title: `[${index + 1}] ${citation.title}`,
       description: `${citation.excerpt} · ${citation.freshness} · ${citation.citationKey}`,
+      sourceKey: citation.sourceKey,
+      revisionKey: citation.revisionKey,
     })),
   ]
 }
@@ -56,19 +80,22 @@ export const askMaestroPromptFixtures = [
   'Which client context is getting stale?',
 ] as const
 
-export const fakeAskMaestroResult = (
+export const fakeAskMaestroAnswer = (
   question: string,
-): StarterSearchResult[] =>
-  projectGroundedAnswerToSearchResults({
+): GroundedAnswerResult => ({
     status: 'answered',
     answerMarkdown: `This fake-safe preview demonstrates how Maestro answers “${question}” with a visible source revision. Live mode only uses eligible pages from the active workspace. [1]`,
     contextPack: {
-      schemaVersion: '3',
+      schemaVersion: '4',
+      packHash: `sha256:${'0'.repeat(64)}`,
+      evidenceMode: 'mixed',
       freshness: 'current',
       citations: [
         {
           citationKey: 'citation:fixture-brain-page:1',
-          sourceRevisionId: 'brain-page:fixture-brain-page:revision:1',
+          sourceKey: 'brain-page:fixture-brain-page',
+          revisionKey: '1',
+          contentHash: 'fixture-content-hash',
           title: 'Demo Brain page',
           excerpt:
             'Fixture evidence is clearly labeled and never presented as live company knowledge.',
@@ -77,3 +104,8 @@ export const fakeAskMaestroResult = (
       ],
     },
   })
+
+export const fakeAskMaestroResult = (
+  question: string,
+): StarterSearchResult[] =>
+  projectGroundedAnswerToSearchResults(fakeAskMaestroAnswer(question))

@@ -31,8 +31,10 @@ vi.mock('#lib/headless-api', () => ({
 }))
 
 import {
+  brainEvidenceRevisionRouteId,
   brainEvidenceRouteId,
   brainPageFixtures,
+  parseBrainEvidenceRevisionRouteId,
   parseBrainEvidenceRouteId,
   projectBrainPagesToTree,
   useBrainEvidence,
@@ -53,6 +55,20 @@ describe('Brain page-tree adapter', () => {
     )
     expect(parseBrainEvidenceRouteId('page-id')).toBeUndefined()
     expect(parseBrainEvidenceRouteId('evidence:%E0%A4%A')).toBeUndefined()
+  })
+
+  it('round-trips an exact immutable evidence revision through a route-safe id', () => {
+    const sourceKey = 'slack:C01:message:1787920000.000100'
+    const revisionKey = 'edited:1787920100.000200'
+    expect(
+      parseBrainEvidenceRevisionRouteId(
+        brainEvidenceRevisionRouteId(sourceKey, revisionKey),
+      ),
+    ).toEqual({ sourceKey, revisionKey })
+    expect(parseBrainEvidenceRevisionRouteId('page-id')).toBeUndefined()
+    expect(
+      parseBrainEvidenceRevisionRouteId('evidence-revision:missing-separator'),
+    ).toBeUndefined()
   })
 
   it('projects parent-child pages in stable tree order', () => {

@@ -11,6 +11,7 @@ import {
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
+import { sha256Hex } from "../shared/sha256";
 import evidence from "./evidence.spec";
 import {
   evidenceContentHash,
@@ -35,6 +36,23 @@ const EVIDENCE_PROVIDERS = [
   "hubspot",
   "transcript",
 ] as const;
+
+type EvidenceSearchCitation = {
+  readonly entryKey: string;
+  readonly sourceKey: string;
+  readonly revisionKey: string;
+  readonly provider: (typeof EVIDENCE_PROVIDERS)[number];
+  readonly title: string;
+  readonly excerpt: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+  readonly contentHash: string;
+  readonly bodyIdentity: string;
+  readonly locator?: string | undefined;
+  readonly sourceModifiedAt: number;
+  readonly observedAt: number;
+  readonly freshness: "current" | "review-due" | "stale";
+};
 
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
@@ -104,6 +122,40 @@ const providerIsEligible = (
     return row !== null && "workspaceId" in row && row.status === "active";
   });
 
+const connectorRunIsCurrent = (run: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly provider: (typeof EVIDENCE_PROVIDERS)[number];
+  readonly scopeKey: string;
+  readonly connectionGeneration?: number | undefined;
+}) =>
+  Effect.gen(function* () {
+    if (run.connectionGeneration === undefined) return true;
+    const connectionProvider =
+      run.provider === "google_drive" ? "google-drive" : run.provider;
+    if (
+      connectionProvider === "brain_page" ||
+      connectionProvider === "transcript"
+    )
+      return true;
+    const row = yield* (yield* DatabaseReader)
+      .table("providerConnections")
+      .index("by_workspace_and_provider", (q) =>
+        q.eq("workspaceId", run.workspaceId).eq("provider", connectionProvider),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (
+      row === null ||
+      !("workspaceId" in row) ||
+      row.status !== "active" ||
+      row.generation !== run.connectionGeneration
+    )
+      return false;
+    return run.provider !== "slack"
+      ? true
+      : run.scopeKey === `slack:${row.connectionRef ?? ""}`;
+  });
+
 const searchEvidence = (input: {
   readonly workspaceId: GenericId<"workspaces">;
   readonly query: string;
@@ -117,7 +169,7 @@ const searchEvidence = (input: {
       evidenceTokens("", input.query).map(({ token }) => token),
       relevanceMode,
     ).slice(0, 12);
-    if (queryTokens.length === 0) return [];
+    if (queryTokens.length === 0) return [] as EvidenceSearchCitation[];
     const reader = yield* DatabaseReader;
     const candidates = new Map<
       string,
@@ -168,7 +220,7 @@ const searchEvidence = (input: {
       Math.max(Math.floor(input.limit ?? 3), 1),
       10,
     );
-    const citations = [];
+    const citations: EvidenceSearchCitation[] = [];
     const citedEntries = new Set<string>();
     const coveredTokens = new Set<string>();
     for (const [, candidate] of ranked) {
@@ -214,6 +266,14 @@ const searchEvidence = (input: {
           Math.min(candidate.passageEndOffset, entry.markdown.length),
         ),
         contentHash: entry.contentHash,
+        bodyIdentity: `sha256:${sha256Hex(
+          entry.markdown
+            .normalize("NFKC")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/gu, " ")
+            .trim()
+            .replace(/\s+/gu, " "),
+        )}`,
         ...(entry.locator === undefined ? {} : { locator: entry.locator }),
         sourceModifiedAt: entry.sourceModifiedAt,
         observedAt: entry.observedAt,
@@ -228,7 +288,7 @@ const searchEvidence = (input: {
       coveredTokens.size,
     )
       ? citations
-      : [];
+      : ([] as EvidenceSearchCitation[]);
   });
 
 const search = FunctionImpl.make(
@@ -301,6 +361,12 @@ const getEvidenceSource = (input: {
       markdown: revision.markdown,
       contentHash: revision.contentHash,
       ...(revision.locator === undefined ? {} : { locator: revision.locator }),
+      ...(revision.providerMetadataJson === undefined
+        ? {}
+        : { providerMetadataJson: revision.providerMetadataJson }),
+      ...(revision.providerMetadataHash === undefined
+        ? {}
+        : { providerMetadataHash: revision.providerMetadataHash }),
       sourceModifiedAt: revision.sourceModifiedAt,
       observedAt: revision.observedAt,
       tombstone: revision.tombstone,
@@ -613,7 +679,14 @@ const beginRun = FunctionImpl.make(
   databaseSchema,
   evidence,
   "beginRun",
-  ({ workspaceId, provider, scopeKey, runKey, startedAt }) =>
+  ({
+    workspaceId,
+    provider,
+    scopeKey,
+    connectionGeneration,
+    runKey,
+    startedAt,
+  }) =>
     Effect.gen(function* () {
       const existing = yield* requireRun(workspaceId, runKey).pipe(
         Effect.catchTag("NotFound", () => Effect.succeed(null)),
@@ -622,6 +695,7 @@ const beginRun = FunctionImpl.make(
         if (
           existing.provider !== provider ||
           existing.scopeKey !== scopeKey ||
+          existing.connectionGeneration !== connectionGeneration ||
           existing.status !== "running"
         )
           return yield* new ValidationFailed({
@@ -663,6 +737,9 @@ const beginRun = FunctionImpl.make(
           workspaceId,
           provider,
           scopeKey,
+          ...(connectionGeneration === undefined
+            ? {}
+            : { connectionGeneration }),
           runKey,
           status: "running",
           startedAt,
@@ -692,6 +769,11 @@ const publishRunItem = FunctionImpl.make(
         return yield* new ValidationFailed({
           field: "runKey",
           message: "Connector run is not active for this evidence scope.",
+        });
+      if (!(yield* connectorRunIsCurrent(run)))
+        return yield* new ValidationFailed({
+          field: "connectionGeneration",
+          message: "Provider connection changed while synchronization ran.",
         });
       const result = yield* projectEvidence(input);
       const reader = yield* DatabaseReader;
@@ -740,6 +822,11 @@ const completeRun = FunctionImpl.make(
           field: "runKey",
           message: "Only a running connector traversal can complete.",
         });
+      if (!(yield* connectorRunIsCurrent(run)))
+        return yield* new ValidationFailed({
+          field: "connectionGeneration",
+          message: "Provider connection changed before reconciliation.",
+        });
       const reader = yield* DatabaseReader;
       const seenRows = yield* reader
         .table("brainConnectorRunSeen")
@@ -750,10 +837,10 @@ const completeRun = FunctionImpl.make(
         .pipe(Effect.orDie);
       const sources = yield* reader
         .table("brainEvidenceSources")
-        .index("by_workspace_and_provider_and_status", (q) =>
+        .index("by_workspace_and_scope_key_and_status", (q) =>
           q
             .eq("workspaceId", workspaceId)
-            .eq("provider", run.provider)
+            .eq("scopeKey", run.scopeKey)
             .eq("status", "active"),
         )
         .take(1_001)
@@ -826,6 +913,43 @@ const failRun = FunctionImpl.make(
     }),
 );
 
+const failActiveScopeRun = FunctionImpl.make(
+  databaseSchema,
+  evidence,
+  "failActiveScopeRun",
+  ({ workspaceId, provider, scopeKey, failureCode, failedAt }) =>
+    Effect.gen(function* () {
+      const activeRuns = yield* (yield* DatabaseReader)
+        .table("brainConnectorRuns")
+        .index("by_workspace_and_provider_and_status", (q) =>
+          q
+            .eq("workspaceId", workspaceId)
+            .eq("provider", provider)
+            .eq("status", "running"),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      if (activeRuns.length > 1)
+        return yield* new ValidationFailed({
+          field: "provider",
+          message: "Provider has multiple active connector runs.",
+        });
+      const activeRun = activeRuns[0];
+      if (activeRun === undefined || activeRun.scopeKey !== scopeKey)
+        return { failedCount: 0 };
+      yield* (yield* DatabaseWriter)
+        .table("brainConnectorRuns")
+        .patch(activeRun._id, {
+          status: "failed",
+          completedAt: failedAt,
+          failureCode,
+          updatedAt: failedAt,
+        })
+        .pipe(Effect.orDie);
+      return { failedCount: 1 };
+    }),
+);
+
 const publishPage = FunctionImpl.make(
   databaseSchema,
   evidence,
@@ -877,6 +1001,7 @@ export default GroupImpl.make(databaseSchema, evidence).pipe(
   Layer.provide(publishRunItem),
   Layer.provide(completeRun),
   Layer.provide(failRun),
+  Layer.provide(failActiveScopeRun),
   Layer.provide(publishPage),
   GroupImpl.finalize,
 );

@@ -46,6 +46,7 @@ import { Route as AppWorkspaceSettingsTagsRouteImport } from './routes/_app/$wor
 import { Route as AppWorkspaceSettingsWorkspaceRouteImport } from './routes/_app/$workspace/settings/workspace'
 import { Route as AppWorkspaceDashboardContactsIndexRouteImport } from './routes/_app/$workspace/_dashboard/contacts/index'
 import { Route as AppWorkspaceDashboardContactsTypeRouteImport } from './routes/_app/$workspace/_dashboard/contacts/$type'
+import { Route as AppWorkspaceDashboardInboxIndexRouteImport } from './routes/_app/$workspace/_dashboard/inbox/index'
 import { Route as AppWorkspaceDashboardInboxIdRouteImport } from './routes/_app/$workspace/_dashboard/inbox/$id'
 import { Route as AppWorkspaceDashboardTagTagRouteImport } from './routes/_app/$workspace/_dashboard/tag/$tag'
 import { Route as AppWorkspaceSettingsAccountIndexRouteImport } from './routes/_app/$workspace/settings/account/index'
@@ -250,6 +251,12 @@ const AppWorkspaceDashboardContactsTypeRoute =
     path: '/contacts/$type',
     getParentRoute: () => AppWorkspaceDashboardRoute,
   } as any)
+const AppWorkspaceDashboardInboxIndexRoute =
+  AppWorkspaceDashboardInboxIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppWorkspaceDashboardInboxRoute,
+  } as any)
 const AppWorkspaceDashboardInboxIdRoute =
   AppWorkspaceDashboardInboxIdRouteImport.update({
     id: '/$id',
@@ -333,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/$workspace/contacts/': typeof AppWorkspaceDashboardContactsIndexRoute
+  '/$workspace/inbox/': typeof AppWorkspaceDashboardInboxIndexRoute
   '/$workspace/settings/account/': typeof AppWorkspaceSettingsAccountIndexRoute
   '/$workspace/contacts/view/$id': typeof AppWorkspaceDashboardContactsViewIdRoute
 }
@@ -355,7 +363,6 @@ export interface FileRoutesByTo {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/getting-started': typeof AppGettingStartedIndexRoute
-  '/$workspace/inbox': typeof AppWorkspaceDashboardInboxRouteWithChildren
   '/$workspace/kanban': typeof AppWorkspaceDashboardKanbanRoute
   '/$workspace/records': typeof AppWorkspaceDashboardRecordsRoute
   '/$workspace/search': typeof AppWorkspaceDashboardSearchRoute
@@ -373,6 +380,7 @@ export interface FileRoutesByTo {
   '/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/$workspace/contacts': typeof AppWorkspaceDashboardContactsIndexRoute
+  '/$workspace/inbox': typeof AppWorkspaceDashboardInboxIndexRoute
   '/$workspace/settings/account': typeof AppWorkspaceSettingsAccountIndexRoute
   '/$workspace/contacts/view/$id': typeof AppWorkspaceDashboardContactsViewIdRoute
 }
@@ -420,6 +428,7 @@ export interface FileRoutesById {
   '/_app/$workspace/settings/account/profile': typeof AppWorkspaceSettingsAccountProfileRoute
   '/_app/$workspace/settings/account/security': typeof AppWorkspaceSettingsAccountSecurityRoute
   '/_app/$workspace/_dashboard/contacts/': typeof AppWorkspaceDashboardContactsIndexRoute
+  '/_app/$workspace/_dashboard/inbox/': typeof AppWorkspaceDashboardInboxIndexRoute
   '/_app/$workspace/settings/account/': typeof AppWorkspaceSettingsAccountIndexRoute
   '/_app/$workspace/_dashboard/contacts/view/$id': typeof AppWorkspaceDashboardContactsViewIdRoute
 }
@@ -465,6 +474,7 @@ export interface FileRouteTypes {
     | '/$workspace/settings/account/profile'
     | '/$workspace/settings/account/security'
     | '/$workspace/contacts/'
+    | '/$workspace/inbox/'
     | '/$workspace/settings/account/'
     | '/$workspace/contacts/view/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -487,7 +497,6 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/api/webhooks/stripe'
     | '/getting-started'
-    | '/$workspace/inbox'
     | '/$workspace/kanban'
     | '/$workspace/records'
     | '/$workspace/search'
@@ -505,6 +514,7 @@ export interface FileRouteTypes {
     | '/$workspace/settings/account/profile'
     | '/$workspace/settings/account/security'
     | '/$workspace/contacts'
+    | '/$workspace/inbox'
     | '/$workspace/settings/account'
     | '/$workspace/contacts/view/$id'
   id:
@@ -551,6 +561,7 @@ export interface FileRouteTypes {
     | '/_app/$workspace/settings/account/profile'
     | '/_app/$workspace/settings/account/security'
     | '/_app/$workspace/_dashboard/contacts/'
+    | '/_app/$workspace/_dashboard/inbox/'
     | '/_app/$workspace/settings/account/'
     | '/_app/$workspace/_dashboard/contacts/view/$id'
   fileRoutesById: FileRoutesById
@@ -828,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceDashboardContactsTypeRouteImport
       parentRoute: typeof AppWorkspaceDashboardRoute
     }
+    '/_app/$workspace/_dashboard/inbox/': {
+      id: '/_app/$workspace/_dashboard/inbox/'
+      path: '/'
+      fullPath: '/$workspace/inbox/'
+      preLoaderRoute: typeof AppWorkspaceDashboardInboxIndexRouteImport
+      parentRoute: typeof AppWorkspaceDashboardInboxRoute
+    }
     '/_app/$workspace/_dashboard/inbox/$id': {
       id: '/_app/$workspace/_dashboard/inbox/$id'
       path: '/$id'
@@ -882,11 +900,13 @@ declare module '@tanstack/react-router' {
 
 interface AppWorkspaceDashboardInboxRouteChildren {
   AppWorkspaceDashboardInboxIdRoute: typeof AppWorkspaceDashboardInboxIdRoute
+  AppWorkspaceDashboardInboxIndexRoute: typeof AppWorkspaceDashboardInboxIndexRoute
 }
 
 const AppWorkspaceDashboardInboxRouteChildren: AppWorkspaceDashboardInboxRouteChildren =
   {
     AppWorkspaceDashboardInboxIdRoute: AppWorkspaceDashboardInboxIdRoute,
+    AppWorkspaceDashboardInboxIndexRoute: AppWorkspaceDashboardInboxIndexRoute,
   }
 
 const AppWorkspaceDashboardInboxRouteWithChildren =

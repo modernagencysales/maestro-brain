@@ -1,0 +1,155 @@
+[
+  {
+    "id": "exact-citation-reopening",
+    "fixtureClass": "synthetic-safety",
+    "adjudicated": true,
+    "expectedAnswerStatus": "answered",
+    "availableEvidence": [
+      {
+        "sourceId": "fake-slack-thread-1",
+        "revisionId": "fake-slack-revision-1",
+        "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "eligible": true
+      }
+    ],
+    "observations": [
+      {
+        "surface": "cli",
+        "answerStatus": "answered",
+        "packHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "citations": [
+          {
+            "sourceId": "fake-slack-thread-1",
+            "revisionId": "fake-slack-revision-1",
+            "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reopenedContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "accessible": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ineligible-evidence-excluded",
+    "fixtureClass": "synthetic-safety",
+    "adjudicated": true,
+    "expectedAnswerStatus": "answered",
+    "availableEvidence": [
+      {
+        "sourceId": "fake-drive-current",
+        "revisionId": "fake-drive-revision-2",
+        "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "eligible": true
+      },
+      {
+        "sourceId": "fake-drive-withdrawn",
+        "revisionId": "fake-drive-revision-1",
+        "contentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "eligible": false
+      }
+    ],
+    "observations": [
+      {
+        "surface": "api",
+        "answerStatus": "answered",
+        "packHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "citations": [
+          {
+            "sourceId": "fake-drive-current",
+            "revisionId": "fake-drive-revision-2",
+            "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "reopenedContentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "accessible": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "insufficient-context-abstention",
+    "fixtureClass": "synthetic-safety",
+    "adjudicated": true,
+    "expectedAnswerStatus": "insufficient_context",
+    "availableEvidence": [],
+    "observations": [
+      {
+        "surface": "http_mcp",
+        "answerStatus": "insufficient_context",
+        "packHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "citations": []
+      }
+    ]
+  },
+  {
+    "id": "cross-surface-context-pack-parity",
+    "fixtureClass": "synthetic-safety",
+    "adjudicated": true,
+    "expectedAnswerStatus": "answered",
+    "availableEvidence": [
+      {
+        "sourceId": "fake-brain-page",
+        "revisionId": "fake-page-revision-3",
+        "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "eligible": true
+      }
+    ],
+    "observations": [
+      {
+        "surface": "web",
+        "answerStatus": "answered",
+        "packHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "citations": [
+          {
+            "sourceId": "fake-brain-page",
+            "revisionId": "fake-page-revision-3",
+            "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "reopenedContentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "accessible": true
+          }
+        ]
+      },
+      {
+        "surface": "cli",
+        "answerStatus": "answered",
+        "packHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "citations": [
+          {
+            "sourceId": "fake-brain-page",
+            "revisionId": "fake-page-revision-3",
+            "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "reopenedContentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "accessible": true
+          }
+        ]
+      },
+      {
+        "surface": "api",
+        "answerStatus": "answered",
+        "packHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "citations": [
+          {
+            "sourceId": "fake-brain-page",
+            "revisionId": "fake-page-revision-3",
+            "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "reopenedContentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "accessible": true
+          }
+        ]
+      },
+      {
+        "surface": "http_mcp",
+        "answerStatus": "answered",
+        "packHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "citations": [
+          {
+            "sourceId": "fake-brain-page",
+            "revisionId": "fake-page-revision-3",
+            "contentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "reopenedContentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "accessible": true
+          }
+        ]
+      }
+    ]
+  }
+]

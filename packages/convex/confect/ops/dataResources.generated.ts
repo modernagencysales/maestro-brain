@@ -9,10 +9,12 @@ export const currentLifecycleResourceIds = [
   "actionTriggers",
   "apiKeys",
   "billingPlans",
-  "brainConnectorRunSeen",
   "brainConnectorRuns",
+  "brainConnectorRunSeen",
+  "brainEvaluationExamples",
   "brainEvidenceRevisions",
   "brainEvidenceSources",
+  "brainKnowledgeCandidates",
   "brainPages",
   "brainRetrievalEntries",
   "brainRetrievalTokens",
@@ -109,6 +111,13 @@ export const workspaceLifecycleResourcePlans = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    id: "brainConnectorRuns",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+  },
+  {
     id: "brainConnectorRunSeen",
     owner: "workspace",
     exportMode: "json",
@@ -116,25 +125,32 @@ export const workspaceLifecycleResourcePlans = [
     detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
   },
   {
-    id: "brainConnectorRuns",
+    id: "brainEvaluationExamples",
     owner: "workspace",
-    exportMode: "json",
+    exportMode: "redacted-json",
     deleteMode: "delete",
-    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+    detail: "Explicitly saved Ask Maestro evaluation examples with bounded immutable source references and no copied evidence excerpts."
   },
   {
     id: "brainEvidenceRevisions",
     owner: "workspace",
     exportMode: "markdown",
     deleteMode: "delete",
-    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+    detail: "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
   },
   {
     id: "brainEvidenceSources",
     owner: "workspace",
     exportMode: "json",
     deleteMode: "delete",
-    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+    detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    id: "brainKnowledgeCandidates",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "delete",
+    detail: "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
   },
   {
     id: "brainPages",
@@ -470,24 +486,34 @@ export const workspaceRetentionRules = [
     detail: "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
   },
   {
+    resourceId: "brainConnectorRuns",
+    action: "retain-until-workspace-delete",
+    detail: "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+  },
+  {
     resourceId: "brainConnectorRunSeen",
     action: "retain-until-workspace-delete",
     detail: "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
   },
   {
-    resourceId: "brainConnectorRuns",
+    resourceId: "brainEvaluationExamples",
     action: "retain-until-workspace-delete",
-    detail: "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+    detail: "Explicitly saved Ask Maestro evaluation examples with bounded immutable source references and no copied evidence excerpts."
   },
   {
     resourceId: "brainEvidenceRevisions",
     action: "retain-until-workspace-delete",
-    detail: "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+    detail: "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
   },
   {
     resourceId: "brainEvidenceSources",
     action: "retain-until-workspace-delete",
-    detail: "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+    detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    resourceId: "brainKnowledgeCandidates",
+    action: "retain-until-workspace-delete",
+    detail: "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
   },
   {
     resourceId: "brainPages",

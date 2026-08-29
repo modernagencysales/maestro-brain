@@ -74,11 +74,14 @@ const ActorRevokeArgs = Schema.Struct({
 });
 const ConnectionList = Schema.Array(CurrentProviderConnectionDoc);
 const ConnectionOrNull = Schema.NullOr(CurrentProviderConnectionDoc);
+export const SlackChannelIds = Schema.Array(Schema.NonEmptyString).pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isMaxLength(1)),
+);
 const SlackSyncArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
-  channelIds: Schema.Array(Schema.NonEmptyString).pipe(
-    Schema.check(Schema.isMinLength(1)),
-  ),
+  channelIds: SlackChannelIds,
+  lookbackDays: Schema.optional(Schema.Number),
 });
 const GoogleDriveSyncArgs = Schema.Struct({
   workspaceId: Id("workspaces"),

@@ -1,0 +1,16 @@
+{
+  "generator": "add-table",
+  "commandFamily": "template:add-table",
+  "name": "brainKnowledgeCandidates",
+  "ownership": {
+    "system": "knowledge-brain",
+    "disposition": "extend"
+  },
+  "generatedPaths": [
+    "packages/convex/confect/tables/brainKnowledgeCandidates.ts",
+    "docs/template/schema-decisions/brainKnowledgeCandidates.md",
+    "docs/template/system-catalog.json",
+    "docs/template/data-resources.json",
+    "packages/convex/confect/ops/dataResources.generated.ts"
+  ]
+}

@@ -17,6 +17,26 @@ export const BrainRetrievalEntryRow = S.Struct({
   sourceModifiedAt: S.Number,
   observedAt: S.Number,
   status: S.Literals(["current", "retired"]),
+  semanticPolicyVersion: S.optional(S.String),
+  semanticStatus: S.optional(
+    S.Literals(["pending", "running", "completed", "failed"]),
+  ),
+  semanticProposedCount: S.optional(S.Number),
+  semanticCandidateCount: S.optional(S.Number),
+  semanticGroundingFailureCount: S.optional(S.Number),
+  semanticFailureCode: S.optional(S.String),
+  semanticRunKey: S.optional(S.String),
+  semanticStartedAt: S.optional(S.Number),
+  semanticInputTokens: S.optional(S.Number),
+  semanticOutputTokens: S.optional(S.Number),
+  semanticUsageDay: S.optional(S.Number),
+  semanticDailyConsumedTokens: S.optional(S.Number),
+  semanticDailyReservedTokens: S.optional(S.Number),
+  semanticDailyConsumedSpendCents: S.optional(S.Number),
+  semanticDailyReservedSpendCents: S.optional(S.Number),
+  semanticEstimatedRunTokens: S.optional(S.Number),
+  semanticEstimatedSpendCents: S.optional(S.Number),
+  semanticProjectedAt: S.optional(S.Number),
   createdAt: S.Number,
   updatedAt: S.Number,
 });
@@ -33,4 +53,5 @@ export default Table.make(() => BrainRetrievalEntryRow)
     "workspaceId",
     "provider",
     "status",
-  ]);
+  ])
+  .index("by_workspace_and_semantic_status", ["workspaceId", "semanticStatus"]);

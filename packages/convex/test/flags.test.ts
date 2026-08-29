@@ -143,6 +143,7 @@ describe("feature flag Confect contracts", () => {
       "template.billing.liveCheckout",
       "template.notifications.center",
       "template.ai.liveGeneration",
+      "template.brain.contextV4",
     ]);
     expect(
       result.evaluated.decisions.filter((decision) => decision.enabled),
@@ -154,6 +155,7 @@ describe("feature flag Confect contracts", () => {
             "template.billing.liveCheckout",
             "template.notifications.center",
             "template.ai.liveGeneration",
+            "template.brain.contextV4",
           ].includes(decision.key),
         )
         .every((decision) => decision.reason === "definition-disabled"),

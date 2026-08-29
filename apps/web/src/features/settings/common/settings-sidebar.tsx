@@ -123,10 +123,6 @@ export const SettingsSidebar = () => {
                   <LuShieldCheck />
                   Security
                 </SettingsLink>
-                <SettingsLink {...getLinkOptions('/account/api')}>
-                  <LuTerminal />
-                  Terminal &amp; MCP
-                </SettingsLink>
               </Sidebar.GroupContent>
             </Sidebar.Group>
           ) : null}
@@ -147,6 +143,10 @@ export const SettingsSidebar = () => {
                     <LuUsersRound /> Members
                   </SettingsLink>
                 ) : null}
+                <SettingsLink {...getLinkOptions('/account/api')}>
+                  <LuTerminal />
+                  Terminal &amp; MCP
+                </SettingsLink>
                 {productShell.settings.tags ? (
                   <SettingsLink {...getLinkOptions('/tags')}>
                     <LuTags /> Tags

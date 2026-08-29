@@ -117,7 +117,9 @@ describe('Brain workspace surfaces', () => {
     )
 
     expect(html).toContain('No synced sources yet')
-    expect(html).toContain('Connect Slack, Drive, or HubSpot')
+    expect(html).toContain('Connect Slack')
+    expect(html).toContain('Connect Drive')
+    expect(html).not.toContain('HubSpot')
   })
 
   it('selects non-Slack evidence and renders optional provenance', () => {

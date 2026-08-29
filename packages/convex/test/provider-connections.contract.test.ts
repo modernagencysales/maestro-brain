@@ -165,11 +165,64 @@ describe("provider connections Confect contract", () => {
     );
 
     expect(result.configured).toMatchObject({
-      scheduledSyncEnabled: true,
+      scheduledSyncEnabled: false,
       slackChannelIds: ["C01", "C02"],
     });
-    expect(result.dispatch).toEqual({ scheduledCount: 1, skippedCount: 0 });
+    expect(result.dispatch).toEqual({ scheduledCount: 0, skippedCount: 1 });
     expect(result.reauthorizing).not.toHaveProperty("scheduledSyncEnabled");
     expect(result.reauthorizing).not.toHaveProperty("slackChannelIds");
+  });
+
+  it("fails an active Slack evidence run when its connection is revoked", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const begun = yield* actor.mutation(
+        refs.public.integrations.connections.begin,
+        { workspaceId: seeded.workspaceId, provider: "slack" },
+      );
+      yield* actor.mutation(refs.public.integrations.connections.complete, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        generation: begun.generation,
+        completion: {
+          status: "active",
+          connectionRef: "conn_redacted_1",
+        },
+      });
+      yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        scopeKey: "slack:conn_redacted_1",
+        runKey: "slack:1:run",
+        startedAt: now,
+      });
+      yield* actor.mutation(refs.public.integrations.connections.revoke, {
+        workspaceId: seeded.workspaceId,
+        provider: "slack",
+        generation: begun.generation,
+      });
+      return yield* actor.query(refs.public.brain.evidence.health, {
+        workspaceId: seeded.workspaceId,
+      });
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.providers).toContainEqual(
+      expect.objectContaining({
+        provider: "slack",
+        lastConnectorRun: expect.objectContaining({
+          runKey: "slack:1:run",
+          status: "failed",
+          failureCode: "connection_revoked",
+        }),
+      }),
+    );
   });
 });

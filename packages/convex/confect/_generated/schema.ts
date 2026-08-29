@@ -9,8 +9,10 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainConnectorRunSeen from "./tables/brainConnectorRunSeen";
 import brainConnectorRuns from "./tables/brainConnectorRuns";
+import brainEvaluationExamples from "./tables/brainEvaluationExamples";
 import brainEvidenceRevisions from "./tables/brainEvidenceRevisions";
 import brainEvidenceSources from "./tables/brainEvidenceSources";
+import brainKnowledgeCandidates from "./tables/brainKnowledgeCandidates";
 import brainPages from "./tables/brainPages";
 import brainRetrievalEntries from "./tables/brainRetrievalEntries";
 import brainRetrievalTokens from "./tables/brainRetrievalTokens";
@@ -76,8 +78,10 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof billingPlans |
   typeof brainConnectorRunSeen |
   typeof brainConnectorRuns |
+  typeof brainEvaluationExamples |
   typeof brainEvidenceRevisions |
   typeof brainEvidenceSources |
+  typeof brainKnowledgeCandidates |
   typeof brainPages |
   typeof brainRetrievalEntries |
   typeof brainRetrievalTokens |
@@ -142,8 +146,10 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   billingPlans,
   brainConnectorRunSeen,
   brainConnectorRuns,
+  brainEvaluationExamples,
   brainEvidenceRevisions,
   brainEvidenceSources,
+  brainKnowledgeCandidates,
   brainPages,
   brainRetrievalEntries,
   brainRetrievalTokens,

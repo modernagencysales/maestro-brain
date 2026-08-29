@@ -17,6 +17,8 @@ export const BrainEvidenceSourceRow = S.Struct({
   sourceKey: S.String,
   title: S.String,
   locator: S.optional(S.String),
+  providerMetadataJson: S.optional(S.String),
+  providerMetadataHash: S.optional(S.String),
   status: S.Literals(["active", "removed"]),
   generation: S.Number,
   currentRevisionKey: S.optional(S.String),

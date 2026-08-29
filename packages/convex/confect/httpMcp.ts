@@ -70,10 +70,10 @@ const askBrainMessage = (
   question: string,
 ): string => `Answer the question below using only canonical Company Brain evidence.
 
-Call \`template.brain.evidence.search\` once with this exact query:
-${JSON.stringify(question)}
+Call \`template.brain.ask\` once with this input:
+${JSON.stringify({ question, evidenceMode: "mixed" })}
 
-Reopen every material candidate with \`template.brain.evidence.sourceGet\` using the exact sourceKey and revisionKey returned by search. Reject a source when its keys or content hash differ, or when it is a tombstone. Search excerpts alone are not sufficient for material claims. Cite the reopened title, provider, revision key, freshness, and locator when present. State material freshness limitations, label inference, and abstain when evidence is absent, inaccessible, stale enough to change the answer, or cannot be reopened. Never send workspace, user, organization, client, or tenant selectors.`;
+Use the returned answer and ContextPack V4 as one unit. Preserve its citation numbers, source and revision identities, freshness, conflicts, omissions, and pack hash. Do not invent support outside the pack. If the tool returns insufficient context, abstain and state its reason. Never send workspace, user, organization, client, or tenant selectors.`;
 
 const mcpReply = (
   respond: JsonResponder,

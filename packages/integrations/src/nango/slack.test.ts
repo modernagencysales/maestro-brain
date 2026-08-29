@@ -62,6 +62,29 @@ describe("discoverSlackChannels", () => {
     ).rejects.toBeInstanceOf(SlackSnapshotCapacityExceeded);
     expect(String(request.mock.calls[1]?.[0])).toContain("cursor=page-2");
   });
+
+  it("honors Slack Retry-After with bounded retry", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 429, headers: { "retry-after": "0" } }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          channels: [{ id: "C01", name: "general" }],
+        }),
+      );
+    await expect(
+      discoverSlackChannels({
+        secretKey: "secret",
+        providerConfigKey: "slack",
+        connectionId: "conn",
+        request,
+      }),
+    ).resolves.toHaveLength(1);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
 });
 
 const jsonResponse = (body: unknown) =>
@@ -100,6 +123,7 @@ describe("Nango Slack snapshot", () => {
       providerConfigKey: "slack",
       connectionId: "connection-1",
       channelIds: ["C01"],
+      oldestTimestamp: "1780332800",
       request,
     });
 
@@ -112,6 +136,8 @@ describe("Nango Slack snapshot", () => {
             {
               timestamp: "1782924800.0001",
               revisionTimestamp: "1782924800.0001",
+              threadRootTimestamp: "1782924800.0001",
+              parentTimestamp: null,
               authorId: "U01",
               text: "Our ICP is…",
             },
@@ -126,6 +152,9 @@ describe("Nango Slack snapshot", () => {
       "Connection-Id": "connection-1",
       "Provider-Config-Key": "slack",
     });
+    expect(requestedUrl(request, 1).searchParams.get("oldest")).toBe(
+      "1780332800",
+    );
   });
 
   it("paginates channels and every channel history page", async () => {
@@ -237,18 +266,24 @@ describe("Nango Slack snapshot", () => {
       {
         timestamp: "10.0",
         revisionTimestamp: "10.0",
+        threadRootTimestamp: "10.0",
+        parentTimestamp: null,
         authorId: "U01",
         text: "Parent",
       },
       {
         timestamp: "10.1",
         revisionTimestamp: "10.1",
+        threadRootTimestamp: "10.0",
+        parentTimestamp: "10.0",
         authorId: "U02",
         text: "First reply",
       },
       {
         timestamp: "10.2",
         revisionTimestamp: "10.2",
+        threadRootTimestamp: "10.0",
+        parentTimestamp: "10.0",
         authorId: "B01",
         text: "Second reply",
       },

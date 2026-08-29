@@ -193,7 +193,7 @@ describe("standalone teammate CLI", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(fetch).toHaveBeenCalledWith(
-      "https://api.example.test/api/agents.assistant.answerQuestion",
+      "https://api.example.test/api/brain.ask",
       expect.objectContaining({
         body: JSON.stringify({
           workspaceSlug: "apero",
@@ -201,6 +201,136 @@ describe("standalone teammate CLI", () => {
         }),
       }),
     );
+  });
+
+  it("keeps --json out of the question and preserves the full API response", async () => {
+    const root = temp();
+    const response = {
+      ok: true,
+      result: {
+        status: "answered",
+        answerMarkdown: "Agency ICP [1]",
+        contextPack: {
+          schemaVersion: "4",
+          packHash: "sha256:pack",
+          citations: [
+            {
+              citationKey: "citation:1",
+              sourceKey: "slack:channel:thread",
+              revisionKey: "revision:1",
+            },
+          ],
+        },
+      },
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(response)));
+    const result = await runCli(["ask", "What is our ICP?", "--json"], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.test/api/brain.ask",
+      expect.objectContaining({
+        body: JSON.stringify({
+          workspaceSlug: "apero",
+          input: { question: "What is our ICP?" },
+        }),
+      }),
+    );
+    expect(JSON.parse(result.stdout)).toEqual(response);
+  });
+
+  it("queues bounded knowledge extraction through the headless API", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ ok: true, result: { scheduledCount: 3 } }),
+        ),
+      );
+    const result = await runCli(["knowledge", "extract", "--limit", "3"], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.test/api/brain.knowledge.extract",
+      expect.objectContaining({
+        body: JSON.stringify({
+          workspaceSlug: "apero",
+          input: { limit: 3 },
+        }),
+      }),
+    );
+  });
+
+  it("explicitly saves a cited answer as a shared evaluation example", async () => {
+    const root = temp();
+    const packHash = `sha256:${"a".repeat(64)}`;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              status: "answered",
+              answerMarkdown: "Friday [1]",
+              contextPack: {
+                packHash,
+                evidenceMode: "recent_evidence",
+                citations: [
+                  {
+                    sourceKey: "slack:C1:thread:1:segment:0",
+                    revisionKey: "revision-1",
+                    contentHash: "content-hash",
+                  },
+                ],
+              },
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, result: "example_1" })),
+      );
+    const result = await runCli(
+      ["ask", "When", "does", "it", "launch?", "--save-example"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"saved": true');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1]?.[0]).toBe(
+      "https://api.example.test/api/agents.assistant.saveEvaluationExample",
+    );
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+      workspaceSlug: "apero",
+      idempotencyKey: `cli:${packHash}`,
+      input: {
+        exampleKey: `cli:${packHash}`,
+        question: "When does it launch?",
+        purpose: "company-question",
+        evidenceMode: "recent_evidence",
+        surface: "cli",
+        answerStatus: "answered",
+        packHash,
+        evidenceReferences: [
+          {
+            sourceKey: "slack:C1:thread:1:segment:0",
+            revisionKey: "revision-1",
+            contentHash: "content-hash",
+          },
+        ],
+        captureKind: "test",
+        usefulness: "unrated",
+      },
+    });
   });
 
   it("searches canonical evidence and reopens an exact source revision over HTTP MCP", async () => {
@@ -289,6 +419,138 @@ describe("standalone teammate CLI", () => {
         },
       }),
     ]);
+  });
+
+  it("supports the canonical evidence open spelling", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  ok: true,
+                  operationId: "brain.evidence.sourceGet",
+                  result: { markdown: "# Exact evidence" },
+                }),
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const result = await runCli(
+      ["evidence", "open", "drive:file-1", "--revision", "revision-2"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("# Exact evidence");
+    const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(request.params).toEqual({
+      name: "template.brain.evidence.sourceGet",
+      arguments: {
+        sourceKey: "drive:file-1",
+        revisionKey: "revision-2",
+      },
+    });
+  });
+
+  it("lists and reviews grounded knowledge candidates from the terminal", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          params: { name: string };
+        };
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    ok: true,
+                    operationId: request.params.name.slice("template.".length),
+                    result: request.params.name.endsWith("candidates")
+                      ? [{ candidateReceiptKey: "candidate-1" }]
+                      : { status: "accepted", claimId: "claim-1" },
+                  }),
+                },
+              ],
+            },
+          }),
+        );
+      });
+    const deps = { ...configured(root), fetch };
+
+    const listed = await runCli(
+      ["knowledge", "candidates", "--state", "unreviewed", "--limit", "5"],
+      deps,
+    );
+    const reviewed = await runCli(
+      [
+        "knowledge",
+        "review",
+        "candidate-1",
+        "--accept",
+        "--expected-revision",
+        "0",
+        "--body",
+        "Approved company truth",
+        "--review-horizon-days",
+        "180",
+      ],
+      deps,
+    );
+
+    expect(listed.exitCode).toBe(0);
+    expect(reviewed.exitCode).toBe(0);
+    const requests = fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(requests[0]?.params).toEqual({
+      name: "template.brain.knowledge.candidates",
+      arguments: { state: "unreviewed", limit: 5 },
+    });
+    expect(requests[1]?.params).toEqual({
+      name: "template.brain.knowledge.review",
+      arguments: expect.objectContaining({
+        candidateReceiptKey: "candidate-1",
+        expectedReviewRevision: 0,
+        action: "edit_and_accept",
+        body: "Approved company truth",
+        reviewHorizonDays: 180,
+        idempotencyKey: expect.stringMatching(
+          /^brain-review-cli:[a-f0-9]{64}$/u,
+        ),
+      }),
+    });
+  });
+
+  it("rejects ambiguous knowledge reviews before making a request", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const deps = { ...configured(root), fetch };
+    const missingAction = await runCli(
+      ["knowledge", "review", "candidate-1", "--expected-revision", "0"],
+      deps,
+    );
+    const missingRevision = await runCli(
+      ["knowledge", "review", "candidate-1", "--accept"],
+      deps,
+    );
+
+    expect(missingAction.exitCode).toBe(1);
+    expect(missingRevision.exitCode).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("rejects invalid evidence CLI input before making a request", async () => {
@@ -646,10 +908,10 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.4"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.4\n");
+    expect(status).toContain('"cliVersion": "0.1.5"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.5\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.4/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.5/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');

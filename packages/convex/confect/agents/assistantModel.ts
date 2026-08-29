@@ -1,15 +1,20 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { mockModel } from "@convex-dev/agent";
+import { generateText } from "ai";
 
-export const createAssistantLanguageModel = (input: {
+type AssistantModelInput = {
   mode: "fake" | "test" | "live";
   env: Readonly<{
     OPENROUTER_API_KEY?: string | undefined;
     OPENROUTER_BASE_URL?: string | undefined;
     LLM_FREE_MODEL?: string | undefined;
   }>;
-}): LanguageModelV4 => {
+};
+
+export const createAssistantLanguageModel = (
+  input: AssistantModelInput,
+): LanguageModelV4 => {
   if (input.mode !== "live") {
     return mockModel({
       provider: "maestro-fake",
@@ -33,4 +38,22 @@ export const createAssistantLanguageModel = (input: {
       input.env.OPENROUTER_BASE_URL?.trim() || "https://openrouter.ai/api/v1",
     apiKey,
   }).chatModel(model);
+};
+
+export const generateAssistantText = async (
+  input: AssistantModelInput & {
+    prompt: string;
+    maxOutputTokens: number;
+    maxRetries: number;
+    timeout: number;
+  },
+): Promise<{ readonly text: string }> => {
+  const result = await generateText({
+    model: createAssistantLanguageModel(input),
+    prompt: input.prompt,
+    maxOutputTokens: input.maxOutputTokens,
+    maxRetries: input.maxRetries,
+    timeout: input.timeout,
+  });
+  return { text: result.text };
 };

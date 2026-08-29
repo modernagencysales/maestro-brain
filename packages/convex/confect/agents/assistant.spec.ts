@@ -61,6 +61,7 @@ export const AnswerCitation = S.Struct({
 
 export const ContextPackV3 = S.Struct({
   schemaVersion: S.Literal("3"),
+  packHash: S.String,
   candidateManifest: S.Struct({
     schemaVersion: S.Literal("2"),
     candidateKeys: S.Array(S.String),
@@ -76,6 +77,41 @@ export const ContextPackV3 = S.Struct({
       count: S.Number,
     }),
   ),
+});
+
+export const SaveEvaluationExampleArgs = S.Struct({
+  workspaceId: Id("workspaces"),
+  exampleKey: S.String,
+  question: S.String,
+  purpose: S.String,
+  evidenceMode: S.Literals(["recent_evidence", "company_truth", "mixed"]),
+  surface: S.Literals(["web", "cli", "api", "mcp"]),
+  answerStatus: S.Literals(["answered", "insufficient-context"]),
+  packHash: S.String,
+  evidenceReferences: S.Array(
+    S.Struct({
+      sourceKey: S.String,
+      revisionKey: S.String,
+      contentHash: S.String,
+    }),
+  ),
+  captureKind: S.Literals(["feedback", "test"]),
+  usefulness: S.Literals(["useful", "needs-work", "unrated"]),
+  issueReason: S.optional(
+    S.Literals([
+      "missing-source",
+      "incorrect-answer",
+      "stale-context",
+      "citation-problem",
+      "fallback-required",
+      "other",
+    ]),
+  ),
+});
+
+const SaveEvaluationExampleForActorArgs = S.Struct({
+  ...SaveEvaluationExampleArgs.fields,
+  userId: Id("users"),
 });
 
 export const AnswerQuestionReturn = S.Union([
@@ -239,6 +275,35 @@ const answerQuestion = defineContractFunction(
   },
 );
 
+const saveEvaluationExample = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "saveEvaluationExample",
+    args: () => SaveEvaluationExampleArgs,
+    returns: () => Id("brainEvaluationExamples"),
+    error: () => AssistantError.Schema,
+  }),
+  {
+    namespace: "agents.assistant",
+    name: "saveEvaluationExample",
+    operationId: "agents.assistant.saveEvaluationExample",
+    kind: "mutation",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: ["Unauthenticated", "NoWorkspaceAccess", "ValidationFailed"],
+    idempotent: true,
+    argsSchemaName: "agents.assistant.saveEvaluationExample.args",
+    returnsSchemaName: "agents.assistant.saveEvaluationExample.returns",
+    argsSchema: SaveEvaluationExampleArgs,
+    returnsSchema: Id("brainEvaluationExamples"),
+  },
+);
+
+const saveEvaluationExampleForActor = FunctionSpec.internalMutation({
+  name: "saveEvaluationExampleForActor",
+  args: () => SaveEvaluationExampleForActorArgs,
+  returns: () => Id("brainEvaluationExamples"),
+  error: () => AssistantError.Schema,
+});
+
 const answerQuestionForActor = FunctionSpec.internalQuery({
   name: "answerQuestionForActor",
   args: () => AnswerQuestionForActorArgs,
@@ -255,11 +320,19 @@ const resolveAccess = FunctionSpec.internalQuery({
 
 export default GroupSpec.make()
   .addFunction(answerQuestion.spec)
+  .addFunction(saveEvaluationExample.spec)
   .addFunction(answerQuestionForActor)
+  .addFunction(saveEvaluationExampleForActor)
   .addFunction(startThread)
   .addFunction(continueThread)
   .addFunction(listThreadMessages)
   .addFunction(resolveAccess);
 
-export const manifest = collectContractManifest([answerQuestion]);
-export const schemaRegistry = collectContractSchemas([answerQuestion]);
+export const manifest = collectContractManifest([
+  answerQuestion,
+  saveEvaluationExample,
+]);
+export const schemaRegistry = collectContractSchemas([
+  answerQuestion,
+  saveEvaluationExample,
+]);

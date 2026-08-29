@@ -47,13 +47,104 @@ const evidenceHealthForActorRef = Ref.getFunctionReference(
 );
 
 export const brainMcpToolConfigs = {
+  "brain.knowledge.extract": {
+    description:
+      "Queue bounded grounded-knowledge extraction for current evidence that has not completed the active extraction policy.",
+    requiredScope: "workspace:write",
+    kind: "mutation",
+    ref: makeFunctionReference<"mutation">(
+      "capabilities/extractBrainKnowledgeCandidates:queueBrainKnowledgeExtractionForActor",
+    ),
+    inputSchema: objectSchema(
+      { limit: { type: "integer", minimum: 1, maximum: 25 } },
+      [],
+    ),
+  },
+  "brain.knowledge.candidates": {
+    description:
+      "List the bounded grounded-knowledge review queue for the credential workspace.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    ref: makeFunctionReference<"query">(
+      "capabilities/reviewBrainKnowledgeCandidate:listBrainKnowledgeCandidatesForActor",
+    ),
+    inputSchema: objectSchema(
+      {
+        state: {
+          type: "string",
+          enum: ["unreviewed", "accepted", "rejected", "stale"],
+        },
+        limit: { type: "integer", minimum: 1, maximum: 50 },
+      },
+      [],
+    ),
+  },
+  "brain.knowledge.review": {
+    description:
+      "Accept, edit-and-accept, or reject one exactly grounded knowledge candidate using optimistic review revision and idempotency.",
+    requiredScope: "workspace:write",
+    kind: "mutation",
+    ref: makeFunctionReference<"mutation">(
+      "capabilities/reviewBrainKnowledgeCandidate:reviewBrainKnowledgeCandidateForActor",
+    ),
+    inputSchema: objectSchema(
+      {
+        candidateReceiptKey: { type: "string", minLength: 1 },
+        expectedReviewRevision: { type: "integer", minimum: 0 },
+        idempotencyKey: { type: "string", minLength: 1 },
+        action: {
+          type: "string",
+          enum: ["accept", "edit_and_accept", "reject"],
+        },
+        body: { type: "string" },
+        reason: { type: "string" },
+      },
+      [
+        "candidateReceiptKey",
+        "expectedReviewRevision",
+        "idempotencyKey",
+        "action",
+      ],
+    ),
+  },
   "agents.assistant.answerQuestion": {
     description:
-      "Answer a company-context question from approved Brain evidence with ContextPack v3 citations and freshness.",
+      "Legacy recent-evidence answer contract with ContextPack v3 citations.",
     requiredScope: "workspace:read",
     kind: "query",
     ref: makeFunctionReference<"query">(
       "agents/assistant:answerQuestionForActor",
+    ),
+  },
+  "brain.ask": {
+    description:
+      "Answer from recent evidence, reviewed company truth, or both with a deterministic ContextPack v4 and exact citations.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    ref: makeFunctionReference<"query">(
+      "capabilities/askCompanyBrain:askCompanyBrainForActor",
+    ),
+    inputSchema: objectSchema(
+      {
+        question: { type: "string", minLength: 1, maxLength: 2000 },
+        evidenceMode: {
+          type: "string",
+          enum: ["recent_evidence", "company_truth", "mixed"],
+        },
+        maxCitations: { type: "integer", minimum: 1, maximum: 10 },
+        asOf: { type: "number", minimum: 0 },
+        riskLevel: { type: "string", enum: ["ordinary", "high"] },
+      },
+      ["question"],
+    ),
+  },
+  "agents.assistant.saveEvaluationExample": {
+    description:
+      "Explicitly save one cited Ask Maestro result into the shared rolling evaluation set without copying evidence excerpts.",
+    requiredScope: "workspace:write",
+    kind: "mutation",
+    ref: makeFunctionReference<"mutation">(
+      "agents/assistant:saveEvaluationExampleForActor",
     ),
   },
   "brain.evidence.search": {

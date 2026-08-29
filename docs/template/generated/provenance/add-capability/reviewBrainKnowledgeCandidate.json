@@ -1,0 +1,17 @@
+{
+  "generator": "add-capability",
+  "commandFamily": "template:add-capability",
+  "name": "reviewBrainKnowledgeCandidate",
+  "ownership": {
+    "system": "knowledge-brain",
+    "disposition": "extend"
+  },
+  "generatedPaths": [
+    "packages/convex/confect/capabilities/reviewBrainKnowledgeCandidate.spec.ts",
+    "packages/convex/confect/capabilities/reviewBrainKnowledgeCandidate.impl.ts",
+    "packages/convex/confect/capabilities/reviewBrainKnowledgeCandidate.domain.ts",
+    "packages/convex/confect/capabilities/reviewBrainKnowledgeCandidate.test.ts",
+    "packages/convex/confect/capabilities/reviewBrainKnowledgeCandidate.headless.json",
+    "docs/template/generated/capabilities/reviewBrainKnowledgeCandidate.md"
+  ]
+}

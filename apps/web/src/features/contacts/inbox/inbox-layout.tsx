@@ -19,6 +19,10 @@ import { api } from '#lib/trpc/react'
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace.ts'
 import { useOpenState } from '#hooks/use-open-state.ts'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
 
 import {
   projectBrainPagesToTree,
@@ -26,6 +30,7 @@ import {
 } from './brain-inbox-adapter'
 import { BrainPageCreateDialog } from './brain-page-create-dialog'
 import { BrainPagesPanel } from './brain-pages-panel'
+import { BrainKnowledgeReviewDialog } from './brain-knowledge-review-dialog'
 import { inboxToolbarComponents } from './brain-inbox-toolbar'
 import { InboxList } from './inbox-list.tsx'
 
@@ -47,6 +52,8 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
   )
   const [width, setWidth] = useLocalStorage('app.brain-pages.width', 300)
   const { open, setOpen } = useOpenState({ defaultOpen: Boolean(params.id) })
+  const reviewAvailable =
+    !isFixtureAuthRuntime() && !isIsolatedContractsRuntime()
 
   const selectPage = React.useCallback(
     (pageId: string) => {
@@ -101,28 +108,26 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
         >
           <Page.Header title="Brain" />
           <Page.Body p="0">
-            {rows.length > 0 ? (
-              <BrainPagesPanel
-                activePageId={params.id}
-                rows={rows}
-                onCreate={createPage}
-                onSelect={selectPage}
-              />
-            ) : (
-              <EmptyState
-                title="Build your company Brain"
-                description="Create a page for company context, positioning, processes, or client knowledge."
-                height="100%"
-              >
-                <Button
-                  variant="primary"
-                  colorPalette="accent"
-                  onClick={createPage}
-                >
-                  Create first page
-                </Button>
-              </EmptyState>
-            )}
+            <BrainPagesPanel
+              activePageId={params.id}
+              rows={rows}
+              onConnectDrive={() =>
+                navigate({ to: '/$workspace', params: { workspace: params.workspace } })
+              }
+              onConnectSlack={() =>
+                navigate({ to: '/$workspace', params: { workspace: params.workspace } })
+              }
+              onCreate={createPage}
+              onReview={
+                reviewAvailable
+                  ? () =>
+                      modals.open(BrainKnowledgeReviewDialog, {
+                        workspaceId: workspace.id,
+                      })
+                  : undefined
+              }
+              onSelect={selectPage}
+            />
           </Page.Body>
           <ResizeHandle />
         </Page.Root>

@@ -19,6 +19,8 @@ export type { CliResult, CliRuntimeConfig };
 
 export const staticCliOperationRefs: Readonly<Record<string, string>> = {
   "agents.assistant.answerQuestion": "agents.assistant.answerQuestion",
+  "agents.assistant.saveEvaluationExample":
+    "agents.assistant.saveEvaluationExample",
   "brain.pages.createMarkdown": "brain.pages.createMarkdown",
   "brain.pages.get": "brain.pages.get",
   "brain.pages.history": "brain.pages.history",
@@ -108,11 +110,15 @@ const isSafeRemoteApiBaseUrl = (value: string): boolean => {
 const remoteCapabilityResult = async (
   response: Response,
 ): Promise<CliResult> => {
+  const body = await response.text();
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = JSON.parse(body);
   } catch {
-    return cliFailure("Remote capability response was not valid JSON.\n");
+    const diagnostic = body.trim().slice(0, 500);
+    return cliFailure(
+      `Remote capability returned HTTP ${response.status} with a non-JSON response${diagnostic ? `: ${diagnostic}` : "."}\n`,
+    );
   }
   if (payload === null || typeof payload !== "object") {
     return cliFailure("Remote capability response was not a JSON object.\n");

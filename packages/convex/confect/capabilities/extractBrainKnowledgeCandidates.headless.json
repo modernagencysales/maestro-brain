@@ -1,0 +1,25 @@
+{
+  "capability": "extractBrainKnowledgeCandidates",
+  "system": "knowledge-brain",
+  "disposition": "extend",
+  "description": "Extract bounded, exactly cited company-knowledge candidates from current Brain evidence",
+  "exposure": "headless",
+  "authScope": "workspace member",
+  "typedErrors": ["Unauthorized", "ValidationFailed", "Forbidden"],
+  "schemas": {
+    "args": "extractBrainKnowledgeCandidatesArgs",
+    "returns": "extractBrainKnowledgeCandidatesReturns"
+  },
+  "surfaces": ["api", "cli", "mcp", "web", "workflow"],
+  "requiredFiles": [
+    "Confect spec/impl",
+    "tests",
+    "headless registry entry",
+    "docs"
+  ],
+  "migrationNotes": [
+    "Run Confect codegen before wiring generated refs.",
+    "Add migration notes when the capability writes durable tables."
+  ],
+  "frontendAdapter": "required when exposure is web"
+}

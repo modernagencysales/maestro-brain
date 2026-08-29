@@ -153,24 +153,24 @@ export const proxyContractsRequest = async ({
     /^\/__contracts/u,
     "",
   )}${sourceUrl.search}`;
-  const response = await route.fetch({
-    method: request.method(),
-    headers: {
-      authorization: `Bearer ${activeApiKey}`,
-      "content-type": "application/json",
-    },
-    postData: JSON.stringify({
-      ...body,
-      workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
-    }),
-    url: targetUrl,
-  });
   try {
+    const response = await route.fetch({
+      method: request.method(),
+      headers: {
+        authorization: `Bearer ${activeApiKey}`,
+        "content-type": "application/json",
+      },
+      postData: JSON.stringify({
+        ...body,
+        workspaceSlug: activeWorkspaceSlug ?? workspaceSlug,
+      }),
+      url: targetUrl,
+    });
     await route.fulfill({ response });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (
-      !/Fetch response has been disposed|Route is already handled/u.test(
+      !/Request context disposed|Fetch response has been disposed|Route is already handled/u.test(
         message,
       )
     )

@@ -121,6 +121,23 @@
       "detail": "billingPlans is durable Billing And Entitlements state governed by the canonical billing-and-entitlements lifecycle."
     },
     {
+      "id": "brainConnectorRuns",
+      "system": "knowledge-brain",
+      "sourcePath": "packages/convex/confect/tables/brainConnectorRuns.ts",
+      "tenantScope": "workspace",
+      "sensitivity": "confidential",
+      "pii": ["customer-content"],
+      "exportMode": "json",
+      "deleteMode": "delete",
+      "retention": "retain-until-workspace-delete",
+      "appendOnly": false,
+      "writePosture": "implemented",
+      "workspaceLifecycle": "managed",
+      "writeAuthority": "packages/convex/confect/brain/evidence.impl.ts",
+      "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
+      "detail": "Workspace connector run state, optional provider-connection generation fence, bounded counts, failure codes, and successful scope-specific reconciliation receipts."
+    },
+    {
       "id": "brainConnectorRunSeen",
       "system": "knowledge-brain",
       "sourcePath": "packages/convex/confect/tables/brainConnectorRunSeen.ts",
@@ -138,21 +155,21 @@
       "detail": "Append-only source observations used to reconcile one bounded connector run without inferring removals after failure."
     },
     {
-      "id": "brainConnectorRuns",
+      "id": "brainEvaluationExamples",
       "system": "knowledge-brain",
-      "sourcePath": "packages/convex/confect/tables/brainConnectorRuns.ts",
+      "sourcePath": "packages/convex/confect/tables/brainEvaluationExamples.ts",
       "tenantScope": "workspace",
       "sensitivity": "confidential",
       "pii": ["customer-content"],
-      "exportMode": "json",
+      "exportMode": "redacted-json",
       "deleteMode": "delete",
       "retention": "retain-until-workspace-delete",
       "appendOnly": false,
       "writePosture": "implemented",
       "workspaceLifecycle": "managed",
-      "writeAuthority": "packages/convex/confect/brain/evidence.impl.ts",
-      "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Workspace connector run state, bounded counts, failure codes, and successful reconciliation receipts."
+      "writeAuthority": "packages/convex/confect/agents/assistant.impl.ts",
+      "migrationRef": "docs/template/schema-decisions/brainEvaluationExamples.md",
+      "detail": "Explicitly saved Ask Maestro evaluation examples with bounded immutable source references and no copied evidence excerpts."
     },
     {
       "id": "brainEvidenceRevisions",
@@ -169,7 +186,7 @@
       "workspaceLifecycle": "managed",
       "writeAuthority": "packages/convex/confect/brain/evidence.impl.ts",
       "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Immutable provider-neutral evidence revisions used for exact cited source reopening and integrity verification."
+      "detail": "Immutable provider-neutral evidence revisions with optional hash-bound provider metadata used for exact cited source reopening and integrity verification."
     },
     {
       "id": "brainEvidenceSources",
@@ -186,7 +203,24 @@
       "workspaceLifecycle": "managed",
       "writeAuthority": "packages/convex/confect/brain/evidenceProjection.ts",
       "migrationRef": "docs/template/schema-decisions/companyBrainEvidence.md",
-      "detail": "Current provider-neutral source pointers, generations, scope, freshness, and removal state."
+      "detail": "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+    },
+    {
+      "id": "brainKnowledgeCandidates",
+      "system": "knowledge-brain",
+      "sourcePath": "packages/convex/confect/tables/brainKnowledgeCandidates.ts",
+      "tenantScope": "workspace",
+      "sensitivity": "confidential",
+      "pii": ["customer-content"],
+      "exportMode": "redacted-json",
+      "deleteMode": "delete",
+      "retention": "retain-until-workspace-delete",
+      "appendOnly": false,
+      "writePosture": "implemented",
+      "workspaceLifecycle": "managed",
+      "writeAuthority": "packages/convex/confect/capabilities/extractBrainKnowledgeCandidates.impl.ts",
+      "migrationRef": "docs/template/schema-decisions/brainKnowledgeCandidates.md",
+      "detail": "Durable brainKnowledgeCandidates state owned by the knowledge-brain canonical system."
     },
     {
       "id": "brainPages",

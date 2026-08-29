@@ -2,6 +2,8 @@ import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
 
 export const CitationRow = Schema.Struct({
+  // Kept string-compatible through the fixture-to-real migration window.
+  // New writers still supply a validated workspace Id at their boundary.
   workspaceId: Schema.String,
   citationId: Schema.String,
   claimId: Schema.String,
@@ -12,6 +14,7 @@ export const CitationRow = Schema.Struct({
     "note",
     "document",
     "call_transcript",
+    "slack_thread",
   ]),
   sourceTitle: Schema.String,
   quotedText: Schema.String,
@@ -23,6 +26,18 @@ export const CitationRow = Schema.Struct({
   segmentKey: Schema.optional(Schema.String),
   startMs: Schema.optional(Schema.Number),
   endMs: Schema.optional(Schema.Number),
+  sourceKey: Schema.optional(Schema.String),
+  contentHash: Schema.optional(Schema.String),
+  locator: Schema.optional(Schema.String),
+  provider: Schema.optional(
+    Schema.Literals([
+      "slack",
+      "google_drive",
+      "brain_page",
+      "hubspot",
+      "transcript",
+    ]),
+  ),
   createdAt: Schema.Number,
 });
 
@@ -30,4 +45,10 @@ export default Table.make(() => CitationRow)
   .index("by_workspace", ["workspaceId"])
   .index("by_claim", ["claimId"])
   .index("by_source", ["sourceId"])
-  .index("by_workspace_page", ["workspaceId", "pageKey"]);
+  .index("by_workspace_page", ["workspaceId", "pageKey"])
+  .index("by_workspace_and_source_key", ["workspaceId", "sourceKey"])
+  .index("by_workspace_and_source_key_and_revision_key", [
+    "workspaceId",
+    "sourceKey",
+    "revisionKey",
+  ]);

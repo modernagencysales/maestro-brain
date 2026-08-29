@@ -1,12 +1,12 @@
 import { expect, test } from "./support/fixtures";
 import type { ContractsRuntime, ContractsScenario } from "./support/runtime";
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 // Source-mode acceptance compiles the complete purchased Contacts and Inbox
 // compositions on demand. Preserve the exact UI/data assertions while allowing
 // the measured cold route to finish loading before declaring data absent.
-const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 30_000;
+const COLD_BRAIN_OBSERVATION_TIMEOUT_MS = 60_000;
 
 type BrainPage = Readonly<{
   _id: string;
@@ -148,24 +148,23 @@ test(
     const cliAnswer = cliResult<{
       answerMarkdown: string;
       contextPack: {
-        citations: readonly { sourceRevisionId: string; title: string }[];
+        citations: readonly { revisionKey: string; title: string }[];
       };
     }>(
       await runtime.runCli(
         scenario,
         commandArgs(
-          "agents.assistant.answerQuestion",
+          "brain.ask",
           scenario.workspaceSlug,
-          { question },
+          { question, evidenceMode: "mixed" },
           `${scenario.namespace}-ask-cli`,
         ),
       ),
     );
-    const httpAnswer = (await runtime.runApi(
-      scenario,
-      "agents.assistant.answerQuestion",
-      { question },
-    )) as {
+    const httpAnswer = (await runtime.runApi(scenario, "brain.ask", {
+      question,
+      evidenceMode: "mixed",
+    })) as {
       ok: true;
       result: typeof cliAnswer;
     };
@@ -174,19 +173,21 @@ test(
     expect(httpAnswer.result.answerMarkdown).toBe(cliAnswer.answerMarkdown);
     expect(
       httpAnswer.result.contextPack.citations.map(
-        ({ sourceRevisionId }) => sourceRevisionId,
+        ({ revisionKey }) => revisionKey,
       ),
     ).toEqual(
-      cliAnswer.contextPack.citations.map(
-        ({ sourceRevisionId }) => sourceRevisionId,
-      ),
+      cliAnswer.contextPack.citations.map(({ revisionKey }) => revisionKey),
     );
     expect(cliAnswer.answerMarkdown).toContain("Friday");
 
     await page.goto(`${runtime.webUrl}/${scenario.workspaceSlug}/search`);
     await page.getByPlaceholder("Ask Maestro anything...").fill(question);
-    await expect(page.getByText(/Friday/u).first()).toBeVisible();
-    await expect(page.getByText(new RegExp(title, "u")).first()).toBeVisible();
+    await expect(page.getByText(/Friday/u).first()).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
+    await expect(page.getByText(new RegExp(title, "u")).first()).toBeVisible({
+      timeout: COLD_BRAIN_OBSERVATION_TIMEOUT_MS,
+    });
   },
 );
 

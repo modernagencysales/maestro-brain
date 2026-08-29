@@ -163,6 +163,8 @@ export const projectEvidence = (input: {
   readonly title: string;
   readonly markdown: string;
   readonly locator?: string | undefined;
+  readonly providerMetadataJson?: string | undefined;
+  readonly providerMetadataHash?: string | undefined;
   readonly sourceModifiedAt: number;
   readonly observedAt: number;
 }) =>
@@ -174,6 +176,23 @@ export const projectEvidence = (input: {
         message: "Evidence source and title must not be blank.",
       });
     const contentHash = evidenceContentHash(title, input.markdown);
+    if (
+      (input.providerMetadataJson === undefined) !==
+        (input.providerMetadataHash === undefined) ||
+      (input.providerMetadataJson !== undefined &&
+        sha256Hex(input.providerMetadataJson) !== input.providerMetadataHash)
+    )
+      return yield* new ValidationFailed({
+        field: "providerMetadataHash",
+        message: "Evidence provider metadata failed integrity validation.",
+      });
+    const projection = evidencePassages(title, input.markdown);
+    if (projection.capacityExceeded)
+      return yield* new ValidationFailed({
+        field: "markdown",
+        message:
+          "Evidence passage capacity was exceeded; split the source before indexing it.",
+      });
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
     const revision = yield* reader
@@ -186,7 +205,12 @@ export const projectEvidence = (input: {
       )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-    if (revision !== null && revision.contentHash !== contentHash)
+    if (
+      revision !== null &&
+      (revision.contentHash !== contentHash ||
+        (revision.providerMetadataHash ?? null) !==
+          (input.providerMetadataHash ?? null))
+    )
       return yield* new ValidationFailed({
         field: "revisionKey",
         message: "An immutable evidence revision changed content.",
@@ -217,6 +241,12 @@ export const projectEvidence = (input: {
           sourceKey: input.sourceKey,
           title,
           ...(input.locator === undefined ? {} : { locator: input.locator }),
+          ...(input.providerMetadataJson === undefined
+            ? {}
+            : { providerMetadataJson: input.providerMetadataJson }),
+          ...(input.providerMetadataHash === undefined
+            ? {}
+            : { providerMetadataHash: input.providerMetadataHash }),
           status: "active",
           generation,
           currentRevisionKey: input.revisionKey,
@@ -234,6 +264,8 @@ export const projectEvidence = (input: {
           scopeKey: input.scopeKey,
           title,
           locator: input.locator,
+          providerMetadataJson: input.providerMetadataJson,
+          providerMetadataHash: input.providerMetadataHash,
           status: "active",
           generation,
           currentRevisionKey: input.revisionKey,
@@ -255,13 +287,6 @@ export const projectEvidence = (input: {
       current.projectionVersion === RETRIEVAL_PROJECTION_VERSION
     )
       return { changed: false, entryKey: current.entryKey } as const;
-    const projection = evidencePassages(title, input.markdown);
-    if (projection.capacityExceeded)
-      return yield* new ValidationFailed({
-        field: "markdown",
-        message:
-          "Evidence passage capacity was exceeded; split the source before indexing it.",
-      });
     const reprojectingCurrent = current?.revisionKey === input.revisionKey;
     if (current !== undefined && !reprojectingCurrent) {
       yield* writer
@@ -395,5 +420,43 @@ export const retireEvidence = (input: {
         updatedAt: input.observedAt,
       })
       .pipe(Effect.orDie);
+    const citations = yield* reader
+      .table("citations")
+      .index("by_workspace_and_source_key", (q) =>
+        q
+          .eq("workspaceId", String(input.workspaceId))
+          .eq("sourceKey", input.sourceKey),
+      )
+      .take(501)
+      .pipe(Effect.orDie);
+    if (citations.length > 500)
+      return yield* new ValidationFailed({
+        field: "sourceKey",
+        message:
+          "Evidence withdrawal exceeded the bounded claim propagation capacity.",
+      });
+    for (const citation of citations) {
+      const claim = yield* reader
+        .table("claims")
+        .get(citation.claimId as GenericId<"claims">)
+        .pipe(Effect.orDie);
+      if (
+        claim == null ||
+        claim.workspaceId !== String(input.workspaceId) ||
+        claim.status !== "supported"
+      )
+        continue;
+      yield* writer
+        .table("claims")
+        .patch(claim._id, {
+          sourceWithdrawnAt: input.observedAt,
+          nextReviewAt: Math.min(
+            claim.nextReviewAt ?? input.observedAt,
+            input.observedAt,
+          ),
+          updatedAt: input.observedAt,
+        })
+        .pipe(Effect.orDie);
+    }
     return true;
   });

@@ -13,6 +13,7 @@ import {
 } from "./diagnostics.js";
 import { evidenceCommand } from "./evidenceCommand.js";
 import { importCommand } from "./importCommand.js";
+import { knowledgeCommand } from "./knowledgeCommand.js";
 import { pageCommand } from "./pageCommand.js";
 import {
   cliVersion,
@@ -40,10 +41,14 @@ Setup and diagnostics
   maestro-brain update
 
 Use company context
-  maestro-brain ask <question>
+  maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example] [--json]
   maestro-brain evidence search <query> [--limit <1-10>]
+  maestro-brain evidence open <source-key> --revision <revision-key>
   maestro-brain evidence source-get <source-key> <revision-key>
   maestro-brain evidence health
+  maestro-brain knowledge extract [--limit <1-25>]
+  maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
+  maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n>
   maestro-brain page list [--include-archived]
   maestro-brain page get <page-id>
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -69,10 +74,23 @@ not want to modify the current shell environment.`,
   run: `Usage: maestro-brain run -- <command> [args...]
 
 Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
-  ask: `Usage: maestro-brain ask <question>`,
+  ask: `Usage: maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example] [--json]
+
+--save-example explicitly stores this question and its immutable citation
+references in the shared rolling evaluation set. --high-risk abstains when
+reviewed support is stale or possibly conflicting. --json preserves the exact
+API response for scripts and agent runtimes (JSON remains the default output).`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
+       maestro-brain evidence open <source-key> --revision <revision-key>
        maestro-brain evidence source-get <source-key> <revision-key>
        maestro-brain evidence health`,
+  knowledge: `Usage: maestro-brain knowledge extract [--limit <1-25>]
+       maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
+       maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n> [--body <text>] [--reason <text>] [--idempotency-key <key>]
+
+Queues grounded candidate extraction for current evidence. Review candidates in
+the Brain review queue before they become company truth. Review commands create
+a deterministic idempotency key when one is not supplied.`,
   page: `Usage: maestro-brain page list [--include-archived] [--full]
        maestro-brain page get <page-id>
        maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
@@ -223,15 +241,123 @@ const commandHandlers = (
       automatic: false,
     }),
   ask: async () => {
-    const question = argv.slice(1).join(" ").trim();
-    return question
-      ? await request(dependencies, {
-          operationId: "agents.assistant.answerQuestion",
-          input: { question },
-        })
-      : failure("ask requires a question.");
+    const saveExample = argv.includes("--save-example");
+    const requestedMode = option(argv, "--mode");
+    if (
+      requestedMode !== undefined &&
+      requestedMode !== "recent_evidence" &&
+      requestedMode !== "company_truth" &&
+      requestedMode !== "mixed"
+    )
+      return failure(
+        "--mode must be recent_evidence, company_truth, or mixed.",
+      );
+    const questionParts: string[] = [];
+    for (let index = 1; index < argv.length; index += 1) {
+      const argument = argv[index];
+      if (
+        argument === "--save-example" ||
+        argument === "--high-risk" ||
+        argument === "--json"
+      )
+        continue;
+      if (argument === "--mode") {
+        index += 1;
+        continue;
+      }
+      if (argument !== undefined) questionParts.push(argument);
+    }
+    const question = questionParts.join(" ").trim();
+    if (!question) return failure("ask requires a question.");
+    const answer = await request(dependencies, {
+      operationId: "brain.ask",
+      input: {
+        question,
+        ...(requestedMode === undefined ? {} : { evidenceMode: requestedMode }),
+        ...(argv.includes("--high-risk") ? { riskLevel: "high" } : {}),
+      },
+    });
+    if (!saveExample || answer.exitCode !== 0) return answer;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(answer.stdout);
+    } catch {
+      return failure("Answer succeeded but could not be saved as an example.");
+    }
+    if (
+      payload === null ||
+      typeof payload !== "object" ||
+      !("result" in payload) ||
+      payload.result === null ||
+      typeof payload.result !== "object" ||
+      !("status" in payload.result) ||
+      (payload.result.status !== "answered" &&
+        payload.result.status !== "insufficient-context") ||
+      !("contextPack" in payload.result) ||
+      payload.result.contextPack === null ||
+      typeof payload.result.contextPack !== "object" ||
+      !("packHash" in payload.result.contextPack) ||
+      typeof payload.result.contextPack.packHash !== "string" ||
+      !("citations" in payload.result.contextPack) ||
+      !Array.isArray(payload.result.contextPack.citations)
+    )
+      return failure("Answer succeeded but could not be saved as an example.");
+    const references = payload.result.contextPack.citations.flatMap(
+      (citation) =>
+        citation !== null &&
+        typeof citation === "object" &&
+        "sourceKey" in citation &&
+        typeof citation.sourceKey === "string" &&
+        "revisionKey" in citation &&
+        typeof citation.revisionKey === "string" &&
+        "contentHash" in citation &&
+        typeof citation.contentHash === "string"
+          ? [
+              {
+                sourceKey: citation.sourceKey,
+                revisionKey: citation.revisionKey,
+                contentHash: citation.contentHash,
+              },
+            ]
+          : [],
+    );
+    const exampleKey = `cli:${payload.result.contextPack.packHash}`;
+    const saved = await request(dependencies, {
+      operationId: "agents.assistant.saveEvaluationExample",
+      input: {
+        exampleKey,
+        question,
+        purpose: "company-question",
+        evidenceMode:
+          "evidenceMode" in payload.result.contextPack &&
+          (payload.result.contextPack.evidenceMode === "recent_evidence" ||
+            payload.result.contextPack.evidenceMode === "company_truth" ||
+            payload.result.contextPack.evidenceMode === "mixed")
+            ? payload.result.contextPack.evidenceMode
+            : (requestedMode ?? "mixed"),
+        surface: "cli",
+        answerStatus: payload.result.status,
+        packHash: payload.result.contextPack.packHash,
+        evidenceReferences: references,
+        captureKind: "test",
+        usefulness: "unrated",
+      },
+      idempotencyKey: exampleKey,
+    });
+    if (saved.exitCode !== 0) return saved;
+    const savedPayload: unknown = JSON.parse(saved.stdout);
+    return success({
+      answer: payload.result,
+      evaluationExample:
+        savedPayload !== null &&
+        typeof savedPayload === "object" &&
+        "result" in savedPayload
+          ? { saved: true, id: savedPayload.result }
+          : { saved: true },
+    });
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
+  knowledge: async () => await knowledgeCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),
   import: async () =>
     await importCommand(argv[1], dependencies, {

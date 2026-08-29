@@ -16,11 +16,47 @@ is exceeded instead of silently truncating the source. `brainConnectorRuns` and
 `brainConnectorRunSeen` record bounded full-traversal receipts so only a
 successful complete run may infer removals.
 
+Slack projection v1 adds optional `providerMetadataJson` and
+`providerMetadataHash` to evidence sources and revisions. New Slack evidence is
+normalized as deterministic, bounded thread segments (32 messages and 24,000
+rendered characters maximum) with exact constituent-message offsets and
+locators. The thread revision identity covers rendered content and provider
+metadata; legacy evidence rows remain readable because both fields are optional.
+Connector runs optionally bind the provider connection generation so revocation
+or reauthorization prevents further publication and removal inference.
+Reconciliation queries the run's exact scope rather than every source belonging
+to the same provider.
+
+Google Drive projection v1 uses those same optional metadata fields to bind one
+provider file revision to deterministic paragraph-aligned evidence segments.
+Segment source keys use `google_drive:file:<fileId>:segment:<index>` and each
+immutable revision binds the provider revision, normalized whole-document body
+hash, segment index and count, exact rendered source offsets, nearest recognized
+heading, content hash, and normalization version. Rendered segments are capped
+at 24,000 characters and preflighted against the existing 48-passage retrieval
+projector. A single oversized paragraph or projector-capacity failure produces a
+metadata-only capacity source for that file; it does not truncate text or stop
+unrelated files from publishing. Binary-only files likewise remain
+metadata-only. The provider's 2,000,000-byte per-file input bound is therefore
+independent from the smaller evidence projection bound.
+
+Drive connector runs now bind the active connection generation before any
+segment publication. An edit advances immutable revision identity while
+retaining stable segment source identity where the segment remains. Move,
+unshare, or deletion retires missing segments only after a complete traversal of
+the exact approved scope. A per-file content-capacity state replaces that file's
+prior readable segments with its metadata-only marker. An incomplete adapter
+traversal, run-level item-capacity failure, or connection-generation failure
+leaves the prior complete projection untouched.
+
 Existing Brain pages are projected lazily through the bounded repair performed
 during workspace provisioning. Provider evidence starts empty and is populated
 only by an explicit successful sync. No deployment-time full-table migration is
-required. Failed or capacity-exceeded connector runs preserve the prior active
-projection.
+required. Successful source upserts may advance independently. Failed or
+capacity-exceeded connector runs never infer removals, and only a completed
+bounded traversal may retire a source. Slack scheduled synchronization remains
+disabled until an old-thread reply/edit/delete discovery strategy is proven; V1
+uses explicit manual bounded synchronization.
 
 All six resources are workspace lifecycle managed and are deleted with the
 workspace. Evidence revisions and per-run observations are append-only;

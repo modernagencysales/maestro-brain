@@ -9,6 +9,8 @@ export type SlackSnapshot = {
     readonly messages: readonly {
       readonly timestamp: string;
       readonly revisionTimestamp?: string;
+      readonly threadRootTimestamp: string;
+      readonly parentTimestamp: string | null;
       readonly authorId: string;
       readonly text: string;
     }[];
@@ -129,6 +131,26 @@ const nextCursor = (body: Record<string, unknown>): string | undefined => {
     : undefined;
 };
 
+const requestWithRateLimitRetry = async (
+  request: Request,
+  url: string | URL,
+  init?: RequestInit,
+): Promise<Response> => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await request(url, init);
+    if (response.status !== 429 || attempt === 2) return response;
+    const retryAfterSeconds = Number(
+      response.headers.get("retry-after") ?? "1",
+    );
+    const delayMs =
+      Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
+        ? Math.min(retryAfterSeconds * 1_000, 10_000)
+        : 1_000;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new NangoProviderUnavailable();
+};
+
 const fetchCollection = async (input: {
   readonly method: string;
   readonly itemKey: string;
@@ -146,7 +168,8 @@ const fetchCollection = async (input: {
     if (pageCount >= input.maxPages)
       throw new SlackSnapshotCapacityExceeded("pages", input.maxPages);
     const body = await readRecord(
-      await input.request(
+      await requestWithRateLimitRetry(
+        input.request,
         proxyUrl(input.method, {
           ...input.query,
           ...(cursor === undefined ? {} : { cursor }),
@@ -217,6 +240,7 @@ type SlackMessage = SlackSnapshot["channels"][number]["messages"][number];
 
 const projectMessage = (
   message: Record<string, unknown>,
+  threadRootFallback?: string,
 ): SlackMessage | undefined => {
   const timestamp = message.ts;
   const text = message.text;
@@ -226,14 +250,23 @@ const projectMessage = (
     typeof edited === "object" && edited !== null
       ? (edited as Record<string, unknown>).ts
       : undefined;
+  const threadTimestamp = message.thread_ts;
+  const threadRootTimestamp =
+    typeof threadTimestamp === "string"
+      ? threadTimestamp
+      : (threadRootFallback ?? timestamp);
   return typeof timestamp === "string" &&
     typeof text === "string" &&
     text.trim().length > 0 &&
-    typeof authorId === "string"
+    typeof authorId === "string" &&
+    typeof threadRootTimestamp === "string"
     ? {
         timestamp,
         revisionTimestamp:
           typeof editedTimestamp === "string" ? editedTimestamp : timestamp,
+        threadRootTimestamp,
+        parentTimestamp:
+          timestamp === threadRootTimestamp ? null : threadRootTimestamp,
         authorId,
         text,
       }
@@ -245,6 +278,7 @@ const hasReplies = (message: Record<string, unknown>): boolean =>
 
 const loadChannelMessages = async (input: {
   readonly channelId: string;
+  readonly oldestTimestamp?: string | undefined;
   readonly headers: Readonly<Record<string, string>>;
   readonly request: Request;
   readonly maxMessages: number;
@@ -253,15 +287,25 @@ const loadChannelMessages = async (input: {
   const history = await fetchCollection({
     method: "conversations.history",
     itemKey: "messages",
-    query: { channel: input.channelId, inclusive: "true", limit: "100" },
+    query: {
+      channel: input.channelId,
+      inclusive: "true",
+      limit: "100",
+      ...(input.oldestTimestamp === undefined
+        ? {}
+        : { oldest: input.oldestTimestamp }),
+    },
     headers: input.headers,
     request: input.request,
     maxPages: input.maxPages,
   });
   const messages: SlackMessage[] = [];
   const seenTimestamps = new Set<string>();
-  const append = (message: Record<string, unknown>) => {
-    const projected = projectMessage(message);
+  const append = (
+    message: Record<string, unknown>,
+    threadRootFallback?: string,
+  ) => {
+    const projected = projectMessage(message, threadRootFallback);
     if (projected === undefined || seenTimestamps.has(projected.timestamp))
       return;
     if (messages.length >= input.maxMessages)
@@ -286,7 +330,7 @@ const loadChannelMessages = async (input: {
       request: input.request,
       maxPages: input.maxPages,
     });
-    for (const reply of replies) append(reply);
+    for (const reply of replies) append(reply, message.ts);
   }
 
   return messages;
@@ -312,6 +356,7 @@ export const fetchSlackSnapshot = async (input: {
   readonly providerConfigKey: string;
   readonly connectionId: string;
   readonly channelIds: readonly string[];
+  readonly oldestTimestamp?: string | undefined;
   readonly request?: Request;
   readonly limits?: SlackSnapshotLimits;
 }): Promise<SlackSnapshot> => {
@@ -402,6 +447,7 @@ export const fetchSlackSnapshot = async (input: {
       name: channel.name,
       messages: await loadChannelMessages({
         channelId: channel.id,
+        oldestTimestamp: input.oldestTimestamp,
         headers,
         request,
         maxMessages,

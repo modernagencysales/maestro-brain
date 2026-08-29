@@ -12,12 +12,16 @@ describe('assistant to Starter Search adapter', () => {
         status: 'answered',
         answerMarkdown: 'The launch is Friday. [1]',
         contextPack: {
-          schemaVersion: '3',
+          schemaVersion: '4',
+          packHash: `sha256:${'a'.repeat(64)}`,
+          evidenceMode: 'mixed',
           freshness: 'current',
           citations: [
             {
               citationKey: 'citation:page-1:42',
-              sourceRevisionId: 'brain-page:page-1:revision:42',
+              sourceKey: 'brain-page:page-1',
+              revisionKey: '42',
+              contentHash: 'content-hash',
               title: 'Launch plan',
               excerpt: 'The launch is Friday.',
               freshness: 'current',
@@ -32,10 +36,12 @@ describe('assistant to Starter Search adapter', () => {
         description: 'The launch is Friday. [1]',
       },
       {
-        id: 'brain-page:page-1:revision:42',
+        id: 'brain-page:page-1:42',
         title: '[1] Launch plan',
         description:
           'The launch is Friday. · current · citation:page-1:42',
+        sourceKey: 'brain-page:page-1',
+        revisionKey: '42',
       },
     ])
   })
@@ -46,7 +52,9 @@ describe('assistant to Starter Search adapter', () => {
         status: 'insufficient-context',
         answerMarkdown: null,
         contextPack: {
-          schemaVersion: '3',
+          schemaVersion: '4',
+          packHash: `sha256:${'b'.repeat(64)}`,
+          evidenceMode: 'mixed',
           freshness: 'unknown',
           citations: [],
         },

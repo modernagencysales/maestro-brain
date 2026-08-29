@@ -48,6 +48,7 @@ import {
   type ProviderKey,
 } from "./connectionLifecycle";
 import connections from "./connections.spec";
+import { buildDriveEvidenceItems } from "./driveSnapshot";
 import { buildSlackEvidenceItems } from "./slackSnapshot";
 
 const withConfectClock = <A, E, R>(
@@ -260,6 +261,19 @@ const revokeConnectionRow = (args: {
         updatedAt: now,
       })
       .pipe(Effect.orDie);
+    if (
+      args.provider === "slack" &&
+      typeof existing.connectionRef === "string"
+    ) {
+      const mutation = yield* MutationRunner;
+      yield* mutation(refs.internal.brain.evidence.failActiveScopeRun, {
+        workspaceId: args.workspaceId,
+        provider: "slack",
+        scopeKey: `slack:${existing.connectionRef}`,
+        failureCode: "connection_revoked",
+        failedAt: now,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    }
     const reader = yield* DatabaseReader;
     const updated = yield* reader
       .table("providerConnections")
@@ -620,26 +634,6 @@ const scheduledConnectionRows = (
     return connection === null ? [] : [connection];
   });
 
-const driveMarkdown = (
-  observation: Awaited<
-    ReturnType<typeof fetchGoogleDriveInventory>
-  >["observations"][number],
-) =>
-  [
-    `# ${observation.metadata.name}`,
-    "",
-    `- MIME type: ${observation.metadata.mimeType}`,
-    `- Drive: ${observation.metadata.driveId}`,
-    `- Modified: ${new Date(observation.sourceModifiedAt).toISOString()}`,
-    `- Source: ${observation.sourceLocator}`,
-    ...(observation.metadata.version === null
-      ? []
-      : [`- Provider version: ${observation.metadata.version}`]),
-    ...(observation.metadata.contentText === null
-      ? ["", "> Content extraction is not available for this MIME type."]
-      : ["", "## Content", "", observation.metadata.contentText]),
-  ].join("\n");
-
 const hubSpotMarkdown = (
   observation: Awaited<
     ReturnType<typeof fetchHubSpotInventory>
@@ -702,30 +696,31 @@ const runGoogleDriveSync = (
         workspaceId,
         provider: "google_drive",
         scopeKey: inventory.scope.scopeKey,
+        connectionGeneration: connection.generation,
         runKey,
         startedAt: observedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
       const active = inventory.observations.filter(
         ({ tombstone }) => !tombstone,
       );
-      for (const observation of active)
-        yield* mutation(refs.internal.brain.evidence.publishRunItem, {
-          workspaceId,
-          provider: "google_drive",
-          scopeKey: inventory.scope.scopeKey,
-          runKey,
-          sourceKey: observation.sourceKey,
-          revisionKey: observation.revisionKey,
-          title: observation.metadata.name,
-          markdown: driveMarkdown(observation),
-          locator: observation.sourceLocator,
-          sourceModifiedAt: observation.sourceModifiedAt,
-          observedAt: observation.observedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const evidence = yield* Effect.try({
+        try: () =>
+          buildDriveEvidenceItems(active, {
+            workspaceId,
+            scopeKey: inventory.scope.scopeKey,
+            runKey,
+            observedAt,
+          }),
+        catch: providerFailure,
+      });
+      for (const item of evidence.items)
+        yield* mutation(refs.internal.brain.evidence.publishRunItem, item).pipe(
+          Effect.catchTag("SchemaError", providerFailure),
+        );
       yield* mutation(refs.internal.brain.evidence.completeRun, {
         workspaceId,
         runKey,
-        discoveredCount: active.length,
+        discoveredCount: evidence.items.length,
         completedAt: inventory.completedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
       yield* mutation(
@@ -735,10 +730,13 @@ const runGoogleDriveSync = (
           provider: "google-drive",
           status: "ready",
           syncedAt: inventory.completedAt,
-          sourceCount: active.length,
+          sourceCount: evidence.items.length,
         },
       ).pipe(Effect.catchTag("SchemaError", providerFailure));
-      return { sourceCount: active.length, syncedAt: inventory.completedAt };
+      return {
+        sourceCount: evidence.items.length,
+        syncedAt: inventory.completedAt,
+      };
     }).pipe(
       Effect.tapError(() =>
         Effect.all([
@@ -917,13 +915,30 @@ const runSlackSync = (
   {
     workspaceId,
     channelIds,
+    lookbackDays,
   }: {
     readonly workspaceId: GenericId<"workspaces">;
     readonly channelIds: readonly string[];
+    readonly lookbackDays?: number | undefined;
   },
   rows: readonly ProviderConnectionsDoc[],
 ) =>
   Effect.gen(function* () {
+    if (channelIds.length !== 1)
+      return yield* new ValidationFailed({
+        field: "channelIds",
+        message: "Slack sync requires exactly one approved channel.",
+      });
+    const boundedLookbackDays = lookbackDays ?? 30;
+    if (
+      !Number.isInteger(boundedLookbackDays) ||
+      boundedLookbackDays < 14 ||
+      boundedLookbackDays > 90
+    )
+      return yield* new ValidationFailed({
+        field: "lookbackDays",
+        message: "Slack lookback must be between 14 and 90 days.",
+      });
     const config = readNangoConnectConfig();
     if (config === undefined) return yield* providerFailure();
     const mutation = yield* MutationRunner;
@@ -940,6 +955,7 @@ const runSlackSync = (
       workspaceId,
       provider: "slack",
       scopeKey,
+      connectionGeneration: connection.generation,
       runKey,
       startedAt,
     }).pipe(Effect.catchTag("SchemaError", providerFailure));
@@ -950,7 +966,18 @@ const runSlackSync = (
             ...config,
             connectionId: connection.connectionRef as string,
             channelIds,
-            limits: { maxMessagesTotal: 1_000 },
+            oldestTimestamp: String(
+              Math.floor(
+                (startedAt - boundedLookbackDays * 24 * 60 * 60 * 1_000) /
+                  1_000,
+              ),
+            ),
+            limits: {
+              maxChannels: 10,
+              maxMessagesPerChannel: 1_000,
+              maxMessagesTotal: 1_000,
+              maxPagesPerCollection: 20,
+            },
           }),
         catch: slackSyncFailure,
       });
@@ -1057,7 +1084,7 @@ const recordSlackSync = FunctionImpl.make(
           ...(channelIds === undefined
             ? {}
             : {
-                scheduledSyncEnabled: true,
+                scheduledSyncEnabled: false,
                 slackChannelIds: [...new Set(channelIds)].sort(),
               }),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
@@ -1167,22 +1194,8 @@ const dispatchScheduledSyncs = FunctionImpl.make(
           skippedCount += 1;
           continue;
         }
-        if (
-          connection.provider === "slack" &&
-          connection.slackChannelIds !== undefined &&
-          connection.slackChannelIds.length > 0
-        ) {
-          yield* scheduler
-            .runAfter(
-              Duration.zero,
-              refs.internal.integrations.connections.syncSlackScheduled,
-              {
-                workspaceId: connection.workspaceId,
-                channelIds: connection.slackChannelIds,
-              },
-            )
-            .pipe(Effect.orDie);
-          scheduledCount += 1;
+        if (connection.provider === "slack") {
+          skippedCount += 1;
           continue;
         }
         if (

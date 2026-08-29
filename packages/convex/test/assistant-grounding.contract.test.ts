@@ -1,11 +1,12 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import { Id } from "../confect/_generated/id";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import {
   SeededTenancy,
   seedTenancy,
@@ -16,6 +17,152 @@ import { testConfectLayer } from "./support/confect";
 const now = 1_782_924_800_000;
 
 describe("grounded assistant Confect contract", () => {
+  it("captures only explicit, exactly reopenable evaluation examples", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* actor.mutation(refs.public.brain.pages.createMarkdown, {
+        workspaceId: seeded.workspaceId,
+        slug: "evaluation-source",
+        title: "Evaluation source",
+        markdown: "The advisory offer launches on Friday.",
+      });
+      const question = "When does the advisory offer launch?";
+      const answer = yield* actor.query(
+        refs.public.agents.assistant.answerQuestion,
+        { workspaceId: seeded.workspaceId, question },
+      );
+      const before = yield* confect.run(
+        Effect.gen(function* () {
+          const rows = yield* (yield* DatabaseReader)
+            .table("brainEvaluationExamples")
+            .index("by_workspace", (q) =>
+              q.eq("workspaceId", seeded.workspaceId),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          return JSON.stringify(rows);
+        }),
+        Schema.String,
+      );
+      const evidenceReferences = answer.contextPack.citations.map(
+        ({ sourceId, revisionKey, contentHash }) => ({
+          sourceKey: sourceId,
+          revisionKey,
+          contentHash,
+        }),
+      );
+      const input = {
+        workspaceId: seeded.workspaceId,
+        exampleKey: "evaluation-example-1",
+        question,
+        purpose: "company-question",
+        evidenceMode: "recent_evidence" as const,
+        surface: "web" as const,
+        answerStatus: answer.status,
+        packHash: answer.contextPack.packHash,
+        evidenceReferences,
+        captureKind: "test" as const,
+        usefulness: "unrated" as const,
+      };
+      const firstId = yield* actor.mutation(
+        refs.public.agents.assistant.saveEvaluationExample,
+        input,
+      );
+      const replayId = yield* actor.mutation(
+        refs.public.agents.assistant.saveEvaluationExample,
+        input,
+      );
+      const after = yield* confect.run(
+        Effect.gen(function* () {
+          const rows = yield* (yield* DatabaseReader)
+            .table("brainEvaluationExamples")
+            .index("by_workspace", (q) =>
+              q.eq("workspaceId", seeded.workspaceId),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          return JSON.stringify(rows);
+        }),
+        Schema.String,
+      );
+      return {
+        after: JSON.parse(after) as Record<string, unknown>[],
+        answer,
+        before: JSON.parse(before) as Record<string, unknown>[],
+        firstId,
+        replayId,
+      };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.before).toEqual([]);
+    expect(result.answer.contextPack.packHash).toMatch(
+      /^sha256:[a-f0-9]{64}$/u,
+    );
+    expect(result.replayId).toBe(result.firstId);
+    expect(result.after).toHaveLength(1);
+    expect(result.after[0]).toMatchObject({
+      exampleKey: "evaluation-example-1",
+      question: "When does the advisory offer launch?",
+      split: "development",
+      evidenceReferences: [
+        expect.objectContaining({
+          sourceKey: expect.stringContaining("brain-page:"),
+        }),
+      ],
+    });
+    expect(JSON.stringify(result.after)).not.toContain(
+      "The advisory offer launches on Friday.",
+    );
+  }, 15_000);
+
+  it("rejects an evaluation example whose evidence cannot reopen", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      return yield* Effect.result(
+        actor.mutation(refs.public.agents.assistant.saveEvaluationExample, {
+          workspaceId: seeded.workspaceId,
+          exampleKey: "fabricated-example",
+          question: "What is the answer?",
+          purpose: "company-question",
+          evidenceMode: "recent_evidence",
+          surface: "cli",
+          answerStatus: "answered",
+          packHash: `sha256:${"a".repeat(64)}`,
+          evidenceReferences: [
+            {
+              sourceKey: "slack:missing",
+              revisionKey: "missing",
+              contentHash: "fabricated",
+            },
+          ],
+          captureKind: "test",
+          usefulness: "unrated",
+        }),
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "ValidationFailed", field: "evidenceReferences" },
+    });
+  });
+
   it("returns only exact current evidence from the authorized workspace", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

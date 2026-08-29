@@ -18,12 +18,23 @@ describe('Brain workspace visual structure', () => {
   })
 
   it('uses the FilesListCard row hierarchy for the Brain page tree', () => {
+    const layout = source('./inbox-layout.tsx')
     const pages = source('./brain-pages-panel.tsx')
+    expect(layout).toContain('<BrainPagesPanel')
+    expect(layout).not.toContain('rows.length > 0')
     expect(pages).toContain('<GridList.Root')
     expect(pages).toContain('<GridList.Item')
     expect(pages).toContain('<IconBadge')
     expect(pages).toContain('aria-current={selected')
     expect(pages).toContain('Synced sources')
+  })
+
+  it('fills an empty Brain detail pane with actionable onboarding', () => {
+    const onboarding = source('./brain-onboarding-empty-state.tsx')
+    expect(onboarding).toContain('Connect Slack')
+    expect(onboarding).toContain('Connect Drive')
+    expect(onboarding).toContain('Create Brain page')
+    expect(onboarding).toContain('Connect Terminal &amp; MCP')
   })
 
   it('keeps Tiptap central and moves page context into a rail and drawer', () => {
@@ -38,5 +49,13 @@ describe('Brain workspace visual structure', () => {
       'History',
       'Source',
     ])
+  })
+
+  it('keeps knowledge review bounded and supports editing and bulk rejection', () => {
+    const review = source('./brain-knowledge-review-dialog.tsx')
+    expect(review).toContain('limit: 5')
+    expect(review).toContain("'edit_and_accept'")
+    expect(review).toContain('Reject visible candidates')
+    expect(review).toContain('candidate.evidence[0]?.quote')
   })
 })

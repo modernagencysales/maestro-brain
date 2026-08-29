@@ -1,11 +1,12 @@
 'use client'
 
 import { Box, HStack, Heading, Text, VStack } from '@chakra-ui/react'
-import { IconButton, Tooltip } from '@saas-ui/react'
+import { Button, IconButton, Tooltip } from '@saas-ui/react'
 import { FaFile, FaFileLines, FaLink } from 'react-icons/fa6'
 import {
   LuChevronRight,
   LuDatabase,
+  LuListChecks,
   LuMessageSquare,
   LuPlus,
   LuStar,
@@ -69,13 +70,19 @@ const brainSplitPageLayout = `
 export function BrainPagesPanel({
   activePageId,
   evidence: evidenceOverride,
+  onConnectDrive,
+  onConnectSlack,
   onCreate,
+  onReview,
   onSelect,
   rows,
 }: {
   activePageId?: string
   evidence?: readonly BrainEvidenceSummary[]
+  onConnectDrive?: () => void
+  onConnectSlack?: () => void
   onCreate: () => void
+  onReview?: () => void
   onSelect: (pageId: string) => void
   rows: readonly BrainPageTreeRow[]
 }) {
@@ -117,6 +124,18 @@ export function BrainPagesPanel({
             <LuPlus />
           </IconButton>
         </Tooltip>
+        {onReview ? (
+          <Tooltip content="Review grounded knowledge">
+            <IconButton
+              aria-label="Review grounded knowledge"
+              size="sm"
+              variant="ghost"
+              onClick={onReview}
+            >
+              <LuListChecks />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </HStack>
       <Box overflowY="auto" flex="1" minH="0">
         <HStack px="4" py="2" bg="bg.subtle" borderBottomWidth="1px">
@@ -187,8 +206,25 @@ export function BrainPagesPanel({
               No synced sources yet
             </Text>
             <Text color="fg.muted" textStyle="xs">
-              Connect Slack, Drive, or HubSpot and sync an approved scope.
+              Connect one Slack channel or Drive folder to start the shared
+              corpus.
             </Text>
+            <HStack gap="2" pt="2" wrap="wrap">
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={onConnectSlack}
+              >
+                Connect Slack
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={onConnectDrive}
+              >
+                Connect Drive
+              </Button>
+            </HStack>
           </VStack>
         ) : (
           <GridList.Root interactive pb="0">

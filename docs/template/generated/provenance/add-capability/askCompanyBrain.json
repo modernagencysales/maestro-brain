@@ -1,0 +1,17 @@
+{
+  "generator": "add-capability",
+  "commandFamily": "template:add-capability",
+  "name": "askCompanyBrain",
+  "ownership": {
+    "system": "knowledge-brain",
+    "disposition": "extend"
+  },
+  "generatedPaths": [
+    "packages/convex/confect/capabilities/askCompanyBrain.spec.ts",
+    "packages/convex/confect/capabilities/askCompanyBrain.impl.ts",
+    "packages/convex/confect/capabilities/askCompanyBrain.domain.ts",
+    "packages/convex/confect/capabilities/askCompanyBrain.test.ts",
+    "packages/convex/confect/capabilities/askCompanyBrain.headless.json",
+    "docs/template/generated/capabilities/askCompanyBrain.md"
+  ]
+}

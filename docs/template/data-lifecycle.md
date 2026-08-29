@@ -31,6 +31,15 @@ Every schema addition must declare:
 - tenant scope and sensitivity/PII classification
 - canonical write authority and migration decision
 
+Company Brain provider content follows the same workspace lifecycle through
+`brainEvidenceSources`, immutable `brainEvidenceRevisions`, bounded retrieval
+projections, and connector-run receipts. Google Drive segment metadata stores
+provider identities, hashes, and exact offsets rather than a second copy of the
+whole document. Workspace export reopens the governed evidence revision;
+workspace deletion removes its source, revision, retrieval, and run rows through
+the generated resource plan. Metadata-only and capacity-state Drive sources
+carry no extracted document body.
+
 Use `pnpm template:add-table` so the table, system owner, resource contract, and
 migration decision are created together. Then run `pnpm data-resources:generate`
 and `pnpm check:data-resources` before promotion.
@@ -84,6 +93,7 @@ The planner covers these workspace-owned resources:
 - `accessAuditEvents`
 - `workspaceMembers`
 - `brainPages`
+- `brainEvaluationExamples`
 - `pageRevisions`
 - `workflowRuns`
 - `workflowArtifacts`
@@ -176,12 +186,14 @@ evidence cannot satisfy an exception.
 ## Export Posture
 
 Brain pages and their immutable page revisions export as markdown with JSON
-metadata. Co-editing documents export as markdown with JSON metadata. Knowledge
-concepts, claims, citations, and context packs export as JSON and may also be
-projected into Open Knowledge Format. Document versions and annotations export
-as JSON so reviewer comments, agent suggestions, and version provenance remain
-inspectable. Generic versioned entries and freshness markers export as JSON so
-any workspace-owned entity can be audited without mutating history. Transform
+metadata. Explicitly saved Brain evaluation examples export as redacted JSON;
+they retain exact source identities but never copied evidence excerpts.
+Co-editing documents export as markdown with JSON metadata. Knowledge concepts,
+claims, citations, and context packs export as JSON and may also be projected
+into Open Knowledge Format. Document versions and annotations export as JSON so
+reviewer comments, agent suggestions, and version provenance remain inspectable.
+Generic versioned entries and freshness markers export as JSON so any
+workspace-owned entity can be audited without mutating history. Transform
 definitions, runs, and blocks export as JSON so input hashes, output hashes,
 source IDs, policy snapshots, model receipts, and Trust Receipt projection
 remain reviewable. Action jobs and trigger config export as JSON so
@@ -227,6 +239,8 @@ for billing, seat, and support reconciliation.
 The implemented retention hooks are:
 
 - Brain pages: retain until workspace delete.
+- Brain evaluation examples: retain until workspace delete and export only in
+  redacted form.
 - Documents: retain until workspace delete.
 - Document versions: append-only; retain until workspace delete by default, or
   for the configured audit window when approval/compliance mode is enabled.

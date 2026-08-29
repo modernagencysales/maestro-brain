@@ -18,8 +18,9 @@ describe("workflow headless registry", () => {
     const operations = buildHeadlessOperations();
     const ids = operations.map((operation) => operation.id);
 
-    expect(operations).toHaveLength(62);
+    expect(operations).toHaveLength(66);
     expect(ids).toContain("api:agents.assistant.answerQuestion");
+    expect(ids).toContain("mcp:agents.assistant.saveEvaluationExample");
     expect(ids).toContain("api:brain.pages.createMarkdown");
     expect(ids).toContain("cli:brain.pages.createMarkdown");
     expect(ids).toContain("web:brain.pages.list");
@@ -46,9 +47,9 @@ describe("workflow headless registry", () => {
       validationErrors: [],
       nodeCount: 5,
       edgeCount: 4,
-      capabilityCount: 22,
+      capabilityCount: 23,
       agentCount: 3,
-      headlessOperationCount: 62,
+      headlessOperationCount: 66,
     });
   });
 
@@ -69,6 +70,17 @@ describe("workflow headless registry", () => {
         operationId: "agents.assistant.answerQuestion",
         method: "POST",
         path: "/api/agents.assistant.answerQuestion",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthenticated",
+          "NoWorkspaceAccess",
+          "ValidationFailed",
+        ],
+      },
+      {
+        operationId: "agents.assistant.saveEvaluationExample",
+        method: "POST",
+        path: "/api/agents.assistant.saveEvaluationExample",
         authScope: "workspace member",
         typedErrors: [
           "Unauthenticated",
@@ -280,6 +292,7 @@ describe("workflow headless registry", () => {
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths)).toEqual([
       "/api/agents.assistant.answerQuestion",
+      "/api/agents.assistant.saveEvaluationExample",
       "/api/auth.workspaces.list",
       "/api/brain.pages.createMarkdown",
       "/api/brain.pages.get",

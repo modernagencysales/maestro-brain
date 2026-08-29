@@ -1,0 +1,25 @@
+{
+  "capability": "reviewBrainKnowledgeCandidate",
+  "system": "knowledge-brain",
+  "disposition": "extend",
+  "description": "Review a grounded Brain candidate into supported company knowledge",
+  "exposure": "headless",
+  "authScope": "workspace member",
+  "typedErrors": ["Unauthorized", "ValidationFailed", "Forbidden"],
+  "schemas": {
+    "args": "reviewBrainKnowledgeCandidateArgs",
+    "returns": "reviewBrainKnowledgeCandidateReturns"
+  },
+  "surfaces": ["mcp", "web"],
+  "requiredFiles": [
+    "Confect spec/impl",
+    "tests",
+    "headless registry entry",
+    "docs"
+  ],
+  "migrationNotes": [
+    "Run Confect codegen before wiring generated refs.",
+    "Add migration notes when the capability writes durable tables."
+  ],
+  "frontendAdapter": "required when exposure is web"
+}
