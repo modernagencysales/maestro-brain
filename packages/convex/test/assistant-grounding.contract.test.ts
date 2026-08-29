@@ -343,14 +343,14 @@ describe("grounded assistant Confect contract", () => {
       yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
         workspaceId: seeded.workspaceId,
         provider: "slack",
-        scopeKey: "slack:apero",
+        scopeKey: "slack:apero-slack",
         runKey: "run-single-token",
         startedAt: now,
       });
       yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
         workspaceId: seeded.workspaceId,
         provider: "slack",
-        scopeKey: "slack:apero",
+        scopeKey: "slack:apero-slack",
         runKey: "run-single-token",
         sourceKey: "slack:icp-message",
         revisionKey: "revision-1",
@@ -362,7 +362,7 @@ describe("grounded assistant Confect contract", () => {
       yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
         workspaceId: seeded.workspaceId,
         provider: "slack",
-        scopeKey: "slack:apero",
+        scopeKey: "slack:apero-slack",
         runKey: "run-single-token",
         sourceKey: "slack:zeta-message",
         revisionKey: "revision-1",

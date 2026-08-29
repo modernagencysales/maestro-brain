@@ -1,4 +1,8 @@
 import { sha256Hex } from "../shared/sha256";
+import {
+  hasSufficientEvidenceCoverage,
+  selectEvidenceQueryTokens,
+} from "../brain/groundedRelevance";
 
 export const CONTEXT_PACK_POLICY_VERSION = "brain-context-v2";
 export const MAX_CONTEXT_CITATIONS = 10;
@@ -22,6 +26,25 @@ export const lexicalScore = (question: string, text: string): number => {
     (score, token) => score + (haystack.has(token) ? 1 : 0),
     0,
   );
+};
+
+export const groundedLexicalScore = (
+  question: string,
+  text: string,
+): number => {
+  const queryTokens = selectEvidenceQueryTokens(tokens(question), "grounded");
+  if (queryTokens.length === 0) return 0;
+  const haystack = new Set(tokens(text));
+  const matchedCount = queryTokens.filter((token) =>
+    haystack.has(token),
+  ).length;
+  return hasSufficientEvidenceCoverage(
+    "grounded",
+    queryTokens.length,
+    matchedCount,
+  )
+    ? matchedCount
+    : 0;
 };
 
 const HIGH_RISK_TERMS = new Set([

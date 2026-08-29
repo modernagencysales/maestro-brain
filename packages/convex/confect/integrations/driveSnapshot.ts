@@ -226,21 +226,6 @@ export const buildDriveEvidenceItems = (
     const content = observation.metadata.contentText;
     if (content === null || content.trim().length === 0) {
       metadataOnlyCount += 1;
-      items.push(
-        itemFor({
-          observation,
-          ...input,
-          segmentIndex: 0,
-          segmentCount: 1,
-          markdown: "",
-          documentBodyHash: content === null ? null : sha256Hex(content),
-          renderedStartOffset: null,
-          renderedEndOffset: null,
-          headingBoundary: null,
-          contentStatus: "metadata_only",
-          capacityState: null,
-        }),
-      );
       continue;
     }
 
@@ -253,24 +238,6 @@ export const buildDriveEvidenceItems = (
         fileName: observation.metadata.name,
         state: segmentation.state,
       });
-      items.push(
-        itemFor({
-          observation,
-          ...input,
-          segmentIndex: 0,
-          segmentCount: 1,
-          markdown: "",
-          documentBodyHash,
-          renderedStartOffset: segmentation.block.startOffset,
-          renderedEndOffset: segmentation.block.endOffset,
-          headingBoundary: headingBefore(
-            blocks,
-            segmentation.block.startOffset,
-          ),
-          contentStatus: "capacity_exceeded",
-          capacityState: segmentation.state,
-        }),
-      );
       continue;
     }
 

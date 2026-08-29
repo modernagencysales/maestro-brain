@@ -4,6 +4,7 @@ import {
   canonicalContextPackHash,
   claimFreshness,
   effectiveRiskLevel,
+  groundedLexicalScore,
   normalizedEvidenceBody,
   probableEvidenceConflict,
   sourceAuthorityWeight,
@@ -14,6 +15,15 @@ describe("Ask Company Brain V4 domain", () => {
   it("ranks literal company terminology deterministically", () => {
     expect(lexicalScore("pilot price", "The pilot price is $5,000")).toBe(2);
     expect(lexicalScore("pilot price", "Unrelated staffing note")).toBe(0);
+    expect(
+      groundedLexicalScore("What is our pricing?", "Our office is remote"),
+    ).toBe(0);
+    expect(
+      groundedLexicalScore(
+        "What is our pilot pricing?",
+        "The advisory pilot pricing is $5,000.",
+      ),
+    ).toBe(2);
   });
 
   it("classifies current-state questions consistently across callers", () => {

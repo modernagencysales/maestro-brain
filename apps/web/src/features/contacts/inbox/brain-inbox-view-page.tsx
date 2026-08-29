@@ -13,6 +13,7 @@ import { useMutation as useConvexMutation } from 'convex/react'
 import { Editor } from '@workspace/ui/editor'
 import { Box, HStack, Skeleton, Text, VStack } from '@chakra-ui/react'
 import {
+  Button,
   ButtonGroup,
   IconButton,
   Menu,
@@ -101,6 +102,19 @@ type BrainEditorPage = Readonly<{
   parentPageId?: string | null
   sortKey?: string
 }>
+
+export const BrainEvidenceUnavailable = ({ onBack }: { onBack: () => void }) => (
+  <VStack align="start" gap="3" maxW="xl">
+    <Text fontWeight="semibold">Synced source unavailable</Text>
+    <Text color="fg.muted">
+      This source was removed, superseded, or is no longer in the approved
+      connector scope.
+    </Text>
+    <Button size="sm" variant="secondary" onClick={onBack}>
+      Back to Brain
+    </Button>
+  </VStack>
+)
 
 const fixturePage = (pageId: string): BrainEditorPage => {
   const fixture = brainPageFixtures.find((page) => page._id === pageId)
@@ -213,7 +227,7 @@ const useBrainEvidenceDetail = (input: {
   fixtureRuntime: boolean
   isolatedContracts: boolean
   workspaceId: string
-}): BrainEvidenceDetail | undefined => {
+}): BrainEvidenceDetail | null | undefined => {
   const evidence = useConvexQuery(
     currentEvidenceRef,
     input.entryKey === undefined ||
@@ -259,7 +273,10 @@ const useBrainEvidenceDetail = (input: {
       tombstone: false,
     }
   }
-  return (exactEvidence ?? evidence) as BrainEvidenceDetail | undefined
+  return (exactEvidence ?? evidence) as
+    | BrainEvidenceDetail
+    | null
+    | undefined
 }
 
 const useBrainMarkdown = (input: {
@@ -641,6 +658,7 @@ export function BrainInboxViewPage({
       onDetails={() => setDetailsOpen(true)}
     />
   )
+  const evidenceMissing = !editingPage && evidence === null
 
   const breadcrumbs = (
     <Breadcrumbs
@@ -661,7 +679,9 @@ export function BrainInboxViewPage({
         title={breadcrumbs}
         description={
           !editingPage
-            ? evidence
+            ? evidenceMissing
+              ? 'This synced source is no longer available'
+              : evidence
               ? `Read-only ${evidence.provider.replace('_', ' ')} evidence`
               : 'Loading synced evidence…'
             : saveState === 'saving'
@@ -701,7 +721,9 @@ export function BrainInboxViewPage({
                   overflowY="auto"
                   p={{ base: '4', md: '8' }}
                 >
-                  {page || evidence ? (
+                  {evidenceMissing ? (
+                    <BrainEvidenceUnavailable onBack={onBack} />
+                  ) : page || evidence ? (
                     <BrainMarkdownSurface
                       readOnly={Boolean(evidence)}
                       value={evidence?.markdown ?? markdown}

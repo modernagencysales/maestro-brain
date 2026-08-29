@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
+import type { BrainRetrievalEntriesDoc } from "../_generated/docs";
 import {
   DatabaseReader,
   DatabaseWriter,
@@ -21,6 +22,13 @@ import { RuntimeModeConfig } from "../shared/config";
 import { killSwitchOn, loadLlmGatewayEnvConfig } from "../shared/env";
 import { generateAssistantText } from "../agents/assistantModel";
 import {
+  loadEvidenceScopePolicy,
+  providerScopeIsReadable,
+  readableProviderScopeKey,
+  type BrainEvidenceProvider,
+} from "../brain/evidenceEligibility";
+import { loadReadableEvidenceRevisions } from "../brain/evidence.impl";
+import {
   BRAIN_EXTRACTION_POLICY_VERSION,
   extractionPrompt,
   groundCandidateProposals,
@@ -36,6 +44,15 @@ const MAX_QUEUE_LIMIT = 25;
 const EXTRACTION_SCHEDULE_SPACING_MS = 35_000;
 const DEFAULT_ESTIMATED_COST_PER_MILLION_TOKENS_CENTS = 500;
 const MAX_WORKSPACE_DAILY_CANDIDATES = 25;
+const MAX_CURRENT_ENTRY_CANDIDATES = 64;
+const EXTRACTION_QUEUE_STATUSES = [undefined, "pending", "failed"] as const;
+const EVIDENCE_PROVIDERS = [
+  "brain_page",
+  "google_drive",
+  "hubspot",
+  "transcript",
+  "slack",
+] as const;
 const withClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 const invalid = (field: string, message: string) =>
@@ -54,24 +71,177 @@ const rolloutBucket = (input: string): number => {
 const currentEntry = (
   workspaceId: Parameters<typeof requireWorkspaceAccess>[0],
   sourceKey: string,
+  revisionKey: string,
 ) =>
   Effect.gen(function* () {
-    const rows = yield* (yield* DatabaseReader)
-      .table("brainRetrievalEntries")
-      .index("by_workspace_and_source_key_and_status", (q) =>
-        q
-          .eq("workspaceId", workspaceId)
-          .eq("sourceKey", sourceKey)
-          .eq("status", "current"),
+    const reader = yield* DatabaseReader;
+    const scopePolicy = yield* loadEvidenceScopePolicy(workspaceId);
+    const rowsByProvider = yield* Effect.forEach(
+      EVIDENCE_PROVIDERS,
+      (provider) =>
+        Effect.gen(function* () {
+          const scopeKey = readableProviderScopeKey(scopePolicy, provider);
+          if (scopeKey === null) return [];
+          if (scopeKey === undefined) {
+            const unscoped = yield* reader
+              .table("brainRetrievalEntries")
+              .index("by_workspace_and_source_key_and_status", (q) =>
+                q
+                  .eq("workspaceId", workspaceId)
+                  .eq("sourceKey", sourceKey)
+                  .eq("status", "current"),
+              )
+              .take(MAX_CURRENT_ENTRY_CANDIDATES + 1)
+              .pipe(Effect.orDie);
+            if (unscoped.length > MAX_CURRENT_ENTRY_CANDIDATES)
+              return yield* invalid(
+                "sourceKey",
+                "Current evidence source candidate capacity was exceeded.",
+              );
+            return unscoped.filter(
+              (entry) =>
+                entry.provider === provider &&
+                entry.revisionKey === revisionKey,
+            );
+          }
+          const scoped = yield* reader
+            .table("brainRetrievalEntries")
+            .index("by_workspace_provider_scope_source_status", (q) =>
+              q
+                .eq("workspaceId", workspaceId)
+                .eq("provider", provider)
+                .eq("scopeKey", scopeKey)
+                .eq("sourceKey", sourceKey)
+                .eq("status", "current"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          if (scoped.length > 1)
+            return yield* invalid(
+              "sourceKey",
+              "Current evidence source has duplicate active-scope rows.",
+            );
+          const legacy = yield* reader
+            .table("brainRetrievalEntries")
+            .index("by_workspace_provider_scope_source_status", (q) =>
+              q
+                .eq("workspaceId", workspaceId)
+                .eq("provider", provider)
+                .eq("scopeKey", undefined)
+                .eq("sourceKey", sourceKey)
+                .eq("status", "current"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          if (legacy.length > 1)
+            return yield* invalid(
+              "sourceKey",
+              "Current legacy evidence source is not unique.",
+            );
+          return [...scoped, ...legacy];
+        }),
+      { concurrency: 1 },
+    );
+    const candidates = rowsByProvider
+      .flat()
+      .filter((entry) => entry.revisionKey === revisionKey);
+    const readable = [];
+    for (const entry of candidates) {
+      const policyScopeKey = readableProviderScopeKey(
+        scopePolicy,
+        entry.provider,
+      );
+      const revisions =
+        entry.scopeKey === undefined
+          ? yield* loadReadableEvidenceRevisions({
+              workspaceId,
+              sourceKey,
+              revisionKey,
+            })
+          : [];
+      const scopeKey =
+        entry.scopeKey ??
+        (typeof policyScopeKey === "string" ? policyScopeKey : undefined) ??
+        revisions.find(
+          (revision) =>
+            revision.provider === entry.provider &&
+            revision.contentHash === entry.contentHash,
+        )?.scopeKey;
+      if (scopeKey === undefined) continue;
+      const sources = yield* reader
+        .table("brainEvidenceSources")
+        .index("by_workspace_provider_scope_source", (q) =>
+          q
+            .eq("workspaceId", workspaceId)
+            .eq("provider", entry.provider)
+            .eq("scopeKey", scopeKey)
+            .eq("sourceKey", sourceKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      const [source] = sources;
+      if (
+        sources.length === 1 &&
+        source !== undefined &&
+        providerScopeIsReadable(scopePolicy, entry.provider, scopeKey) &&
+        source.status === "active" &&
+        source.currentRevisionKey === revisionKey
       )
-      .take(2)
-      .pipe(Effect.orDie);
-    if (rows.length !== 1)
+        readable.push(entry);
+    }
+    if (readable.length !== 1)
       return yield* invalid(
         "sourceKey",
         "Current evidence source was not found uniquely.",
       );
-    return rows[0] as NonNullable<(typeof rows)[0]>;
+    return readable[0] as NonNullable<(typeof readable)[0]>;
+  });
+
+const loadExtractionUsage = (
+  workspaceId: Parameters<typeof requireWorkspaceAccess>[0],
+  usageDay: number,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("brainExtractionUsage")
+      .index("by_workspace_and_usage_day", (q) =>
+        q.eq("workspaceId", workspaceId).eq("usageDay", usageDay),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (rows.length > 1)
+      return yield* invalid(
+        "workspaceId",
+        "Extraction usage accounting is not unique for this day.",
+      );
+    return rows[0] ?? null;
+  });
+
+const loadExtractionScopeStats = (
+  workspaceId: Parameters<typeof requireWorkspaceAccess>[0],
+  provider: BrainEvidenceProvider,
+  scopeKey: string,
+  extractionPolicyVersion: string,
+) =>
+  Effect.gen(function* () {
+    const rows = yield* (yield* DatabaseReader)
+      .table("brainExtractionScopeStats")
+      .index("by_workspace_provider_scope_policy", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("provider", provider)
+          .eq("scopeKey", scopeKey)
+          .eq("extractionPolicyVersion", extractionPolicyVersion),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (rows.length > 1)
+      return yield* invalid(
+        "workspaceId",
+        "Extraction grounding statistics are not unique for this scope.",
+      );
+    return rows[0] ?? null;
   });
 
 const resolveAccess = FunctionImpl.make(
@@ -109,6 +279,7 @@ const beginExtraction = FunctionImpl.make(
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const now = yield* withClock(Clock.currentTimeMillis);
+      const today = utcDayStart(now);
       if (args.killSwitchEnabled)
         return yield* new Forbidden({
           reason: "brain-extraction-kill-switch",
@@ -123,6 +294,36 @@ const beginExtraction = FunctionImpl.make(
           "dailySpendLimitCents",
           "Extraction spend limits must be non-negative integer cents.",
         );
+      const entry = yield* currentEntry(
+        args.workspaceId,
+        args.sourceKey,
+        args.revisionKey,
+      );
+      if (
+        entry.semanticStatus === "completed" &&
+        entry.semanticPolicyVersion === args.extractionPolicyVersion
+      )
+        return {
+          title: entry.title,
+          markdown: entry.markdown,
+          contentHash: entry.contentHash,
+          ...(entry.locator === undefined ? {} : { locator: entry.locator }),
+          acceptedTags: [],
+          alreadyCompleted: true,
+          existingProposedCount: entry.semanticProposedCount ?? 0,
+          existingCandidateCount: entry.semanticCandidateCount ?? 0,
+          existingGroundingFailureCount:
+            entry.semanticGroundingFailureCount ?? 0,
+          existingEstimatedSpendCents: entry.semanticEstimatedSpendCents ?? 0,
+          existingProjectedAt: entry.semanticProjectedAt ?? entry.updatedAt,
+        };
+      if (
+        entry.semanticStatus === "running" &&
+        (entry.semanticStartedAt ?? 0) > now - RUNNING_LEASE_MS
+      )
+        return yield* new Forbidden({
+          reason: "brain-extraction-source-already-running",
+        });
       const running = yield* reader
         .table("brainRetrievalEntries")
         .index("by_workspace_and_semantic_status", (q) =>
@@ -136,15 +337,19 @@ const beginExtraction = FunctionImpl.make(
           "Extraction lease recovery capacity was exceeded.",
         );
       const activeRunning = [];
+      let expiredReservedTokens = 0;
+      let expiredReservedSpendCents = 0;
       for (const entry of running) {
         if ((entry.semanticStartedAt ?? 0) > now - RUNNING_LEASE_MS) {
           activeRunning.push(entry);
           continue;
         }
-        const usageDay = utcDayStart(now);
-        const sameUsageDay = entry.semanticUsageDay === usageDay;
+        const usageDay = today;
+        const sameUsageDay = entry.semanticUsageDay === today;
         const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
         const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
+        expiredReservedTokens += reservedRunTokens;
+        expiredReservedSpendCents += reservedRunSpendCents;
         yield* writer
           .table("brainRetrievalEntries")
           .patch(entry._id, {
@@ -178,70 +383,30 @@ const beginExtraction = FunctionImpl.make(
       }
       if (activeRunning.length >= RUNNING_CAP)
         return yield* new Forbidden({ reason: "brain-extraction-concurrency" });
-      const entries = yield* reader
-        .table("brainRetrievalEntries")
-        .index("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-        .take(1_001)
-        .pipe(Effect.orDie);
-      if (entries.length > 1_000)
-        return yield* invalid(
-          "workspaceId",
-          "Extraction accounting capacity was exceeded.",
-        );
-      const today = utcDayStart(now);
-      const tokens = entries.reduce(
-        (sum, entry) =>
-          entry.semanticUsageDay === today
-            ? sum +
-              (entry.semanticDailyConsumedTokens ?? 0) +
-              (entry.semanticDailyReservedTokens ?? 0)
-            : sum,
+      const usage = yield* loadExtractionUsage(args.workspaceId, today);
+      const consumedTokens =
+        (usage?.consumedTokens ?? 0) + expiredReservedTokens;
+      const reservedTokens = Math.max(
         0,
+        (usage?.reservedTokens ?? 0) - expiredReservedTokens,
       );
-      const estimatedSpendCents = entries.reduce(
-        (sum, entry) =>
-          entry.semanticUsageDay === today
-            ? sum +
-              (entry.semanticDailyConsumedSpendCents ?? 0) +
-              (entry.semanticDailyReservedSpendCents ?? 0)
-            : sum,
+      const consumedSpendCents =
+        (usage?.consumedSpendCents ?? 0) + expiredReservedSpendCents;
+      const reservedSpendCents = Math.max(
         0,
+        (usage?.reservedSpendCents ?? 0) - expiredReservedSpendCents,
       );
+      const tokens = consumedTokens + reservedTokens;
+      const estimatedSpendCents = consumedSpendCents + reservedSpendCents;
       if (tokens >= DAILY_TOKEN_CAP)
         return yield* new Forbidden({
           reason: "brain-extraction-daily-token-cap",
         });
-      const entry = yield* currentEntry(args.workspaceId, args.sourceKey);
       if (entry.revisionKey !== args.revisionKey)
         return yield* invalid(
           "revisionKey",
           "Evidence revision changed before extraction.",
         );
-      if (
-        entry.semanticStatus === "completed" &&
-        entry.semanticPolicyVersion === args.extractionPolicyVersion
-      )
-        return {
-          title: entry.title,
-          markdown: entry.markdown,
-          contentHash: entry.contentHash,
-          ...(entry.locator === undefined ? {} : { locator: entry.locator }),
-          acceptedTags: [],
-          alreadyCompleted: true,
-          existingProposedCount: entry.semanticProposedCount ?? 0,
-          existingCandidateCount: entry.semanticCandidateCount ?? 0,
-          existingGroundingFailureCount:
-            entry.semanticGroundingFailureCount ?? 0,
-          existingEstimatedSpendCents: entry.semanticEstimatedSpendCents ?? 0,
-          existingProjectedAt: entry.semanticProjectedAt ?? entry.updatedAt,
-        };
-      if (
-        entry.semanticStatus === "running" &&
-        (entry.semanticStartedAt ?? 0) > now - RUNNING_LEASE_MS
-      )
-        return yield* new Forbidden({
-          reason: "brain-extraction-source-already-running",
-        });
       const claims = yield* reader
         .table("claims")
         .index("by_workspace_status", (q) =>
@@ -272,65 +437,69 @@ const beginExtraction = FunctionImpl.make(
         return yield* new Forbidden({
           reason: "brain-extraction-live-generation-disabled",
         });
-      const source = yield* reader
-        .table("brainEvidenceSources")
-        .index("by_workspace_and_source_key", (q) =>
-          q
-            .eq("workspaceId", args.workspaceId)
-            .eq("sourceKey", entry.sourceKey),
-        )
-        .first()
-        .pipe(Effect.orDie);
-      if (source._tag !== "Some")
+      const scopePolicy = yield* loadEvidenceScopePolicy(args.workspaceId);
+      const policyScopeKey = readableProviderScopeKey(
+        scopePolicy,
+        entry.provider,
+      );
+      const readableRevisions =
+        entry.scopeKey === undefined && policyScopeKey === undefined
+          ? yield* loadReadableEvidenceRevisions({
+              workspaceId: args.workspaceId,
+              sourceKey: entry.sourceKey,
+              revisionKey: entry.revisionKey,
+            })
+          : [];
+      const scopeKey =
+        entry.scopeKey ??
+        (typeof policyScopeKey === "string" ? policyScopeKey : undefined) ??
+        readableRevisions.find(
+          (revision) =>
+            revision.provider === entry.provider &&
+            revision.contentHash === entry.contentHash,
+        )?.scopeKey;
+      if (scopeKey === undefined)
         return yield* invalid(
           "sourceKey",
           "Evidence source metadata was not found.",
         );
-      const scopedSources = yield* reader
+      const sources = yield* reader
         .table("brainEvidenceSources")
-        .index("by_workspace_and_scope_key_and_status", (q) =>
+        .index("by_workspace_provider_scope_source", (q) =>
           q
             .eq("workspaceId", args.workspaceId)
-            .eq("scopeKey", source.value.scopeKey)
-            .eq("status", "active"),
+            .eq("provider", entry.provider)
+            .eq("scopeKey", scopeKey)
+            .eq("sourceKey", entry.sourceKey),
         )
-        .take(101)
+        .take(2)
         .pipe(Effect.orDie);
-      if (scopedSources.length > 100)
+      const [source] = sources;
+      if (
+        sources.length !== 1 ||
+        source === undefined ||
+        !providerScopeIsReadable(scopePolicy, entry.provider, scopeKey)
+      )
         return yield* invalid(
           "sourceKey",
-          "Extraction circuit-breaker scope exceeded its source bound.",
+          "Evidence source metadata was not found.",
         );
-      const recentSemantic = [];
-      for (const scopedSource of scopedSources) {
-        const scopedEntries = yield* reader
-          .table("brainRetrievalEntries")
-          .index("by_workspace_and_source_key_and_status", (q) =>
-            q
-              .eq("workspaceId", args.workspaceId)
-              .eq("sourceKey", scopedSource.sourceKey)
-              .eq("status", "current"),
-          )
-          .take(2)
-          .pipe(Effect.orDie);
-        const [scopedEntry] = scopedEntries;
-        if (
-          scopedEntries.length === 1 &&
-          scopedEntry !== undefined &&
-          scopedEntry.semanticPolicyVersion === args.extractionPolicyVersion &&
-          scopedEntry.semanticProjectedAt !== undefined
-        )
-          recentSemantic.push(scopedEntry);
-      }
-      const recentProposed = recentSemantic.reduce(
-        (sum, candidate) => sum + (candidate.semanticProposedCount ?? 0),
-        0,
+      if (
+        source.status !== "active" ||
+        source.currentRevisionKey !== entry.revisionKey
+      )
+        return yield* invalid(
+          "sourceKey",
+          "Evidence is outside the active connector scope.",
+        );
+      const scopeStats = yield* loadExtractionScopeStats(
+        args.workspaceId,
+        source.provider,
+        source.scopeKey,
+        args.extractionPolicyVersion,
       );
-      const recentGroundingFailures = recentSemantic.reduce(
-        (sum, candidate) =>
-          sum + (candidate.semanticGroundingFailureCount ?? 0),
-        0,
-      );
+      const recentProposed = scopeStats?.proposedCount ?? 0;
+      const recentGroundingFailures = scopeStats?.groundingFailureCount ?? 0;
       if (
         recentProposed >= 10 &&
         recentGroundingFailures / recentProposed > 0.3
@@ -366,19 +535,44 @@ const beginExtraction = FunctionImpl.make(
         return yield* new Forbidden({
           reason: "brain-extraction-daily-candidate-cap",
         });
-      const sameUsageDay = entry.semanticUsageDay === today;
-      const consumedTokens = sameUsageDay
+      const sameEntryUsageDay = entry.semanticUsageDay === today;
+      const entryConsumedTokens = sameEntryUsageDay
         ? (entry.semanticDailyConsumedTokens ?? 0)
         : 0;
-      const reservedTokens = sameUsageDay
+      const entryReservedTokens = sameEntryUsageDay
         ? (entry.semanticDailyReservedTokens ?? 0)
         : 0;
-      const consumedSpendCents = sameUsageDay
+      const entryConsumedSpendCents = sameEntryUsageDay
         ? (entry.semanticDailyConsumedSpendCents ?? 0)
         : 0;
-      const reservedSpendCents = sameUsageDay
+      const entryReservedSpendCents = sameEntryUsageDay
         ? (entry.semanticDailyReservedSpendCents ?? 0)
         : 0;
+      if (usage === null)
+        yield* writer
+          .table("brainExtractionUsage")
+          .insert({
+            workspaceId: args.workspaceId,
+            usageDay: today,
+            consumedTokens,
+            reservedTokens: reservedTokens + estimatedRunTokens,
+            consumedSpendCents,
+            reservedSpendCents: reservedSpendCents + estimatedRunSpendCents,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .pipe(Effect.orDie);
+      else
+        yield* writer
+          .table("brainExtractionUsage")
+          .patch(usage._id, {
+            consumedTokens,
+            reservedTokens: reservedTokens + estimatedRunTokens,
+            consumedSpendCents,
+            reservedSpendCents: reservedSpendCents + estimatedRunSpendCents,
+            updatedAt: now,
+          })
+          .pipe(Effect.orDie);
       yield* writer
         .table("brainRetrievalEntries")
         .patch(entry._id, {
@@ -387,11 +581,11 @@ const beginExtraction = FunctionImpl.make(
           semanticRunKey: args.idempotencyKey,
           semanticStartedAt: now,
           semanticUsageDay: today,
-          semanticDailyConsumedTokens: consumedTokens,
-          semanticDailyReservedTokens: reservedTokens + estimatedRunTokens,
-          semanticDailyConsumedSpendCents: consumedSpendCents,
+          semanticDailyConsumedTokens: entryConsumedTokens,
+          semanticDailyReservedTokens: entryReservedTokens + estimatedRunTokens,
+          semanticDailyConsumedSpendCents: entryConsumedSpendCents,
           semanticDailyReservedSpendCents:
-            reservedSpendCents + estimatedRunSpendCents,
+            entryReservedSpendCents + estimatedRunSpendCents,
           semanticEstimatedRunTokens: estimatedRunTokens,
           semanticEstimatedSpendCents: estimatedRunSpendCents,
           semanticFailureCode: undefined,
@@ -428,7 +622,11 @@ const commitExtraction = FunctionImpl.make(
         yield* withClock(
           requireWorkspaceActorAccess(args.workspaceId, args.userId, "editor"),
         );
-      const entry = yield* currentEntry(args.workspaceId, args.sourceKey);
+      const entry = yield* currentEntry(
+        args.workspaceId,
+        args.sourceKey,
+        args.revisionKey,
+      );
       if (
         entry.revisionKey !== args.revisionKey ||
         entry.semanticStatus !== "running" ||
@@ -450,6 +648,41 @@ const commitExtraction = FunctionImpl.make(
       });
       const writer = yield* DatabaseWriter;
       const reader = yield* DatabaseReader;
+      const scopePolicy = yield* loadEvidenceScopePolicy(args.workspaceId);
+      const policyScopeKey = readableProviderScopeKey(
+        scopePolicy,
+        entry.provider,
+      );
+      const readableRevisions =
+        entry.scopeKey === undefined && policyScopeKey === undefined
+          ? yield* loadReadableEvidenceRevisions({
+              workspaceId: args.workspaceId,
+              sourceKey: entry.sourceKey,
+              revisionKey: entry.revisionKey,
+            })
+          : [];
+      const scopeKey =
+        entry.scopeKey ??
+        (typeof policyScopeKey === "string" ? policyScopeKey : undefined) ??
+        readableRevisions.find(
+          (revision) =>
+            revision.provider === entry.provider &&
+            revision.contentHash === entry.contentHash,
+        )?.scopeKey;
+      if (
+        scopeKey === undefined ||
+        !providerScopeIsReadable(scopePolicy, entry.provider, scopeKey)
+      )
+        return yield* invalid(
+          "sourceKey",
+          "Evidence source scope changed before extraction committed.",
+        );
+      const scopeStats = yield* loadExtractionScopeStats(
+        args.workspaceId,
+        entry.provider,
+        scopeKey,
+        args.extractionPolicyVersion,
+      );
       const dayStart = utcDayStart(args.projectedAt);
       const dailyCandidates = yield* reader
         .table("brainKnowledgeCandidates")
@@ -511,6 +744,62 @@ const commitExtraction = FunctionImpl.make(
       const actualTokens = args.inputTokens + args.outputTokens;
       const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
       const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
+      const usage = yield* loadExtractionUsage(args.workspaceId, usageDay);
+      const nextUsage = {
+        consumedTokens: (usage?.consumedTokens ?? 0) + actualTokens,
+        reservedTokens: Math.max(
+          0,
+          (usage?.reservedTokens ?? 0) - reservedRunTokens,
+        ),
+        consumedSpendCents:
+          (usage?.consumedSpendCents ?? 0) + reservedRunSpendCents,
+        reservedSpendCents: Math.max(
+          0,
+          (usage?.reservedSpendCents ?? 0) - reservedRunSpendCents,
+        ),
+      };
+      if (usage === null)
+        yield* writer
+          .table("brainExtractionUsage")
+          .insert({
+            workspaceId: args.workspaceId,
+            usageDay,
+            ...nextUsage,
+            createdAt: args.projectedAt,
+            updatedAt: args.projectedAt,
+          })
+          .pipe(Effect.orDie);
+      else
+        yield* writer
+          .table("brainExtractionUsage")
+          .patch(usage._id, { ...nextUsage, updatedAt: args.projectedAt })
+          .pipe(Effect.orDie);
+      const nextScopeStats = {
+        proposedCount: (scopeStats?.proposedCount ?? 0) + args.proposals.length,
+        groundingFailureCount:
+          (scopeStats?.groundingFailureCount ?? 0) + grounded.failureCount,
+      };
+      if (scopeStats === null)
+        yield* writer
+          .table("brainExtractionScopeStats")
+          .insert({
+            workspaceId: args.workspaceId,
+            provider: entry.provider,
+            scopeKey,
+            extractionPolicyVersion: args.extractionPolicyVersion,
+            ...nextScopeStats,
+            createdAt: args.projectedAt,
+            updatedAt: args.projectedAt,
+          })
+          .pipe(Effect.orDie);
+      else
+        yield* writer
+          .table("brainExtractionScopeStats")
+          .patch(scopeStats._id, {
+            ...nextScopeStats,
+            updatedAt: args.projectedAt,
+          })
+          .pipe(Effect.orDie);
       yield* writer
         .table("brainRetrievalEntries")
         .patch(entry._id, {
@@ -563,7 +852,11 @@ const failExtraction = FunctionImpl.make(
   "failExtraction",
   (args) =>
     Effect.gen(function* () {
-      const entry = yield* currentEntry(args.workspaceId, args.sourceKey);
+      const entry = yield* currentEntry(
+        args.workspaceId,
+        args.sourceKey,
+        args.revisionKey,
+      );
       if (
         entry.revisionKey === args.revisionKey &&
         entry.semanticStatus === "running" &&
@@ -574,7 +867,38 @@ const failExtraction = FunctionImpl.make(
         const sameUsageDay = entry.semanticUsageDay === usageDay;
         const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
         const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
-        yield* (yield* DatabaseWriter)
+        const writer = yield* DatabaseWriter;
+        const usage = yield* loadExtractionUsage(args.workspaceId, usageDay);
+        const nextUsage = {
+          consumedTokens: (usage?.consumedTokens ?? 0) + reservedRunTokens,
+          reservedTokens: Math.max(
+            0,
+            (usage?.reservedTokens ?? 0) - reservedRunTokens,
+          ),
+          consumedSpendCents:
+            (usage?.consumedSpendCents ?? 0) + reservedRunSpendCents,
+          reservedSpendCents: Math.max(
+            0,
+            (usage?.reservedSpendCents ?? 0) - reservedRunSpendCents,
+          ),
+        };
+        if (usage === null)
+          yield* writer
+            .table("brainExtractionUsage")
+            .insert({
+              workspaceId: args.workspaceId,
+              usageDay,
+              ...nextUsage,
+              createdAt: args.failedAt,
+              updatedAt: args.failedAt,
+            })
+            .pipe(Effect.orDie);
+        else
+          yield* writer
+            .table("brainExtractionUsage")
+            .patch(usage._id, { ...nextUsage, updatedAt: args.failedAt })
+            .pipe(Effect.orDie);
+        yield* writer
           .table("brainRetrievalEntries")
           .patch(entry._id, {
             semanticStatus: "failed",
@@ -780,24 +1104,244 @@ const queueExtraction = (
         "limit",
         `Extraction queue limit must be between 1 and ${MAX_QUEUE_LIMIT}.`,
       );
-    const entries = yield* (yield* DatabaseReader)
-      .table("brainRetrievalEntries")
-      .index("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(1_001)
-      .pipe(Effect.orDie);
-    if (entries.length > 1_000)
-      return yield* invalid(
-        "workspaceId",
-        "Extraction queue capacity was exceeded.",
+    const reader = yield* DatabaseReader;
+    const now = yield* withClock(Clock.currentTimeMillis);
+    const providerPriority = {
+      brain_page: 5,
+      google_drive: 4,
+      hubspot: 3,
+      transcript: 2,
+      slack: 1,
+    } as const;
+    const scopePolicy = yield* loadEvidenceScopePolicy(args.workspaceId);
+    const entriesByProvider = yield* Effect.forEach(
+      Object.keys(providerPriority) as Array<keyof typeof providerPriority>,
+      (provider) =>
+        Effect.gen(function* () {
+          const scopeKey = readableProviderScopeKey(scopePolicy, provider);
+          if (scopeKey === null) return [];
+          const loadForScope = (candidateScopeKey: string | undefined) =>
+            Effect.gen(function* () {
+              const candidates: BrainRetrievalEntriesDoc[] = [];
+              for (const semanticStatus of EXTRACTION_QUEUE_STATUSES) {
+                if (candidates.length >= limit) break;
+                const remaining: number = limit - candidates.length;
+                const rows: readonly BrainRetrievalEntriesDoc[] = yield* (
+                  candidateScopeKey === undefined && scopeKey === undefined
+                    ? reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_status_semantic_status",
+                          (q) =>
+                            q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("status", "current")
+                              .eq("semanticStatus", semanticStatus),
+                        )
+                        .take(remaining)
+                    : reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_scope_status_semantic_status",
+                          (q) =>
+                            q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("scopeKey", candidateScopeKey)
+                              .eq("status", "current")
+                              .eq("semanticStatus", semanticStatus),
+                        )
+                        .take(remaining)
+                ).pipe(Effect.orDie);
+                candidates.push(...rows);
+              }
+              for (const relation of ["missing", "lt", "gt"] as const) {
+                if (candidates.length >= limit) break;
+                const remaining: number = limit - candidates.length;
+                const rows: readonly BrainRetrievalEntriesDoc[] = yield* (
+                  candidateScopeKey === undefined && scopeKey === undefined
+                    ? reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_status_semantic_status_policy",
+                          (q) => {
+                            const prefix = q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("status", "current")
+                              .eq("semanticStatus", "completed");
+                            if (relation === "missing")
+                              return prefix.eq(
+                                "semanticPolicyVersion",
+                                undefined,
+                              );
+                            if (relation === "lt")
+                              return prefix
+                                .gte("semanticPolicyVersion", "")
+                                .lt(
+                                  "semanticPolicyVersion",
+                                  BRAIN_EXTRACTION_POLICY_VERSION,
+                                );
+                            return prefix.gt(
+                              "semanticPolicyVersion",
+                              BRAIN_EXTRACTION_POLICY_VERSION,
+                            );
+                          },
+                        )
+                        .take(remaining)
+                    : reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_scope_status_semantic_status_policy",
+                          (q) => {
+                            const prefix = q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("scopeKey", candidateScopeKey)
+                              .eq("status", "current")
+                              .eq("semanticStatus", "completed");
+                            if (relation === "missing")
+                              return prefix.eq(
+                                "semanticPolicyVersion",
+                                undefined,
+                              );
+                            if (relation === "lt")
+                              return prefix
+                                .gte("semanticPolicyVersion", "")
+                                .lt(
+                                  "semanticPolicyVersion",
+                                  BRAIN_EXTRACTION_POLICY_VERSION,
+                                );
+                            return prefix.gt(
+                              "semanticPolicyVersion",
+                              BRAIN_EXTRACTION_POLICY_VERSION,
+                            );
+                          },
+                        )
+                        .take(remaining)
+                ).pipe(Effect.orDie);
+                candidates.push(...rows);
+              }
+              for (const relation of ["missing", "stale"] as const) {
+                if (candidates.length >= limit) break;
+                const remaining: number = limit - candidates.length;
+                const rows: readonly BrainRetrievalEntriesDoc[] = yield* (
+                  candidateScopeKey === undefined && scopeKey === undefined
+                    ? reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_status_semantic_status_started_at",
+                          (q) => {
+                            const prefix = q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("status", "current")
+                              .eq("semanticStatus", "running");
+                            return relation === "missing"
+                              ? prefix.eq("semanticStartedAt", undefined)
+                              : prefix
+                                  .gte("semanticStartedAt", 0)
+                                  .lt(
+                                    "semanticStartedAt",
+                                    now - RUNNING_LEASE_MS,
+                                  );
+                          },
+                        )
+                        .take(remaining)
+                    : reader
+                        .table("brainRetrievalEntries")
+                        .index(
+                          "by_workspace_provider_scope_status_semantic_status_started_at",
+                          (q) => {
+                            const prefix = q
+                              .eq("workspaceId", args.workspaceId)
+                              .eq("provider", provider)
+                              .eq("scopeKey", candidateScopeKey)
+                              .eq("status", "current")
+                              .eq("semanticStatus", "running");
+                            return relation === "missing"
+                              ? prefix.eq("semanticStartedAt", undefined)
+                              : prefix
+                                  .gte("semanticStartedAt", 0)
+                                  .lt(
+                                    "semanticStartedAt",
+                                    now - RUNNING_LEASE_MS,
+                                  );
+                          },
+                        )
+                        .take(remaining)
+                ).pipe(Effect.orDie);
+                candidates.push(...rows);
+              }
+              return candidates;
+            });
+          const scoped = yield* loadForScope(scopeKey);
+          if (scoped.length > 0 || scopeKey === undefined) return scoped;
+          return yield* loadForScope(undefined);
+        }),
+      { concurrency: 1 },
+    );
+    const entries = entriesByProvider.flat();
+    const eligible: (typeof entries)[number][] = [];
+    for (const entry of entries) {
+      if (
+        entry.status !== "current" ||
+        entry.markdown.trim().length === 0 ||
+        (entry.semanticStatus === "running" &&
+          (entry.semanticStartedAt ?? 0) > now - RUNNING_LEASE_MS) ||
+        (entry.semanticStatus === "completed" &&
+          entry.semanticPolicyVersion === BRAIN_EXTRACTION_POLICY_VERSION)
+      )
+        continue;
+      const policyScopeKey = readableProviderScopeKey(
+        scopePolicy,
+        entry.provider,
       );
-    const eligible = entries.filter(
-      (entry) =>
-        entry.status === "current" &&
-        entry.semanticStatus !== "running" &&
-        !(
-          entry.semanticStatus === "completed" &&
-          entry.semanticPolicyVersion === BRAIN_EXTRACTION_POLICY_VERSION
-        ),
+      const readableRevisions =
+        entry.scopeKey === undefined && policyScopeKey === undefined
+          ? yield* loadReadableEvidenceRevisions({
+              workspaceId: args.workspaceId,
+              sourceKey: entry.sourceKey,
+              revisionKey: entry.revisionKey,
+            })
+          : [];
+      const scopeKey =
+        entry.scopeKey ??
+        (typeof policyScopeKey === "string" ? policyScopeKey : undefined) ??
+        readableRevisions.find(
+          (revision) =>
+            revision.provider === entry.provider &&
+            revision.contentHash === entry.contentHash,
+        )?.scopeKey;
+      if (scopeKey === undefined) continue;
+      const sources = yield* reader
+        .table("brainEvidenceSources")
+        .index("by_workspace_provider_scope_source", (q) =>
+          q
+            .eq("workspaceId", args.workspaceId)
+            .eq("provider", entry.provider)
+            .eq("scopeKey", scopeKey)
+            .eq("sourceKey", entry.sourceKey),
+        )
+        .take(2)
+        .pipe(Effect.orDie);
+      const [source] = sources;
+      if (
+        sources.length !== 1 ||
+        source === undefined ||
+        !providerScopeIsReadable(scopePolicy, entry.provider, scopeKey) ||
+        source.status !== "active" ||
+        source.currentRevisionKey !== entry.revisionKey
+      )
+        continue;
+      eligible.push(entry);
+    }
+    eligible.sort(
+      (left, right) =>
+        providerPriority[right.provider] - providerPriority[left.provider] ||
+        right.sourceModifiedAt - left.sourceModifiedAt ||
+        left.sourceKey.localeCompare(right.sourceKey),
     );
     const selected = eligible.slice(0, limit);
     const scheduler = yield* Scheduler;

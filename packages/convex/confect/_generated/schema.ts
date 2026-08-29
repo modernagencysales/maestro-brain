@@ -12,6 +12,8 @@ import brainConnectorRuns from "./tables/brainConnectorRuns";
 import brainEvaluationExamples from "./tables/brainEvaluationExamples";
 import brainEvidenceRevisions from "./tables/brainEvidenceRevisions";
 import brainEvidenceSources from "./tables/brainEvidenceSources";
+import brainExtractionScopeStats from "./tables/brainExtractionScopeStats";
+import brainExtractionUsage from "./tables/brainExtractionUsage";
 import brainKnowledgeCandidates from "./tables/brainKnowledgeCandidates";
 import brainPages from "./tables/brainPages";
 import brainRetrievalEntries from "./tables/brainRetrievalEntries";
@@ -81,6 +83,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof brainEvaluationExamples |
   typeof brainEvidenceRevisions |
   typeof brainEvidenceSources |
+  typeof brainExtractionScopeStats |
+  typeof brainExtractionUsage |
   typeof brainKnowledgeCandidates |
   typeof brainPages |
   typeof brainRetrievalEntries |
@@ -149,6 +153,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   brainEvaluationExamples,
   brainEvidenceRevisions,
   brainEvidenceSources,
+  brainExtractionScopeStats,
+  brainExtractionUsage,
   brainKnowledgeCandidates,
   brainPages,
   brainRetrievalEntries,

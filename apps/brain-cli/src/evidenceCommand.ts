@@ -87,10 +87,14 @@ export const evidenceCommand = async (
   argv: readonly string[],
   dependencies: CliDependencies,
 ): Promise<CliResult> => {
-  if (argv[1] === "search") return await search(argv, dependencies);
-  if (argv[1] === "open") return await open(argv, dependencies);
-  if (argv[1] === "source-get") return await sourceGet(argv, dependencies);
-  if (argv[1] === "health" && argv.length === 2)
+  const normalizedArgv = argv.filter((argument) => argument !== "--json");
+  if (normalizedArgv[1] === "search")
+    return await search(normalizedArgv, dependencies);
+  if (normalizedArgv[1] === "open")
+    return await open(normalizedArgv, dependencies);
+  if (normalizedArgv[1] === "source-get")
+    return await sourceGet(normalizedArgv, dependencies);
+  if (normalizedArgv[1] === "health" && normalizedArgv.length === 2)
     return await health(dependencies);
   return failure(
     "Usage: maestro-brain evidence search <query> [--limit <1-10>] | evidence open <source-key> --revision <revision-key> | evidence source-get <source-key> <revision-key> | evidence health",

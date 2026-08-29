@@ -4,6 +4,12 @@ import * as Option from "effect/Option";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import {
+  type EvidenceScopePolicy,
+  loadEvidenceScopePolicy,
+  providerScopeIsReadable,
+  readableProviderScopeKey,
+} from "./evidenceEligibility";
 
 export type EvidenceProvider =
   "brain_page" | "slack" | "google_drive" | "hubspot" | "transcript";
@@ -13,6 +19,7 @@ const PASSAGE_OVERLAP = 100;
 const MAX_PASSAGES = 48;
 const MAX_TOKENS_PER_PASSAGE = 80;
 const RETRIEVAL_PROJECTION_VERSION = 2;
+const MAX_READABLE_REVISION_CANDIDATES = 16;
 export const MAX_RETRIEVAL_TOKENS_PER_ENTRY =
   MAX_PASSAGES * MAX_TOKENS_PER_PASSAGE;
 
@@ -76,7 +83,7 @@ export const evidencePassages = (title: string, markdown: string) => {
       boundary >= boundaryWindowStart ? boundary + 1 : targetEnd;
     const passageText = markdown.slice(startOffset, endOffset);
     const tokens = evidenceTokens(
-      title,
+      passages.length === 0 ? title : "",
       passageText,
       MAX_TOKENS_PER_PASSAGE + 1,
     );
@@ -99,26 +106,59 @@ export const evidenceContentHash = (title: string, markdown: string) =>
 
 const currentSource = (
   workspaceId: GenericId<"workspaces">,
+  provider: EvidenceProvider,
+  scopeKey: string,
   sourceKey: string,
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const rows = yield* reader
       .table("brainEvidenceSources")
-      .index("by_workspace_and_source_key", (q) =>
-        q.eq("workspaceId", workspaceId).eq("sourceKey", sourceKey),
+      .index("by_workspace_provider_scope_source", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("provider", provider)
+          .eq("scopeKey", scopeKey)
+          .eq("sourceKey", sourceKey),
       )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      .take(2)
+      .pipe(Effect.orDie);
+    if (rows.length > 1)
+      return yield* new ValidationFailed({
+        field: "sourceKey",
+        message: "Evidence source has duplicate scope-qualified rows.",
+      });
+    return rows[0] ?? null;
   });
 
 const currentEntries = (
   workspaceId: GenericId<"workspaces">,
+  provider: EvidenceProvider,
+  scopeKey: string,
   sourceKey: string,
+  includeLegacy: boolean,
 ) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const scoped = yield* reader
+      .table("brainRetrievalEntries")
+      .index("by_workspace_provider_scope_source_status", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("provider", provider)
+          .eq("scopeKey", scopeKey)
+          .eq("sourceKey", sourceKey)
+          .eq("status", "current"),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (scoped.length > 1)
+      return yield* new ValidationFailed({
+        field: "sourceKey",
+        message: "Evidence source has multiple scoped current entries.",
+      });
+    if (scoped.length > 0 || !includeLegacy) return scoped;
+    const legacy = yield* reader
       .table("brainRetrievalEntries")
       .index("by_workspace_and_source_key_and_status", (q) =>
         q
@@ -126,8 +166,17 @@ const currentEntries = (
           .eq("sourceKey", sourceKey)
           .eq("status", "current"),
       )
-      .take(2)
+      .take(3)
       .pipe(Effect.orDie);
+    const eligible = legacy.filter(
+      (entry) => entry.provider === provider && entry.scopeKey === undefined,
+    );
+    if (eligible.length > 1)
+      return yield* new ValidationFailed({
+        field: "sourceKey",
+        message: "Evidence source has multiple legacy current entries.",
+      });
+    return eligible;
   });
 
 const removeEntryTokens = (input: {
@@ -195,16 +244,24 @@ export const projectEvidence = (input: {
       });
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
-    const revision = yield* reader
+    const revisions = yield* reader
       .table("brainEvidenceRevisions")
-      .index("by_workspace_and_source_key_and_revision_key", (q) =>
+      .index("by_workspace_provider_scope_source_revision", (q) =>
         q
           .eq("workspaceId", input.workspaceId)
+          .eq("provider", input.provider)
+          .eq("scopeKey", input.scopeKey)
           .eq("sourceKey", input.sourceKey)
           .eq("revisionKey", input.revisionKey),
       )
-      .first()
-      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      .take(2)
+      .pipe(Effect.orDie);
+    if (revisions.length > 1)
+      return yield* new ValidationFailed({
+        field: "revisionKey",
+        message: "Evidence revision has duplicate scope-qualified rows.",
+      });
+    const revision = revisions[0] ?? null;
     if (
       revision !== null &&
       (revision.contentHash !== contentHash ||
@@ -227,7 +284,12 @@ export const projectEvidence = (input: {
         })
         .pipe(Effect.orDie);
 
-    const source = yield* currentSource(input.workspaceId, input.sourceKey);
+    const source = yield* currentSource(
+      input.workspaceId,
+      input.provider,
+      input.scopeKey,
+      input.sourceKey,
+    );
     const generation =
       (source?.generation ?? 0) +
       (source?.currentRevisionKey === input.revisionKey ? 0 : 1);
@@ -275,20 +337,53 @@ export const projectEvidence = (input: {
         })
         .pipe(Effect.orDie);
 
-    const entries = yield* currentEntries(input.workspaceId, input.sourceKey);
+    const entries = yield* currentEntries(
+      input.workspaceId,
+      input.provider,
+      input.scopeKey,
+      input.sourceKey,
+      source !== null,
+    );
     if (entries.length > 1)
       return yield* new ValidationFailed({
         field: "sourceKey",
         message: "Evidence source has multiple current retrieval entries.",
       });
     const current = entries[0];
+    const entryKey = `evidence:${sha256Hex(
+      `${input.provider}\n${input.scopeKey}\n${input.sourceKey}\n${input.revisionKey}`,
+    )}`;
+    const exactEntries = yield* reader
+      .table("brainRetrievalEntries")
+      .index("by_workspace_and_entry_key", (q) =>
+        q.eq("workspaceId", input.workspaceId).eq("entryKey", entryKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (exactEntries.length > 1)
+      return yield* new ValidationFailed({
+        field: "entryKey",
+        message: "Evidence projection has duplicate deterministic rows.",
+      });
+    const exactEntry = exactEntries[0];
+    const currentIsCoherent =
+      current !== undefined &&
+      current.entryKey === entryKey &&
+      current.provider === input.provider &&
+      current.scopeKey === input.scopeKey &&
+      current.sourceKey === input.sourceKey &&
+      current.revisionKey === input.revisionKey &&
+      current.title === title &&
+      current.markdown === input.markdown &&
+      current.contentHash === contentHash;
     if (
-      current?.revisionKey === input.revisionKey &&
+      currentIsCoherent &&
       current.projectionVersion === RETRIEVAL_PROJECTION_VERSION
     )
       return { changed: false, entryKey: current.entryKey } as const;
     const reprojectingCurrent = current?.revisionKey === input.revisionKey;
-    if (current !== undefined && !reprojectingCurrent) {
+    const target = exactEntry ?? (reprojectingCurrent ? current : undefined);
+    if (current !== undefined && current._id !== target?._id) {
       yield* writer
         .table("brainRetrievalEntries")
         .patch(current._id, { status: "retired", updatedAt: input.observedAt })
@@ -298,16 +393,27 @@ export const projectEvidence = (input: {
         entryKey: current.entryKey,
       });
     }
-    const entryKey = `${input.sourceKey}:revision:${input.revisionKey}`;
-    if (reprojectingCurrent && current !== undefined) {
+    if (target !== undefined) {
       yield* removeEntryTokens({
         workspaceId: input.workspaceId,
-        entryKey: current.entryKey,
+        entryKey: target.entryKey,
       });
       yield* writer
         .table("brainRetrievalEntries")
-        .patch(current._id, {
+        .patch(target._id, {
+          provider: input.provider,
+          scopeKey: input.scopeKey,
+          entryKey,
+          sourceKey: input.sourceKey,
+          revisionKey: input.revisionKey,
+          title,
+          markdown: input.markdown,
+          contentHash,
           projectionVersion: RETRIEVAL_PROJECTION_VERSION,
+          locator: input.locator,
+          sourceModifiedAt: input.sourceModifiedAt,
+          observedAt: input.observedAt,
+          status: "current",
           updatedAt: input.observedAt,
         })
         .pipe(Effect.orDie);
@@ -317,6 +423,7 @@ export const projectEvidence = (input: {
         .insert({
           workspaceId: input.workspaceId,
           provider: input.provider,
+          scopeKey: input.scopeKey,
           entryKey,
           sourceKey: input.sourceKey,
           revisionKey: input.revisionKey,
@@ -338,6 +445,8 @@ export const projectEvidence = (input: {
           .table("brainRetrievalTokens")
           .insert({
             workspaceId: input.workspaceId,
+            provider: input.provider,
+            scopeKey: input.scopeKey,
             ...token,
             entryKey,
             passageKey: passage.passageKey,
@@ -353,18 +462,122 @@ export const projectEvidence = (input: {
     return { changed: true, entryKey } as const;
   });
 
+const citationRemainsReadable = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly scopePolicy: EvidenceScopePolicy;
+  readonly provider?: EvidenceProvider | undefined;
+  readonly sourceKey?: string | undefined;
+  readonly revisionKey?: string | undefined;
+  readonly contentHash?: string | undefined;
+  readonly quotedText: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+}) =>
+  Effect.gen(function* () {
+    if (
+      input.provider === undefined ||
+      input.sourceKey === undefined ||
+      input.revisionKey === undefined ||
+      input.contentHash === undefined
+    )
+      return false;
+    const provider = input.provider;
+    const sourceKey = input.sourceKey;
+    const revisionKey = input.revisionKey;
+    const contentHash = input.contentHash;
+    const readableScopeKey = readableProviderScopeKey(
+      input.scopePolicy,
+      provider,
+    );
+    if (readableScopeKey === null) return false;
+    const reader = yield* DatabaseReader;
+    const revisions =
+      readableScopeKey === undefined
+        ? (yield* reader
+            .table("brainEvidenceRevisions")
+            .index("by_workspace_and_source_key_and_revision_key", (q) =>
+              q
+                .eq("workspaceId", input.workspaceId)
+                .eq("sourceKey", sourceKey)
+                .eq("revisionKey", revisionKey),
+            )
+            .take(MAX_READABLE_REVISION_CANDIDATES)
+            .pipe(Effect.orDie)).filter(
+            (revision) =>
+              revision.provider === provider &&
+              providerScopeIsReadable(
+                input.scopePolicy,
+                revision.provider,
+                revision.scopeKey,
+              ),
+          )
+        : yield* reader
+            .table("brainEvidenceRevisions")
+            .index("by_workspace_provider_scope_source_revision", (q) =>
+              q
+                .eq("workspaceId", input.workspaceId)
+                .eq("provider", provider)
+                .eq("scopeKey", readableScopeKey)
+                .eq("sourceKey", sourceKey)
+                .eq("revisionKey", revisionKey),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+    if (revisions.length !== 1) return false;
+    const [revision] = revisions;
+    if (
+      revision === undefined ||
+      revision.tombstone ||
+      revision.contentHash !== contentHash ||
+      revision.markdown.slice(input.startOffset, input.endOffset) !==
+        input.quotedText
+    )
+      return false;
+    const sources = yield* reader
+      .table("brainEvidenceSources")
+      .index("by_workspace_provider_scope_source", (q) =>
+        q
+          .eq("workspaceId", input.workspaceId)
+          .eq("provider", provider)
+          .eq("scopeKey", revision.scopeKey)
+          .eq("sourceKey", sourceKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    const [source] = sources;
+    return (
+      sources.length === 1 &&
+      source !== undefined &&
+      source.status === "active" &&
+      source.currentRevisionKey === revisionKey
+    );
+  });
+
 export const retireEvidence = (input: {
   readonly workspaceId: GenericId<"workspaces">;
+  readonly provider: EvidenceProvider;
+  readonly scopeKey: string;
   readonly sourceKey: string;
   readonly revisionKey: string;
   readonly observedAt: number;
 }) =>
   Effect.gen(function* () {
-    const source = yield* currentSource(input.workspaceId, input.sourceKey);
+    const source = yield* currentSource(
+      input.workspaceId,
+      input.provider,
+      input.scopeKey,
+      input.sourceKey,
+    );
     if (source === null || source.status === "removed") return false;
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
-    const entries = yield* currentEntries(input.workspaceId, input.sourceKey);
+    const entries = yield* currentEntries(
+      input.workspaceId,
+      input.provider,
+      input.scopeKey,
+      input.sourceKey,
+      true,
+    );
     if (entries.length > 1)
       return yield* new ValidationFailed({
         field: "sourceKey",
@@ -383,9 +596,11 @@ export const retireEvidence = (input: {
     }
     const tombstone = yield* reader
       .table("brainEvidenceRevisions")
-      .index("by_workspace_and_source_key_and_revision_key", (q) =>
+      .index("by_workspace_provider_scope_source_revision", (q) =>
         q
           .eq("workspaceId", input.workspaceId)
+          .eq("provider", input.provider)
+          .eq("scopeKey", input.scopeKey)
           .eq("sourceKey", input.sourceKey)
           .eq("revisionKey", input.revisionKey),
       )
@@ -435,7 +650,26 @@ export const retireEvidence = (input: {
         message:
           "Evidence withdrawal exceeded the bounded claim propagation capacity.",
       });
+    const scopePolicy =
+      citations.length === 0
+        ? null
+        : yield* loadEvidenceScopePolicy(input.workspaceId);
     for (const citation of citations) {
+      if (scopePolicy === null) break;
+      if (
+        yield* citationRemainsReadable({
+          workspaceId: input.workspaceId,
+          scopePolicy,
+          provider: citation.provider,
+          sourceKey: citation.sourceKey,
+          revisionKey: citation.revisionKey,
+          contentHash: citation.contentHash,
+          quotedText: citation.quotedText,
+          startOffset: citation.startOffset,
+          endOffset: citation.endOffset,
+        })
+      )
+        continue;
       const claim = yield* reader
         .table("claims")
         .get(citation.claimId as GenericId<"claims">)

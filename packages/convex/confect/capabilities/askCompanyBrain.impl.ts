@@ -6,7 +6,10 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader } from "../_generated/services";
-import { searchEvidence } from "../brain/evidence.impl";
+import {
+  loadReadableEvidenceRevisions,
+  searchEvidence,
+} from "../brain/evidence.impl";
 import { ValidationFailed } from "../errors";
 import {
   requireWorkspaceAccess,
@@ -19,6 +22,7 @@ import {
   CONTEXT_PACK_POLICY_VERSION,
   effectiveRiskLevel,
   freshnessWeight,
+  groundedLexicalScore,
   lexicalScore,
   MAX_CONTEXT_CITATIONS,
   normalizedEvidenceBody,
@@ -83,62 +87,47 @@ const reopenCitationRevision = (input: {
 }) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    const revisions = yield* reader
-      .table("brainEvidenceRevisions")
-      .index("by_workspace_and_source_key_and_revision_key", (q) =>
-        q
-          .eq("workspaceId", input.workspaceId)
-          .eq("sourceKey", input.sourceKey)
-          .eq("revisionKey", input.revisionKey),
-      )
-      .take(2)
-      .pipe(Effect.orDie);
-    const [revision] = revisions;
+    const revisions = yield* loadReadableEvidenceRevisions(input);
+    const eligibleRevisions = revisions.filter(
+      (revision) =>
+        revision.contentHash === input.contentHash && !revision.tombstone,
+    );
+    const [revision] = eligibleRevisions;
     if (
-      revisions.length !== 1 ||
+      eligibleRevisions.length !== 1 ||
       revision === undefined ||
       revision.tombstone ||
       revision.contentHash !== input.contentHash
     )
       return { status: "inaccessible" as const };
-    const source = yield* reader
+    const sources = yield* reader
       .table("brainEvidenceSources")
-      .index("by_workspace_and_source_key", (q) =>
-        q.eq("workspaceId", input.workspaceId).eq("sourceKey", input.sourceKey),
-      )
-      .first()
-      .pipe(Effect.orDie);
-    if (source._tag !== "Some" || source.value.status !== "active")
-      return { status: "withdrawn" as const };
-    if (
-      revision.provider === "brain_page" ||
-      revision.provider === "transcript"
-    )
-      return {
-        status: "eligible" as const,
-        revision,
-        isCurrent: source.value.currentRevisionKey === input.revisionKey,
-      };
-    const connectionProvider =
-      revision.provider === "google_drive" ? "google-drive" : revision.provider;
-    const connection = yield* reader
-      .table("providerConnections")
-      .index("by_workspace_and_provider", (q) =>
+      .index("by_workspace_provider_scope_source", (q) =>
         q
           .eq("workspaceId", input.workspaceId)
-          .eq("provider", connectionProvider),
+          .eq("provider", revision.provider)
+          .eq("scopeKey", revision.scopeKey)
+          .eq("sourceKey", input.sourceKey),
       )
-      .first()
+      .take(2)
       .pipe(Effect.orDie);
-    return connection._tag === "Some" &&
-      "workspaceId" in connection.value &&
-      connection.value.status === "active"
-      ? {
-          status: "eligible" as const,
-          revision,
-          isCurrent: source.value.currentRevisionKey === input.revisionKey,
-        }
-      : { status: "withdrawn" as const };
+    const eligibleSources = sources.filter(
+      (source) =>
+        source.provider === revision.provider &&
+        source.scopeKey === revision.scopeKey,
+    );
+    const [source] = eligibleSources;
+    if (
+      eligibleSources.length !== 1 ||
+      source === undefined ||
+      source.status !== "active"
+    )
+      return { status: "withdrawn" as const };
+    return {
+      status: "eligible" as const,
+      revision,
+      isCurrent: source.currentRevisionKey === input.revisionKey,
+    };
   });
 
 type EligibleReopenedCitation = Extract<
@@ -216,7 +205,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
         .slice(0, MAX_SUPPORTED_CLAIMS)
         .map((claim) => ({
           claim,
-          score: lexicalScore(
+          score: groundedLexicalScore(
             question,
             `${claim.body} ${(claim.tags ?? []).join(" ")}`,
           ),
@@ -307,7 +296,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
             ? ("review-due" as const)
             : horizonFreshness;
         const claimTags = [...(claim.tags ?? [])];
-        const claimRelevance = lexicalScore(
+        const claimRelevance = groundedLexicalScore(
           question,
           `${claim.body} ${claimTags.join(" ")}`,
         );

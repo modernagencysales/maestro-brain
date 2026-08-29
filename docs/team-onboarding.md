@@ -13,7 +13,7 @@ invitation, and then links a terminal.
 Requires Node 22. Run these commands from the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.5/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.6/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -23,17 +23,18 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.5/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.6/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app, asks the teammate to choose **Apero Company
-Brain**, and links an individual 90-day credential. It writes key-free local
-project descriptors for Codex, Claude Code, Claude Cowork, HTTP MCP, and the Ask
-Apero skill. Repository policy intentionally keeps those generated runtime files
-out of Git; setup verifies or merges them in each teammate's chosen project and
-stores the credential outside Git. If no browser opens, copy the fallback URL
-printed in the terminal. Restart the agent after setup so it loads the new
-configuration.
+Brain**, and links an individual 90-day credential. It writes key-free project
+descriptors for Codex, Claude Code, Claude Cowork, HTTP MCP, and the Ask Apero
+skill. These descriptors are safe to review and share with that project; the
+credential itself stays outside Git in the user's local Maestro Brain config.
+Setup merges supported shared config files and upgrades older CLI-managed Ask
+Apero skills without overwriting an unrecognized custom skill. If no browser
+opens, copy the fallback URL printed in the terminal. Restart the agent after
+setup so it loads the new configuration.
 
 The linked API key stays in the user's local Maestro Brain config; it is not
 committed to the repository. `maestro-brain run -- codex` (or `-- claude`)
@@ -131,7 +132,8 @@ Teammates with write access to the repository can use the direct path:
 ```bash
 gh repo clone modernagencysales/maestro-brain
 cd maestro-brain
-pnpm install --frozen-lockfile
+node scripts/maestro-bootstrap.mjs
+corepack pnpm@10.12.1 install --frozen-lockfile
 git switch -c fix/short-description
 git push -u origin fix/short-description
 gh pr create --base main
@@ -142,7 +144,8 @@ Teammates without write access should fork first:
 ```bash
 gh repo fork modernagencysales/maestro-brain --clone
 cd maestro-brain
-pnpm install --frozen-lockfile
+node scripts/maestro-bootstrap.mjs
+corepack pnpm@10.12.1 install --frozen-lockfile
 git switch -c fix/short-description
 git push -u origin fix/short-description
 gh pr create \
@@ -155,3 +158,11 @@ The bug bundle is allowlisted and omits the API key. Attach it to an issue, or
 make the change and run the focused tests plus `pnpm acceptance:required` before
 pushing. Use a full clone; shallow clones do not contain the ancestry needed by
 the acceptance gate.
+
+To open an issue directly from the terminal:
+
+```bash
+gh issue create --repo modernagencysales/maestro-brain \
+  --title "bug: short description" \
+  --body-file maestro-brain-bug.json
+```

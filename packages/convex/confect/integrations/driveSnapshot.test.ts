@@ -91,7 +91,7 @@ describe("Google Drive evidence normalization", () => {
     expect(first.capacityStates).toEqual([]);
   });
 
-  it("publishes an explicit metadata state for one oversized paragraph and continues", () => {
+  it("records oversized content without publishing it as retrievable evidence", () => {
     const oversized = "x".repeat(DRIVE_SEGMENT_MAX_CHARACTERS + 1);
     const healthy = observation("A healthy second file.", {
       sourceKey: "google_drive:file:file-2",
@@ -113,33 +113,14 @@ describe("Google Drive evidence normalization", () => {
         state: "oversized_paragraph",
       },
     ]);
-    expect(result.items).toHaveLength(2);
-    expect(result.items[0]?.markdown).toBe("");
-    expect(result.items[0]?.title).toContain(
-      "Content exceeds safe ingestion bounds",
-    );
-    expect(
-      JSON.parse(result.items[0]?.providerMetadataJson ?? "{}"),
-    ).toMatchObject({
-      contentStatus: "capacity_exceeded",
-      capacityState: "oversized_paragraph",
-    });
-    expect(result.items[1]?.markdown).toBe("A healthy second file.");
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.markdown).toBe("A healthy second file.");
   });
 
-  it("keeps binary-only files metadata-only without presenting extracted text", () => {
+  it("counts binary-only files without making their titles retrievable", () => {
     const result = build([observation(null)]);
     expect(result.metadataOnlyCount).toBe(1);
-    expect(result.items[0]?.markdown).toBe("");
-    expect(result.items[0]?.title).toBe(
-      "Drive · Pilot handbook · Metadata only",
-    );
-    expect(
-      JSON.parse(result.items[0]?.providerMetadataJson ?? "{}"),
-    ).toMatchObject({
-      contentStatus: "metadata_only",
-      documentBodyHash: null,
-    });
+    expect(result.items).toEqual([]);
   });
 
   it("changes the revision but not the segment source identity after an edit", () => {

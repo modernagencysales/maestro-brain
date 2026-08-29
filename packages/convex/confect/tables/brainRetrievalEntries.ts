@@ -6,6 +6,7 @@ import { BrainEvidenceProvider } from "./brainEvidenceSources";
 export const BrainRetrievalEntryRow = S.Struct({
   workspaceId: Id("workspaces"),
   provider: BrainEvidenceProvider,
+  scopeKey: S.optional(S.String),
   entryKey: S.String,
   sourceKey: S.String,
   revisionKey: S.String,
@@ -49,9 +50,71 @@ export default Table.make(() => BrainRetrievalEntryRow)
     "sourceKey",
     "status",
   ])
+  .index("by_workspace_and_scope_source_status", [
+    "workspaceId",
+    "scopeKey",
+    "sourceKey",
+    "status",
+  ])
+  .index("by_workspace_provider_scope_status", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "status",
+  ])
+  .index("by_workspace_provider_scope_source_status", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "sourceKey",
+    "status",
+  ])
   .index("by_workspace_and_provider_and_status", [
     "workspaceId",
     "provider",
     "status",
+  ])
+  .index("by_workspace_provider_scope_status_semantic_status", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "status",
+    "semanticStatus",
+  ])
+  .index("by_workspace_provider_status_semantic_status", [
+    "workspaceId",
+    "provider",
+    "status",
+    "semanticStatus",
+  ])
+  .index("by_workspace_provider_scope_status_semantic_status_policy", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "status",
+    "semanticStatus",
+    "semanticPolicyVersion",
+  ])
+  .index("by_workspace_provider_status_semantic_status_policy", [
+    "workspaceId",
+    "provider",
+    "status",
+    "semanticStatus",
+    "semanticPolicyVersion",
+  ])
+  .index("by_workspace_provider_scope_status_semantic_status_started_at", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "status",
+    "semanticStatus",
+    "semanticStartedAt",
+  ])
+  .index("by_workspace_provider_status_semantic_status_started_at", [
+    "workspaceId",
+    "provider",
+    "status",
+    "semanticStatus",
+    "semanticStartedAt",
   ])
   .index("by_workspace_and_semantic_status", ["workspaceId", "semanticStatus"]);

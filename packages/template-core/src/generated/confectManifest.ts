@@ -943,6 +943,69 @@ const sharedConfectJsonSchemasValue5 = {
         },
       ],
     },
+    slackLookbackDays: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    evidenceScopeKey: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    pendingEvidenceScopeKey: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    pendingSyncAttemptKey: {
+      anyOf: [
+        {
+          type: "string",
+          allOf: [
+            {
+              minLength: 1,
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
     googleDriveId: {
       anyOf: [
         {
@@ -2891,6 +2954,69 @@ const sharedConfectJsonSchemas = {
             },
           ],
         },
+        slackLookbackDays: {
+          anyOf: [
+            {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        evidenceScopeKey: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        pendingEvidenceScopeKey: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        pendingSyncAttemptKey: {
+          anyOf: [
+            {
+              type: "string",
+              allOf: [
+                {
+                  minLength: 1,
+                },
+              ],
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
         googleDriveId: {
           anyOf: [
             {
@@ -3265,6 +3391,8 @@ const sharedConfectJsonSchemas = {
                 "brainEvaluationExamples",
                 "brainEvidenceRevisions",
                 "brainEvidenceSources",
+                "brainExtractionScopeStats",
+                "brainExtractionUsage",
                 "brainKnowledgeCandidates",
                 "brainPages",
                 "brainRetrievalEntries",
@@ -3342,6 +3470,8 @@ const sharedConfectJsonSchemas = {
                 "brainEvaluationExamples",
                 "brainEvidenceRevisions",
                 "brainEvidenceSources",
+                "brainExtractionScopeStats",
+                "brainExtractionUsage",
                 "brainKnowledgeCandidates",
                 "brainPages",
                 "brainRetrievalEntries",
@@ -3569,6 +3699,8 @@ const sharedConfectJsonSchemas = {
                       "brainEvaluationExamples",
                       "brainEvidenceRevisions",
                       "brainEvidenceSources",
+                      "brainExtractionScopeStats",
+                      "brainExtractionUsage",
                       "brainKnowledgeCandidates",
                       "brainPages",
                       "brainRetrievalEntries",
@@ -3646,6 +3778,8 @@ const sharedConfectJsonSchemas = {
                       "brainEvaluationExamples",
                       "brainEvidenceRevisions",
                       "brainEvidenceSources",
+                      "brainExtractionScopeStats",
+                      "brainExtractionUsage",
                       "brainKnowledgeCandidates",
                       "brainPages",
                       "brainRetrievalEntries",

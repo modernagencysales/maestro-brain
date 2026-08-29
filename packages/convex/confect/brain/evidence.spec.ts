@@ -188,7 +188,22 @@ const completeRun = FunctionSpec.internalMutation({
       publishedCount: S.Number,
       retiredCount: S.Number,
       completedAt: S.Number,
+      complete: S.Boolean,
     }),
+  error: () => S.Union([ValidationFailed, NotFound]),
+});
+
+const retireInactiveProviderScopes = FunctionSpec.internalMutation({
+  name: "retireInactiveProviderScopes",
+  args: () =>
+    S.Struct({
+      workspaceId: Id("workspaces"),
+      provider: BrainEvidenceProvider,
+      activeScopeKey: S.String,
+      connectionGeneration: S.Number,
+      observedAt: S.Number,
+    }),
+  returns: () => S.Struct({ retiredCount: S.Number, complete: S.Boolean }),
   error: () => S.Union([ValidationFailed, NotFound]),
 });
 
@@ -298,6 +313,7 @@ export default GroupSpec.make()
   .addFunction(beginRun)
   .addFunction(publishRunItem)
   .addFunction(completeRun)
+  .addFunction(retireInactiveProviderScopes)
   .addFunction(failRun)
   .addFunction(failActiveScopeRun)
   .addFunction(publishPage);

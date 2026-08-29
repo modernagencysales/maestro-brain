@@ -9,6 +9,30 @@
 
 ## 2026-08-29 local readiness update
 
+### Release hardening after cold review
+
+The subsequent release audit found and fixed four data-flow defects before
+teammate rollout: Drive metadata-only and capacity-exceeded objects are no
+longer projected as searchable evidence; every recent-evidence search result is
+reopened against its immutable revision and current source before inclusion;
+completed connector traversals retire prior provider scopes; and reviewed claims
+now use the same grounded stop-word and coverage threshold as evidence
+retrieval. The live 101-source Slack corpus also exposed an extraction admission
+bound of 100; the bound now matches the declared 1,000-source connector ceiling
+and is covered by a 101-source regression test.
+
+Terminal release `0.1.6` adds safe upgrades for older CLI-managed Ask Apero
+skills, moves the skill onto canonical `brain.ask` ContextPack V4, renders a
+concise cited answer by default with `--json` retaining the wire response,
+distinguishes common failure classes by exit code, and rejects an oversized
+active review request locally instead of surfacing a generic MCP error. The
+Brain source rail groups and filters synced evidence and bounds the initially
+visible Slack list.
+
+These changes are repository-side evidence until their exact head is deployed.
+Google Drive activation, a fresh teammate acceptance receipt, and the elapsed
+replacement pilot remain open human/live gates.
+
 The core V4 engineering pass is locally implemented, but the V1 definition of
 done remains open. Three independent cold reviews agreed that the repository
 must not be called pilot-complete without real Slack/Drive evidence, a frozen
