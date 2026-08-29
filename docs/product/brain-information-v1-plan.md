@@ -1,7 +1,7 @@
 # Maestro Brain Information V1
 
-**Status:** core engineering and local release validation complete; deployment,
-Drive activation, evaluation, and live pilot pending
+**Status:** core engineering deployed; Drive activation, evaluation, teammate
+receipts, and live pilot pending
 
 **Date:** 2026-08-29
 
@@ -45,21 +45,18 @@ open, and the local gaps listed below must stay visible until proven.
   exact evidence revision without leaving the terminal.
 - The real-data manifest remains intentionally empty. Quality/replacement gates
   accrue during the Apero pilot and do not block implementation.
-- Deployment still requires a read-only live-row check and explicit approval.
-  Legacy claim/citation `workspaceId` validators remain string-compatible, so
-  the additive schema does not require a zero-row assumption.
+- Release `brain-cli-v0.1.7` and the matching application are live on staging.
+  The CLI, Codex, and HTTP MCP reopen the same immutable ContextPack evidence;
+  Claude/Cowork parity still requires a human Claude login.
 
-Commit `25bea20a` closes the local rollout/fallback, newer-evidence conflict,
-bounded ranking/corroboration, retry accounting, temporal review, narrow Slack
-scope, onboarding, and focused failure/isolation work. Its release evidence is
-710/710 Convex tests, 9/9 required runtime acceptance scenarios, clean
-typecheck/build/generated-contract gates, and lint with zero errors. Live Slack
-activation now exists on the older staging release, but the staging catalog does
-not yet contain `brain.ask` V4 or the knowledge extraction/review tools. Open
-gates are deploying the exact local commit, selected Drive activation, real
-lifecycle and cross-runtime V4 receipts, the frozen holdout, and the
-two-to-four-week Apero replacement pilot. None may be relabeled complete from
-fixtures.
+Merge `5cb47dca` shipped the V4 application and CLI `0.1.7` to staging. The
+release passed 39/39 CLI tests, 141/141 web tests, 9/9 required runtime
+acceptance scenarios, Woodpecker firewall/core/coverage/final checks, QLTY, and
+artifact secret scanning. A real Codex runtime returned the same pack hash and
+ordered citation identities as the CLI for the same Apero Slack question. Open
+gates are selected Drive activation, real provider edit/removal timing, a real
+teammate and Claude/Cowork receipt, the frozen holdout, and the two-to-four-week
+Apero replacement pilot. None may be relabeled complete from fixtures.
 
 ## 1. Decision
 

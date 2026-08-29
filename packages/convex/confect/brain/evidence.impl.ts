@@ -33,6 +33,7 @@ import {
   providerScopeIsReadable,
   readableProviderScopeKey,
 } from "./evidenceEligibility";
+import { evidenceExcerpt } from "./evidenceExcerpt";
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const HEALTH_COUNT_LIMIT = 1_000;
 const RECONCILIATION_RETIRE_BATCH = 50;
@@ -75,29 +76,6 @@ const freshness = (sourceModifiedAt: number, now: number) => {
     : age <= 90 * DAY_MS
       ? ("review-due" as const)
       : ("stale" as const);
-};
-
-const excerpt = (
-  markdown: string,
-  queryTokens: readonly string[],
-  passageStartOffset = 0,
-  passageEndOffset = markdown.length,
-) => {
-  const passage = markdown.slice(passageStartOffset, passageEndOffset);
-  const normalized = passage.toLowerCase();
-  const first = queryTokens.reduce((best, token) => {
-    const found = normalized.indexOf(token);
-    return found < 0 ? best : Math.min(best, found);
-  }, Number.POSITIVE_INFINITY);
-  const startOffset =
-    passageStartOffset +
-    Math.max(0, (Number.isFinite(first) ? first : 0) - 120);
-  const endOffset = Math.min(passageEndOffset, startOffset + 640);
-  return {
-    excerpt: markdown.slice(startOffset, endOffset),
-    startOffset,
-    endOffset,
-  };
 };
 
 const requireRun = (workspaceId: GenericId<"workspaces">, runKey: string) =>
@@ -192,6 +170,40 @@ export const loadReadableEvidenceRevisions = (input: {
     return byProvider.flat();
   });
 
+const loadProviderTokenRows = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly provider: (typeof EVIDENCE_PROVIDERS)[number];
+  readonly scopeKey: string | undefined | null;
+  readonly token: string;
+}) =>
+  Effect.gen(function* () {
+    const scopeKey = input.scopeKey;
+    if (scopeKey === null) return [];
+    const reader = yield* DatabaseReader;
+    return scopeKey === undefined
+      ? yield* reader
+          .table("brainRetrievalTokens")
+          .index("by_workspace_provider_token", (q) =>
+            q
+              .eq("workspaceId", input.workspaceId)
+              .eq("provider", input.provider)
+              .eq("token", input.token),
+          )
+          .take(MAX_SEARCH_POSTINGS_PER_PROVIDER_TOKEN)
+          .pipe(Effect.orDie)
+      : yield* reader
+          .table("brainRetrievalTokens")
+          .index("by_workspace_provider_scope_token", (q) =>
+            q
+              .eq("workspaceId", input.workspaceId)
+              .eq("provider", input.provider)
+              .eq("scopeKey", scopeKey)
+              .eq("token", input.token),
+          )
+          .take(MAX_SEARCH_POSTINGS_PER_PROVIDER_TOKEN)
+          .pipe(Effect.orDie);
+  });
+
 const searchEvidence = (input: {
   readonly workspaceId: GenericId<"workspaces">;
   readonly query: string;
@@ -222,33 +234,11 @@ const searchEvidence = (input: {
       const scopedByProvider = yield* Effect.forEach(
         EVIDENCE_PROVIDERS,
         (provider) =>
-          Effect.gen(function* () {
-            const scopeKey = readableProviderScopeKey(scopePolicy, provider);
-            if (scopeKey === null) return [];
-            const rows =
-              scopeKey === undefined
-                ? yield* reader
-                    .table("brainRetrievalTokens")
-                    .index("by_workspace_provider_token", (q) =>
-                      q
-                        .eq("workspaceId", input.workspaceId)
-                        .eq("provider", provider)
-                        .eq("token", token),
-                    )
-                    .take(MAX_SEARCH_POSTINGS_PER_PROVIDER_TOKEN)
-                    .pipe(Effect.orDie)
-                : yield* reader
-                    .table("brainRetrievalTokens")
-                    .index("by_workspace_provider_scope_token", (q) =>
-                      q
-                        .eq("workspaceId", input.workspaceId)
-                        .eq("provider", provider)
-                        .eq("scopeKey", scopeKey)
-                        .eq("token", token),
-                    )
-                    .take(MAX_SEARCH_POSTINGS_PER_PROVIDER_TOKEN)
-                    .pipe(Effect.orDie);
-            return rows;
+          loadProviderTokenRows({
+            workspaceId: input.workspaceId,
+            provider,
+            scopeKey: readableProviderScopeKey(scopePolicy, provider),
+            token,
           }),
         { concurrency: 1 },
       );
@@ -382,18 +372,20 @@ const searchEvidence = (input: {
         source.scopeKey !== revision.scopeKey
       )
         continue;
+      const selectedExcerpt = evidenceExcerpt(
+        entry.markdown,
+        queryTokens,
+        candidate.passageStartOffset,
+        Math.min(candidate.passageEndOffset, entry.markdown.length),
+      );
+      if (selectedExcerpt.excerpt.trim().length === 0) continue;
       citations.push({
         entryKey: entry.entryKey,
         sourceKey: entry.sourceKey,
         revisionKey: entry.revisionKey,
         provider: entry.provider,
         title: entry.title,
-        ...excerpt(
-          entry.markdown,
-          queryTokens,
-          candidate.passageStartOffset,
-          Math.min(candidate.passageEndOffset, entry.markdown.length),
-        ),
+        ...selectedExcerpt,
         contentHash: entry.contentHash,
         bodyIdentity: `sha256:${sha256Hex(
           entry.markdown
