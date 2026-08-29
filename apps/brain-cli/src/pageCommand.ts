@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
-import { failure, success, type CliResult } from "./api.js";
+import { failure, type CliResult } from "./api.js";
+import { compactMarkdownRows } from "./compactMarkdownRows.js";
 import { option, request, type CliDependencies } from "./runtime.js";
 
 export const markdownTitle = (path: string, markdown: string): string =>
@@ -18,27 +19,6 @@ export const slugFor = (value: string): string =>
     .slice(0, 80) || "page";
 
 type MarkdownFile = { readonly path: string; readonly markdown: string };
-
-const compactMarkdownRows = (result: CliResult): CliResult => {
-  if (result.exitCode !== 0) return result;
-  try {
-    const body = JSON.parse(result.stdout) as { result?: unknown };
-    if (!Array.isArray(body.result)) return result;
-    const pages = body.result.map((page) => {
-      if (page === null || typeof page !== "object") return page;
-      const { markdown, ...metadata } = page as Record<string, unknown>;
-      return {
-        ...metadata,
-        ...(typeof markdown === "string"
-          ? { markdownBytes: Buffer.byteLength(markdown, "utf8") }
-          : {}),
-      };
-    });
-    return success({ ...body, result: pages });
-  } catch {
-    return result;
-  }
-};
 
 const markdownFile = (path: string | undefined): MarkdownFile | CliResult => {
   if (!path || extname(path).toLowerCase() !== ".md")
@@ -113,20 +93,26 @@ const history = async (
 ): Promise<CliResult> => {
   const pageId = argv[2]?.trim();
   if (!pageId) return failure("page history requires a page id.");
-  const rawLimit = option(argv, "--limit");
-  if (argv.includes("--limit") && rawLimit === undefined)
-    return failure("--limit requires a value between 1 and 100.");
-  const limit = rawLimit === undefined ? undefined : Number(rawLimit);
-  if (
-    limit !== undefined &&
-    (!Number.isInteger(limit) || limit < 1 || limit > 100)
-  )
-    return failure("--limit must be an integer between 1 and 100.");
+  const limit = historyLimit(argv);
+  if (typeof limit === "object") return limit;
   const result = await request(dependencies, {
     operationId: "brain.pages.history",
     input: { pageId, ...(limit === undefined ? {} : { limit }) },
   });
   return argv.includes("--full") ? result : compactMarkdownRows(result);
+};
+
+const historyLimit = (
+  argv: readonly string[],
+): number | undefined | CliResult => {
+  if (!argv.includes("--limit")) return undefined;
+  const value = option(argv, "--limit");
+  if (value === undefined)
+    return failure("--limit requires a value between 1 and 100.");
+  const limit = Number(value);
+  return Number.isInteger(limit) && limit >= 1 && limit <= 100
+    ? limit
+    : failure("--limit must be an integer between 1 and 100.");
 };
 
 export const pageCommand = async (
