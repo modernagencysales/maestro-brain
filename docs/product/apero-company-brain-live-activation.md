@@ -173,7 +173,8 @@ automation debt rather than being represented as green CI.
 ## Remaining Apero-owner actions
 
 1. Invite the real one-to-two-person pilot cohort from `Settings -> Members`.
-2. Connect the approved Slack workspace and select the initial channel cohort.
+2. Confirm the connected Slack channel is the approved narrow pilot scope and
+   name its connector owner.
 3. Select the approved Shared Drive and root folders, then run the first full
    sync.
 4. Confirm HubSpot is the intended structured source and select the minimum
@@ -186,3 +187,30 @@ automation debt rather than being represented as green CI.
 
 Monday, DocuSign, Gmail, Notion, semantic retrieval, and provider writes remain
 post-pilot additions unless the real evaluation set proves one is required.
+
+## 2026-08-29 Slack activation and local V4 readiness receipt
+
+Read-only checks against the linked `apero` workspace now show a successful
+Nango-backed Slack activation:
+
+- 101 active Slack sources and 101 current retrieval entries;
+- completed run `slack:1:1787983361369` and successful reconciliation at
+  `1787983364458`;
+- provider coverage `current-index-covers-active-sources` and capacity
+  `within-bounds`;
+- a lexical Slack result reopened exactly as source
+  `slack:C0BLX1GL89L:message:1787687788.929559`, revision `1787687788.929559`,
+  content hash
+  `2c14e996768503687fc0e5b1c09cfa4e0b5050ac0fc425763980568c54ddcc68`;
+- the reopened body length was 128 characters and the revision was not a
+  tombstone. The body is deliberately omitted from Git.
+
+Google Drive, HubSpot, and transcript coverage remain empty. The staging MCP
+still advertises the legacy nine tools and does not expose `template.brain.ask`
+or the extraction/review tools in local commit `25bea20a`; a new deployment is
+therefore required before V4 cross-runtime parity can be measured.
+
+Local commit `25bea20a` passed 710/710 Convex tests, 9/9 required runtime
+acceptance scenarios, typecheck, production build, generated-file/manifest and
+headless-contract checks, and lint with zero errors. It has not been pushed or
+deployed from this workspace.

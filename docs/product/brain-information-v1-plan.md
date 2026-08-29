@@ -1,7 +1,7 @@
 # Maestro Brain Information V1
 
-**Status:** core engineering implemented; local release validation and live
-pilot pending
+**Status:** core engineering and local release validation complete; deployment,
+Drive activation, evaluation, and live pilot pending
 
 **Date:** 2026-08-29
 
@@ -49,12 +49,17 @@ open, and the local gaps listed below must stay visible until proven.
   Legacy claim/citation `workspaceId` validators remain string-compatible, so
   the additive schema does not require a zero-row assumption.
 
-Open local release items after this audit are the workspace rollout/fallback
-decision, reviewed-claim versus newer-evidence conflict projection, ranking and
-cross-provider duplicate tuning against real questions, and the remaining
-focused failure/isolation tests. Open external gates are real Slack/Drive
-activation, the frozen holdout, cross-runtime live receipts, and the two-to-four
-week Apero replacement pilot. None may be relabeled complete from fixtures.
+Commit `25bea20a` closes the local rollout/fallback, newer-evidence conflict,
+bounded ranking/corroboration, retry accounting, temporal review, narrow Slack
+scope, onboarding, and focused failure/isolation work. Its release evidence is
+710/710 Convex tests, 9/9 required runtime acceptance scenarios, clean
+typecheck/build/generated-contract gates, and lint with zero errors. Live Slack
+activation now exists on the older staging release, but the staging catalog does
+not yet contain `brain.ask` V4 or the knowledge extraction/review tools. Open
+gates are deploying the exact local commit, selected Drive activation, real
+lifecycle and cross-runtime V4 receipts, the frozen holdout, and the
+two-to-four-week Apero replacement pilot. None may be relabeled complete from
+fixtures.
 
 ## 1. Decision
 
