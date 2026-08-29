@@ -28,6 +28,7 @@ export const EvidenceCitation = S.Struct({
   startOffset: S.Number,
   endOffset: S.Number,
   contentHash: S.String,
+  bodyIdentity: S.String,
   locator: S.optional(S.String),
   sourceModifiedAt: S.Number,
   observedAt: S.Number,

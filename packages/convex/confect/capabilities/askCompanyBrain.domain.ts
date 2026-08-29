@@ -1,9 +1,11 @@
 import { sha256Hex } from "../shared/sha256";
 
-export const CONTEXT_PACK_POLICY_VERSION = "brain-context-v1";
+export const CONTEXT_PACK_POLICY_VERSION = "brain-context-v2";
 export const MAX_CONTEXT_CITATIONS = 10;
 
 export type BrainPackFreshness = "current" | "review-due" | "stale" | "unknown";
+export type BrainEvidenceProvider =
+  "slack" | "google_drive" | "hubspot" | "brain_page" | "transcript";
 
 const tokens = (value: string): readonly string[] => [
   ...new Set(
@@ -22,6 +24,45 @@ export const lexicalScore = (question: string, text: string): number => {
   );
 };
 
+export const normalizedEvidenceBody = (value: string): string =>
+  value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, " ")
+    .trim()
+    .replace(/\s+/gu, " ");
+
+export const sourceAuthorityWeight = (
+  provider: BrainEvidenceProvider,
+): number =>
+  provider === "brain_page" ? 3 : provider === "google_drive" ? 2 : 1;
+
+export const freshnessWeight = (freshness: BrainPackFreshness): number =>
+  freshness === "current" ? 2 : freshness === "review-due" ? 1 : 0;
+
+export const probableEvidenceConflict = (
+  reviewedClaim: string,
+  newerEvidence: string,
+): boolean => {
+  const claim = normalizedEvidenceBody(reviewedClaim);
+  const evidence = normalizedEvidenceBody(newerEvidence);
+  const sharedTerms = tokens(claim).filter((token) =>
+    new Set(tokens(evidence)).has(token),
+  );
+  if (sharedTerms.length < 2) return false;
+  const claimNumbers = new Set(claim.match(/\b\d+(?:\.\d+)?\b/gu) ?? []);
+  const evidenceNumbers = new Set(evidence.match(/\b\d+(?:\.\d+)?\b/gu) ?? []);
+  if (
+    claimNumbers.size > 0 &&
+    evidenceNumbers.size > 0 &&
+    [...claimNumbers].some((value) => !evidenceNumbers.has(value))
+  )
+    return true;
+  const negated = (value: string) =>
+    /\b(?:no|not|never|without)\b/u.test(value);
+  return negated(claim) !== negated(evidence);
+};
+
 export const claimFreshness = (
   nextReviewAt: number | undefined,
   asOf: number,
@@ -37,7 +78,9 @@ export const claimFreshness = (
 export const canonicalContextPackHash = (pack: {
   readonly schemaVersion: "4";
   readonly policyVersion: string;
+  readonly requestedEvidenceMode: "recent_evidence" | "company_truth" | "mixed";
   readonly evidenceMode: "recent_evidence" | "company_truth" | "mixed";
+  readonly fallbackReason?: "context-v4-disabled" | undefined;
   readonly workspaceId: string;
   readonly question: string;
   readonly asOf: number;
@@ -50,7 +93,11 @@ export const canonicalContextPackHash = (pack: {
   const contentIdentity = {
     schemaVersion: pack.schemaVersion,
     policyVersion: pack.policyVersion,
+    requestedEvidenceMode: pack.requestedEvidenceMode,
     evidenceMode: pack.evidenceMode,
+    ...(pack.fallbackReason === undefined
+      ? {}
+      : { fallbackReason: pack.fallbackReason }),
     workspaceId: pack.workspaceId,
     question: pack.question,
     freshness: pack.freshness,

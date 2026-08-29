@@ -51,6 +51,14 @@ const defaultFeatureFlagPolicies = [
     audience: "internal",
     killSwitchEnv: "LLM_DISABLED",
   },
+  {
+    key: "template.brain.contextV4",
+    description:
+      "ContextPack V4 retrieval with deterministic recent-evidence fallback.",
+    enabled: true,
+    rolloutPercent: 100,
+    audience: "everyone",
+  },
 ] as const satisfies readonly FeatureFlagPolicySeed[];
 
 const unsafeAssumeClockProvided = <A, E, R>(
@@ -181,7 +189,8 @@ type FeatureFlagPolicySeed = {
     | "template.workflow.liveRuns"
     | "template.billing.liveCheckout"
     | "template.notifications.center"
-    | "template.ai.liveGeneration";
+    | "template.ai.liveGeneration"
+    | "template.brain.contextV4";
   readonly description: string;
   readonly enabled: boolean;
   readonly rolloutPercent: number;

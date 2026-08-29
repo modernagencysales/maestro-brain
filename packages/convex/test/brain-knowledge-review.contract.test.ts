@@ -149,6 +149,23 @@ describe("Brain knowledge review contract", () => {
           asOf: now,
         },
       );
+      yield* confect.mutation(refs.internal.ops.flags.upsertPolicyInternal, {
+        workspaceId: seeded.workspaceId,
+        key: "template.brain.contextV4",
+        description: "Disable reviewed-truth retrieval for fallback test.",
+        enabled: false,
+        rolloutPercent: 0,
+        audience: "workspace",
+      });
+      const fallback = yield* actor.query(
+        refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+        {
+          workspaceId: seeded.workspaceId,
+          question: "What does the advisory pilot cost?",
+          evidenceMode: "company_truth",
+          asOf: now,
+        },
+      );
       const updatedPage = yield* actor.query(refs.public.brain.pages.get, {
         workspaceId: seeded.workspaceId,
         pageId,
@@ -179,7 +196,7 @@ describe("Brain knowledge review contract", () => {
         }),
         Schema.String,
       );
-      return { queued, queue, accepted, replayed, answer, ledger };
+      return { queued, queue, accepted, replayed, answer, fallback, ledger };
     });
 
     const result = await Effect.runPromise(
@@ -220,6 +237,15 @@ describe("Brain knowledge review contract", () => {
         evidenceMode: "company_truth",
         claims: [{ body: "The advisory pilot costs $5,000 per month." }],
         freshness: "review-due",
+      },
+    });
+    expect(result.fallback).toMatchObject({
+      status: "answered",
+      contextPack: {
+        requestedEvidenceMode: "company_truth",
+        evidenceMode: "recent_evidence",
+        fallbackReason: "context-v4-disabled",
+        claims: [],
       },
     });
   }, 15_000);

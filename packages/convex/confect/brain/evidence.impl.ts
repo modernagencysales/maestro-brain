@@ -11,6 +11,7 @@ import {
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
+import { sha256Hex } from "../shared/sha256";
 import evidence from "./evidence.spec";
 import {
   evidenceContentHash,
@@ -248,6 +249,14 @@ const searchEvidence = (input: {
           Math.min(candidate.passageEndOffset, entry.markdown.length),
         ),
         contentHash: entry.contentHash,
+        bodyIdentity: `sha256:${sha256Hex(
+          entry.markdown
+            .normalize("NFKC")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/gu, " ")
+            .trim()
+            .replace(/\s+/gu, " "),
+        )}`,
         ...(entry.locator === undefined ? {} : { locator: entry.locator }),
         sourceModifiedAt: entry.sourceModifiedAt,
         observedAt: entry.observedAt,

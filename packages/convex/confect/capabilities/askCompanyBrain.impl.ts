@@ -16,8 +16,12 @@ import {
   canonicalContextPackHash,
   claimFreshness,
   CONTEXT_PACK_POLICY_VERSION,
+  freshnessWeight,
   lexicalScore,
   MAX_CONTEXT_CITATIONS,
+  normalizedEvidenceBody,
+  probableEvidenceConflict,
+  sourceAuthorityWeight,
   type BrainPackFreshness,
 } from "./askCompanyBrain.domain";
 import group from "./askCompanyBrain.spec";
@@ -37,6 +41,34 @@ type AskInput = {
   readonly asOf?: number | undefined;
   readonly riskLevel?: "ordinary" | "high" | undefined;
 };
+
+const rolloutBucket = (input: string): number => {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1)
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
+  return hash % 100;
+};
+
+const contextV4Enabled = (workspaceId: GenericId<"workspaces">) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const override = yield* reader
+      .table("featureFlagPolicies")
+      .index("by_workspace_key", (q) =>
+        q.eq("workspaceId", workspaceId).eq("key", "template.brain.contextV4"),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    if (override.length === 0) return true;
+    if (override.length !== 1) return false;
+    const [policy] = override;
+    if (policy === undefined) return false;
+    return (
+      policy.enabled &&
+      rolloutBucket(`${policy.key}:${workspaceId}`) <
+        Math.max(0, Math.min(100, Math.trunc(policy.rolloutPercent)))
+    );
+  });
 
 const reopenCitationRevision = (input: {
   readonly workspaceId: GenericId<"workspaces">;
@@ -125,7 +157,15 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     const asOf = input.asOf ?? (yield* withClock(Clock.currentTimeMillis));
     if (!Number.isFinite(asOf) || asOf < 0)
       return yield* invalid("asOf", "asOf must be a non-negative timestamp.");
-    const evidenceMode = input.evidenceMode ?? "mixed";
+    const requestedEvidenceMode = input.evidenceMode ?? "mixed";
+    const v4Enabled = yield* contextV4Enabled(input.workspaceId);
+    const evidenceMode = v4Enabled
+      ? requestedEvidenceMode
+      : ("recent_evidence" as const);
+    const fallbackReason =
+      !v4Enabled && requestedEvidenceMode !== "recent_evidence"
+        ? ("context-v4-disabled" as const)
+        : undefined;
     const includeTruth = evidenceMode !== "recent_evidence";
     const includeRecent = evidenceMode !== "company_truth";
     const reader = yield* DatabaseReader;
@@ -152,6 +192,9 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
         .take(MAX_SUPPORTED_CLAIMS + 1)
         .pipe(Effect.orDie);
       if (supported.length > MAX_SUPPORTED_CLAIMS) omit("capacity");
+      const truthLimit = includeRecent
+        ? Math.max(0, maxCitations - 1)
+        : maxCitations;
       const ranked = supported
         .slice(0, MAX_SUPPORTED_CLAIMS)
         .map((claim) => ({
@@ -167,7 +210,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
             right.score - left.score ||
             left.claim.claimId.localeCompare(right.claim.claimId),
         )
-        .slice(0, maxCitations);
+        .slice(0, truthLimit);
       omit("not-relevant", Math.max(0, supported.length - ranked.length));
       for (const { claim } of ranked) {
         if (
@@ -228,11 +271,17 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
             ? ("review-due" as const)
             : horizonFreshness;
         const citationKey = citation.citationId;
+        const claimTags = [...(claim.tags ?? [])];
+        const claimRelevance = lexicalScore(
+          question,
+          `${claim.body} ${claimTags.join(" ")}`,
+        );
+        const claimTagMatch = lexicalScore(question, claimTags.join(" "));
         claims.push({
           claimId: claim._id,
           body: claim.body,
           epistemics: claim.epistemics,
-          tags: [...(claim.tags ?? [])],
+          tags: claimTags,
           verifiedAt: claim.verifiedAt,
           nextReviewAt: claim.nextReviewAt,
           freshness,
@@ -259,10 +308,25 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
           sourceModifiedAt: reopened.revision.sourceModifiedAt,
           observedAt: reopened.revision.observedAt,
           freshness: freshness === "unknown" ? ("stale" as const) : freshness,
+          ranking: {
+            relevance: claimRelevance,
+            reviewState: 3,
+            sourceAuthority: sourceAuthorityWeight(reopened.revision.provider),
+            freshness: freshnessWeight(freshness),
+            tagMatch: claimTagMatch,
+            corroboration: 0,
+            total:
+              claimRelevance * 10 +
+              3 * 3 +
+              sourceAuthorityWeight(reopened.revision.provider) * 2 +
+              freshnessWeight(freshness) * 2 +
+              claimTagMatch * 2,
+          },
         });
       }
     }
 
+    const recentCitations = [];
     if (includeRecent || includeTruth) {
       const recent = yield* searchEvidence({
         workspaceId: input.workspaceId,
@@ -271,17 +335,63 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
         asOf,
         relevanceMode: "grounded",
       });
-      for (const item of recent) {
+      const rankedRecent = recent
+        .map((item) => {
+          const relevance = lexicalScore(
+            question,
+            `${item.title} ${item.excerpt}`,
+          );
+          const sourceAuthority = sourceAuthorityWeight(item.provider);
+          const freshness = freshnessWeight(item.freshness);
+          const corroboration = Math.max(
+            0,
+            recent.filter(
+              (other) =>
+                other.sourceKey !== item.sourceKey &&
+                normalizedEvidenceBody(other.excerpt) ===
+                  normalizedEvidenceBody(item.excerpt),
+            ).length,
+          );
+          const ranking = {
+            relevance,
+            reviewState: item.provider === "brain_page" ? 1 : 0,
+            sourceAuthority,
+            freshness,
+            tagMatch: 0,
+            corroboration,
+            total:
+              relevance * 10 +
+              (item.provider === "brain_page" ? 3 : 0) +
+              sourceAuthority * 2 +
+              freshness * 2 +
+              corroboration,
+          };
+          return { item, ranking };
+        })
+        .sort(
+          (left, right) =>
+            right.ranking.total - left.ranking.total ||
+            left.item.sourceKey.localeCompare(right.item.sourceKey),
+        );
+      for (const { item, ranking } of rankedRecent) {
         if (!includeRecent && item.provider !== "brain_page") continue;
-        const duplicate = citations.some(
-          (citation) =>
+        const duplicate = citations.some((citation) => {
+          const exactRange =
             citation.sourceKey === item.sourceKey &&
             citation.revisionKey === item.revisionKey &&
             citation.startOffset === item.startOffset &&
-            citation.endOffset === item.endOffset,
-        );
+            citation.endOffset === item.endOffset;
+          const pageDrivePair =
+            [citation.provider, item.provider].every((provider) =>
+              ["brain_page", "google_drive"].includes(provider),
+            ) &&
+            (citation.contentHash === item.contentHash ||
+              ("bodyIdentity" in citation &&
+                citation.bodyIdentity === item.bodyIdentity));
+          return exactRange || pageDrivePair;
+        });
         if (duplicate || citations.length >= maxCitations) continue;
-        citations.push({
+        const packedCitation = {
           citationKey: `citation:${item.entryKey}:${item.startOffset}:${item.endOffset}`,
           supportKind:
             item.provider === "brain_page"
@@ -295,11 +405,15 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
           startOffset: item.startOffset,
           endOffset: item.endOffset,
           contentHash: item.contentHash,
+          bodyIdentity: item.bodyIdentity,
           ...(item.locator === undefined ? {} : { locator: item.locator }),
           sourceModifiedAt: item.sourceModifiedAt,
           observedAt: item.observedAt,
           freshness: item.freshness,
-        });
+          ranking,
+        };
+        citations.push(packedCitation);
+        recentCitations.push(packedCitation);
       }
     }
 
@@ -317,11 +431,26 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
               {
                 propositionFingerprint,
                 claimIds: group.map(({ claimId }) => claimId),
+                citationKeys: group.flatMap(({ citationKeys }) => citationKeys),
                 reason: "possible-contradiction" as const,
               },
             ]
           : [],
     );
+    for (const claim of claims) {
+      for (const citation of recentCitations) {
+        if (
+          citation.sourceModifiedAt > claim.verifiedAt &&
+          probableEvidenceConflict(claim.body, citation.excerpt)
+        )
+          conflicts.push({
+            propositionFingerprint: claim.propositionFingerprint,
+            claimIds: [claim.claimId],
+            citationKeys: [citation.citationKey],
+            reason: "possible-contradiction" as const,
+          });
+      }
+    }
     if (conflicts.length > 0) omit("possible-conflict", conflicts.length);
     const publicClaims = claims.map((claim) => ({
       claimId: claim.claimId,
@@ -339,7 +468,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     ] as BrainPackFreshness[]);
     const sortedCitations = citations.sort(
       (left, right) =>
-        left.supportKind.localeCompare(right.supportKind) ||
+        right.ranking.total - left.ranking.total ||
         left.sourceKey.localeCompare(right.sourceKey) ||
         left.revisionKey.localeCompare(right.revisionKey) ||
         left.startOffset - right.startOffset,
@@ -357,7 +486,9 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     const withoutHash = {
       schemaVersion: "4" as const,
       policyVersion: CONTEXT_PACK_POLICY_VERSION,
+      requestedEvidenceMode,
       evidenceMode,
+      ...(fallbackReason === undefined ? {} : { fallbackReason }),
       workspaceId: input.workspaceId,
       question,
       asOf,
@@ -373,7 +504,8 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     };
     const highRiskStale =
       input.riskLevel === "high" &&
-      sortedClaims.some(({ freshness }) => freshness === "stale");
+      (sortedClaims.some(({ freshness }) => freshness === "stale") ||
+        sortedCitations.some(({ freshness }) => freshness === "stale"));
     const blockedReason =
       input.riskLevel === "high" && sortedConflicts.length > 0
         ? ("possible-conflict" as const)

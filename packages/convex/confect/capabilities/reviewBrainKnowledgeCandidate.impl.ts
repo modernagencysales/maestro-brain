@@ -222,6 +222,21 @@ const reviewCandidate = (
     const prior = candidate.reviewHistory.find(
       (event) => event.idempotencyKey === args.idempotencyKey,
     );
+    const requestedBody = acceptedReviewBody({
+      action: args.action,
+      candidateBody: candidate.body,
+      ...(args.body === undefined ? {} : { editedBody: args.body }),
+    });
+    if (
+      prior !== undefined &&
+      (prior.action !== args.action ||
+        prior.bodyHash !== `sha256:${sha256Hex(requestedBody)}` ||
+        prior.reason !== args.reason)
+    )
+      return yield* invalid(
+        "idempotencyKey",
+        "Idempotency key was already used for a different review request.",
+      );
     if (prior !== undefined)
       return {
         status:
@@ -257,11 +272,7 @@ const reviewCandidate = (
         "Candidate has already been reviewed.",
       );
     const now = yield* withClock(Clock.currentTimeMillis);
-    const body = acceptedReviewBody({
-      action: args.action,
-      candidateBody: candidate.body,
-      ...(args.body === undefined ? {} : { editedBody: args.body }),
-    });
+    const body = requestedBody;
     if (
       (args.action === "edit_and_accept" && body.length === 0) ||
       body.length > 500
