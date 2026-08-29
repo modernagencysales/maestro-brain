@@ -19,6 +19,7 @@ import type * as capabilities__versions_publicationEcho_v1 from "../capabilities
 import type * as capabilities_askCompanyBrain from "../capabilities/askCompanyBrain.js";
 import type * as capabilities_catalog from "../capabilities/catalog.js";
 import type * as capabilities_extractBrainKnowledgeCandidates from "../capabilities/extractBrainKnowledgeCandidates.js";
+import type * as capabilities_manageBrainEvaluationExamples from "../capabilities/manageBrainEvaluationExamples.js";
 import type * as capabilities_reviewBrainKnowledgeCandidate from "../capabilities/reviewBrainKnowledgeCandidate.js";
 import type * as capabilities_sourceGroundedBrief from "../capabilities/sourceGroundedBrief.js";
 import type * as crons from "../crons.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "capabilities/askCompanyBrain": typeof capabilities_askCompanyBrain;
   "capabilities/catalog": typeof capabilities_catalog;
   "capabilities/extractBrainKnowledgeCandidates": typeof capabilities_extractBrainKnowledgeCandidates;
+  "capabilities/manageBrainEvaluationExamples": typeof capabilities_manageBrainEvaluationExamples;
   "capabilities/reviewBrainKnowledgeCandidate": typeof capabilities_reviewBrainKnowledgeCandidate;
   "capabilities/sourceGroundedBrief": typeof capabilities_sourceGroundedBrief;
   crons: typeof crons;

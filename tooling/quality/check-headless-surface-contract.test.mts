@@ -12,6 +12,7 @@ import {
   internalNamedOperationsWithClientSurfaces,
   missingMcpGeneratedRefUsage,
   missingRuntimeAdapterDispatch,
+  missingStandaloneCliOperationUsage,
   missingTypedErrors,
   mcpProjectionPath,
   optionalRuntimeSource,
@@ -212,6 +213,32 @@ describe("check:headless-surface-contract", () => {
     ).toEqual([]);
   });
 
+  it("accepts actor-scoped API refs only when the mapped ref is dispatched", () => {
+    const activeSource = `
+      const brainEvaluationActorRefs = {
+        "brain.evaluations.list": makeFunctionReference<"query">(
+          "capabilities/manageBrainEvaluationExamples:listBrainEvaluationExamplesForActor",
+        ),
+      };
+      const ref = brainEvaluationActorRefs[operationId];
+      return await ctx.runQuery(ref, input);
+    `;
+    const inertSource = `
+      const brainEvaluationActorRefs = {
+        "brain.evaluations.list": makeFunctionReference<"query">(
+          "capabilities/manageBrainEvaluationExamples:listBrainEvaluationExamplesForActor",
+        ),
+      };
+    `;
+
+    expect(
+      missingHttpGeneratedRefMapping(["brain.evaluations.list"], activeSource),
+    ).toEqual([]);
+    expect(
+      missingHttpGeneratedRefMapping(["brain.evaluations.list"], inertSource),
+    ).toEqual(["brain.evaluations.list"]);
+  });
+
   it("requires CLI and MCP projections to use a runtime adapter seam", () => {
     expect(
       missingRuntimeAdapterDispatch(
@@ -287,6 +314,32 @@ describe("check:headless-surface-contract", () => {
     expect(
       missingCliGeneratedRefUsage(["changesignal.overview.get"], source),
     ).toEqual([]);
+  });
+
+  it("accepts standalone CLI operations only when they dispatch through request", () => {
+    const activeSource = `
+      return await request(dependencies, {
+        operationId: "brain.evaluations.list",
+        input: { split: "development" },
+      });
+    `;
+    const inertSource = `
+      const help = "brain.evaluations.list";
+      return await request(dependencies, options);
+    `;
+
+    expect(
+      missingStandaloneCliOperationUsage(
+        ["brain.evaluations.list"],
+        activeSource,
+      ),
+    ).toEqual([]);
+    expect(
+      missingStandaloneCliOperationUsage(
+        ["brain.evaluations.list"],
+        inertSource,
+      ),
+    ).toEqual(["brain.evaluations.list"]);
   });
 
   it("rejects CLI mappings with regex-compatible but wrong operation IDs", () => {

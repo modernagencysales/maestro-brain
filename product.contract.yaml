@@ -145,3 +145,25 @@ behaviors:
         data is read or mutated.
       - An unauthorized client is not listed and cannot be selected by URL.
     status: required
+  - id: BHV-BRAIN-006
+    revision: 1
+    title: A context owner evaluates real questions without inventing readiness
+    actor: workspace context owner
+    surfaces:
+      - cli-process
+      - public-http
+    preconditions:
+      - Teammates explicitly saved real company-context questions.
+      - The owner can reopen the expected supporting evidence.
+    action:
+      The owner adjudicates examples, previews a time- and source-separated
+      holdout, and reruns one selected split.
+    outcomes:
+      - Saved observations remain distinct from adjudicated expected support.
+      - Holdout labels become immutable and ordinary agent reads do not expose
+        them.
+      - Every metric reports its numerator and denominator, including zero
+        denominators.
+      - The run remains insufficient-sample or provisional while required human
+        judgments are unavailable.
+    status: draft

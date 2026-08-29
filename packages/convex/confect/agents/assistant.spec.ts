@@ -88,6 +88,9 @@ export const SaveEvaluationExampleArgs = S.Struct({
   surface: S.Literals(["web", "cli", "api", "mcp"]),
   answerStatus: S.Literals(["answered", "insufficient-context"]),
   packHash: S.String,
+  maxCitations: S.optional(S.Number),
+  capturedAsOf: S.optional(S.Number),
+  policyVersion: S.optional(S.String),
   evidenceReferences: S.Array(
     S.Struct({
       sourceKey: S.String,

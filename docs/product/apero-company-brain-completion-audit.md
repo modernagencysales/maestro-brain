@@ -2,12 +2,36 @@
 
 **Status:** current-state audit; not a completion claim
 
-**Audited base:** `5cb47dcac37b7ce3fad39e4b93cc0db02c5bc35d`; live activation
+**Audited base:** `47a9243b2480ee5d4e89096ce323ac009ebef2fc`; live activation
 evidence is recorded in `docs/product/apero-company-brain-live-activation.md`
 
 **Date:** 2026-08-29
 
 ## 2026-08-29 local readiness update
+
+### Durable extraction activation and progressive evaluation
+
+Merge `47a9243b` is deployed to staging through GitHub deployment `6159400887`
+and Woodpecker deployment pipeline `296`. The Apero workspace now runs the live
+extractor behind a $5/day workspace spend ceiling and the workspace rollout
+flag. Extraction policy `brain-extractor-v2` rejects generic advice, chatter,
+tool mechanics, isolated preferences, and contextless fragments. It accepts a
+single whole-message JSON code fence from otherwise valid provider output while
+remaining fail-closed on prose or schema drift. The live 101-item Slack corpus,
+the operational Start Here page, and low-value release receipts produced no
+durable candidates under v2; seven previously low-value proposals were rejected
+explicitly, nothing was auto-promoted, and the review queue is empty.
+
+The current release candidate closes the remaining engineering gap between
+`--save-example` and an operable evaluation lifecycle. CLI `0.1.8` adds bounded
+status/list/show, exact-reference adjudication, deterministic redacted export,
+time- and source-separated freeze preview/apply, and reproducible reruns through
+canonical `brain.ask`. The backend keeps observed output separate from expected
+support, hides frozen labels from ordinary and MCP reads, and makes holdout
+labels immutable. Every report includes exact denominators and explicitly marks
+citation entailment `not-assessed`; an empty or one-example real ledger remains
+`insufficient-sample`. This is engineering readiness, not a frozen real Apero
+set or completed replacement pilot.
 
 ### Release hardening after cold review
 

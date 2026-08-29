@@ -26,6 +26,7 @@ import {
   requireWorkspaceAccess,
   requireWorkspaceActorAccess,
 } from "../capabilities/_kit/workspaceAccess";
+import { MAX_EVALUATION_EXAMPLES } from "../capabilities/manageBrainEvaluationExamples.domain";
 import {
   MemberNotInWorkspace,
   Unauthorized,
@@ -286,6 +287,33 @@ const persistEvaluationExample = (
         field: "packHash",
         message: "Pack hash must be a canonical SHA-256 identifier.",
       });
+    if (
+      args.maxCitations !== undefined &&
+      (!Number.isInteger(args.maxCitations) ||
+        args.maxCitations < 1 ||
+        args.maxCitations > 10)
+    )
+      return yield* new AssistantError.ValidationFailed({
+        field: "maxCitations",
+        message: "Maximum citations must be between 1 and 10.",
+      });
+    if (
+      args.capturedAsOf !== undefined &&
+      (!Number.isFinite(args.capturedAsOf) || args.capturedAsOf < 0)
+    )
+      return yield* new AssistantError.ValidationFailed({
+        field: "capturedAsOf",
+        message: "Captured as-of must be a non-negative timestamp.",
+      });
+    if (
+      args.policyVersion !== undefined &&
+      (args.policyVersion.trim().length === 0 ||
+        args.policyVersion.length > 120)
+    )
+      return yield* new AssistantError.ValidationFailed({
+        field: "policyVersion",
+        message: "Policy version must contain between 1 and 120 characters.",
+      });
     if (args.evidenceReferences.length > 10)
       return yield* new AssistantError.ValidationFailed({
         field: "evidenceReferences",
@@ -356,13 +384,21 @@ const persistEvaluationExample = (
       surface: args.surface,
       answerStatus: args.answerStatus,
       packHash: args.packHash,
+      ...(args.maxCitations === undefined
+        ? {}
+        : { maxCitations: args.maxCitations }),
+      ...(args.capturedAsOf === undefined
+        ? {}
+        : { capturedAsOf: args.capturedAsOf }),
+      ...(args.policyVersion === undefined
+        ? {}
+        : { policyVersion: args.policyVersion.trim() }),
       evidenceReferences: [...args.evidenceReferences],
       captureKind: args.captureKind,
       usefulness: args.usefulness,
       ...(args.issueReason === undefined
         ? {}
         : { issueReason: args.issueReason }),
-      split: "development" as const,
       actorUserId,
     };
     const matches = yield* reader
@@ -383,13 +419,21 @@ const persistEvaluationExample = (
         surface: existing.surface,
         answerStatus: existing.answerStatus,
         packHash: existing.packHash,
+        ...(existing.maxCitations === undefined
+          ? {}
+          : { maxCitations: existing.maxCitations }),
+        ...(existing.capturedAsOf === undefined
+          ? {}
+          : { capturedAsOf: existing.capturedAsOf }),
+        ...(existing.policyVersion === undefined
+          ? {}
+          : { policyVersion: existing.policyVersion }),
         evidenceReferences: existing.evidenceReferences,
         captureKind: existing.captureKind,
         usefulness: existing.usefulness,
         ...(existing.issueReason === undefined
           ? {}
           : { issueReason: existing.issueReason }),
-        split: existing.split,
         actorUserId: existing.actorUserId,
       };
       if (JSON.stringify(existingPayload) !== JSON.stringify(proposed))
@@ -399,11 +443,26 @@ const persistEvaluationExample = (
         });
       return existing._id;
     }
+    const capacity = yield* reader
+      .table("brainEvaluationExamples")
+      .index("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(MAX_EVALUATION_EXAMPLES)
+      .pipe(Effect.orDie);
+    if (capacity.length >= MAX_EVALUATION_EXAMPLES)
+      return yield* new AssistantError.ValidationFailed({
+        field: "workspaceId",
+        message: `Evaluation examples are limited to ${MAX_EVALUATION_EXAMPLES} rows per workspace.`,
+      });
     const now = yield* withConfectClock(Clock.currentTimeMillis);
     const writer = yield* DatabaseWriter;
     return yield* writer
       .table("brainEvaluationExamples")
-      .insert({ ...proposed, createdAt: now, updatedAt: now })
+      .insert({
+        ...proposed,
+        split: "development",
+        createdAt: now,
+        updatedAt: now,
+      })
       .pipe(Effect.orDie);
   });
 

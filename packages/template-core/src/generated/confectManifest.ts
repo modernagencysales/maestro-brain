@@ -38,6 +38,108 @@ export const confectManifest = {
       returnsSchemaName: "auth.workspaces.list.returns",
     },
     {
+      namespace: "brain.evaluations",
+      name: "adjudicate",
+      operationId: "brain.evaluations.adjudicate",
+      kind: "mutation",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.evaluations.adjudicate.args",
+      returnsSchemaName: "brain.evaluations.adjudicate.returns",
+    },
+    {
+      namespace: "brain.evaluations",
+      name: "export",
+      operationId: "brain.evaluations.export",
+      kind: "query",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.evaluations.export.args",
+      returnsSchemaName: "brain.evaluations.export.returns",
+    },
+    {
+      namespace: "brain.evaluations",
+      name: "freezeApply",
+      operationId: "brain.evaluations.freezeApply",
+      kind: "mutation",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.evaluations.freezeApply.args",
+      returnsSchemaName: "brain.evaluations.freezeApply.returns",
+    },
+    {
+      namespace: "brain.evaluations",
+      name: "freezePreview",
+      operationId: "brain.evaluations.freezePreview",
+      kind: "query",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.evaluations.freezePreview.args",
+      returnsSchemaName: "brain.evaluations.freezePreview.returns",
+    },
+    {
+      namespace: "brain.evaluations",
+      name: "get",
+      operationId: "brain.evaluations.get",
+      kind: "query",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.evaluations.get.args",
+      returnsSchemaName: "brain.evaluations.get.returns",
+    },
+    {
+      namespace: "brain.evaluations",
+      name: "list",
+      operationId: "brain.evaluations.list",
+      kind: "query",
+      surfaces: ["api", "cli"],
+      typedErrors: [
+        "Unauthorized",
+        "ValidationFailed",
+        "Forbidden",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.evaluations.list.args",
+      returnsSchemaName: "brain.evaluations.list.returns",
+    },
+    {
       namespace: "brain.pages",
       name: "archive",
       operationId: "brain.pages.archive",
@@ -390,6 +492,287 @@ const sharedConfectJsonSchemasValue2 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
+    evaluationExampleId: {
+      type: "string",
+    },
+    exampleKey: {
+      type: "string",
+    },
+    question: {
+      type: "string",
+    },
+    purpose: {
+      type: "string",
+    },
+    evidenceMode: {
+      type: "string",
+      enum: ["recent_evidence", "company_truth", "mixed"],
+    },
+    surface: {
+      type: "string",
+      enum: ["web", "cli", "api", "mcp"],
+    },
+    answerStatus: {
+      type: "string",
+      enum: ["answered", "insufficient-context"],
+    },
+    packHash: {
+      type: "string",
+    },
+    maxCitations: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    capturedAsOf: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    policyVersion: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    evidenceReferences: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/Objects_",
+      },
+    },
+    captureKind: {
+      type: "string",
+      enum: ["feedback", "test"],
+    },
+    usefulness: {
+      type: "string",
+      enum: ["useful", "needs-work", "unrated"],
+    },
+    issueReason: {
+      anyOf: [
+        {
+          type: "string",
+          enum: [
+            "missing-source",
+            "incorrect-answer",
+            "stale-context",
+            "citation-problem",
+            "fallback-required",
+            "other",
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    adjudicationState: {
+      type: "string",
+      enum: ["pending", "adjudicated"],
+    },
+    expectedAnswerStatus: {
+      anyOf: [
+        {
+          type: "string",
+          enum: ["answered", "insufficient-context"],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    expectedEvidenceReferences: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/Objects_",
+      },
+    },
+    riskLevel: {
+      anyOf: [
+        {
+          type: "string",
+          enum: ["ordinary", "high"],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    adjudicatedAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    split: {
+      type: "string",
+      enum: ["development", "holdout"],
+    },
+    freezeKey: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    freezePreviewHash: {
+      anyOf: [
+        {
+          type: "string",
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    freezeCutoffCreatedAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    frozenAt: {
+      anyOf: [
+        {
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "string",
+              enum: ["Infinity", "-Infinity", "NaN"],
+            },
+          ],
+        },
+        {
+          type: "null",
+        },
+      ],
+    },
+    createdAt: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+    updatedAt: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "string",
+          enum: ["Infinity", "-Infinity", "NaN"],
+        },
+      ],
+    },
+  },
+  required: [
+    "evaluationExampleId",
+    "exampleKey",
+    "question",
+    "purpose",
+    "evidenceMode",
+    "surface",
+    "answerStatus",
+    "packHash",
+    "evidenceReferences",
+    "captureKind",
+    "usefulness",
+    "adjudicationState",
+    "expectedEvidenceReferences",
+    "split",
+    "createdAt",
+    "updatedAt",
+  ],
+  additionalProperties: false,
+  $defs: {
+    Objects_: {
+      type: "object",
+      properties: {
+        sourceKey: {
+          type: "string",
+        },
+        revisionKey: {
+          type: "string",
+        },
+        contentHash: {
+          type: "string",
+        },
+      },
+      required: ["sourceKey", "revisionKey", "contentHash"],
+      additionalProperties: false,
+    },
+  },
+} as const;
+
+const sharedConfectJsonSchemasValue3 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties: {
     workspaceId: {
       type: "string",
     },
@@ -689,7 +1072,7 @@ const sharedConfectJsonSchemasValue2 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue3 = {
+const sharedConfectJsonSchemasValue4 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -728,7 +1111,7 @@ const sharedConfectJsonSchemasValue3 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue4 = {
+const sharedConfectJsonSchemasValue5 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -761,7 +1144,7 @@ const sharedConfectJsonSchemasValue4 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue5 = {
+const sharedConfectJsonSchemasValue6 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -1122,7 +1505,7 @@ const sharedConfectJsonSchemasValue5 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue6 = {
+const sharedConfectJsonSchemasValue7 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   properties: {
@@ -1448,6 +1831,52 @@ const sharedConfectJsonSchemas = {
       packHash: {
         type: "string",
       },
+      maxCitations: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      capturedAsOf: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      policyVersion: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
       evidenceReferences: {
         type: "array",
         items: {
@@ -1687,6 +2116,898 @@ const sharedConfectJsonSchemas = {
       additionalProperties: false,
     },
   },
+  "brain.evaluations.adjudicate.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      exampleKey: {
+        type: "string",
+      },
+      expectedUpdatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      expectedAnswerStatus: {
+        type: "string",
+        enum: ["answered", "insufficient-context"],
+      },
+      expectedEvidenceReferences: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            sourceKey: {
+              type: "string",
+            },
+            revisionKey: {
+              type: "string",
+            },
+            contentHash: {
+              type: "string",
+            },
+          },
+          required: ["sourceKey", "revisionKey", "contentHash"],
+          additionalProperties: false,
+        },
+      },
+      riskLevel: {
+        type: "string",
+        enum: ["ordinary", "high"],
+      },
+    },
+    required: [
+      "workspaceId",
+      "exampleKey",
+      "expectedUpdatedAt",
+      "expectedAnswerStatus",
+      "expectedEvidenceReferences",
+      "riskLevel",
+    ],
+    additionalProperties: false,
+  },
+  "brain.evaluations.adjudicate.returns": sharedConfectJsonSchemasValue2,
+  "brain.evaluations.export.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      split: {
+        anyOf: [
+          {
+            type: "string",
+            enum: ["development", "holdout"],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId"],
+    additionalProperties: false,
+  },
+  "brain.evaluations.export.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      schemaVersion: {
+        type: "string",
+        enum: ["1"],
+      },
+      rows: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            exampleKey: {
+              type: "string",
+            },
+            questionHash: {
+              type: "string",
+            },
+            purpose: {
+              type: "string",
+            },
+            evidenceMode: {
+              type: "string",
+              enum: ["recent_evidence", "company_truth", "mixed"],
+            },
+            surface: {
+              type: "string",
+              enum: ["web", "cli", "api", "mcp"],
+            },
+            answerStatus: {
+              type: "string",
+              enum: ["answered", "insufficient-context"],
+            },
+            packHash: {
+              type: "string",
+            },
+            maxCitations: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            capturedAsOf: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            policyVersion: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            evidenceReferences: {
+              type: "array",
+              items: {
+                $ref: "#/$defs/Objects_",
+              },
+            },
+            captureKind: {
+              type: "string",
+              enum: ["feedback", "test"],
+            },
+            usefulness: {
+              type: "string",
+              enum: ["useful", "needs-work", "unrated"],
+            },
+            issueReason: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            adjudicationState: {
+              type: "string",
+              enum: ["pending", "adjudicated"],
+            },
+            expectedAnswerStatus: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["answered", "insufficient-context"],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            expectedEvidenceReferences: {
+              type: "array",
+              items: {
+                $ref: "#/$defs/Objects_",
+              },
+            },
+            riskLevel: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["ordinary", "high"],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            split: {
+              type: "string",
+              enum: ["development", "holdout"],
+            },
+            freezeKey: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            createdAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            updatedAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+          },
+          required: [
+            "exampleKey",
+            "questionHash",
+            "purpose",
+            "evidenceMode",
+            "surface",
+            "answerStatus",
+            "packHash",
+            "evidenceReferences",
+            "captureKind",
+            "usefulness",
+            "adjudicationState",
+            "expectedEvidenceReferences",
+            "split",
+            "createdAt",
+            "updatedAt",
+          ],
+          additionalProperties: false,
+        },
+      },
+      rowCount: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      exportHash: {
+        type: "string",
+      },
+    },
+    required: ["schemaVersion", "rows", "rowCount", "exportHash"],
+    additionalProperties: false,
+    $defs: {
+      Objects_: {
+        type: "object",
+        properties: {
+          sourceKey: {
+            type: "string",
+          },
+          revisionKey: {
+            type: "string",
+          },
+          contentHash: {
+            type: "string",
+          },
+        },
+        required: ["sourceKey", "revisionKey", "contentHash"],
+        additionalProperties: false,
+      },
+    },
+  },
+  "brain.evaluations.freezeApply.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      cutoffCreatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      expectedPreviewHash: {
+        type: "string",
+      },
+      freezeKey: {
+        type: "string",
+      },
+    },
+    required: [
+      "workspaceId",
+      "cutoffCreatedAt",
+      "expectedPreviewHash",
+      "freezeKey",
+    ],
+    additionalProperties: false,
+  },
+  "brain.evaluations.freezeApply.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      freezeKey: {
+        type: "string",
+      },
+      frozenAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      previewHash: {
+        type: "string",
+      },
+      selectedExampleKeys: {
+        type: "array",
+        items: {
+          type: "string",
+        },
+      },
+    },
+    required: ["freezeKey", "frozenAt", "previewHash", "selectedExampleKeys"],
+    additionalProperties: false,
+  },
+  "brain.evaluations.freezePreview.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      cutoffCreatedAt: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "cutoffCreatedAt"],
+    additionalProperties: false,
+  },
+  "brain.evaluations.freezePreview.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      maturity: {
+        type: "string",
+        enum: ["insufficient-sample", "ready"],
+      },
+      adjudicatedCount: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      selectedExampleKeys: {
+        type: "array",
+        items: {
+          type: "string",
+        },
+      },
+      excludedForSourceOverlap: {
+        anyOf: [
+          {
+            type: "number",
+          },
+          {
+            type: "string",
+            enum: ["Infinity", "-Infinity", "NaN"],
+          },
+        ],
+      },
+      previewHash: {
+        type: "string",
+      },
+    },
+    required: [
+      "maturity",
+      "adjudicatedCount",
+      "selectedExampleKeys",
+      "excludedForSourceOverlap",
+      "previewHash",
+    ],
+    additionalProperties: false,
+  },
+  "brain.evaluations.get.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      exampleKey: {
+        type: "string",
+      },
+      includeHoldoutGold: {
+        anyOf: [
+          {
+            type: "boolean",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId", "exampleKey"],
+    additionalProperties: false,
+  },
+  "brain.evaluations.get.returns": sharedConfectJsonSchemasValue2,
+  "brain.evaluations.list.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      split: {
+        anyOf: [
+          {
+            type: "string",
+            enum: ["development", "holdout"],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      adjudicationState: {
+        anyOf: [
+          {
+            type: "string",
+            enum: ["pending", "adjudicated"],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      captureKind: {
+        anyOf: [
+          {
+            type: "string",
+            enum: ["feedback", "test"],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      limit: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      cursorCreatedAt: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      cursorExampleKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      includeHoldoutGold: {
+        anyOf: [
+          {
+            type: "boolean",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["workspaceId"],
+    additionalProperties: false,
+  },
+  "brain.evaluations.list.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      examples: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            evaluationExampleId: {
+              type: "string",
+            },
+            exampleKey: {
+              type: "string",
+            },
+            question: {
+              type: "string",
+            },
+            purpose: {
+              type: "string",
+            },
+            evidenceMode: {
+              type: "string",
+              enum: ["recent_evidence", "company_truth", "mixed"],
+            },
+            surface: {
+              type: "string",
+              enum: ["web", "cli", "api", "mcp"],
+            },
+            answerStatus: {
+              type: "string",
+              enum: ["answered", "insufficient-context"],
+            },
+            packHash: {
+              type: "string",
+            },
+            maxCitations: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            capturedAsOf: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            policyVersion: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            evidenceReferences: {
+              type: "array",
+              items: {
+                $ref: "#/$defs/Objects_",
+              },
+            },
+            captureKind: {
+              type: "string",
+              enum: ["feedback", "test"],
+            },
+            usefulness: {
+              type: "string",
+              enum: ["useful", "needs-work", "unrated"],
+            },
+            issueReason: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: [
+                    "missing-source",
+                    "incorrect-answer",
+                    "stale-context",
+                    "citation-problem",
+                    "fallback-required",
+                    "other",
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            adjudicationState: {
+              type: "string",
+              enum: ["pending", "adjudicated"],
+            },
+            expectedAnswerStatus: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["answered", "insufficient-context"],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            expectedEvidenceReferences: {
+              type: "array",
+              items: {
+                $ref: "#/$defs/Objects_",
+              },
+            },
+            riskLevel: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["ordinary", "high"],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            adjudicatedAt: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            split: {
+              type: "string",
+              enum: ["development", "holdout"],
+            },
+            freezeKey: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            freezePreviewHash: {
+              anyOf: [
+                {
+                  type: "string",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            freezeCutoffCreatedAt: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            frozenAt: {
+              anyOf: [
+                {
+                  anyOf: [
+                    {
+                      type: "number",
+                    },
+                    {
+                      type: "string",
+                      enum: ["Infinity", "-Infinity", "NaN"],
+                    },
+                  ],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            createdAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+            updatedAt: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "string",
+                  enum: ["Infinity", "-Infinity", "NaN"],
+                },
+              ],
+            },
+          },
+          required: [
+            "evaluationExampleId",
+            "exampleKey",
+            "question",
+            "purpose",
+            "evidenceMode",
+            "surface",
+            "answerStatus",
+            "packHash",
+            "evidenceReferences",
+            "captureKind",
+            "usefulness",
+            "adjudicationState",
+            "expectedEvidenceReferences",
+            "split",
+            "createdAt",
+            "updatedAt",
+          ],
+          additionalProperties: false,
+        },
+      },
+      nextCursorCreatedAt: {
+        anyOf: [
+          {
+            anyOf: [
+              {
+                type: "number",
+              },
+              {
+                type: "string",
+                enum: ["Infinity", "-Infinity", "NaN"],
+              },
+            ],
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+      nextCursorExampleKey: {
+        anyOf: [
+          {
+            type: "string",
+          },
+          {
+            type: "null",
+          },
+        ],
+      },
+    },
+    required: ["examples"],
+    additionalProperties: false,
+    $defs: {
+      Objects_: {
+        type: "object",
+        properties: {
+          sourceKey: {
+            type: "string",
+          },
+          revisionKey: {
+            type: "string",
+          },
+          contentHash: {
+            type: "string",
+          },
+        },
+        required: ["sourceKey", "revisionKey", "contentHash"],
+        additionalProperties: false,
+      },
+    },
+  },
   "brain.pages.archive.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1712,7 +3033,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt"],
     additionalProperties: false,
   },
-  "brain.pages.archive.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.archive.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.createMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1799,7 +3120,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt", "favorite"],
     additionalProperties: false,
   },
-  "brain.pages.favorite.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.favorite.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.get.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1814,7 +3135,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId"],
     additionalProperties: false,
   },
-  "brain.pages.get.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.get.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.history.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2546,7 +3867,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "brain.pages.move.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.move.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.rename.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2575,7 +3896,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "expectedUpdatedAt", "title"],
     additionalProperties: false,
   },
-  "brain.pages.rename.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.rename.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.restore.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2617,7 +3938,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "brain.pages.restore.returns": sharedConfectJsonSchemasValue2,
+  "brain.pages.restore.returns": sharedConfectJsonSchemasValue3,
   "brain.pages.updateMarkdown.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2676,14 +3997,14 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "pageId", "markdown", "expectedUpdatedAt"],
     additionalProperties: false,
   },
-  "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue2,
-  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue3,
+  "brain.pages.updateMarkdown.returns": sharedConfectJsonSchemasValue3,
+  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue4,
   "capabilities.sourceGroundedBrief.run.returns":
-    sharedConfectJsonSchemasValue4,
+    sharedConfectJsonSchemasValue5,
   "capabilities.sourceGroundedBrief.runInternal.args":
-    sharedConfectJsonSchemasValue3,
-  "capabilities.sourceGroundedBrief.runInternal.returns":
     sharedConfectJsonSchemasValue4,
+  "capabilities.sourceGroundedBrief.runInternal.returns":
+    sharedConfectJsonSchemasValue5,
   "integrations.connections.begin.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2699,7 +4020,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider"],
     additionalProperties: false,
   },
-  "integrations.connections.begin.returns": sharedConfectJsonSchemasValue5,
+  "integrations.connections.begin.returns": sharedConfectJsonSchemasValue6,
   "integrations.connections.complete.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2768,8 +4089,8 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider", "generation", "completion"],
     additionalProperties: false,
   },
-  "integrations.connections.complete.returns": sharedConfectJsonSchemasValue5,
-  "integrations.connections.list.args": sharedConfectJsonSchemasValue6,
+  "integrations.connections.complete.returns": sharedConfectJsonSchemasValue6,
+  "integrations.connections.list.args": sharedConfectJsonSchemasValue7,
   "integrations.connections.list.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "array",
@@ -3159,7 +4480,7 @@ const sharedConfectJsonSchemas = {
     required: ["workspaceId", "provider", "generation"],
     additionalProperties: false,
   },
-  "integrations.connections.revoke.returns": sharedConfectJsonSchemasValue5,
+  "integrations.connections.revoke.returns": sharedConfectJsonSchemasValue6,
   "ops.dataLifecycle.createDsarRequest.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -3548,7 +4869,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue6,
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue7,
   "ops.dataLifecycle.listDsarRequests.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -3972,7 +5293,7 @@ const sharedConfectJsonSchemas = {
     ],
     additionalProperties: false,
   },
-  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue6,
+  "ops.email.previewBroadcast.args": sharedConfectJsonSchemasValue7,
   "ops.email.previewBroadcast.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",

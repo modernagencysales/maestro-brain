@@ -1,0 +1,20 @@
+{
+  "capability": "manageBrainEvaluationExamples",
+  "system": "knowledge-brain",
+  "disposition": "extend",
+  "description": "Manage the bounded progressive Brain evaluation set",
+  "exposure": "headless",
+  "authScope": "workspace member",
+  "typedErrors": ["Unauthorized", "ValidationFailed", "Forbidden"],
+  "schemas": {
+    "args": "listBrainEvaluationExamplesArgs",
+    "returns": "listBrainEvaluationExamplesReturns"
+  },
+  "surfaces": ["api", "cli"],
+  "requiredFiles": ["Confect spec/impl", "tests", "headless registry entry"],
+  "migrationNotes": [
+    "Existing evaluation rows decode with pending adjudication and no freeze metadata.",
+    "Run Confect and manifest codegen before wiring API and CLI adapters."
+  ],
+  "frontendAdapter": "not required"
+}

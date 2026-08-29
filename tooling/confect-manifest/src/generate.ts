@@ -9,6 +9,10 @@ import {
   missingSchemasForManifest,
 } from "./index";
 import {
+  manifest as manageBrainEvaluationExamplesManifest,
+  schemaRegistry as manageBrainEvaluationExamplesSchemaRegistry,
+} from "../../../packages/convex/confect/capabilities/manageBrainEvaluationExamples.spec";
+import {
   manifest as sourceGroundedBriefManifest,
   schemaRegistry as sourceGroundedBriefSchemaRegistry,
 } from "../../../packages/convex/confect/capabilities/sourceGroundedBrief.spec";
@@ -42,6 +46,7 @@ const functions = [
   ...workspacesManifest,
   ...brainPagesManifest,
   ...connectionsManifest,
+  ...manageBrainEvaluationExamplesManifest,
   ...sourceGroundedBriefManifest,
   ...dataLifecycleManifest,
   ...emailManifest,
@@ -51,6 +56,7 @@ const schemaRegistry = mergeContractSchemaRegistries(
   workspacesSchemaRegistry,
   brainPagesSchemaRegistry,
   connectionsSchemaRegistry,
+  manageBrainEvaluationExamplesSchemaRegistry,
   sourceGroundedBriefSchemaRegistry,
   dataLifecycleSchemaRegistry,
   emailSchemaRegistry,
@@ -94,8 +100,23 @@ const generatedRefModules: Readonly<Record<string, string>> = {
     "packages/convex/convex/integrations/connections.ts",
   "capabilities.sourceGroundedBrief":
     "packages/convex/convex/capabilities/sourceGroundedBrief.ts",
+  "brain.evaluations":
+    "packages/convex/convex/capabilities/manageBrainEvaluationExamples.ts",
   "ops.dataLifecycle": "packages/convex/convex/ops/dataLifecycle.ts",
   "ops.email": "packages/convex/convex/ops/email.ts",
+};
+
+const generatedRefExportNames: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = {
+  "brain.evaluations": {
+    list: "listBrainEvaluationExamples",
+    get: "getBrainEvaluationExample",
+    adjudicate: "adjudicateBrainEvaluationExample",
+    freezePreview: "previewBrainEvaluationFreeze",
+    freezeApply: "applyBrainEvaluationFreeze",
+    export: "exportBrainEvaluationExamples",
+  },
 };
 
 const escapeRegExp = (input: string): string =>
@@ -108,8 +129,10 @@ const missingGeneratedRefs = manifest.functions.flatMap((entry) => {
   }
 
   const moduleSource = readFileSync(resolve(modulePath), "utf8");
+  const exportName =
+    generatedRefExportNames[entry.namespace]?.[entry.name] ?? entry.name;
   const exportPattern = new RegExp(
-    `export\\s+const\\s+${escapeRegExp(entry.name)}\\s*=`,
+    `export\\s+const\\s+${escapeRegExp(exportName)}\\s*=`,
   );
 
   return exportPattern.test(moduleSource) ? [] : [entry.operationId];

@@ -228,6 +228,10 @@ const executeTool = async (
     ...(admission.operationId === "brain.evidence.search"
       ? { asOf: Date.now() }
       : {}),
+    ...(admission.operationId === "brain.evaluations.list" ||
+    admission.operationId === "brain.evaluations.get"
+      ? { includeHoldoutGold: false }
+      : {}),
     workspaceId: admission.actor.workspaceId,
     userId: admission.actor.userId,
   };

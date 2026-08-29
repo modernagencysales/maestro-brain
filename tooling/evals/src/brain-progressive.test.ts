@@ -48,10 +48,16 @@ describe("progressive Brain evaluation", () => {
       realTasks: 0,
       adjudicatedRealTasks: 0,
       minimumExitSample: 25,
+      manifestDeclaredRealTasks: 0,
+      manifestDeclaredAdjudicatedTasks: 0,
+      manifestMatchesInspectedCases: true,
     });
     expect(report.metrics).toEqual({
       casesPassing: { numerator: 4, denominator: 4, rate: 1 },
       exactCitationReopening: { numerator: 6, denominator: 6, rate: 1 },
+      expectedAnswerStatus: { numerator: 7, denominator: 7, rate: 1 },
+      supportingSourceRecallAt5: { numerator: 6, denominator: 6, rate: 1 },
+      citationEntailment: { numerator: 0, denominator: 0, rate: null },
       withdrawalExclusion: { numerator: 1, denominator: 1, rate: 1 },
       insufficientContext: { numerator: 1, denominator: 1, rate: 1 },
       surfaceParity: { numerator: 1, denominator: 1, rate: 1 },
@@ -88,7 +94,7 @@ describe("progressive Brain evaluation", () => {
     expect(report.metrics.casesPassing.denominator).toBe(0);
   });
 
-  it("uses only adjudicated real tasks to advance maturity", () => {
+  it("does not advance maturity from uninspected manifest counts", () => {
     const base = {
       schemaVersion: 1 as const,
       datasetId: "external",
@@ -96,19 +102,105 @@ describe("progressive Brain evaluation", () => {
       payloadHashes: [],
     };
 
-    expect(
-      evaluateBrainProgressive([], {
-        ...base,
-        realTaskCount: 24,
+    const partialManifest = evaluateBrainProgressive([], {
+      ...base,
+      realTaskCount: 24,
+      adjudicatedTaskCount: 1,
+    });
+    const exitSizedManifest = evaluateBrainProgressive([], {
+      ...base,
+      realTaskCount: 25,
+      adjudicatedTaskCount: 25,
+    });
+
+    expect(partialManifest.maturity).toBe("insufficient-sample");
+    expect(exitSizedManifest.maturity).toBe("insufficient-sample");
+    expect(partialManifest.sample).toMatchObject({
+      realTasks: 0,
+      adjudicatedRealTasks: 0,
+      manifestDeclaredRealTasks: 24,
+      manifestDeclaredAdjudicatedTasks: 1,
+      manifestMatchesInspectedCases: false,
+    });
+    expect(exitSizedManifest.sample.manifestMatchesInspectedCases).toBe(false);
+  });
+
+  it("keeps citation entailment explicitly unassessed", () => {
+    const report = evaluateBrainProgressive([], {
+      schemaVersion: 1,
+      datasetId: "empty",
+      payloadLocation: "external",
+      realTaskCount: 0,
+      adjudicatedTaskCount: 0,
+      payloadHashes: [],
+    });
+    expect(report.metrics.citationEntailment).toEqual({
+      numerator: 0,
+      denominator: 0,
+      rate: null,
+    });
+  });
+
+  it("scores only adjudicated evidence as expected support", () => {
+    const report = evaluateBrainProgressive(
+      [
+        {
+          id: "real-1",
+          fixtureClass: "external-real",
+          adjudicated: true,
+          expectedAnswerStatus: "answered",
+          availableEvidence: [
+            {
+              sourceId: "slack:expected",
+              revisionId: "revision-1",
+              contentHash: "expected-hash",
+              eligible: true,
+            },
+          ],
+          observations: [
+            {
+              surface: "cli",
+              answerStatus: "insufficient_context",
+              packHash: "sha256:observed",
+              citations: [],
+            },
+          ],
+        },
+      ],
+      {
+        schemaVersion: 1,
+        datasetId: "external",
+        payloadLocation: "external",
+        realTaskCount: 1,
         adjudicatedTaskCount: 1,
-      }).maturity,
-    ).toBe("provisional");
-    expect(
-      evaluateBrainProgressive([], {
-        ...base,
-        realTaskCount: 25,
-        adjudicatedTaskCount: 25,
-      }).maturity,
-    ).toBe("exit-eligible");
+        payloadHashes: [],
+      },
+    );
+
+    expect(report.maturity).toBe("provisional");
+    expect(report.sample.adjudicatedRealTasks).toBe(1);
+    expect(report.sample.manifestMatchesInspectedCases).toBe(true);
+    expect(report.metrics.expectedAnswerStatus).toEqual({
+      numerator: 0,
+      denominator: 1,
+      rate: 0,
+    });
+    expect(report.metrics.supportingSourceRecallAt5).toEqual({
+      numerator: 0,
+      denominator: 1,
+      rate: 0,
+    });
+    expect(report.metrics.casesPassing).toEqual({
+      numerator: 0,
+      denominator: 1,
+      rate: 0,
+    });
+    expect(report.cases[0]).toMatchObject({
+      passed: false,
+      checks: {
+        expectedAnswerStatus: false,
+        supportingSourceRecallAt5: false,
+      },
+    });
   });
 });

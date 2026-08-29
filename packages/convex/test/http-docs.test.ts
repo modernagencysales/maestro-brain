@@ -1,3 +1,4 @@
+import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { describe, expect, it } from "vitest";
 import templateHttp from "../confect/http";
 import { createEmailUnsubscribeToken } from "../confect/email/unsubscribeToken";
@@ -23,6 +24,15 @@ const noopCtx: HeadlessHttpCtx = {
     throw new Error("runAction should not be called");
   },
 };
+
+const brainEvaluationOperationIds = [
+  "brain.evaluations.list",
+  "brain.evaluations.get",
+  "brain.evaluations.adjudicate",
+  "brain.evaluations.freezePreview",
+  "brain.evaluations.freezeApply",
+  "brain.evaluations.export",
+] as const;
 
 describe("template HTTP docs routes", () => {
   it("default-exports a Convex router covering every declared route", () => {
@@ -266,6 +276,33 @@ describe("template HTTP docs routes", () => {
         },
       },
     });
+  });
+
+  it("publishes every Brain evaluation operation in the generated manifest and OpenAPI", async () => {
+    expect(
+      confectManifest.functions
+        .filter(({ namespace }) => namespace === "brain.evaluations")
+        .map(({ operationId }) => operationId),
+    ).toEqual([...brainEvaluationOperationIds].sort());
+
+    const response = await handleTemplateHttpRequest(
+      noopCtx,
+      new Request("https://template.local/api/openapi.json"),
+    );
+    const body = (await readJson(response)) as {
+      readonly paths: Readonly<
+        Record<
+          string,
+          { readonly post?: { readonly operationId?: string } } | undefined
+        >
+      >;
+    };
+
+    expect(
+      brainEvaluationOperationIds.map(
+        (operationId) => body.paths[`/api/${operationId}`]?.post?.operationId,
+      ),
+    ).toEqual(brainEvaluationOperationIds);
   });
 
   it("serves MCP tools with generated Effect JSON schemas", () => {
@@ -532,6 +569,81 @@ describe("template HTTP docs routes", () => {
       userId: "user_contracts",
       question: "When is launch?",
       evidenceMode: "mixed",
+    });
+  });
+
+  it("routes evaluation reads through the credential workspace", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          calls.push(input);
+          return "keyHash" in input
+            ? {
+                ok: true,
+                keyId: "api_key_contracts",
+                workspaceId: "workspace_contracts",
+                userId: "user_contracts",
+              }
+            : { examples: [], nextCursorCreatedAt: undefined };
+        },
+      },
+      new Request("https://template.local/api/brain.evaluations.list", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceSlug: "contracts-primary",
+          input: { split: "development", limit: 20 },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      ok: true,
+      operationId: "brain.evaluations.list",
+      result: { examples: [] },
+    });
+    expect(calls).toEqual([
+      {
+        keyHash: expect.any(String),
+        workspaceSlug: "contracts-primary",
+        requiredScope: "workspace:read",
+        nowMs: expect.any(Number),
+      },
+      {
+        workspaceId: "workspace_contracts",
+        userId: "user_contracts",
+        split: "development",
+        limit: 20,
+      },
+    ]);
+  });
+
+  it("requires idempotency for evaluation writes", async () => {
+    const response = await handleTemplateHttpRequest(
+      noopCtx,
+      new Request("https://template.local/api/brain.evaluations.adjudicate", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceSlug: "contracts-primary",
+          input: { exampleKey: "example-1" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await readJson(response)).toMatchObject({
+      ok: false,
+      error: { _tag: "ValidationFailed" },
     });
   });
 
