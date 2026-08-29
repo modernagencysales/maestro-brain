@@ -153,9 +153,8 @@ export const proxyContractsRequest = async ({
     /^\/__contracts/u,
     "",
   )}${sourceUrl.search}`;
-  let response: Awaited<ReturnType<Route["fetch"]>>;
   try {
-    response = await route.fetch({
+    const response = await route.fetch({
       method: request.method(),
       headers: {
         authorization: `Bearer ${activeApiKey}`,
@@ -167,17 +166,11 @@ export const proxyContractsRequest = async ({
       }),
       url: targetUrl,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/Request context disposed/u.test(message)) return;
-    throw error;
-  }
-  try {
     await route.fulfill({ response });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (
-      !/Fetch response has been disposed|Route is already handled/u.test(
+      !/Request context disposed|Fetch response has been disposed|Route is already handled/u.test(
         message,
       )
     )
