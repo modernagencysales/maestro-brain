@@ -1,4 +1,3 @@
-import { generateText } from "ai";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
@@ -20,7 +19,7 @@ import {
 import { Forbidden, ValidationFailed } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
 import { killSwitchOn, loadLlmGatewayEnvConfig } from "../shared/env";
-import { createAssistantLanguageModel } from "../agents/assistantModel";
+import { generateAssistantText } from "../agents/assistantModel";
 import {
   BRAIN_EXTRACTION_POLICY_VERSION,
   extractionPrompt,
@@ -671,8 +670,9 @@ const runExtraction = (
         const prompt = extractionPrompt(prepared);
         const result = yield* Effect.tryPromise({
           try: () =>
-            generateText({
-              model: createAssistantLanguageModel({ mode, env }),
+            generateAssistantText({
+              mode,
+              env,
               prompt,
               maxOutputTokens: 1_200,
               maxRetries: 1,
