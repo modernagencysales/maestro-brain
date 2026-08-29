@@ -1,4 +1,5 @@
 import { TestConfect } from "@confect/test";
+import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -16,7 +17,92 @@ import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
 
+const seedSlackConnection = (workspaceId: GenericId<"workspaces">) =>
+  Effect.gen(function* () {
+    yield* (yield* DatabaseWriter)
+      .table("providerConnections")
+      .insert({
+        workspaceId,
+        provider: "slack",
+        status: "active",
+        generation: 1,
+        connectionRef: "apero-slack",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const APERO_ASK_QUESTION =
+  "What did the team say we need for replacing Ask Apero Advisors?";
+const RELEVANT_APERO_EVIDENCE =
+  "The team said replacing Ask Apero Advisors requires shared company context and tools.";
+const NOISY_APERO_EVIDENCE = "you dont need to connect an account";
+
+const aperoAskRegression = Effect.gen(function* () {
+  const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+  const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+  const actor = confect.withIdentity({
+    subject: "member-subject",
+    email: "member@example.com",
+  });
+  yield* confect.run(seedSlackConnection(seeded.workspaceId));
+  yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+    workspaceId: seeded.workspaceId,
+    provider: "slack",
+    scopeKey: "slack:apero-slack",
+    runKey: "run-apero-ask",
+    startedAt: now,
+  });
+  for (const [sourceKey, markdown] of [
+    ["slack:relevant", RELEVANT_APERO_EVIDENCE],
+    ["slack:noise", NOISY_APERO_EVIDENCE],
+  ] as const)
+    yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
+      workspaceId: seeded.workspaceId,
+      provider: "slack",
+      scopeKey: "slack:apero-slack",
+      runKey: "run-apero-ask",
+      sourceKey,
+      revisionKey: "revision-1",
+      title: "Slack message",
+      markdown,
+      sourceModifiedAt: now,
+      observedAt: now,
+    });
+  yield* confect.mutation(refs.internal.brain.evidence.completeRun, {
+    workspaceId: seeded.workspaceId,
+    runKey: "run-apero-ask",
+    discoveredCount: 2,
+    completedAt: now,
+  });
+  return yield* actor.query(
+    refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+    {
+      workspaceId: seeded.workspaceId,
+      question: APERO_ASK_QUESTION,
+      evidenceMode: "recent_evidence",
+      maxCitations: 3,
+      asOf: now,
+    },
+  );
+});
+
 describe("grounded assistant Confect contract", () => {
+  it("excludes generic Slack overlap from the exact Apero Ask path", async () => {
+    const result = await Effect.runPromise(
+      aperoAskRegression.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.status).toBe("answered");
+    expect(result.contextPack.citations).toEqual([
+      expect.objectContaining({
+        sourceKey: "slack:relevant",
+        excerpt: RELEVANT_APERO_EVIDENCE,
+      }),
+    ]);
+    expect(result.answerMarkdown).not.toContain(NOISY_APERO_EVIDENCE);
+  });
+
   it("captures only explicit, exactly reopenable evaluation examples", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
@@ -324,22 +410,7 @@ describe("grounded assistant Confect contract", () => {
         subject: "member-subject",
         email: "member@example.com",
       });
-      yield* confect.run(
-        Effect.gen(function* () {
-          yield* (yield* DatabaseWriter)
-            .table("providerConnections")
-            .insert({
-              workspaceId: seeded.workspaceId,
-              provider: "slack",
-              status: "active",
-              generation: 1,
-              connectionRef: "apero-slack",
-              createdAt: now,
-              updatedAt: now,
-            })
-            .pipe(Effect.orDie);
-        }),
-      );
+      yield* confect.run(seedSlackConnection(seeded.workspaceId));
       yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
         workspaceId: seeded.workspaceId,
         provider: "slack",
