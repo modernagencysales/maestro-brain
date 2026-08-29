@@ -531,6 +531,8 @@ describe("standalone teammate CLI", () => {
               answerMarkdown: "Friday [1]",
               contextPack: {
                 packHash,
+                asOf: 1_777_777_777_777,
+                policyVersion: "brain-context-v2",
                 evidenceMode: "recent_evidence",
                 citations: [
                   {
@@ -570,6 +572,9 @@ describe("standalone teammate CLI", () => {
         surface: "cli",
         answerStatus: "answered",
         packHash,
+        maxCitations: 5,
+        capturedAsOf: 1_777_777_777_777,
+        policyVersion: "brain-context-v2",
         evidenceReferences: [
           {
             sourceKey: "slack:C1:thread:1:segment:0",
@@ -1255,10 +1260,10 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.7"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.7\n");
+    expect(status).toContain('"cliVersion": "0.1.8"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.8\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.7/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.8/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');

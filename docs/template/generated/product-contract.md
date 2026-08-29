@@ -56,6 +56,16 @@ The links below are structural coverage only. Causal strength and declared-surfa
 | Typed plan paths | `docs/product/saas-ui-alpha9-adoption-plan.md` |
 | App Map targets | `route:$workspace/contacts/`, `route:$workspace/contacts/view/$id`, `system:access-and-tenancy`, `table:workspaces` |
 | Acceptance file paths | `brain.spec.ts` |
+## @BHV-BRAIN-006-R1 A context owner evaluates real questions without inventing readiness
+
+| Field | Value |
+| --- | --- |
+| Revision | 1 |
+| Lifecycle | draft |
+| Surfaces | `cli-process`, `public-http` |
+| Typed plan paths | — |
+| App Map targets | — |
+| Acceptance file paths | — |
 ## @BHV-REC-001-R1 A web-created record appears in the CLI
 
 | Field | Value |

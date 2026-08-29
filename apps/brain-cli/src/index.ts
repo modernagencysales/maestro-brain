@@ -12,6 +12,7 @@ import {
   statusCommand,
 } from "./diagnostics.js";
 import { evidenceCommand } from "./evidenceCommand.js";
+import { evaluationCommand, evaluationHelp } from "./evaluationCommand.js";
 import { importCommand } from "./importCommand.js";
 import { knowledgeCommand } from "./knowledgeCommand.js";
 import { pageCommand } from "./pageCommand.js";
@@ -42,6 +43,7 @@ Setup and diagnostics
 
 Use company context
   maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example] [--json]
+  maestro-brain eval status|list|show|export|adjudicate|freeze|run
   maestro-brain evidence search <query> [--limit <1-10>]
   maestro-brain evidence open <source-key> --revision <revision-key>
   maestro-brain evidence source-get <source-key> <revision-key>
@@ -80,6 +82,7 @@ Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
 references in the shared rolling evaluation set. --high-risk abstains when
 reviewed support is stale or possibly conflicting. --json preserves the exact
 API response for scripts and agent runtimes; human-readable output is the default.`,
+  eval: evaluationHelp,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
        maestro-brain evidence open <source-key> --revision <revision-key>
        maestro-brain evidence source-get <source-key> <revision-key>
@@ -441,6 +444,15 @@ const commandHandlers = (
         surface: "cli",
         answerStatus: payload.result.status,
         packHash: payload.result.contextPack.packHash,
+        maxCitations: 5,
+        ...("asOf" in payload.result.contextPack &&
+        typeof payload.result.contextPack.asOf === "number"
+          ? { capturedAsOf: payload.result.contextPack.asOf }
+          : {}),
+        ...("policyVersion" in payload.result.contextPack &&
+        typeof payload.result.contextPack.policyVersion === "string"
+          ? { policyVersion: payload.result.contextPack.policyVersion }
+          : {}),
         evidenceReferences: references,
         captureKind: "test",
         usefulness: "unrated",
@@ -465,6 +477,7 @@ const commandHandlers = (
       stdout: `${humanAnswer.stdout.trimEnd()}\n\nEvaluation example saved.\n`,
     };
   },
+  eval: async () => await evaluationCommand(argv, dependencies),
   evidence: async () => await evidenceCommand(argv, dependencies),
   knowledge: async () => await knowledgeCommand(argv, dependencies),
   page: async () => await pageCommand(argv, dependencies),

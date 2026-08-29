@@ -13,7 +13,7 @@ invitation, and then links a terminal.
 Requires Node 22. Run these commands from the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.7/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.8/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -23,7 +23,7 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.7/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.8/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app, asks the teammate to choose **Apero Company
@@ -72,6 +72,37 @@ Markdown body. Add `--full` only when the bodies are needed.
 
 Claude Cowork users can add the generated `.cowork/maestro-brain.json`
 descriptor through Cowork's connector UI if it is not discovered automatically.
+
+## Grow and evaluate the shared question set
+
+Saving is always explicit because it retains the full question for the shared
+workspace evaluation ledger:
+
+```bash
+maestro-brain ask "What is our ICP?" --save-example
+maestro-brain eval status
+maestro-brain eval list
+maestro-brain eval show <example-key>
+```
+
+The context owner adjudicates an example against exact evidence identities, then
+previews a later time- and source-separated holdout. Run
+`maestro-brain eval --help` for the revision fence and support-reference syntax.
+Freeze is preview-only unless `--apply` is supplied. Applying requires the exact
+cutoff and `previewHash` that the context owner reviewed, and refuses to proceed
+if the corpus changed or until at least 25 examples are adjudicated and five
+eligible later examples exist.
+
+```bash
+maestro-brain eval freeze --after 2026-09-15T00:00:00Z
+maestro-brain eval freeze --after 2026-09-15T00:00:00Z --apply --preview-hash sha256:<reviewed-hash>
+maestro-brain eval run --split development --as-of 2026-09-15T12:00:00Z --json
+maestro-brain eval export --split development
+```
+
+Every run reports exact numerators and denominators. It remains
+`insufficient-sample` or `provisional` while citation entailment is unassessed;
+the CLI never promotes a set to exit-ready from stored counts alone.
 
 ## Add company context
 

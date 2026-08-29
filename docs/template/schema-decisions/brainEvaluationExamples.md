@@ -26,6 +26,21 @@ excerpts.
   content hash; saving reopens and verifies each revision
 - New examples enter the rolling `development` split. A later reviewed process
   may freeze a time/source-separated `holdout`; clients cannot assign it.
+- Explicit adjudication records only expected answerability, expected immutable
+  evidence identities, and request risk. It does not store an expected prose
+  answer or copy evidence excerpts.
+- Adjudication uses `updatedAt` optimistic concurrency. Identical replay is
+  idempotent; conflicting replay fails. Frozen holdout labels are immutable and
+  hidden from ordinary reads.
+- Freeze preview requires at least 25 adjudicated examples and selects exactly
+  five test examples created at or after the chosen cutoff whose source keys do
+  not occur in the earlier development slice. Apply is fenced by the preview
+  hash and a stable freeze key. The preview hash binds each selected row's
+  adjudicated status, immutable evidence identities, risk, and `updatedAt`, so
+  any reviewed-gold change invalidates the apply request.
+- Redacted export replaces questions with hashes, retains only immutable
+  evidence identities for development examples, removes adjudicated gold from
+  holdout examples, sorts deterministically, and includes an export hash.
 - Full questions are retained only after `Useful`, `Needs work`, `Save as test`,
   or the CLI `--save-example` opt-in.
 

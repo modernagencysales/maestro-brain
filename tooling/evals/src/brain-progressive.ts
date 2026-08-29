@@ -54,6 +54,8 @@ export type BrainProgressiveCaseResult = {
   readonly passed: boolean;
   readonly checks: {
     readonly exactCitationReopening: boolean;
+    readonly expectedAnswerStatus: boolean;
+    readonly supportingSourceRecallAt5: boolean;
     readonly withdrawalSafety: boolean;
     readonly insufficientContext: boolean;
     readonly surfaceParity: boolean;
@@ -67,10 +69,16 @@ export type BrainProgressiveReport = {
     readonly realTasks: number;
     readonly adjudicatedRealTasks: number;
     readonly minimumExitSample: number;
+    readonly manifestDeclaredRealTasks: number;
+    readonly manifestDeclaredAdjudicatedTasks: number;
+    readonly manifestMatchesInspectedCases: boolean;
   };
   readonly metrics: {
     readonly casesPassing: BrainMetric;
     readonly exactCitationReopening: BrainMetric;
+    readonly expectedAnswerStatus: BrainMetric;
+    readonly supportingSourceRecallAt5: BrainMetric;
+    readonly citationEntailment: BrainMetric;
     readonly withdrawalExclusion: BrainMetric;
     readonly insufficientContext: BrainMetric;
     readonly surfaceParity: BrainMetric;
@@ -149,11 +157,19 @@ export const evaluateBrainProgressive = (
     left.id.localeCompare(right.id),
   );
   const caseResults = sortedCases.map(evaluateCase);
+  const realCases = sortedCases.filter(
+    ({ fixtureClass }) => fixtureClass === "external-real",
+  );
+  const adjudicatedRealCases = realCases.filter(
+    ({ adjudicated }) => adjudicated,
+  );
 
   const reopening = metricAccumulator();
   const withdrawals = metricAccumulator();
   const insufficient = metricAccumulator();
   const parity = metricAccumulator();
+  const expectedStatus = metricAccumulator();
+  const supportingSourceRecall = metricAccumulator();
 
   for (const testCase of sortedCases) {
     const evidenceByKey = new Map(
@@ -163,6 +179,21 @@ export const evaluateBrainProgressive = (
       ]),
     );
     for (const observation of testCase.observations) {
+      if (testCase.adjudicated) {
+        expectedStatus.add(
+          observation.answerStatus === testCase.expectedAnswerStatus,
+        );
+        const expectedSources = new Set(
+          testCase.availableEvidence
+            .filter(({ eligible }) => eligible)
+            .map(({ sourceId }) => sourceId),
+        );
+        const observedSources = new Set(
+          observation.citations.slice(0, 5).map(({ sourceId }) => sourceId),
+        );
+        for (const sourceId of expectedSources)
+          supportingSourceRecall.add(observedSources.has(sourceId));
+      }
       for (const citation of observation.citations) {
         const evidence = evidenceByKey.get(referenceKey(citation));
         reopening.add(
@@ -204,11 +235,16 @@ export const evaluateBrainProgressive = (
   }
 
   return {
-    maturity: maturityFor(manifest.adjudicatedTaskCount),
+    maturity: maturityFor(adjudicatedRealCases.length, 0),
     sample: {
-      realTasks: manifest.realTaskCount,
-      adjudicatedRealTasks: manifest.adjudicatedTaskCount,
+      realTasks: realCases.length,
+      adjudicatedRealTasks: adjudicatedRealCases.length,
       minimumExitSample: MINIMUM_EXIT_SAMPLE,
+      manifestDeclaredRealTasks: manifest.realTaskCount,
+      manifestDeclaredAdjudicatedTasks: manifest.adjudicatedTaskCount,
+      manifestMatchesInspectedCases:
+        manifest.realTaskCount === realCases.length &&
+        manifest.adjudicatedTaskCount === adjudicatedRealCases.length,
     },
     metrics: {
       casesPassing: toMetric(
@@ -216,6 +252,9 @@ export const evaluateBrainProgressive = (
         caseResults.length,
       ),
       exactCitationReopening: reopening.metric(),
+      expectedAnswerStatus: expectedStatus.metric(),
+      supportingSourceRecallAt5: supportingSourceRecall.metric(),
+      citationEntailment: toMetric(0, 0),
       withdrawalExclusion: withdrawals.metric(),
       insufficientContext: insufficient.metric(),
       surfaceParity: parity.metric(),
@@ -244,6 +283,28 @@ const evaluateCase = (
       );
     }),
   );
+  const expectedAnswerStatus =
+    !testCase.adjudicated ||
+    (testCase.observations.length > 0 &&
+      testCase.observations.every(
+        (observation) =>
+          observation.answerStatus === testCase.expectedAnswerStatus,
+      ));
+  const expectedSources = new Set(
+    testCase.availableEvidence
+      .filter(({ eligible }) => eligible)
+      .map(({ sourceId }) => sourceId),
+  );
+  const supportingSourceRecallAt5 =
+    !testCase.adjudicated ||
+    testCase.observations.every((observation) => {
+      const observedSources = new Set(
+        observation.citations.slice(0, 5).map(({ sourceId }) => sourceId),
+      );
+      return [...expectedSources].every((sourceId) =>
+        observedSources.has(sourceId),
+      );
+    });
   const withdrawalSafety = testCase.availableEvidence
     .filter(({ eligible }) => !eligible)
     .every((reference) =>
@@ -265,6 +326,8 @@ const evaluateCase = (
     testCase.observations.length < 2 || hasSurfaceParity(testCase.observations);
   const checks = {
     exactCitationReopening,
+    expectedAnswerStatus,
+    supportingSourceRecallAt5,
     withdrawalSafety,
     insufficientContext,
     surfaceParity,
@@ -273,6 +336,12 @@ const evaluateCase = (
     exactCitationReopening
       ? undefined
       : "Every citation must reopen the exact eligible evidence revision and content hash.",
+    expectedAnswerStatus
+      ? undefined
+      : "Every adjudicated observation must match the expected answer status.",
+    supportingSourceRecallAt5
+      ? undefined
+      : "Every adjudicated observation must cite each expected supporting source in its first five citations.",
     withdrawalSafety
       ? undefined
       : "Withdrawn or ineligible evidence must not be cited.",
@@ -319,9 +388,13 @@ const referenceKey = (reference: {
   readonly revisionId: string;
 }): string => `${reference.sourceId}:${reference.revisionId}`;
 
-const maturityFor = (adjudicatedTaskCount: number): BrainEvaluationMaturity => {
+const maturityFor = (
+  adjudicatedTaskCount: number,
+  entailmentDenominator: number,
+): BrainEvaluationMaturity => {
   if (adjudicatedTaskCount === 0) return "insufficient-sample";
-  if (adjudicatedTaskCount < MINIMUM_EXIT_SAMPLE) return "provisional";
+  if (adjudicatedTaskCount < MINIMUM_EXIT_SAMPLE || entailmentDenominator === 0)
+    return "provisional";
   return "exit-eligible";
 };
 

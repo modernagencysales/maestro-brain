@@ -22,6 +22,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "capability:manage-brain-evaluation-examples",
+      "kind": "capability",
+      "system": "knowledge-brain",
+      "path": "packages/convex/confect/capabilities/manageBrainEvaluationExamples.spec.ts",
+      "responsibility": "manage the progressive Brain evaluation corpus and deterministic holdout freeze",
+      "surfaces": ["api", "cli", "mcp"],
+      "uses": ["access-and-tenancy"],
+      "lifecycle": "active"
+    },
+    {
       "id": "agent:assistant",
       "kind": "agent",
       "system": "knowledge-brain",

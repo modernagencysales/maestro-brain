@@ -147,6 +147,45 @@ export const brainMcpToolConfigs = {
       "agents/assistant:saveEvaluationExampleForActor",
     ),
   },
+  "brain.evaluations.list": {
+    description:
+      "List bounded explicitly saved Brain evaluation examples; frozen holdout labels remain hidden from answering agents.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    ref: makeFunctionReference<"query">(
+      "capabilities/manageBrainEvaluationExamples:listBrainEvaluationExamplesForActor",
+    ),
+    inputSchema: objectSchema(
+      {
+        split: {
+          type: "string",
+          enum: ["development", "holdout"],
+        },
+        adjudicationState: {
+          type: "string",
+          enum: ["pending", "adjudicated"],
+        },
+        captureKind: { type: "string", enum: ["feedback", "test"] },
+        limit: { type: "integer", minimum: 1, maximum: 100 },
+        cursorCreatedAt: { type: "number", minimum: 0 },
+        cursorExampleKey: { type: "string", minLength: 1, maxLength: 200 },
+      },
+      [],
+    ),
+  },
+  "brain.evaluations.get": {
+    description:
+      "Open one saved Brain evaluation example by stable key without revealing frozen holdout labels.",
+    requiredScope: "workspace:read",
+    kind: "query",
+    ref: makeFunctionReference<"query">(
+      "capabilities/manageBrainEvaluationExamples:getBrainEvaluationExampleForActor",
+    ),
+    inputSchema: objectSchema(
+      { exampleKey: { type: "string", minLength: 1, maxLength: 200 } },
+      ["exampleKey"],
+    ),
+  },
   "brain.evidence.search": {
     description:
       "Search current canonical Brain evidence and return exact source and revision identities for reopening.",

@@ -1,6 +1,6 @@
 {
   "name": "@modernagencysales/maestro-brain",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Terminal client and agent setup for Maestro Brain",
   "license": "UNLICENSED",
   "type": "module",

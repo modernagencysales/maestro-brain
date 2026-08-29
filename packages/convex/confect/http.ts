@@ -80,6 +80,30 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
     kind: "operation",
     operationId: "brain.knowledge.extract",
   },
+  "/api/brain.evaluations.list": {
+    kind: "operation",
+    operationId: "brain.evaluations.list",
+  },
+  "/api/brain.evaluations.get": {
+    kind: "operation",
+    operationId: "brain.evaluations.get",
+  },
+  "/api/brain.evaluations.adjudicate": {
+    kind: "operation",
+    operationId: "brain.evaluations.adjudicate",
+  },
+  "/api/brain.evaluations.freezePreview": {
+    kind: "operation",
+    operationId: "brain.evaluations.freezePreview",
+  },
+  "/api/brain.evaluations.freezeApply": {
+    kind: "operation",
+    operationId: "brain.evaluations.freezeApply",
+  },
+  "/api/brain.evaluations.export": {
+    kind: "operation",
+    operationId: "brain.evaluations.export",
+  },
 };
 
 const recordOperationIds = [
@@ -112,6 +136,44 @@ const assistantSaveExampleOperationId =
   "agents.assistant.saveEvaluationExample" as const;
 const brainKnowledgeExtractionOperationId = "brain.knowledge.extract" as const;
 const workspaceListOperationId = "auth.workspaces.list" as const;
+
+const brainEvaluationOperationIds = [
+  "brain.evaluations.list",
+  "brain.evaluations.get",
+  "brain.evaluations.adjudicate",
+  "brain.evaluations.freezePreview",
+  "brain.evaluations.freezeApply",
+  "brain.evaluations.export",
+] as const;
+type BrainEvaluationOperationId = (typeof brainEvaluationOperationIds)[number];
+const isBrainEvaluationOperation = (
+  operationId: string,
+): operationId is BrainEvaluationOperationId =>
+  brainEvaluationOperationIds.some((candidate) => candidate === operationId);
+const brainEvaluationWriteOperations = new Set<BrainEvaluationOperationId>([
+  "brain.evaluations.adjudicate",
+  "brain.evaluations.freezeApply",
+]);
+const brainEvaluationActorRefs: Record<BrainEvaluationOperationId, unknown> = {
+  "brain.evaluations.list": makeFunctionReference<"query">(
+    "capabilities/manageBrainEvaluationExamples:listBrainEvaluationExamplesForActor",
+  ),
+  "brain.evaluations.get": makeFunctionReference<"query">(
+    "capabilities/manageBrainEvaluationExamples:getBrainEvaluationExampleForActor",
+  ),
+  "brain.evaluations.adjudicate": makeFunctionReference<"mutation">(
+    "capabilities/manageBrainEvaluationExamples:adjudicateBrainEvaluationExampleForActor",
+  ),
+  "brain.evaluations.freezePreview": makeFunctionReference<"query">(
+    "capabilities/manageBrainEvaluationExamples:previewBrainEvaluationFreezeForActor",
+  ),
+  "brain.evaluations.freezeApply": makeFunctionReference<"mutation">(
+    "capabilities/manageBrainEvaluationExamples:applyBrainEvaluationFreezeForActor",
+  ),
+  "brain.evaluations.export": makeFunctionReference<"query">(
+    "capabilities/manageBrainEvaluationExamples:exportBrainEvaluationExamplesForActor",
+  ),
+};
 
 const connectionOperationIds = [
   "integrations.connections.list",
@@ -249,6 +311,7 @@ export const templateHttpRoutes = [
       ...recordOperationIds,
       brainAskOperationId,
       brainKnowledgeExtractionOperationId,
+      ...brainEvaluationOperationIds,
     ]),
   ].map((operationId) => ({
     path: `/api/${operationId}`,
@@ -603,11 +666,18 @@ const executeTemplateApiRoute = async (
                         request,
                         parsedBody.body,
                       )
-                    : await responseForParsedTemplateApiBody(
-                        ctx,
-                        operationId,
-                        parsedBody.body,
-                      )
+                    : isBrainEvaluationOperation(operationId)
+                      ? await brainEvaluationApiResponse(
+                          ctx,
+                          request,
+                          operationId,
+                          parsedBody.body,
+                        )
+                      : await responseForParsedTemplateApiBody(
+                          ctx,
+                          operationId,
+                          parsedBody.body,
+                        )
     : jsonResponse(parsedBody);
 
   return response;
@@ -962,6 +1032,49 @@ const assistantSaveExampleApiResponse = async (
     operationId: assistantSaveExampleOperationId,
     result,
   });
+};
+
+const brainEvaluationApiResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  operationId: BrainEvaluationOperationId,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const admission = admitAssistantApiRequest(request, body);
+  if (!admission.ok) return admission.response;
+  if (
+    brainEvaluationWriteOperations.has(operationId) &&
+    !body.idempotencyKey?.trim()
+  )
+    return jsonResponse(
+      {
+        ok: false,
+        error: {
+          _tag: "ValidationFailed",
+          message: `${operationId} requires a nonblank idempotencyKey.`,
+        },
+      },
+      400,
+    );
+  const actor = (await ctx.runQuery(resolveRecordsActorRef, {
+    keyHash: await sha256Base64Url(admission.presentedKey),
+    workspaceSlug: admission.workspaceSlug,
+    requiredScope: brainEvaluationWriteOperations.has(operationId)
+      ? "workspace:write"
+      : "workspace:read",
+    nowMs: Date.now(),
+  })) as RecordsActorResolution;
+  if (!actor.ok) return brainActorFailure(actor);
+  const input = {
+    ...body.input,
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+  };
+  const ref = brainEvaluationActorRefs[operationId];
+  const result = brainEvaluationWriteOperations.has(operationId)
+    ? await ctx.runMutation(ref, input)
+    : await ctx.runQuery(ref, input);
+  return jsonResponse({ ok: true, operationId, result });
 };
 
 const workspaceListApiResponse = async (

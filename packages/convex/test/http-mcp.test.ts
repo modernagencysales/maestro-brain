@@ -137,6 +137,8 @@ describe("hosted Brain MCP", () => {
       "template.agents.assistant.answerQuestion",
       "template.brain.ask",
       "template.agents.assistant.saveEvaluationExample",
+      "template.brain.evaluations.list",
+      "template.brain.evaluations.get",
       "template.brain.evidence.search",
       "template.brain.evidence.sourceGet",
       "template.brain.evidence.health",
@@ -271,6 +273,42 @@ describe("hosted Brain MCP", () => {
     });
     expect(response).toMatchObject({
       result: { content: [{ type: "text" }] },
+    });
+  });
+
+  it("never reveals frozen holdout labels through HTTP MCP", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const ctx: HeadlessHttpCtx = {
+      ...noopCtx,
+      runQuery: async (_ref, input) => {
+        calls.push(input);
+        return "requiredScope" in input
+          ? {
+              ok: true,
+              keyId: "key_1",
+              workspaceId: "workspaces_derived",
+              userId: "users_derived",
+            }
+          : { examples: [] };
+      },
+    };
+    await handleTemplateHttpRequest(
+      ctx,
+      mcpRequest(
+        "tools/call",
+        {
+          name: "template.brain.evaluations.list",
+          arguments: { split: "holdout", includeHoldoutGold: true },
+        },
+        "Bearer mtk_live_test",
+      ),
+    );
+
+    expect(calls[1]).toEqual({
+      split: "holdout",
+      includeHoldoutGold: false,
+      workspaceId: "workspaces_derived",
+      userId: "users_derived",
     });
   });
 

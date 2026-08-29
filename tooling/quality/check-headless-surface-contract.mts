@@ -196,6 +196,11 @@ const isElementAccessOn = (
   ts.isIdentifier(expression.expression) &&
   expression.expression.text === objectName;
 
+const isCallTo = (expression: ts.Expression, functionName: string): boolean =>
+  ts.isCallExpression(expression) &&
+  ts.isIdentifier(expression.expression) &&
+  expression.expression.text === functionName;
+
 const callCount = (
   sourceFile: ts.SourceFile,
   predicate: (call: ts.CallExpression) => boolean,
@@ -213,10 +218,45 @@ export const missingHttpGeneratedRefMapping = (
   operationIds: readonly string[],
   source: string,
 ): string[] => {
-  const mappings = objectMapping(parseTypeScript(source), "operationRefs");
+  const sourceFile = parseTypeScript(source);
+  const mappings = objectMapping(sourceFile, "operationRefs");
+  const actorMappings = objectMapping(sourceFile, "brainEvaluationActorRefs");
+  const derivedActorRefs = new Set<string>();
+  const visitDerivedActorRefs = (node: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined &&
+      isElementAccessOn(node.initializer, "brainEvaluationActorRefs")
+    )
+      derivedActorRefs.add(node.name.text);
+    ts.forEachChild(node, visitDerivedActorRefs);
+  };
+  visitDerivedActorRefs(sourceFile);
+  const usesActorScopedRefs =
+    callCount(sourceFile, (call) => {
+      if (
+        !ts.isPropertyAccessExpression(call.expression) ||
+        (call.expression.name.text !== "runQuery" &&
+          call.expression.name.text !== "runMutation")
+      )
+        return false;
+      const ref = call.arguments[0];
+      return (
+        ref !== undefined &&
+        (isElementAccessOn(ref, "brainEvaluationActorRefs") ||
+          (ts.isIdentifier(ref) && derivedActorRefs.has(ref.text)))
+      );
+    }) > 0;
   return operationIds.filter((operationId) => {
     const ref = mappings.get(operationId);
-    return ref === undefined || expressionRoot(ref) !== "api";
+    if (ref !== undefined && expressionRoot(ref) === "api") return false;
+    const actorRef = actorMappings.get(operationId);
+    return !(
+      actorRef !== undefined &&
+      isCallTo(unwrapExpression(actorRef), "makeFunctionReference") &&
+      usesActorScopedRefs
+    );
   });
 };
 
@@ -265,6 +305,43 @@ export const missingCliGeneratedRefUsage = (
       !usesGeneratedCliRefs
     );
   });
+};
+
+export const missingStandaloneCliOperationUsage = (
+  operationIds: readonly string[],
+  source: string,
+): string[] => {
+  const requestedOperationIds = new Set<string>();
+  const sourceFile = parseTypeScript(source);
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "request"
+    ) {
+      const requestOptions = node.arguments[1];
+      if (requestOptions !== undefined) {
+        const options = unwrapExpression(requestOptions);
+        if (ts.isObjectLiteralExpression(options)) {
+          const operationId = options.properties.find(
+            (property): property is ts.PropertyAssignment =>
+              ts.isPropertyAssignment(property) &&
+              propertyNameText(property.name) === "operationId",
+          )?.initializer;
+          if (operationId !== undefined) {
+            const value = unwrapExpression(operationId);
+            if (ts.isStringLiteralLike(value))
+              requestedOperationIds.add(value.text);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return operationIds.filter(
+    (operationId) => !requestedOperationIds.has(operationId),
+  );
 };
 
 export const missingMcpGeneratedRefUsage = (
@@ -366,13 +443,19 @@ export const evaluateHeadlessSurfaceContract = async (
   const workflowProjectionPath = mcpProjectionPath(
     existsSync(join(repoRoot, workflowIndexPath)),
   );
-  const [httpSource, cliSource, workflowSource, executorSource] =
-    await Promise.all([
-      readRepoFile(repoRoot, "packages/convex/confect/http.ts"),
-      readRepoFile(repoRoot, "apps/cli/src/index.ts"),
-      readRepoFile(repoRoot, workflowProjectionPath),
-      readRepoFile(repoRoot, "packages/convex/confect/manifest/executor.ts"),
-    ]);
+  const [
+    httpSource,
+    cliSource,
+    standaloneBrainCliSource,
+    workflowSource,
+    executorSource,
+  ] = await Promise.all([
+    readRepoFile(repoRoot, "packages/convex/confect/http.ts"),
+    readRepoFile(repoRoot, "apps/cli/src/index.ts"),
+    readRepoFile(repoRoot, "apps/brain-cli/src/evaluationCommand.ts"),
+    readRepoFile(repoRoot, workflowProjectionPath),
+    readRepoFile(repoRoot, "packages/convex/confect/manifest/executor.ts"),
+  ]);
   const workflowCompatPath = "tooling/workflow/src/workflow-compat.ts";
   const workflowCompatSource = await readOptionalRepoFile(
     repoRoot,
@@ -405,10 +488,20 @@ export const evaluateHeadlessSurfaceContract = async (
     httpSource,
     "http",
   );
-  const cliMissingRefs = missingGeneratedRefMapping(
-    exposedOperationIds(operations, "cli"),
-    cliSource,
-    "cli",
+  const cliOperationIds = exposedOperationIds(operations, "cli");
+  const genericCliMissingRefs = new Set(
+    missingGeneratedRefMapping(cliOperationIds, cliSource, "cli"),
+  );
+  const standaloneCliMissingRefs = new Set(
+    missingStandaloneCliOperationUsage(
+      cliOperationIds,
+      standaloneBrainCliSource,
+    ),
+  );
+  const cliMissingRefs = cliOperationIds.filter(
+    (operationId) =>
+      genericCliMissingRefs.has(operationId) &&
+      standaloneCliMissingRefs.has(operationId),
   );
   const mcpMissingRefs = missingGeneratedRefMapping(
     exposedOperationIds(operations, "mcp"),
@@ -418,6 +511,10 @@ export const evaluateHeadlessSurfaceContract = async (
   const runtimeSources = [
     { path: "packages/convex/confect/http.ts", source: httpSource },
     { path: "apps/cli/src/index.ts", source: cliSource },
+    {
+      path: "apps/brain-cli/src/evaluationCommand.ts",
+      source: standaloneBrainCliSource,
+    },
     { path: workflowProjectionPath, source: workflowSource },
     ...optionalRuntimeSource(workflowCompatPath, workflowCompatSource),
     {

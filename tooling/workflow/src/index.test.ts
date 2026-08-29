@@ -18,9 +18,11 @@ describe("workflow headless registry", () => {
     const operations = buildHeadlessOperations();
     const ids = operations.map((operation) => operation.id);
 
-    expect(operations).toHaveLength(66);
+    expect(operations).toHaveLength(78);
     expect(ids).toContain("api:agents.assistant.answerQuestion");
     expect(ids).toContain("mcp:agents.assistant.saveEvaluationExample");
+    expect(ids).toContain("api:brain.evaluations.adjudicate");
+    expect(ids).toContain("cli:brain.evaluations.list");
     expect(ids).toContain("api:brain.pages.createMarkdown");
     expect(ids).toContain("cli:brain.pages.createMarkdown");
     expect(ids).toContain("web:brain.pages.list");
@@ -47,9 +49,9 @@ describe("workflow headless registry", () => {
       validationErrors: [],
       nodeCount: 5,
       edgeCount: 4,
-      capabilityCount: 23,
+      capabilityCount: 29,
       agentCount: 3,
-      headlessOperationCount: 66,
+      headlessOperationCount: 78,
     });
   });
 
@@ -94,6 +96,84 @@ describe("workflow headless registry", () => {
         path: "/api/auth.workspaces.list",
         authScope: "workspace member",
         typedErrors: ["Unauthorized", "ValidationFailed"],
+      },
+      {
+        operationId: "brain.evaluations.adjudicate",
+        method: "POST",
+        path: "/api/brain.evaluations.adjudicate",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
+      },
+      {
+        operationId: "brain.evaluations.export",
+        method: "POST",
+        path: "/api/brain.evaluations.export",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
+      },
+      {
+        operationId: "brain.evaluations.freezeApply",
+        method: "POST",
+        path: "/api/brain.evaluations.freezeApply",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
+      },
+      {
+        operationId: "brain.evaluations.freezePreview",
+        method: "POST",
+        path: "/api/brain.evaluations.freezePreview",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
+      },
+      {
+        operationId: "brain.evaluations.get",
+        method: "POST",
+        path: "/api/brain.evaluations.get",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
+      },
+      {
+        operationId: "brain.evaluations.list",
+        method: "POST",
+        path: "/api/brain.evaluations.list",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "ValidationFailed",
+          "Forbidden",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+        ],
       },
       {
         operationId: "brain.pages.createMarkdown",
@@ -294,6 +374,12 @@ describe("workflow headless registry", () => {
       "/api/agents.assistant.answerQuestion",
       "/api/agents.assistant.saveEvaluationExample",
       "/api/auth.workspaces.list",
+      "/api/brain.evaluations.adjudicate",
+      "/api/brain.evaluations.export",
+      "/api/brain.evaluations.freezeApply",
+      "/api/brain.evaluations.freezePreview",
+      "/api/brain.evaluations.get",
+      "/api/brain.evaluations.list",
       "/api/brain.pages.createMarkdown",
       "/api/brain.pages.get",
       "/api/brain.pages.history",
