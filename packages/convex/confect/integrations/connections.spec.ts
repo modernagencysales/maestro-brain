@@ -96,6 +96,14 @@ const HubSpotSyncArgs = Schema.Struct({
   portalId: Schema.NonEmptyString,
   allowlistGeneration: Schema.optional(Schema.Number),
 });
+const ScheduledGoogleDriveSyncArgs = Schema.Struct({
+  ...GoogleDriveSyncArgs.fields,
+  expectedConnectionGeneration: Schema.Number,
+});
+const ScheduledHubSpotSyncArgs = Schema.Struct({
+  ...HubSpotSyncArgs.fields,
+  expectedConnectionGeneration: Schema.Number,
+});
 
 const list = defineContractFunction(
   FunctionSpec.publicQuery({
@@ -349,6 +357,8 @@ const recordProviderSync = FunctionSpec.internalMutation({
     Schema.Struct({
       workspaceId: Id("workspaces"),
       provider: ProviderKey,
+      connectionGeneration: Schema.Number,
+      syncAttemptKey: Schema.NonEmptyString,
       status: Schema.Literals(["syncing", "ready", "error"]),
       syncedAt: Schema.optional(Schema.Number),
       sourceCount: Schema.optional(Schema.Number),
@@ -356,6 +366,7 @@ const recordProviderSync = FunctionSpec.internalMutation({
       rootFolderIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
       portalId: Schema.optional(Schema.NonEmptyString),
       allowlistGeneration: Schema.optional(Schema.Number),
+      evidenceScopeKey: Schema.optional(Schema.NonEmptyString),
       errorCode: Schema.optional(Schema.NonEmptyString),
     }),
   returns: () => CurrentProviderConnectionDoc,
@@ -367,11 +378,15 @@ const recordSlackSync = FunctionSpec.internalMutation({
   args: () =>
     Schema.Struct({
       workspaceId: Id("workspaces"),
+      connectionGeneration: Schema.Number,
+      syncAttemptKey: Schema.NonEmptyString,
       status: Schema.Literals(["syncing", "ready", "error"]),
       syncedAt: Schema.optional(Schema.Number),
       messageCount: Schema.optional(Schema.Number),
       pageCount: Schema.optional(Schema.Number),
       channelIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+      lookbackDays: Schema.optional(Schema.Number),
+      evidenceScopeKey: Schema.optional(Schema.NonEmptyString),
       errorCode: Schema.optional(Schema.NonEmptyString),
     }),
   returns: () => CurrentProviderConnectionDoc,
@@ -383,6 +398,13 @@ const connectionForSync = FunctionSpec.internalQuery({
   args: () => WorkspaceProviderArgs,
   returns: () => ConnectionOrNull,
   error: () => NoRecoverableError,
+});
+
+const connectionsForManualSync = FunctionSpec.internalQuery({
+  name: "connectionsForManualSync",
+  args: () => Schema.Struct({ workspaceId: Id("workspaces") }),
+  returns: () => ConnectionList,
+  error: () => AccessError,
 });
 
 const syncSlackScheduled = FunctionSpec.internalAction({
@@ -399,7 +421,7 @@ const syncSlackScheduled = FunctionSpec.internalAction({
 
 const syncGoogleDriveScheduled = FunctionSpec.internalAction({
   name: "syncGoogleDriveScheduled",
-  args: () => GoogleDriveSyncArgs,
+  args: () => ScheduledGoogleDriveSyncArgs,
   returns: () =>
     Schema.Struct({ sourceCount: Schema.Number, syncedAt: Schema.Number }),
   error: () => SyncError,
@@ -407,10 +429,24 @@ const syncGoogleDriveScheduled = FunctionSpec.internalAction({
 
 const syncHubSpotScheduled = FunctionSpec.internalAction({
   name: "syncHubSpotScheduled",
-  args: () => HubSpotSyncArgs,
+  args: () => ScheduledHubSpotSyncArgs,
   returns: () =>
     Schema.Struct({ sourceCount: Schema.Number, syncedAt: Schema.Number }),
   error: () => SyncError,
+});
+
+const continueProviderScopeCleanup = FunctionSpec.internalAction({
+  name: "continueProviderScopeCleanup",
+  args: () =>
+    Schema.Struct({
+      workspaceId: Id("workspaces"),
+      provider: Schema.Literals(["slack", "google_drive", "hubspot"]),
+      activeScopeKey: Schema.NonEmptyString,
+      connectionGeneration: Schema.Number,
+      observedAt: Schema.Number,
+    }),
+  returns: () => Schema.Struct({ complete: Schema.Boolean }),
+  error: () => Schema.Union([ValidationFailed, NotFound]),
 });
 
 const dispatchScheduledSyncs = FunctionSpec.internalMutation({
@@ -442,7 +478,9 @@ export default GroupSpec.make()
   .addFunction(syncSlackScheduled)
   .addFunction(syncGoogleDriveScheduled)
   .addFunction(syncHubSpotScheduled)
+  .addFunction(continueProviderScopeCleanup)
   .addFunction(connectionForSync)
+  .addFunction(connectionsForManualSync)
   .addFunction(dispatchScheduledSyncs)
   .addFunction(recordSlackSync)
   .addFunction(recordProviderSync)

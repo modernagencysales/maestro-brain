@@ -79,7 +79,7 @@ Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
 --save-example explicitly stores this question and its immutable citation
 references in the shared rolling evaluation set. --high-risk abstains when
 reviewed support is stale or possibly conflicting. --json preserves the exact
-API response for scripts and agent runtimes (JSON remains the default output).`,
+API response for scripts and agent runtimes; human-readable output is the default.`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
        maestro-brain evidence open <source-key> --revision <revision-key>
        maestro-brain evidence source-get <source-key> <revision-key>
@@ -123,6 +123,107 @@ const helpFor = (command: string | undefined): CliResult =>
           `Unknown command: ${command}\nRun maestro-brain --help for commands.`,
         )
       : success(help.trimEnd());
+
+const humanAskResult = (answer: CliResult): CliResult => {
+  if (answer.exitCode !== 0) return answer;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(answer.stdout);
+  } catch {
+    return answer;
+  }
+  if (
+    payload === null ||
+    typeof payload !== "object" ||
+    !("result" in payload) ||
+    payload.result === null ||
+    typeof payload.result !== "object" ||
+    !("status" in payload.result) ||
+    !("contextPack" in payload.result) ||
+    payload.result.contextPack === null ||
+    typeof payload.result.contextPack !== "object"
+  )
+    return answer;
+  const result = payload.result;
+  const pack = result.contextPack as Record<string, unknown>;
+  const citations =
+    "citations" in pack && Array.isArray(pack.citations) ? pack.citations : [];
+  const sourceLines = citations.flatMap((citation, index) => {
+    if (citation === null || typeof citation !== "object") return [];
+    const read = (key: string) =>
+      key in citation && typeof citation[key] === "string"
+        ? citation[key]
+        : undefined;
+    const title = read("title") ?? read("sourceKey") ?? `Source ${index + 1}`;
+    const provider = read("provider");
+    const revision = read("revisionKey");
+    const freshness = read("freshness");
+    const locator = read("locator");
+    const details = [provider, revision && `revision ${revision}`, freshness]
+      .filter(Boolean)
+      .join(" · ");
+    return [
+      `${index + 1}. ${title}${details ? ` — ${details}` : ""}${locator ? `\n   ${locator}` : ""}`,
+    ];
+  });
+  const packHash =
+    "packHash" in pack && typeof pack.packHash === "string"
+      ? pack.packHash
+      : undefined;
+  const packDetail = (key: string) =>
+    key in pack && typeof pack[key] === "string" ? pack[key] : undefined;
+  const evidenceMode = packDetail("evidenceMode");
+  const freshness = packDetail("freshness");
+  const notices = [
+    ...(Array.isArray(pack.conflicts) && pack.conflicts.length > 0
+      ? [`Conflicts: ${pack.conflicts.length}`]
+      : []),
+    ...(Array.isArray(pack.omissions) && pack.omissions.length > 0
+      ? [
+          `Omissions: ${pack.omissions
+            .flatMap((item) =>
+              item !== null &&
+              typeof item === "object" &&
+              "reason" in item &&
+              typeof item.reason === "string" &&
+              "count" in item &&
+              typeof item.count === "number"
+                ? [`${item.reason} (${item.count})`]
+                : [],
+            )
+            .join(", ")}`,
+        ]
+      : []),
+  ];
+  const packLines = [
+    ...(evidenceMode === undefined ? [] : [`Mode: ${evidenceMode}`]),
+    ...(freshness === undefined ? [] : [`Freshness: ${freshness}`]),
+    ...notices,
+    ...(packHash === undefined ? [] : [`ContextPack: ${packHash}`]),
+  ];
+  if (
+    result.status === "answered" &&
+    "answerMarkdown" in result &&
+    typeof result.answerMarkdown === "string"
+  )
+    return success(
+      [
+        result.answerMarkdown,
+        ...(sourceLines.length === 0 ? [] : ["Sources:", ...sourceLines]),
+        ...packLines,
+      ].join("\n\n"),
+    );
+  if (result.status === "insufficient-context") {
+    const reason =
+      "reason" in result && typeof result.reason === "string"
+        ? result.reason
+        : "no eligible evidence";
+    return success(
+      [`Insufficient context: ${reason}.`, ...packLines].join("\n\n"),
+    );
+  }
+  return answer;
+};
 
 const setupCommand = async (
   argv: readonly string[],
@@ -242,6 +343,7 @@ const commandHandlers = (
     }),
   ask: async () => {
     const saveExample = argv.includes("--save-example");
+    const jsonOutput = argv.includes("--json");
     const requestedMode = option(argv, "--mode");
     if (
       requestedMode !== undefined &&
@@ -277,7 +379,8 @@ const commandHandlers = (
         ...(argv.includes("--high-risk") ? { riskLevel: "high" } : {}),
       },
     });
-    if (!saveExample || answer.exitCode !== 0) return answer;
+    if (!saveExample || answer.exitCode !== 0)
+      return jsonOutput ? answer : humanAskResult(answer);
     let payload: unknown;
     try {
       payload = JSON.parse(answer.stdout);
@@ -346,7 +449,7 @@ const commandHandlers = (
     });
     if (saved.exitCode !== 0) return saved;
     const savedPayload: unknown = JSON.parse(saved.stdout);
-    return success({
+    const savedAnswer = success({
       answer: payload.result,
       evaluationExample:
         savedPayload !== null &&
@@ -355,6 +458,12 @@ const commandHandlers = (
           ? { saved: true, id: savedPayload.result }
           : { saved: true },
     });
+    if (jsonOutput) return savedAnswer;
+    const humanAnswer = humanAskResult(answer);
+    return {
+      ...humanAnswer,
+      stdout: `${humanAnswer.stdout.trimEnd()}\n\nEvaluation example saved.\n`,
+    };
   },
   evidence: async () => await evidenceCommand(argv, dependencies),
   knowledge: async () => await knowledgeCommand(argv, dependencies),

@@ -1,9 +1,12 @@
 import { Table } from "@confect/server";
 import * as S from "effect/Schema";
 import { Id } from "../_generated/id";
+import { BrainEvidenceProvider } from "./brainEvidenceSources";
 
 export const BrainRetrievalTokenRow = S.Struct({
   workspaceId: Id("workspaces"),
+  provider: S.optional(BrainEvidenceProvider),
+  scopeKey: S.optional(S.String),
   token: S.String,
   entryKey: S.String,
   passageKey: S.optional(S.String),
@@ -17,4 +20,22 @@ export const BrainRetrievalTokenRow = S.Struct({
 
 export default Table.make(() => BrainRetrievalTokenRow)
   .index("by_workspace_and_token", ["workspaceId", "token"])
+  .index("by_workspace_and_scope_key_and_token", [
+    "workspaceId",
+    "scopeKey",
+    "token",
+  ])
+  .index("by_workspace_provider_scope_token", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "token",
+  ])
+  .index("by_workspace_provider_token", ["workspaceId", "provider", "token"])
+  .index("by_workspace_provider_scope_entry", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "entryKey",
+  ])
   .index("by_workspace_and_entry_key", ["workspaceId", "entryKey"]);

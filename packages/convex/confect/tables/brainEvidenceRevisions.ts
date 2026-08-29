@@ -28,4 +28,17 @@ export default Table.make(() => BrainEvidenceRevisionRow)
     "workspaceId",
     "sourceKey",
     "revisionKey",
+  ])
+  .index("by_workspace_and_scope_source_revision", [
+    "workspaceId",
+    "scopeKey",
+    "sourceKey",
+    "revisionKey",
+  ])
+  .index("by_workspace_provider_scope_source_revision", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "sourceKey",
+    "revisionKey",
   ]);

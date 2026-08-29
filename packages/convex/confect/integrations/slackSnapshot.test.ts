@@ -7,7 +7,7 @@ import {
 
 const input = {
   workspaceId: "workspace_1" as never,
-  connectionRef: "apero-slack",
+  scopeKey: "slack:apero-slack:channel:C1:lookback:30",
   runKey: "run-1",
   observedAt: 1_782_924_800_000,
 };
@@ -48,7 +48,7 @@ describe("Slack Brain projection", () => {
     expect(item).toMatchObject({
       workspaceId: "workspace_1",
       provider: "slack",
-      scopeKey: "slack:apero-slack",
+      scopeKey: "slack:apero-slack:channel:C1:lookback:30",
       runKey: "run-1",
       sourceKey: "slack:C01:thread:178.1:segment:0",
       title: "Slack · #company-context · Thread 178.1",

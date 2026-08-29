@@ -1,7 +1,9 @@
 'use client'
 
+import * as React from 'react'
 import { Box, HStack, Heading, Text, VStack } from '@chakra-ui/react'
 import { Button, IconButton, Tooltip } from '@saas-ui/react'
+import { SearchInput } from '@workspace/ui/search-input'
 import { FaFile, FaFileLines, FaLink } from 'react-icons/fa6'
 import {
   LuChevronRight,
@@ -35,6 +37,44 @@ const pageIconColor = {
   markdown: 'blue.500',
   note: 'orange.500',
 } as const
+
+const evidenceProviderLabels: Record<BrainEvidenceSummary['provider'], string> = {
+  brain_page: 'Brain pages',
+  google_drive: 'Google Drive',
+  hubspot: 'HubSpot',
+  slack: 'Slack',
+  transcript: 'Transcripts',
+}
+
+const COLLAPSED_SOURCE_LIMIT = 12
+
+export const groupBrainEvidence = (
+  evidence: readonly BrainEvidenceSummary[],
+  sourceFilter: string,
+) => {
+  const normalizedFilter = sourceFilter.trim().toLowerCase()
+  const filtered =
+    normalizedFilter.length === 0
+      ? evidence
+      : evidence.filter((source) =>
+          `${source.title} ${source.excerpt} ${source.provider}`
+            .toLowerCase()
+            .includes(normalizedFilter),
+        )
+  const grouped = new Map<
+    BrainEvidenceSummary['provider'],
+    BrainEvidenceSummary[]
+  >()
+  for (const source of filtered) {
+    const sources = grouped.get(source.provider) ?? []
+    sources.push(source)
+    grouped.set(source.provider, sources)
+  }
+  return [...grouped.entries()].map(([provider, sources]) => ({
+    provider,
+    sources,
+  }))
+}
 
 export const brainPageModifiedLabel = (updatedAt: number) =>
   new Intl.DateTimeFormat('en', {
@@ -91,6 +131,14 @@ export function BrainPagesPanel({
     workspaceId: workspace.id,
   })
   const evidence = evidenceOverride ?? loadedEvidence
+  const [sourceFilter, setSourceFilter] = React.useState('')
+  const [expandedProviders, setExpandedProviders] = React.useState<
+    ReadonlySet<BrainEvidenceSummary['provider']>
+  >(new Set())
+  const evidenceGroups = React.useMemo(
+    () => groupBrainEvidence(evidence, sourceFilter),
+    [evidence, sourceFilter],
+  )
   const activeEvidenceEntryKey = activePageId
     ? parseBrainEvidenceRouteId(activePageId)
     : undefined
@@ -227,48 +275,125 @@ export function BrainPagesPanel({
             </HStack>
           </VStack>
         ) : (
-          <GridList.Root interactive pb="0">
-            {evidence.map((source) => {
-              const selected = source.entryKey === activeEvidenceEntryKey
+          <VStack align="stretch" gap="0">
+            <Box px="3" py="2" borderBottomWidth="1px">
+              <SearchInput
+                aria-label="Filter synced sources"
+                placeholder="Filter synced sources"
+                size="sm"
+                value={sourceFilter}
+                onChange={(event) => setSourceFilter(event.target.value)}
+              />
+            </Box>
+            {evidenceGroups.length === 0 ? (
+              <Text color="fg.muted" px="4" py="4" textStyle="sm">
+                No synced sources match this filter.
+              </Text>
+            ) : null}
+            {evidenceGroups.map(({ provider, sources }) => {
+              const expanded =
+                sourceFilter.trim().length > 0 || expandedProviders.has(provider)
+              const visibleSources = expanded
+                ? sources
+                : sources.slice(0, COLLAPSED_SOURCE_LIMIT)
               return (
-                <GridList.Item
-                  key={source.entryKey}
-                  aria-current={selected ? 'page' : undefined}
-                  bg={selected ? 'bg.muted' : undefined}
-                  borderBottomWidth="1px"
-                  px="3"
-                  py="2.5"
-                  onClick={() => onSelect(brainEvidenceRouteId(source.entryKey))}
-                >
-                  <GridList.Cell>
-                    <IconBadge
-                      color={source.provider === 'slack' ? 'purple.500' : 'teal.500'}
-                    >
-                      {source.provider === 'slack' ? (
-                        <LuMessageSquare />
-                      ) : (
-                        <LuDatabase />
-                      )}
-                    </IconBadge>
-                  </GridList.Cell>
-                  <GridList.Cell flex="1" minW="0">
-                    <VStack align="start" gap="0" lineHeight="1.4">
-                      <Heading as="h4" size="sm" fontWeight="medium" truncate>
-                        {source.title}
-                      </Heading>
-                      <Text color="fg.muted" textStyle="xs" truncate width="100%">
-                        {source.excerpt}
-                      </Text>
-                      <Text color="fg.muted" textStyle="xs">
-                        {source.provider.replace('_', ' ')} ·{' '}
-                        {brainPageModifiedLabel(source.sourceModifiedAt)}
-                      </Text>
-                    </VStack>
-                  </GridList.Cell>
-                </GridList.Item>
+                <Box key={provider}>
+                  <HStack
+                    px="3"
+                    py="2"
+                    bg="bg.subtle"
+                    borderBottomWidth="1px"
+                  >
+                    <Heading as="h4" textStyle="xs" flex="1">
+                      {evidenceProviderLabels[provider]} · {sources.length}
+                    </Heading>
+                    {sources.length > COLLAPSED_SOURCE_LIMIT &&
+                    sourceFilter.trim().length === 0 ? (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() =>
+                          setExpandedProviders((current) => {
+                            const next = new Set(current)
+                            if (next.has(provider)) next.delete(provider)
+                            else next.add(provider)
+                            return next
+                          })
+                        }
+                      >
+                        {expanded ? 'Show fewer' : 'Show all'}
+                      </Button>
+                    ) : null}
+                  </HStack>
+                  <GridList.Root interactive pb="0">
+                    {visibleSources.map((source) => {
+                      const selected =
+                        source.entryKey === activeEvidenceEntryKey
+                      return (
+                        <GridList.Item
+                          key={source.entryKey}
+                          aria-current={selected ? 'page' : undefined}
+                          bg={selected ? 'bg.muted' : undefined}
+                          borderBottomWidth="1px"
+                          px="3"
+                          py="2.5"
+                          onClick={() =>
+                            onSelect(brainEvidenceRouteId(source.entryKey))
+                          }
+                        >
+                          <GridList.Cell>
+                            <IconBadge
+                              color={
+                                source.provider === 'slack'
+                                  ? 'purple.500'
+                                  : 'teal.500'
+                              }
+                            >
+                              {source.provider === 'slack' ? (
+                                <LuMessageSquare />
+                              ) : (
+                                <LuDatabase />
+                              )}
+                            </IconBadge>
+                          </GridList.Cell>
+                          <GridList.Cell flex="1" minW="0">
+                            <VStack
+                              align="start"
+                              gap="0"
+                              lineHeight="1.4"
+                            >
+                              <Heading
+                                as="h4"
+                                size="sm"
+                                fontWeight="medium"
+                                truncate
+                              >
+                                {source.title}
+                              </Heading>
+                              <Text
+                                color="fg.muted"
+                                textStyle="xs"
+                                truncate
+                                width="100%"
+                              >
+                                {source.excerpt}
+                              </Text>
+                              <Text color="fg.muted" textStyle="xs">
+                                {source.provider.replace('_', ' ')} ·{' '}
+                                {brainPageModifiedLabel(
+                                  source.sourceModifiedAt,
+                                )}
+                              </Text>
+                            </VStack>
+                          </GridList.Cell>
+                        </GridList.Item>
+                      )
+                    })}
+                  </GridList.Root>
+                </Box>
               )
             })}
-          </GridList.Root>
+          </VStack>
         )}
         </Box>
       </VStack>

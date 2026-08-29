@@ -21,6 +21,10 @@ export const CurrentProviderConnectionRow = Schema.Struct({
   syncErrorCode: Schema.optional(Schema.NonEmptyString),
   scheduledSyncEnabled: Schema.optional(Schema.Boolean),
   slackChannelIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+  slackLookbackDays: Schema.optional(Schema.Number),
+  evidenceScopeKey: Schema.optional(Schema.NonEmptyString),
+  pendingEvidenceScopeKey: Schema.optional(Schema.NonEmptyString),
+  pendingSyncAttemptKey: Schema.optional(Schema.NonEmptyString),
   googleDriveId: Schema.optional(Schema.NonEmptyString),
   googleDriveRootFolderIds: Schema.optional(
     Schema.Array(Schema.NonEmptyString),

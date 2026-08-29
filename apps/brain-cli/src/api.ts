@@ -22,6 +22,30 @@ export const failure = (message: string): CliResult => ({
 const redacted = (text: string, secret: string): string =>
   secret ? text.split(secret).join("[REDACTED]") : text;
 
+const exitCodeForTag = (tag: string | undefined): number => {
+  if (tag === "Unauthorized" || tag === "Forbidden") return 2;
+  if (tag === "StaleRevision" || tag === "Conflict") return 3;
+  if (tag === "NotFound" || tag === "EvidenceInaccessible") return 4;
+  if (
+    tag === "ProviderFailure" ||
+    tag === "ProviderUnavailable" ||
+    tag === "ToolExecutionFailed"
+  )
+    return 5;
+  return 1;
+};
+
+const errorTagFrom = (value: unknown): string | undefined =>
+  value !== null &&
+  typeof value === "object" &&
+  "error" in value &&
+  value.error !== null &&
+  typeof value.error === "object" &&
+  "_tag" in value.error &&
+  typeof value.error._tag === "string"
+    ? value.error._tag
+    : undefined;
+
 type ApiRequest = {
   readonly config: BrainConfig;
   readonly fetcher: typeof fetch;
@@ -60,8 +84,9 @@ const apiResponseResult = async (
     typeof body.error._tag === "string"
       ? ` (${body.error._tag})`
       : "";
+  const tag = errorTag === "" ? undefined : errorTag.slice(2, -1);
   return {
-    exitCode: ok ? 0 : 1,
+    exitCode: ok ? 0 : exitCodeForTag(tag),
     stdout: `${JSON.stringify(body, null, 2)}\n`,
     stderr: ok
       ? ""
@@ -227,7 +252,7 @@ export const callMcpTool = async (
       payload.ok !== true
     )
       return {
-        exitCode: 1,
+        exitCode: exitCodeForTag(errorTagFrom(payload)),
         stdout: `${JSON.stringify(payload, null, 2)}\n`,
         stderr: "",
       };

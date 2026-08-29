@@ -47,6 +47,7 @@ import {
   type ProviderConnectionState,
   type ProviderKey,
 } from "./connectionLifecycle";
+import { slackEvidenceScopeKey } from "./evidenceScope";
 import connections from "./connections.spec";
 import { buildDriveEvidenceItems } from "./driveSnapshot";
 import { buildSlackEvidenceItems } from "./slackSnapshot";
@@ -137,6 +138,50 @@ const connectionForSync = FunctionImpl.make(
   ({ workspaceId, provider }) => currentConnection(workspaceId, provider),
 );
 
+const connectionsForManualSync = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "connectionsForManualSync",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "editor"));
+      return yield* listConnectionRows(workspaceId);
+    }),
+);
+
+const evidenceProviderForConnection = (provider: ProviderKey) =>
+  provider === "google-drive" ? ("google_drive" as const) : provider;
+
+const evidenceScopeKeysForConnection = (
+  connection: CurrentProviderConnectionDocument,
+) => {
+  const scopeKeys = new Set<string>();
+  if (connection.evidenceScopeKey !== undefined)
+    scopeKeys.add(connection.evidenceScopeKey);
+  if (connection.pendingEvidenceScopeKey !== undefined)
+    scopeKeys.add(connection.pendingEvidenceScopeKey);
+  if (connection.provider === "slack" && connection.connectionRef !== undefined)
+    scopeKeys.add(`slack:${connection.connectionRef}`);
+  return [...scopeKeys];
+};
+
+const failConnectionEvidenceRuns = (
+  connection: CurrentProviderConnectionDocument,
+  failureCode: "connection_reauthorized" | "connection_revoked",
+  failedAt: number,
+) =>
+  Effect.gen(function* () {
+    const mutation = yield* MutationRunner;
+    for (const scopeKey of evidenceScopeKeysForConnection(connection))
+      yield* mutation(refs.internal.brain.evidence.failActiveScopeRun, {
+        workspaceId: connection.workspaceId,
+        provider: evidenceProviderForConnection(connection.provider),
+        scopeKey,
+        failureCode,
+        failedAt,
+      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+  });
+
 const beginConnectionRow = (
   workspaceId: GenericId<"workspaces">,
   provider: ProviderKey,
@@ -161,6 +206,11 @@ const beginConnectionRow = (
         .pipe(Effect.orDie);
       return yield* requireCurrentConnectionRow(inserted, provider);
     } else {
+      yield* failConnectionEvidenceRuns(
+        existing,
+        "connection_reauthorized",
+        now,
+      );
       yield* writer
         .table("providerConnections")
         .patch(existing._id, {
@@ -170,6 +220,10 @@ const beginConnectionRow = (
           errorCode: undefined,
           scheduledSyncEnabled: undefined,
           slackChannelIds: undefined,
+          slackLookbackDays: undefined,
+          evidenceScopeKey: undefined,
+          pendingEvidenceScopeKey: undefined,
+          pendingSyncAttemptKey: undefined,
           googleDriveId: undefined,
           googleDriveRootFolderIds: undefined,
           hubSpotPortalId: undefined,
@@ -258,22 +312,13 @@ const revokeConnectionRow = (args: {
         status: "revoked",
         connectionRef: undefined,
         errorCode: undefined,
+        scheduledSyncEnabled: undefined,
+        pendingEvidenceScopeKey: undefined,
+        pendingSyncAttemptKey: undefined,
         updatedAt: now,
       })
       .pipe(Effect.orDie);
-    if (
-      args.provider === "slack" &&
-      typeof existing.connectionRef === "string"
-    ) {
-      const mutation = yield* MutationRunner;
-      yield* mutation(refs.internal.brain.evidence.failActiveScopeRun, {
-        workspaceId: args.workspaceId,
-        provider: "slack",
-        scopeKey: `slack:${existing.connectionRef}`,
-        failureCode: "connection_revoked",
-        failedAt: now,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
-    }
+    yield* failConnectionEvidenceRuns(existing, "connection_revoked", now);
     const reader = yield* DatabaseReader;
     const updated = yield* reader
       .table("providerConnections")
@@ -489,9 +534,10 @@ const discoverProviderScopes = FunctionImpl.make(
   ({ workspaceId, provider, containerId }) =>
     Effect.gen(function* () {
       const query = yield* QueryRunner;
-      const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const rows = yield* query(
+        refs.internal.integrations.connections.connectionsForManualSync,
+        { workspaceId },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
       const connection = yield* requireActiveConnection(rows, provider);
       const config =
         provider === "slack"
@@ -648,6 +694,50 @@ const hubSpotMarkdown = (
     `- Source: ${observation.sourceLocator}`,
   ].join("\n");
 
+const MAX_RECONCILIATION_BATCHES = 20;
+
+const scheduleProviderScopeCleanup = (args: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly provider: "slack" | "google_drive" | "hubspot";
+  readonly activeScopeKey: string;
+  readonly connectionGeneration: number;
+  readonly observedAt: number;
+}) =>
+  Effect.gen(function* () {
+    const scheduler = yield* Scheduler;
+    yield* scheduler
+      .runAfter(
+        Duration.zero,
+        refs.internal.integrations.connections.continueProviderScopeCleanup,
+        args,
+      )
+      .pipe(Effect.orDie);
+  });
+
+const continueProviderScopeCleanup = FunctionImpl.make(
+  databaseSchema,
+  connections,
+  "continueProviderScopeCleanup",
+  (args) =>
+    Effect.gen(function* () {
+      const mutation = yield* MutationRunner;
+      let complete = false;
+      for (
+        let attempt = 0;
+        attempt < MAX_RECONCILIATION_BATCHES && !complete;
+        attempt += 1
+      ) {
+        const cleanup = yield* mutation(
+          refs.internal.brain.evidence.retireInactiveProviderScopes,
+          args,
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        complete = cleanup.complete;
+      }
+      if (!complete) yield* scheduleProviderScopeCleanup(args);
+      return { complete };
+    }),
+);
+
 const runGoogleDriveSync = (
   {
     workspaceId,
@@ -667,16 +757,19 @@ const runGoogleDriveSync = (
     if (config === undefined) return yield* providerFailure();
     const mutation = yield* MutationRunner;
     const connection = yield* requireActiveConnection(rows, "google-drive");
+    const observedAt = yield* Clock.currentTimeMillis;
+    const runKey = `google-drive:${connection.generation}:${observedAt}`;
     yield* mutation(refs.internal.integrations.connections.recordProviderSync, {
       workspaceId,
       provider: "google-drive",
+      connectionGeneration: connection.generation,
+      syncAttemptKey: runKey,
       status: "syncing",
       driveId,
       rootFolderIds,
       allowlistGeneration: allowlistGeneration ?? 1,
     }).pipe(Effect.catchTag("SchemaError", providerFailure));
-    const observedAt = yield* Clock.currentTimeMillis;
-    const runKey = `google-drive:${connection.generation}:${observedAt}`;
+    let claimedEvidenceScopeKey: string | undefined;
     return yield* Effect.gen(function* () {
       const inventory = yield* Effect.tryPromise({
         try: () =>
@@ -692,6 +785,18 @@ const runGoogleDriveSync = (
           }),
         catch: providerFailure,
       });
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        {
+          workspaceId,
+          provider: "google-drive",
+          connectionGeneration: connection.generation,
+          syncAttemptKey: runKey,
+          status: "syncing",
+          evidenceScopeKey: inventory.scope.scopeKey,
+        },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      claimedEvidenceScopeKey = inventory.scope.scopeKey;
       yield* mutation(refs.internal.brain.evidence.beginRun, {
         workspaceId,
         provider: "google_drive",
@@ -717,22 +822,44 @@ const runGoogleDriveSync = (
         yield* mutation(refs.internal.brain.evidence.publishRunItem, item).pipe(
           Effect.catchTag("SchemaError", providerFailure),
         );
-      yield* mutation(refs.internal.brain.evidence.completeRun, {
-        workspaceId,
-        runKey,
-        discoveredCount: evidence.items.length,
-        completedAt: inventory.completedAt,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      let reconciliationComplete = false;
+      for (
+        let attempt = 0;
+        attempt < MAX_RECONCILIATION_BATCHES && !reconciliationComplete;
+        attempt += 1
+      ) {
+        const completion = yield* mutation(
+          refs.internal.brain.evidence.completeRun,
+          {
+            workspaceId,
+            runKey,
+            discoveredCount: evidence.items.length,
+            completedAt: inventory.completedAt,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        reconciliationComplete = completion.complete;
+      }
+      if (!reconciliationComplete) return yield* providerFailure();
       yield* mutation(
         refs.internal.integrations.connections.recordProviderSync,
         {
           workspaceId,
           provider: "google-drive",
+          connectionGeneration: connection.generation,
+          syncAttemptKey: runKey,
           status: "ready",
           syncedAt: inventory.completedAt,
           sourceCount: evidence.items.length,
+          evidenceScopeKey: inventory.scope.scopeKey,
         },
       ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* scheduleProviderScopeCleanup({
+        workspaceId,
+        provider: "google_drive",
+        activeScopeKey: inventory.scope.scopeKey,
+        connectionGeneration: connection.generation,
+        observedAt: inventory.completedAt,
+      }).pipe(Effect.ignore);
       return {
         sourceCount: evidence.items.length,
         syncedAt: inventory.completedAt,
@@ -749,7 +876,12 @@ const runGoogleDriveSync = (
           mutation(refs.internal.integrations.connections.recordProviderSync, {
             workspaceId,
             provider: "google-drive",
+            connectionGeneration: connection.generation,
+            syncAttemptKey: runKey,
             status: "error",
+            ...(claimedEvidenceScopeKey === undefined
+              ? {}
+              : { evidenceScopeKey: claimedEvidenceScopeKey }),
             errorCode: "google_drive_sync_failed",
           }).pipe(Effect.ignore),
         ]),
@@ -764,9 +896,10 @@ const syncGoogleDrive = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const query = yield* QueryRunner;
-      const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId: args.workspaceId,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const rows = yield* query(
+        refs.internal.integrations.connections.connectionsForManualSync,
+        { workspaceId: args.workspaceId },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
       return yield* runGoogleDriveSync(args, rows);
     }),
 );
@@ -781,6 +914,9 @@ const syncGoogleDriveScheduled = FunctionImpl.make(
         args.workspaceId,
         "google-drive",
       );
+      const connection = yield* requireActiveConnection(rows, "google-drive");
+      if (connection.generation !== args.expectedConnectionGeneration)
+        return yield* transitionFailure();
       return yield* runGoogleDriveSync(args, rows);
     }),
 );
@@ -802,15 +938,18 @@ const runHubSpotSync = (
     if (config === undefined) return yield* providerFailure();
     const mutation = yield* MutationRunner;
     const connection = yield* requireActiveConnection(rows, "hubspot");
+    const observedAt = yield* Clock.currentTimeMillis;
+    const runKey = `hubspot:${connection.generation}:${observedAt}`;
     yield* mutation(refs.internal.integrations.connections.recordProviderSync, {
       workspaceId,
       provider: "hubspot",
+      connectionGeneration: connection.generation,
+      syncAttemptKey: runKey,
       status: "syncing",
       portalId,
       allowlistGeneration: allowlistGeneration ?? 1,
     }).pipe(Effect.catchTag("SchemaError", providerFailure));
-    const observedAt = yield* Clock.currentTimeMillis;
-    const runKey = `hubspot:${connection.generation}:${observedAt}`;
+    let claimedEvidenceScopeKey: string | undefined;
     return yield* Effect.gen(function* () {
       const inventory = yield* Effect.tryPromise({
         try: () =>
@@ -825,10 +964,23 @@ const runHubSpotSync = (
           }),
         catch: providerFailure,
       });
+      yield* mutation(
+        refs.internal.integrations.connections.recordProviderSync,
+        {
+          workspaceId,
+          provider: "hubspot",
+          connectionGeneration: connection.generation,
+          syncAttemptKey: runKey,
+          status: "syncing",
+          evidenceScopeKey: inventory.scope.scopeKey,
+        },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      claimedEvidenceScopeKey = inventory.scope.scopeKey;
       yield* mutation(refs.internal.brain.evidence.beginRun, {
         workspaceId,
         provider: "hubspot",
         scopeKey: inventory.scope.scopeKey,
+        connectionGeneration: connection.generation,
         runKey,
         startedAt: observedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
@@ -849,22 +1001,44 @@ const runHubSpotSync = (
           sourceModifiedAt: observation.sourceModifiedAt,
           observedAt: observation.observedAt,
         }).pipe(Effect.catchTag("SchemaError", providerFailure));
-      yield* mutation(refs.internal.brain.evidence.completeRun, {
-        workspaceId,
-        runKey,
-        discoveredCount: active.length,
-        completedAt: inventory.completedAt,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      let reconciliationComplete = false;
+      for (
+        let attempt = 0;
+        attempt < MAX_RECONCILIATION_BATCHES && !reconciliationComplete;
+        attempt += 1
+      ) {
+        const completion = yield* mutation(
+          refs.internal.brain.evidence.completeRun,
+          {
+            workspaceId,
+            runKey,
+            discoveredCount: active.length,
+            completedAt: inventory.completedAt,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        reconciliationComplete = completion.complete;
+      }
+      if (!reconciliationComplete) return yield* providerFailure();
       yield* mutation(
         refs.internal.integrations.connections.recordProviderSync,
         {
           workspaceId,
           provider: "hubspot",
+          connectionGeneration: connection.generation,
+          syncAttemptKey: runKey,
           status: "ready",
           syncedAt: inventory.completedAt,
           sourceCount: active.length,
+          evidenceScopeKey: inventory.scope.scopeKey,
         },
       ).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* scheduleProviderScopeCleanup({
+        workspaceId,
+        provider: "hubspot",
+        activeScopeKey: inventory.scope.scopeKey,
+        connectionGeneration: connection.generation,
+        observedAt: inventory.completedAt,
+      }).pipe(Effect.ignore);
       return { sourceCount: active.length, syncedAt: inventory.completedAt };
     }).pipe(
       Effect.tapError(() =>
@@ -878,7 +1052,12 @@ const runHubSpotSync = (
           mutation(refs.internal.integrations.connections.recordProviderSync, {
             workspaceId,
             provider: "hubspot",
+            connectionGeneration: connection.generation,
+            syncAttemptKey: runKey,
             status: "error",
+            ...(claimedEvidenceScopeKey === undefined
+              ? {}
+              : { evidenceScopeKey: claimedEvidenceScopeKey }),
             errorCode: "hubspot_sync_failed",
           }).pipe(Effect.ignore),
         ]),
@@ -893,9 +1072,10 @@ const syncHubSpot = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const query = yield* QueryRunner;
-      const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId: args.workspaceId,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const rows = yield* query(
+        refs.internal.integrations.connections.connectionsForManualSync,
+        { workspaceId: args.workspaceId },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
       return yield* runHubSpotSync(args, rows);
     }),
 );
@@ -907,6 +1087,9 @@ const syncHubSpotScheduled = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const rows = yield* scheduledConnectionRows(args.workspaceId, "hubspot");
+      const connection = yield* requireActiveConnection(rows, "hubspot");
+      if (connection.generation !== args.expectedConnectionGeneration)
+        return yield* transitionFailure();
       return yield* runHubSpotSync(args, rows);
     }),
 );
@@ -943,14 +1126,28 @@ const runSlackSync = (
     if (config === undefined) return yield* providerFailure();
     const mutation = yield* MutationRunner;
     const connection = yield* requireActiveConnection(rows, "slack");
-    yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
-      workspaceId,
-      status: "syncing",
-      channelIds,
-    }).pipe(Effect.catchTag("SchemaError", providerFailure));
     const startedAt = yield* Clock.currentTimeMillis;
     const runKey = `slack:${connection.generation}:${startedAt}`;
-    const scopeKey = `slack:${connection.connectionRef}`;
+    const scopeKey = slackEvidenceScopeKey({
+      connectionRef: connection.connectionRef as string,
+      channelId: channelIds[0] as string,
+      lookbackDays: boundedLookbackDays,
+    });
+    yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
+      workspaceId,
+      connectionGeneration: connection.generation,
+      syncAttemptKey: runKey,
+      status: "syncing",
+      channelIds,
+      lookbackDays: boundedLookbackDays,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
+    yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
+      workspaceId,
+      connectionGeneration: connection.generation,
+      syncAttemptKey: runKey,
+      status: "syncing",
+      evidenceScopeKey: scopeKey,
+    }).pipe(Effect.catchTag("SchemaError", providerFailure));
     yield* mutation(refs.internal.brain.evidence.beginRun, {
       workspaceId,
       provider: "slack",
@@ -984,7 +1181,7 @@ const runSlackSync = (
       const syncedAt = yield* Clock.currentTimeMillis;
       const items = buildSlackEvidenceItems(snapshot, {
         workspaceId,
-        connectionRef: connection.connectionRef as string,
+        scopeKey,
         runKey,
         observedAt: syncedAt,
       });
@@ -992,19 +1189,41 @@ const runSlackSync = (
         yield* mutation(refs.internal.brain.evidence.publishRunItem, item).pipe(
           Effect.catchTag("SchemaError", providerFailure),
         );
-      yield* mutation(refs.internal.brain.evidence.completeRun, {
-        workspaceId,
-        runKey,
-        discoveredCount: items.length,
-        completedAt: syncedAt,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      let reconciliationComplete = false;
+      for (
+        let attempt = 0;
+        attempt < MAX_RECONCILIATION_BATCHES && !reconciliationComplete;
+        attempt += 1
+      ) {
+        const completion = yield* mutation(
+          refs.internal.brain.evidence.completeRun,
+          {
+            workspaceId,
+            runKey,
+            discoveredCount: items.length,
+            completedAt: syncedAt,
+          },
+        ).pipe(Effect.catchTag("SchemaError", providerFailure));
+        reconciliationComplete = completion.complete;
+      }
+      if (!reconciliationComplete) return yield* providerFailure();
       yield* mutation(refs.internal.integrations.connections.recordSlackSync, {
         workspaceId,
+        connectionGeneration: connection.generation,
+        syncAttemptKey: runKey,
         status: "ready",
         syncedAt,
         messageCount: snapshot.messageCount,
         pageCount: snapshot.channels.length,
+        evidenceScopeKey: scopeKey,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      yield* scheduleProviderScopeCleanup({
+        workspaceId,
+        provider: "slack",
+        activeScopeKey: scopeKey,
+        connectionGeneration: connection.generation,
+        observedAt: syncedAt,
+      }).pipe(Effect.ignore);
       return {
         pageCount: snapshot.channels.length,
         messageCount: snapshot.messageCount,
@@ -1021,7 +1240,10 @@ const runSlackSync = (
           }).pipe(Effect.ignore),
           mutation(refs.internal.integrations.connections.recordSlackSync, {
             workspaceId,
+            connectionGeneration: connection.generation,
+            syncAttemptKey: runKey,
             status: "error",
+            evidenceScopeKey: scopeKey,
             errorCode: "slack_sync_failed",
           }).pipe(Effect.ignore),
         ]),
@@ -1036,9 +1258,10 @@ const syncSlack = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const query = yield* QueryRunner;
-      const rows = yield* query(refs.public.integrations.connections.list, {
-        workspaceId: args.workspaceId,
-      }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const rows = yield* query(
+        refs.internal.integrations.connections.connectionsForManualSync,
+        { workspaceId: args.workspaceId },
+      ).pipe(Effect.catchTag("SchemaError", providerFailure));
       return yield* runSlackSync(args, rows);
     }),
 );
@@ -1060,11 +1283,15 @@ const recordSlackSync = FunctionImpl.make(
   "recordSlackSync",
   ({
     workspaceId,
+    connectionGeneration,
+    syncAttemptKey,
     status,
     syncedAt,
     messageCount,
     pageCount,
     channelIds,
+    lookbackDays,
+    evidenceScopeKey,
     errorCode,
   }) =>
     Effect.gen(function* () {
@@ -1075,17 +1302,58 @@ const recordSlackSync = FunctionImpl.make(
           id: "slack",
         });
       }
+      if (
+        connection.status !== "active" ||
+        connection.generation !== connectionGeneration ||
+        (status === "syncing" &&
+          evidenceScopeKey !== undefined &&
+          connection.pendingSyncAttemptKey !== syncAttemptKey) ||
+        (status !== "syncing" &&
+          connection.pendingSyncAttemptKey !== syncAttemptKey) ||
+        (status === "syncing" &&
+          evidenceScopeKey !== undefined &&
+          connection.pendingEvidenceScopeKey !== undefined &&
+          connection.pendingEvidenceScopeKey !== evidenceScopeKey) ||
+        (status === "ready" &&
+          (evidenceScopeKey === undefined ||
+            connection.pendingEvidenceScopeKey !== evidenceScopeKey)) ||
+        (status === "error" &&
+          connection.pendingEvidenceScopeKey !== evidenceScopeKey)
+      )
+        return yield* transitionFailure();
       const now = yield* withConfectClock(Clock.currentTimeMillis);
       yield* (yield* DatabaseWriter)
         .table("providerConnections")
         .patch(connection._id, {
           syncStatus: status,
           syncErrorCode: errorCode,
+          pendingSyncAttemptKey:
+            status === "ready" || status === "error"
+              ? undefined
+              : syncAttemptKey,
+          ...(status === "error"
+            ? { pendingEvidenceScopeKey: undefined }
+            : evidenceScopeKey === undefined
+              ? {}
+              : status === "syncing"
+                ? {
+                    evidenceScopeKey:
+                      connection.evidenceScopeKey ??
+                      `slack:${connection.connectionRef ?? ""}`,
+                    pendingEvidenceScopeKey: evidenceScopeKey,
+                  }
+                : {
+                    evidenceScopeKey,
+                    pendingEvidenceScopeKey: undefined,
+                  }),
           ...(channelIds === undefined
             ? {}
             : {
                 scheduledSyncEnabled: false,
                 slackChannelIds: [...new Set(channelIds)].sort(),
+                ...(lookbackDays === undefined
+                  ? {}
+                  : { slackLookbackDays: lookbackDays }),
               }),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
           ...(messageCount === undefined
@@ -1110,6 +1378,8 @@ const recordProviderSync = FunctionImpl.make(
   ({
     workspaceId,
     provider,
+    connectionGeneration,
+    syncAttemptKey,
     status,
     syncedAt,
     sourceCount,
@@ -1117,6 +1387,7 @@ const recordProviderSync = FunctionImpl.make(
     rootFolderIds,
     portalId,
     allowlistGeneration,
+    evidenceScopeKey,
     errorCode,
   }) =>
     Effect.gen(function* () {
@@ -1126,12 +1397,45 @@ const recordProviderSync = FunctionImpl.make(
           resource: "providerConnections",
           id: provider,
         });
+      if (
+        connection.status !== "active" ||
+        connection.generation !== connectionGeneration ||
+        (status === "syncing" &&
+          evidenceScopeKey !== undefined &&
+          connection.pendingSyncAttemptKey !== syncAttemptKey) ||
+        (status !== "syncing" &&
+          connection.pendingSyncAttemptKey !== syncAttemptKey) ||
+        (status === "syncing" &&
+          evidenceScopeKey !== undefined &&
+          connection.pendingEvidenceScopeKey !== undefined &&
+          connection.pendingEvidenceScopeKey !== evidenceScopeKey) ||
+        (status === "ready" &&
+          (evidenceScopeKey === undefined ||
+            connection.pendingEvidenceScopeKey !== evidenceScopeKey)) ||
+        (status === "error" &&
+          connection.pendingEvidenceScopeKey !== evidenceScopeKey)
+      )
+        return yield* transitionFailure();
       const now = yield* withConfectClock(Clock.currentTimeMillis);
       yield* (yield* DatabaseWriter)
         .table("providerConnections")
         .patch(connection._id, {
           syncStatus: status,
           syncErrorCode: errorCode,
+          pendingSyncAttemptKey:
+            status === "ready" || status === "error"
+              ? undefined
+              : syncAttemptKey,
+          ...(status === "error"
+            ? { pendingEvidenceScopeKey: undefined }
+            : evidenceScopeKey === undefined
+              ? {}
+              : status === "syncing"
+                ? { pendingEvidenceScopeKey: evidenceScopeKey }
+                : {
+                    evidenceScopeKey,
+                    pendingEvidenceScopeKey: undefined,
+                  }),
           ...(driveId === undefined || rootFolderIds === undefined
             ? {}
             : {
@@ -1213,6 +1517,7 @@ const dispatchScheduledSyncs = FunctionImpl.make(
                 driveId: connection.googleDriveId,
                 rootFolderIds: connection.googleDriveRootFolderIds,
                 allowlistGeneration: connection.syncAllowlistGeneration ?? 1,
+                expectedConnectionGeneration: connection.generation,
               },
             )
             .pipe(Effect.orDie);
@@ -1231,6 +1536,7 @@ const dispatchScheduledSyncs = FunctionImpl.make(
                 workspaceId: connection.workspaceId,
                 portalId: connection.hubSpotPortalId,
                 allowlistGeneration: connection.syncAllowlistGeneration ?? 1,
+                expectedConnectionGeneration: connection.generation,
               },
             )
             .pipe(Effect.orDie);
@@ -1333,7 +1639,9 @@ const connectionGroup = GroupImpl.make(databaseSchema, connections).pipe(
   Layer.provide(syncGoogleDriveScheduled),
   Layer.provide(syncHubSpot),
   Layer.provide(syncHubSpotScheduled),
+  Layer.provide(continueProviderScopeCleanup),
   Layer.provide(connectionForSync),
+  Layer.provide(connectionsForManualSync),
   Layer.provide(dispatchScheduledSyncs),
 );
 

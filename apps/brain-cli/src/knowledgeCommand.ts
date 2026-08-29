@@ -49,6 +49,10 @@ const candidates = async (
   const limit = boundedInteger(option(argv, "--limit"), 1, 50);
   if (Number.isNaN(limit))
     return failure("--limit must be an integer between 1 and 50.");
+  if ((state === undefined || state === "unreviewed") && (limit ?? 5) > 5)
+    return failure(
+      "The active review queue is intentionally bounded to 5 candidates; use --limit 1-5.",
+    );
   return await requestMcp(dependencies, "template.brain.knowledge.candidates", {
     ...(state === undefined ? {} : { state }),
     ...(limit === undefined ? {} : { limit }),

@@ -120,6 +120,8 @@ const publishPageEvidence = (page: {
   return (page.status ?? "active") === "archived"
     ? retireEvidence({
         workspaceId: page.workspaceId,
+        provider: "brain_page",
+        scopeKey: "brain-pages",
         sourceKey,
         revisionKey: `archived:${page.updatedAt}`,
         observedAt: page.updatedAt,

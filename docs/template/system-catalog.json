@@ -76,6 +76,8 @@
         "brainEvaluationExamples",
         "brainEvidenceRevisions",
         "brainEvidenceSources",
+        "brainExtractionScopeStats",
+        "brainExtractionUsage",
         "brainKnowledgeCandidates",
         "brainPages",
         "brainRetrievalEntries",

@@ -264,6 +264,8 @@ const ensureProvisioned = FunctionImpl.make(
         if ((page.status ?? "active") === "archived")
           yield* retireEvidence({
             workspaceId,
+            provider: "brain_page",
+            scopeKey: "brain-pages",
             sourceKey,
             revisionKey: `archived:${page.updatedAt}`,
             observedAt: page.updatedAt,

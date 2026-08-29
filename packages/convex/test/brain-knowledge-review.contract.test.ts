@@ -6,12 +6,322 @@ import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import { evidenceContentHash } from "../confect/brain/evidenceProjection";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_788_019_200_000;
 
 describe("Brain knowledge review contract", () => {
+  it("keeps reviewed truth current when cleanup retires an identical old-scope citation", async () => {
+    const oldScope = "slack:old-reviewed-scope";
+    const activeScope = "slack:active-reviewed-scope";
+    const sourceKey = "shared-reviewed-source";
+    const revisionKey = "revision-1";
+    const title = "Shared reviewed evidence";
+    const markdown = "The shared advisory pilot costs $7,000 per month.";
+    const quotedText = "$7,000 per month";
+    const startOffset = markdown.indexOf(quotedText);
+    const contentHash = evidenceContentHash(title, markdown);
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("providerConnections")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              status: "active",
+              generation: 1,
+              connectionRef: "reviewed-connection",
+              evidenceScopeKey: activeScope,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          for (const scopeKey of [oldScope, activeScope]) {
+            yield* writer
+              .table("brainEvidenceSources")
+              .insert({
+                workspaceId: seeded.workspaceId,
+                provider: "slack",
+                scopeKey,
+                sourceKey,
+                title,
+                status: "active",
+                generation: 1,
+                currentRevisionKey: revisionKey,
+                sourceModifiedAt: now,
+                observedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("brainEvidenceRevisions")
+              .insert({
+                workspaceId: seeded.workspaceId,
+                provider: "slack",
+                scopeKey,
+                sourceKey,
+                revisionKey,
+                title,
+                markdown,
+                contentHash,
+                sourceModifiedAt: now,
+                observedAt: now,
+                tombstone: false,
+                createdAt: now,
+              })
+              .pipe(Effect.orDie);
+          }
+          yield* writer
+            .table("brainConnectorRuns")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              scopeKey: oldScope,
+              connectionGeneration: 1,
+              runKey: "old-reviewed-run",
+              status: "complete",
+              startedAt: now,
+              completedAt: now,
+              discoveredCount: 1,
+              publishedCount: 1,
+              retiredCount: 0,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("claims")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              claimId: "claim-shared-scope",
+              conceptIds: [],
+              body: "The shared advisory pilot costs $7,000 per month.",
+              status: "supported",
+              citationIds: ["citation-shared-scope"],
+              propositionFingerprint: "sha256:shared-scope-claim",
+              epistemics: "factual",
+              verifiedAt: now,
+              nextReviewAt: now + 86_400_000,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("citations")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              citationId: "citation-shared-scope",
+              claimId: "claim-shared-scope",
+              sourceId: sourceKey,
+              sourceKind: "slack_thread",
+              sourceTitle: title,
+              quotedText,
+              startOffset,
+              endOffset: startOffset + quotedText.length,
+              revisionKey,
+              sourceKey,
+              contentHash,
+              provider: "slack",
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+        }),
+      );
+      const cleanup = yield* confect.mutation(
+        refs.internal.brain.evidence.retireInactiveProviderScopes,
+        {
+          workspaceId: seeded.workspaceId,
+          provider: "slack",
+          activeScopeKey: activeScope,
+          connectionGeneration: 1,
+          observedAt: now + 1,
+        },
+      );
+      const state = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const claims = yield* reader
+            .table("claims")
+            .index("by_workspace", (q) =>
+              q.eq("workspaceId", seeded.workspaceId),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          const oldSources = yield* reader
+            .table("brainEvidenceSources")
+            .index("by_workspace_provider_scope_source", (q) =>
+              q
+                .eq("workspaceId", seeded.workspaceId)
+                .eq("provider", "slack")
+                .eq("scopeKey", oldScope)
+                .eq("sourceKey", sourceKey),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          return JSON.stringify({ claims, oldSources });
+        }),
+        Schema.String,
+      );
+      return { cleanup, state };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.cleanup).toEqual({ complete: true, retiredCount: 1 });
+    expect(JSON.parse(result.state)).toMatchObject({
+      claims: [
+        {
+          claimId: "claim-shared-scope",
+          status: "supported",
+          nextReviewAt: now + 86_400_000,
+        },
+      ],
+      oldSources: [{ status: "removed" }],
+    });
+    expect(JSON.parse(result.state).claims[0]).not.toHaveProperty(
+      "sourceWithdrawnAt",
+    );
+  });
+
+  it("withdraws a reviewed claim while its cited connector scope is pending", async () => {
+    const title = "Pending Slack evidence";
+    const markdown = "The pending pilot price is $7,000 per month.";
+    const quote = "$7,000 per month";
+    const contentHash = evidenceContentHash(title, markdown);
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("providerConnections")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              status: "active",
+              generation: 1,
+              connectionRef: "apero-slack",
+              evidenceScopeKey: "slack:apero-slack:channel:C1:lookback:30",
+              pendingEvidenceScopeKey:
+                "slack:apero-slack:channel:C2:lookback:30",
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceSources")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              scopeKey: "slack:apero-slack:channel:C2:lookback:30",
+              sourceKey: "pending-reviewed-source",
+              title,
+              status: "active",
+              generation: 1,
+              currentRevisionKey: "revision-1",
+              sourceModifiedAt: now,
+              observedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceRevisions")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              scopeKey: "slack:apero-slack:channel:C2:lookback:30",
+              sourceKey: "pending-reviewed-source",
+              revisionKey: "revision-1",
+              title,
+              markdown,
+              contentHash,
+              sourceModifiedAt: now,
+              observedAt: now,
+              tombstone: false,
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("claims")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              claimId: "claim-pending-scope",
+              conceptIds: [],
+              body: "The pending pilot price is $7,000 per month.",
+              status: "supported",
+              citationIds: ["citation-pending-scope"],
+              propositionFingerprint: "sha256:pending-scope-claim",
+              epistemics: "factual",
+              verifiedAt: now,
+              nextReviewAt: now + 86_400_000,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          const startOffset = markdown.indexOf(quote);
+          yield* writer
+            .table("citations")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              citationId: "citation-pending-scope",
+              claimId: "claim-pending-scope",
+              sourceId: "pending-reviewed-source",
+              sourceKind: "slack_thread",
+              sourceTitle: title,
+              quotedText: quote,
+              startOffset,
+              endOffset: startOffset + quote.length,
+              revisionKey: "revision-1",
+              sourceKey: "pending-reviewed-source",
+              contentHash,
+              provider: "slack",
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+        }),
+      );
+      yield* confect.mutation(refs.internal.ops.flags.upsertPolicyInternal, {
+        workspaceId: seeded.workspaceId,
+        key: "template.brain.contextV4",
+        description: "Enable reviewed truth for pending-scope regression.",
+        enabled: true,
+        rolloutPercent: 100,
+        audience: "workspace",
+      });
+      return yield* actor.query(
+        refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+        {
+          workspaceId: seeded.workspaceId,
+          question: "What is the pending pilot price?",
+          evidenceMode: "company_truth",
+          asOf: now,
+        },
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toMatchObject({
+      status: "insufficient-context",
+      contextPack: { claims: [], citations: [] },
+    });
+  });
+
   it("lists only completed extraction, accepts exactly cited truth atomically, and replays idempotently", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

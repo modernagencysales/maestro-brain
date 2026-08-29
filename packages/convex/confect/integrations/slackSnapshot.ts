@@ -23,7 +23,7 @@ export const buildSlackEvidenceItems = (
   snapshot: SlackSnapshot,
   input: {
     readonly workspaceId: GenericId<"workspaces">;
-    readonly connectionRef: string;
+    readonly scopeKey: string;
     readonly runKey: string;
     readonly observedAt: number;
   },
@@ -129,7 +129,7 @@ export const buildSlackEvidenceItems = (
         items.push({
           workspaceId: input.workspaceId,
           provider: "slack",
-          scopeKey: `slack:${input.connectionRef}`,
+          scopeKey: input.scopeKey,
           runKey: input.runKey,
           sourceKey: `slack:${channel.id}:thread:${threadRootTimestamp}:segment:${segmentIndex}`,
           revisionKey: `thread-v1:${sha256Hex(

@@ -37,6 +37,23 @@ export default Table.make(() => BrainEvidenceSourceRow)
     "status",
   ])
   .index("by_workspace_and_source_key", ["workspaceId", "sourceKey"])
+  .index("by_workspace_and_scope_key_and_source_key", [
+    "workspaceId",
+    "scopeKey",
+    "sourceKey",
+  ])
+  .index("by_workspace_provider_scope_source", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "sourceKey",
+  ])
+  .index("by_workspace_provider_scope_status", [
+    "workspaceId",
+    "provider",
+    "scopeKey",
+    "status",
+  ])
   .index("by_workspace_and_scope_key_and_status", [
     "workspaceId",
     "scopeKey",

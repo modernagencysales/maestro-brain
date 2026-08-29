@@ -3,8 +3,10 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import type { CliResult } from "./api.js";
 import { success } from "./api.js";
@@ -14,6 +16,37 @@ import { apiKeySettingsUrl, writeConfig } from "./config.js";
 type Artifact = {
   readonly path: string;
   readonly status: "created" | "updated" | "unchanged" | "conflict";
+};
+
+const MANAGED_ASK_APERO_SKILL_MANIFESTS = new Set([
+  "SKILL.md:f1fa5886d77ab97f70b5827ebe19a3c7f3a44bfc390ed2b29093b97e59cdef18",
+  [
+    "SKILL.md:37b4607a826d61de1c2f0bf84aa7e43ff67a23861406e2d773557abfcb96aa62",
+    "references/evidence-reading.md:aa0260241a97103a7f826a98f96a5f4344cb7dfd512d5bb981f7df7747bb8663",
+  ].join("\n"),
+]);
+
+const sha256 = (value: string): string =>
+  createHash("sha256").update(value, "utf8").digest("hex");
+
+const directoryManifest = (root: string, prefix = ""): string | undefined => {
+  const records: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  )) {
+    const path = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
+    const absolute = join(root, entry.name);
+    if (entry.isDirectory()) {
+      const nested = directoryManifest(absolute, path);
+      if (nested === undefined) return undefined;
+      if (nested.length > 0) records.push(nested);
+    } else if (entry.isFile()) {
+      records.push(`${path}:${sha256(readFileSync(absolute, "utf8"))}`);
+    } else {
+      return undefined;
+    }
+  }
+  return records.join("\n");
 };
 
 const writeGenerated = (
@@ -79,10 +112,25 @@ const installSkill = (
   if (stat !== undefined) {
     if (!stat.isDirectory()) return { path, status: "conflict" };
     try {
-      return readFileSync(join(destination, "SKILL.md"), "utf8") ===
-        readFileSync(join(source, "SKILL.md"), "utf8")
-        ? { path, status: "unchanged" }
-        : { path, status: "conflict" };
+      const installedSkill = readFileSync(
+        join(destination, "SKILL.md"),
+        "utf8",
+      );
+      const packagedSkill = readFileSync(join(source, "SKILL.md"), "utf8");
+      if (installedSkill === packagedSkill)
+        return { path, status: "unchanged" };
+      if (
+        !MANAGED_ASK_APERO_SKILL_MANIFESTS.has(
+          directoryManifest(destination) ?? "",
+        )
+      )
+        return { path, status: "conflict" };
+      if (commit)
+        cpSync(source, destination, {
+          recursive: true,
+          force: true,
+        });
+      return { path, status: "updated" };
     } catch {
       return { path, status: "conflict" };
     }

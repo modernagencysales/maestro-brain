@@ -12,6 +12,71 @@ import { runCli, type CliDependencies } from "./index.js";
 
 const temp = (): string => mkdtempSync(join(tmpdir(), "brain-cli-test-"));
 
+const legacyManagedAskAperoV2 = `---
+name: ask-apero
+description:
+  Answer Apero company-context questions from canonical Maestro Brain evidence
+  using exact source revisions, freshness, citations, and abstention. Use for
+  Ask Apero research; do not use for provider actions or Brain writes.
+metadata:
+  contract-version: "2.0.0"
+---
+
+# Ask Apero
+
+Use the configured \`maestro-brain\` HTTP MCP as the only company-context evidence
+source.
+
+1. Confirm \`template.brain.evidence.search\` and
+   \`template.brain.evidence.sourceGet\` are available. If either is absent, stop
+   and ask the user to run \`maestro-brain doctor\` and \`maestro-brain mcp tools\`
+   from the same terminal used to launch the agent.
+2. Search once with the user's complete question. Do not send a workspace,
+   organization, user, client, or tenant selector; the bearer credential fixes
+   scope.
+3. If search returns no relevant evidence, abstain and name the missing source
+   class. Do not answer from memory or fall back to repository files.
+4. Reopen every material candidate with exact \`sourceKey\` and \`revisionKey\`
+   using \`sourceGet\`. Reject a reopened source when the keys or content hash
+   differ, or when it is a tombstone. A search excerpt alone is not sufficient
+   evidence for a material claim.
+5. Answer from the reopened Markdown. State material freshness limitations and
+   label reasoning beyond the text as inference. Cite the title, provider,
+   revision key, freshness, and stable locator when present.
+
+Read [evidence reading](references/evidence-reading.md) when interpreting result
+fields or deciding whether to abstain.
+
+On a returned \`Unauthorized\` or \`Forbidden\`, stop and ask the user to rerun
+setup with a current workspace credential. Distinguish that from a runtime tool
+approval or MCP registration failure. Never call provider actions, page writes,
+or other Brain mutation tools in this workflow.
+`;
+
+const legacyManagedEvidenceReadingV2 = `# Canonical Evidence Reading
+
+Search results are candidate citations, not complete sources. Each result
+contains the exact \`sourceKey\` and \`revisionKey\` needed for \`sourceGet\`, plus an
+excerpt, provider, source timestamps, content hash, freshness, and an optional
+stable locator.
+
+Use the fields as follows:
+
+- \`sourceModifiedAt\`: when the authoritative source changed;
+- \`observedAt\`: when Maestro observed that revision;
+- \`freshness\`: the server's current/review-due/stale classification;
+- \`contentHash\`: integrity check between the candidate and exact revision;
+- \`locator\`: provider or source link when disclosure is allowed;
+- \`tombstone\`: the revision records removal and must not support a current
+  factual claim.
+
+Prefer a qualified partial answer only when missing or stale evidence cannot
+change the supported portion. Otherwise abstain. When sources conflict, present
+both with their exact revisions unless an explicit returned authority rule
+resolves the conflict. Never infer freshness from the question time or index
+time.
+`;
+
 const dependencies = (
   root: string,
   fetch: typeof globalThis.fetch = vi.fn(),
@@ -132,6 +197,116 @@ describe("standalone teammate CLI", () => {
     ).toBe(0);
   });
 
+  it("upgrades an older managed Ask Apero skill without blocking setup", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(
+      join(deps.assetDirectory, "SKILL.md"),
+      '---\nname: ask-apero\nmetadata:\n  contract-version: "3.0.0"\n---\n\n# Current Ask Apero\n',
+    );
+    for (const skillRoot of [".agents/skills", ".claude/skills"]) {
+      const installed = join(root, skillRoot, "ask-apero");
+      mkdirSync(join(installed, "references"), { recursive: true });
+      writeFileSync(join(installed, "SKILL.md"), legacyManagedAskAperoV2);
+      writeFileSync(
+        join(installed, "references/evidence-reading.md"),
+        legacyManagedEvidenceReadingV2,
+      );
+    }
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"status": "updated"');
+    expect(
+      readFileSync(join(root, ".agents/skills/ask-apero/SKILL.md"), "utf8"),
+    ).toContain('contract-version: "3.0.0"');
+    expect(
+      readFileSync(join(root, ".claude/skills/ask-apero/SKILL.md"), "utf8"),
+    ).toContain('contract-version: "3.0.0"');
+  });
+
+  it("does not overwrite an unversioned user-authored Ask Apero skill", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(
+      join(deps.assetDirectory, "SKILL.md"),
+      '---\nname: ask-apero\nmetadata:\n  contract-version: "3.0.0"\n---\n',
+    );
+    const installed = join(root, ".agents/skills/ask-apero");
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, "SKILL.md"), "# My custom company skill\n");
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(readFileSync(join(installed, "SKILL.md"), "utf8")).toBe(
+      "# My custom company skill\n",
+    );
+    expect(existsSync(join(deps.configDirectory, "config.json"))).toBe(false);
+  });
+
+  it("does not downgrade or overwrite an unknown versioned Ask Apero skill", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(
+      join(deps.assetDirectory, "SKILL.md"),
+      '---\nname: ask-apero\nmetadata:\n  contract-version: "3.0.0"\n---\n',
+    );
+    const installed = join(root, ".agents/skills/ask-apero");
+    mkdirSync(installed, { recursive: true });
+    const newer =
+      '---\nname: ask-apero\nmetadata:\n  contract-version: "4.0.0"\n---\n\n# Newer custom skill\n';
+    writeFileSync(join(installed, "SKILL.md"), newer);
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(readFileSync(join(installed, "SKILL.md"), "utf8")).toBe(newer);
+    expect(existsSync(join(deps.configDirectory, "config.json"))).toBe(false);
+  });
+
+  it("does not overwrite a customized legacy skill reference", async () => {
+    const root = temp();
+    const deps = dependencies(root);
+    mkdirSync(deps.assetDirectory, { recursive: true });
+    writeFileSync(
+      join(deps.assetDirectory, "SKILL.md"),
+      '---\nname: ask-apero\nmetadata:\n  contract-version: "3.0.0"\n---\n',
+    );
+    const installed = join(root, ".agents/skills/ask-apero");
+    mkdirSync(join(installed, "references"), { recursive: true });
+    writeFileSync(join(installed, "SKILL.md"), legacyManagedAskAperoV2);
+    const customized = `${legacyManagedEvidenceReadingV2}\n# My local rule\n`;
+    writeFileSync(
+      join(installed, "references/evidence-reading.md"),
+      customized,
+    );
+
+    const result = await runCli(
+      ["setup", "--workspace", "apero", "--api-key", "secret-key"],
+      deps,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      readFileSync(join(installed, "references/evidence-reading.md"), "utf8"),
+    ).toBe(customized);
+    expect(existsSync(join(deps.configDirectory, "config.json"))).toBe(false);
+  });
+
   it("links through the browser callback flow and provides shell integration", async () => {
     const root = temp();
     const deps = dependencies(root);
@@ -183,7 +358,18 @@ describe("standalone teammate CLI", () => {
       new Response(
         JSON.stringify({
           ok: true,
-          result: { answerMarkdown: "Agency ICP" },
+          result: {
+            status: "answered",
+            answerMarkdown: "Agency ICP",
+            contextPack: {
+              evidenceMode: "mixed",
+              freshness: "review-due",
+              packHash: "sha256:pack",
+              citations: [],
+              conflicts: [{ reason: "possible-contradiction" }],
+              omissions: [{ reason: "stale-high-risk", count: 2 }],
+            },
+          },
         }),
       ),
     );
@@ -192,6 +378,10 @@ describe("standalone teammate CLI", () => {
       fetch,
     });
     expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Mode: mixed");
+    expect(result.stdout).toContain("Freshness: review-due");
+    expect(result.stdout).toContain("Conflicts: 1");
+    expect(result.stdout).toContain("Omissions: stale-high-risk (2)");
     expect(fetch).toHaveBeenCalledWith(
       "https://api.example.test/api/brain.ask",
       expect.objectContaining({
@@ -304,7 +494,8 @@ describe("standalone teammate CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('"saved": true');
+    expect(result.stdout).toContain("Friday [1]");
+    expect(result.stdout).toContain("Evaluation example saved.");
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(fetch.mock.calls[1]?.[0]).toBe(
       "https://api.example.test/api/agents.assistant.saveEvaluationExample",
@@ -535,6 +726,19 @@ describe("standalone teammate CLI", () => {
     });
   });
 
+  it("explains the five-item active review bound before making a request", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const result = await runCli(
+      ["knowledge", "candidates", "--state", "unreviewed", "--limit", "10"],
+      { ...configured(root), fetch },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("bounded to 5 candidates");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects ambiguous knowledge reviews before making a request", async () => {
     const root = temp();
     const fetch = vi.fn<typeof globalThis.fetch>();
@@ -565,6 +769,34 @@ describe("standalone teammate CLI", () => {
       (await runCli(["evidence", "source-get", "only-source"], deps)).exitCode,
     ).toBe(1);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts the common --json flag on evidence commands", async () => {
+    const root = temp();
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ ok: true, result: { providers: [] } }),
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const result = await runCli(["evidence", "health", "--json"], {
+      ...configured(root),
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"providers": []');
   });
 
   it("maps page list, get, create, and update to current API operations", async () => {
@@ -886,7 +1118,7 @@ describe("standalone teammate CLI", () => {
       ...configured(root),
       fetch,
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stderr).toContain("StaleRevision");
     expect(result.stderr).toContain("Processed 0/1 files");
     expect(result.stderr).toContain("Rerun the same command");
@@ -908,10 +1140,10 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.5"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.5\n");
+    expect(status).toContain('"cliVersion": "0.1.6"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.6\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.5/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.6/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');

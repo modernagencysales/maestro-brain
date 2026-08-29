@@ -14,6 +14,8 @@ export const currentLifecycleResourceIds = [
   "brainEvaluationExamples",
   "brainEvidenceRevisions",
   "brainEvidenceSources",
+  "brainExtractionScopeStats",
+  "brainExtractionUsage",
   "brainKnowledgeCandidates",
   "brainPages",
   "brainRetrievalEntries",
@@ -144,6 +146,20 @@ export const workspaceLifecycleResourcePlans = [
     exportMode: "json",
     deleteMode: "delete",
     detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    id: "brainExtractionScopeStats",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Lightweight exact grounding-quality aggregate by evidence scope and extraction policy."
+  },
+  {
+    id: "brainExtractionUsage",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail: "Lightweight daily extraction token and spend reservations for Company Brain."
   },
   {
     id: "brainKnowledgeCandidates",
@@ -509,6 +525,16 @@ export const workspaceRetentionRules = [
     resourceId: "brainEvidenceSources",
     action: "retain-until-workspace-delete",
     detail: "Current provider-neutral source pointers, hash-bound provider metadata, generations, scope, freshness, and removal state."
+  },
+  {
+    resourceId: "brainExtractionScopeStats",
+    action: "retain-until-workspace-delete",
+    detail: "Lightweight exact grounding-quality aggregate by evidence scope and extraction policy."
+  },
+  {
+    resourceId: "brainExtractionUsage",
+    action: "retain-until-workspace-delete",
+    detail: "Lightweight daily extraction token and spend reservations for Company Brain."
   },
   {
     resourceId: "brainKnowledgeCandidates",
