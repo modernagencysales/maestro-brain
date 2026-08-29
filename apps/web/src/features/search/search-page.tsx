@@ -68,6 +68,8 @@ export function SearchPage() {
   const navigate = useNavigate()
   const [workspace] = useCurrentWorkspace()
   const convex = useConvex()
+  const isolatedContracts = isIsolatedContractsRuntime()
+  const fixtureRuntime = isFixtureAuthRuntime() && !isolatedContracts
 
   const { q } = useSearch({
     from: '/_app/$workspace/_dashboard/search',
@@ -87,7 +89,7 @@ export function SearchPage() {
     queryKey: ['search', productShell.search, workspace.id, q],
     queryFn: async () => {
       if (productShell.search !== 'assistant') return { results: [] }
-      if (isIsolatedContractsRuntime()) {
+      if (isolatedContracts) {
         const result = await runIsolatedHeadlessOperation<GroundedAnswerResult>({
           operationId: 'brain.ask',
           operationInput: { question: q },
@@ -97,7 +99,7 @@ export function SearchPage() {
           results: projectGroundedAnswerToSearchResults(result),
         }
       }
-      if (isFixtureAuthRuntime()) {
+      if (fixtureRuntime) {
         const results = fakeAskMaestroResult(q)
         return { results }
       }
@@ -148,15 +150,16 @@ export function SearchPage() {
                 error={error}
                 search={q}
                 workspace={workspace.slug}
+                allowExactRevisionLinks={!fixtureRuntime && !isolatedContracts}
               />
               {data?.answer ? (
                 <>
                   <ContextPackDetails answer={data.answer} />
-                  <AskFeedback
+                  {!isolatedContracts && !fixtureRuntime ? <AskFeedback
                     answer={data.answer}
                     question={q}
                     workspaceId={workspace.id}
-                  />
+                  /> : null}
                 </>
               ) : null}
             </Box>
@@ -336,6 +339,7 @@ function AskFeedback(props: {
 }
 
 function SearchResults(props: {
+  allowExactRevisionLinks: boolean
   data?: StarterSearchResult[]
   error?: Error | null
   search: string
@@ -369,7 +373,9 @@ function SearchResults(props: {
       <GridList.Root interactive>
         {props.data?.map((result) => {
           const revisionRouteId =
-            result.sourceKey && result.revisionKey
+            props.allowExactRevisionLinks &&
+            result.sourceKey &&
+            result.revisionKey
               ? brainEvidenceRevisionRouteId(
                   result.sourceKey,
                   result.revisionKey,

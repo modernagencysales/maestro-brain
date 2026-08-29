@@ -13,7 +13,7 @@ invitation, and then links a terminal.
 Requires Node 22. Run these commands from the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.4/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.5/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -23,7 +23,7 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.4/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.5/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app, asks the teammate to choose **Apero Company

@@ -1,6 +1,6 @@
 export const brainCliRelease = {
-  version: '0.1.4',
-  tag: 'brain-cli-v0.1.4',
+  version: '0.1.5',
+  tag: 'brain-cli-v0.1.5',
   asset: 'maestro-brain.tgz',
 } as const
 

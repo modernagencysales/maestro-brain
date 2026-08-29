@@ -19,6 +19,10 @@ import { api } from '#lib/trpc/react'
 import { productShell } from '#config/product-shell'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace.ts'
 import { useOpenState } from '#hooks/use-open-state.ts'
+import {
+  isFixtureAuthRuntime,
+  isIsolatedContractsRuntime,
+} from '#lib/auth/route-auth'
 
 import {
   projectBrainPagesToTree,
@@ -48,6 +52,8 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
   )
   const [width, setWidth] = useLocalStorage('app.brain-pages.width', 300)
   const { open, setOpen } = useOpenState({ defaultOpen: Boolean(params.id) })
+  const reviewAvailable =
+    !isFixtureAuthRuntime() && !isIsolatedContractsRuntime()
 
   const selectPage = React.useCallback(
     (pageId: string) => {
@@ -112,10 +118,13 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
                 navigate({ to: '/$workspace', params: { workspace: params.workspace } })
               }
               onCreate={createPage}
-              onReview={() =>
-                modals.open(BrainKnowledgeReviewDialog, {
-                  workspaceId: workspace.id,
-                })
+              onReview={
+                reviewAvailable
+                  ? () =>
+                      modals.open(BrainKnowledgeReviewDialog, {
+                        workspaceId: workspace.id,
+                      })
+                  : undefined
               }
               onSelect={selectPage}
             />

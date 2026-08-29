@@ -908,10 +908,10 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.4"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.4\n");
+    expect(status).toContain('"cliVersion": "0.1.5"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.5\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.4/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.5/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');

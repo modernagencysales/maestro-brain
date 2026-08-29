@@ -124,16 +124,18 @@ export function BrainPagesPanel({
             <LuPlus />
           </IconButton>
         </Tooltip>
-        <Tooltip content="Review grounded knowledge">
-          <IconButton
-            aria-label="Review grounded knowledge"
-            size="sm"
-            variant="ghost"
-            onClick={onReview}
-          >
-            <LuListChecks />
-          </IconButton>
-        </Tooltip>
+        {onReview ? (
+          <Tooltip content="Review grounded knowledge">
+            <IconButton
+              aria-label="Review grounded knowledge"
+              size="sm"
+              variant="ghost"
+              onClick={onReview}
+            >
+              <LuListChecks />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </HStack>
       <Box overflowY="auto" flex="1" minH="0">
         <HStack px="4" py="2" bg="bg.subtle" borderBottomWidth="1px">

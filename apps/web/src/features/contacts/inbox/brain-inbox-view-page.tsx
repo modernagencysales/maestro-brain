@@ -234,9 +234,16 @@ const useBrainEvidenceDetail = (input: {
           revisionKey: input.exactRevision.revisionKey,
         },
   )
-  if (input.fixtureRuntime && input.entryKey !== undefined) {
+  if (
+    input.fixtureRuntime &&
+    (input.entryKey !== undefined || input.exactRevision !== undefined)
+  ) {
     const summary = brainEvidenceFixtures.find(
-      ({ entryKey }) => entryKey === input.entryKey,
+      ({ entryKey, sourceKey, revisionKey }) =>
+        input.entryKey !== undefined
+          ? entryKey === input.entryKey
+          : sourceKey === input.exactRevision?.sourceKey &&
+            revisionKey === input.exactRevision.revisionKey,
     )
     if (!summary) return undefined
     return {
