@@ -596,7 +596,7 @@ describe("Brain extraction admission contract", () => {
     );
     expect(result).toMatchObject({
       scheduledCount: 3,
-      extractionPolicyVersion: "brain-extractor-v1",
+      extractionPolicyVersion: "brain-extractor-v2",
     });
   });
 

@@ -7,6 +7,7 @@ import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { evidenceContentHash } from "../confect/brain/evidenceProjection";
+import { BRAIN_EXTRACTION_POLICY_VERSION } from "../confect/capabilities/extractBrainKnowledgeCandidates.domain";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
@@ -369,7 +370,7 @@ describe("Brain knowledge review contract", () => {
           yield* writer
             .table("brainRetrievalEntries")
             .patch(entry._id, {
-              semanticPolicyVersion: "brain-extractor-v1",
+              semanticPolicyVersion: BRAIN_EXTRACTION_POLICY_VERSION,
               semanticStatus: "completed",
               semanticProposedCount: 1,
               semanticCandidateCount: 1,
@@ -386,7 +387,7 @@ describe("Brain knowledge review contract", () => {
               sourceKey: entry.sourceKey,
               sourceRevisionKey: entry.revisionKey,
               extractionWindowKey: `full:0:${entry.markdown.length}`,
-              extractionPolicyVersion: "brain-extractor-v1",
+              extractionPolicyVersion: BRAIN_EXTRACTION_POLICY_VERSION,
               propositionFingerprint: "sha256:pilot-price",
               body: "The advisory pilot costs $5,000 per month.",
               epistemics: "factual",
@@ -583,7 +584,7 @@ describe("Brain knowledge review contract", () => {
     expect(result.queue).toHaveLength(1);
     expect(result.queued).toMatchObject({
       scheduledCount: 1,
-      extractionPolicyVersion: "brain-extractor-v1",
+      extractionPolicyVersion: BRAIN_EXTRACTION_POLICY_VERSION,
     });
     expect(result.accepted).toMatchObject({
       status: "accepted",
