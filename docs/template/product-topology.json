@@ -502,6 +502,16 @@
       "lifecycle": "active"
     },
     {
+      "id": "integration:nango-google-drive",
+      "kind": "provider",
+      "system": "provider-integrations",
+      "path": "packages/integrations/src/nango/googleDrive.ts",
+      "responsibility": "discover approved Drive scopes and normalize bounded complete file inventories",
+      "surfaces": ["internal", "worker"],
+      "uses": ["access-and-tenancy", "knowledge-brain"],
+      "lifecycle": "active"
+    },
+    {
       "id": "integration:provider-registry",
       "kind": "provider",
       "system": "policy-and-prompts",

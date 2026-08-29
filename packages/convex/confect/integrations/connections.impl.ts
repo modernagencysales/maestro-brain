@@ -48,6 +48,7 @@ import {
   type ProviderKey,
 } from "./connectionLifecycle";
 import connections from "./connections.spec";
+import { buildDriveEvidenceItems } from "./driveSnapshot";
 import { buildSlackEvidenceItems } from "./slackSnapshot";
 
 const withConfectClock = <A, E, R>(
@@ -633,26 +634,6 @@ const scheduledConnectionRows = (
     return connection === null ? [] : [connection];
   });
 
-const driveMarkdown = (
-  observation: Awaited<
-    ReturnType<typeof fetchGoogleDriveInventory>
-  >["observations"][number],
-) =>
-  [
-    `# ${observation.metadata.name}`,
-    "",
-    `- MIME type: ${observation.metadata.mimeType}`,
-    `- Drive: ${observation.metadata.driveId}`,
-    `- Modified: ${new Date(observation.sourceModifiedAt).toISOString()}`,
-    `- Source: ${observation.sourceLocator}`,
-    ...(observation.metadata.version === null
-      ? []
-      : [`- Provider version: ${observation.metadata.version}`]),
-    ...(observation.metadata.contentText === null
-      ? ["", "> Content extraction is not available for this MIME type."]
-      : ["", "## Content", "", observation.metadata.contentText]),
-  ].join("\n");
-
 const hubSpotMarkdown = (
   observation: Awaited<
     ReturnType<typeof fetchHubSpotInventory>
@@ -715,30 +696,31 @@ const runGoogleDriveSync = (
         workspaceId,
         provider: "google_drive",
         scopeKey: inventory.scope.scopeKey,
+        connectionGeneration: connection.generation,
         runKey,
         startedAt: observedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
       const active = inventory.observations.filter(
         ({ tombstone }) => !tombstone,
       );
-      for (const observation of active)
-        yield* mutation(refs.internal.brain.evidence.publishRunItem, {
-          workspaceId,
-          provider: "google_drive",
-          scopeKey: inventory.scope.scopeKey,
-          runKey,
-          sourceKey: observation.sourceKey,
-          revisionKey: observation.revisionKey,
-          title: observation.metadata.name,
-          markdown: driveMarkdown(observation),
-          locator: observation.sourceLocator,
-          sourceModifiedAt: observation.sourceModifiedAt,
-          observedAt: observation.observedAt,
-        }).pipe(Effect.catchTag("SchemaError", providerFailure));
+      const evidence = yield* Effect.try({
+        try: () =>
+          buildDriveEvidenceItems(active, {
+            workspaceId,
+            scopeKey: inventory.scope.scopeKey,
+            runKey,
+            observedAt,
+          }),
+        catch: providerFailure,
+      });
+      for (const item of evidence.items)
+        yield* mutation(refs.internal.brain.evidence.publishRunItem, item).pipe(
+          Effect.catchTag("SchemaError", providerFailure),
+        );
       yield* mutation(refs.internal.brain.evidence.completeRun, {
         workspaceId,
         runKey,
-        discoveredCount: active.length,
+        discoveredCount: evidence.items.length,
         completedAt: inventory.completedAt,
       }).pipe(Effect.catchTag("SchemaError", providerFailure));
       yield* mutation(
@@ -748,10 +730,13 @@ const runGoogleDriveSync = (
           provider: "google-drive",
           status: "ready",
           syncedAt: inventory.completedAt,
-          sourceCount: active.length,
+          sourceCount: evidence.items.length,
         },
       ).pipe(Effect.catchTag("SchemaError", providerFailure));
-      return { sourceCount: active.length, syncedAt: inventory.completedAt };
+      return {
+        sourceCount: evidence.items.length,
+        syncedAt: inventory.completedAt,
+      };
     }).pipe(
       Effect.tapError(() =>
         Effect.all([

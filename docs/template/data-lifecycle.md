@@ -31,6 +31,15 @@ Every schema addition must declare:
 - tenant scope and sensitivity/PII classification
 - canonical write authority and migration decision
 
+Company Brain provider content follows the same workspace lifecycle through
+`brainEvidenceSources`, immutable `brainEvidenceRevisions`, bounded retrieval
+projections, and connector-run receipts. Google Drive segment metadata stores
+provider identities, hashes, and exact offsets rather than a second copy of the
+whole document. Workspace export reopens the governed evidence revision;
+workspace deletion removes its source, revision, retrieval, and run rows through
+the generated resource plan. Metadata-only and capacity-state Drive sources
+carry no extracted document body.
+
 Use `pnpm template:add-table` so the table, system owner, resource contract, and
 migration decision are created together. Then run `pnpm data-resources:generate`
 and `pnpm check:data-resources` before promotion.
