@@ -9,7 +9,7 @@ import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
-const now = 1_782_924_800_000;
+const now = 1_788_019_200_000;
 
 describe("Brain knowledge review contract", () => {
   it("lists only completed extraction, accepts exactly cited truth atomically, and replays idempotently", async () => {
@@ -124,10 +124,50 @@ describe("Brain knowledge review contract", () => {
           .reviewBrainKnowledgeCandidate,
         reviewInput,
       );
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          const reader = yield* DatabaseReader;
+          const stored = yield* reader
+            .table("brainKnowledgeCandidates")
+            .index("by_workspace_and_candidate_receipt_key", (q) =>
+              q
+                .eq("workspaceId", seeded.workspaceId)
+                .eq("candidateReceiptKey", candidateReceiptKey),
+            )
+            .first()
+            .pipe(Effect.orDie);
+          if (stored._tag !== "Some")
+            return yield* Effect.die("accepted candidate disappeared");
+          yield* writer
+            .table("brainKnowledgeCandidates")
+            .patch(stored.value._id, { temporalExpiresAt: 0 })
+            .pipe(Effect.orDie);
+          return null;
+        }),
+        Schema.Null,
+      );
       const replayed = yield* actor.mutation(
         refs.public.capabilities.reviewBrainKnowledgeCandidate
           .reviewBrainKnowledgeCandidate,
         reviewInput,
+      );
+      const conflictingReplay = yield* Effect.result(
+        actor.mutation(
+          refs.public.capabilities.reviewBrainKnowledgeCandidate
+            .reviewBrainKnowledgeCandidate,
+          { ...reviewInput, reviewHorizonDays: 365 },
+        ),
+      );
+      const staleReview = yield* Effect.result(
+        actor.mutation(
+          refs.public.capabilities.reviewBrainKnowledgeCandidate
+            .reviewBrainKnowledgeCandidate,
+          {
+            ...reviewInput,
+            idempotencyKey: "review:stale-pilot-price",
+          },
+        ),
       );
       const currentPage = yield* actor.query(refs.public.brain.pages.get, {
         workspaceId: seeded.workspaceId,
@@ -140,7 +180,24 @@ describe("Brain knowledge review contract", () => {
           "The advisory pilot costs $5,000 per month. Updated terms are under review.",
         expectedUpdatedAt: currentPage.updatedAt,
       });
+      yield* confect.mutation(refs.internal.ops.flags.upsertPolicyInternal, {
+        workspaceId: seeded.workspaceId,
+        key: "template.brain.contextV4",
+        description: "Enable reviewed company truth for the pilot workspace.",
+        enabled: true,
+        rolloutPercent: 100,
+        audience: "workspace",
+      });
       const answer = yield* actor.query(
+        refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+        {
+          workspaceId: seeded.workspaceId,
+          question: "What does the advisory pilot cost?",
+          evidenceMode: "company_truth",
+          asOf: now,
+        },
+      );
+      const repeatedAnswer = yield* actor.query(
         refs.public.capabilities.askCompanyBrain.askCompanyBrain,
         {
           workspaceId: seeded.workspaceId,
@@ -196,7 +253,18 @@ describe("Brain knowledge review contract", () => {
         }),
         Schema.String,
       );
-      return { queued, queue, accepted, replayed, answer, fallback, ledger };
+      return {
+        queued,
+        queue,
+        accepted,
+        replayed,
+        conflictingReplay,
+        staleReview,
+        answer,
+        repeatedAnswer,
+        fallback,
+        ledger,
+      };
     });
 
     const result = await Effect.runPromise(
@@ -213,6 +281,8 @@ describe("Brain knowledge review contract", () => {
       citationKey: expect.any(String),
     });
     expect(result.replayed).toEqual(result.accepted);
+    expect(result.conflictingReplay._tag).toBe("Failure");
+    expect(result.staleReview._tag).toBe("Failure");
     expect(JSON.parse(result.ledger)).toMatchObject({
       claims: [
         {
@@ -230,6 +300,22 @@ describe("Brain knowledge review contract", () => {
       ],
     });
     expect(result.answer.contextPack.omissions).toEqual([]);
+    expect(result.repeatedAnswer.contextPack.packHash).toBe(
+      result.answer.contextPack.packHash,
+    );
+    expect(
+      result.repeatedAnswer.contextPack.citations.map((citation) => [
+        citation.citationKey,
+        citation.sourceKey,
+        citation.revisionKey,
+      ]),
+    ).toEqual(
+      result.answer.contextPack.citations.map((citation) => [
+        citation.citationKey,
+        citation.sourceKey,
+        citation.revisionKey,
+      ]),
+    );
     expect(result.answer).toMatchObject({
       status: "answered",
       contextPack: {

@@ -16,6 +16,7 @@ export const BrainCandidateReviewEvent = S.Struct({
   revision: S.Number,
   action: S.Literals(["accept", "edit_and_accept", "reject", "mark_stale"]),
   bodyHash: S.String,
+  requestHash: S.optional(S.String),
   reason: S.optional(S.String),
   actorId: Id("users"),
   idempotencyKey: S.String,
@@ -48,6 +49,7 @@ export const BrainKnowledgeCandidateRow = S.Struct({
 
 export default Table.make(() => BrainKnowledgeCandidateRow)
   .index("by_workspace", ["workspaceId"])
+  .index("by_workspace_and_created_at", ["workspaceId", "createdAt"])
   .index("by_workspace_and_candidate_receipt_key", [
     "workspaceId",
     "candidateReceiptKey",
@@ -56,6 +58,11 @@ export default Table.make(() => BrainKnowledgeCandidateRow)
     "workspaceId",
     "currentState",
     "updatedAt",
+  ])
+  .index("by_workspace_and_current_state_and_created_at", [
+    "workspaceId",
+    "currentState",
+    "createdAt",
   ])
   .index("by_workspace_and_proposition_fingerprint", [
     "workspaceId",

@@ -40,6 +40,7 @@ export const extractBrainKnowledgeCandidatesReturns = S.Struct({
   proposedCount: S.Number,
   candidateCount: S.Number,
   groundingFailureCount: S.Number,
+  estimatedSpendCents: S.Number,
   extractionPolicyVersion: S.String,
   projectedAt: S.Number,
 });
@@ -72,6 +73,9 @@ const beginExtraction = FunctionSpec.internalMutation({
       ...extractBrainKnowledgeCandidatesArgs.fields,
       userId: S.optional(Id("users")),
       requireLiveGeneration: S.Boolean,
+      killSwitchEnabled: S.Boolean,
+      dailySpendLimitCents: S.Number,
+      estimatedCostPerMillionTokensCents: S.Number,
     }),
   returns: () =>
     S.Struct({
@@ -84,6 +88,7 @@ const beginExtraction = FunctionSpec.internalMutation({
       existingProposedCount: S.Number,
       existingCandidateCount: S.Number,
       existingGroundingFailureCount: S.Number,
+      existingEstimatedSpendCents: S.Number,
       existingProjectedAt: S.Number,
     }),
   error: () => ErrorSchema,

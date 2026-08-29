@@ -55,9 +55,9 @@ const defaultFeatureFlagPolicies = [
     key: "template.brain.contextV4",
     description:
       "ContextPack V4 retrieval with deterministic recent-evidence fallback.",
-    enabled: true,
-    rolloutPercent: 100,
-    audience: "everyone",
+    enabled: false,
+    rolloutPercent: 0,
+    audience: "workspace",
   },
 ] as const satisfies readonly FeatureFlagPolicySeed[];
 

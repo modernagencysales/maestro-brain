@@ -35,6 +35,11 @@ export const toggleScopeSelection = (
     ? [...new Set([...current, scopeId])]
     : current.filter((id) => id !== scopeId)
 
+export const selectSlackChannel = (
+  scopeId: string,
+  checked: boolean,
+): string[] => (checked ? [scopeId] : [])
+
 export function ProviderSyncDialog(props: {
   open: boolean
   provider: SyncProvider | null
@@ -76,7 +81,7 @@ export function ProviderSyncDialog(props: {
         if (provider === 'slack')
           setSelectedScopeIds((current) =>
             current.length > 0
-              ? current
+              ? current.slice(0, 1)
               : result.scopes.slice(0, 1).map(({ id }) => id),
           )
         if (result.resolvedContainerId !== undefined)
@@ -94,7 +99,9 @@ export function ProviderSyncDialog(props: {
     if (!props.open || props.provider === null) return
     const initialContainerId = props.initialContainerId ?? ''
     const initialScopes = [
-      ...(props.provider === 'slack' ? (props.initialChannelIds ?? []) : []),
+      ...(props.provider === 'slack'
+        ? (props.initialChannelIds ?? []).slice(0, 1)
+        : []),
       ...(props.provider === 'google-drive'
         ? (props.initialRootFolderIds ?? [])
         : []),
@@ -128,7 +135,7 @@ export function ProviderSyncDialog(props: {
   const valid =
     props.provider !== null &&
     (slack
-      ? scopeIds.length > 0
+      ? scopeIds.length === 1
       : containerId.trim().length > 0 && (!drive || scopeIds.length > 0))
 
   return (
@@ -142,7 +149,7 @@ export function ProviderSyncDialog(props: {
         <Dialog.Header>
           <Dialog.Title>
             {slack
-              ? 'Choose Slack channels'
+              ? 'Choose a Slack channel'
               : drive
                 ? 'Choose Google Drive scope'
                 : 'Confirm HubSpot portal'}
@@ -153,7 +160,7 @@ export function ProviderSyncDialog(props: {
           <VStack align="stretch" gap="4">
             <Text color="fg.muted" textStyle="sm">
               {slack
-                ? 'Start narrow: the first available channel is selected by default. Review it and add only the channels you want in the Company Brain.'
+                ? 'Start narrow: choose one channel for the first Company Brain sync. You can change the approved channel before a later sync.'
                 : drive
                   ? 'Choose one Shared Drive, then explicitly approve its full root or specific folders.'
                   : 'The portal below was detected from the account you authorized.'}
@@ -209,20 +216,22 @@ export function ProviderSyncDialog(props: {
               <Field.Root required>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Field.Label>
-                    {slack ? 'Approved channels' : 'Approved folders'}
+                    {slack ? 'Approved channel' : 'Approved folders'}
                   </Field.Label>
                   <Box display="flex" gap="1">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() =>
-                        setSelectedScopeIds(
-                          discovery.scopes.map((scope) => scope.id),
-                        )
-                      }
-                    >
-                      Select all
-                    </Button>
+                    {drive ? (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() =>
+                          setSelectedScopeIds(
+                            discovery.scopes.map((scope) => scope.id),
+                          )
+                        }
+                      >
+                        Select all
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="xs"
@@ -253,11 +262,13 @@ export function ProviderSyncDialog(props: {
                         checked={selectedScopeIds.includes(scope.id)}
                         onCheckedChange={({ checked }) =>
                           setSelectedScopeIds((current) =>
-                            toggleScopeSelection(
-                              current,
-                              scope.id,
-                              checked === true,
-                            ),
+                            slack
+                              ? selectSlackChannel(scope.id, checked === true)
+                              : toggleScopeSelection(
+                                  current,
+                                  scope.id,
+                                  checked === true,
+                                ),
                           )
                         }
                       >
@@ -268,7 +279,11 @@ export function ProviderSyncDialog(props: {
                   )}
                 </VStack>
                 <Field.HelperText>
-                  {selectedScopeIds.length} selected
+                  {slack
+                    ? selectedScopeIds.length === 1
+                      ? '1 channel selected'
+                      : 'Choose one channel'
+                    : `${selectedScopeIds.length} selected`}
                 </Field.HelperText>
               </Field.Root>
             ) : null}
@@ -291,9 +306,8 @@ export function ProviderSyncDialog(props: {
                   <NativeSelect.Indicator />
                 </NativeSelect.Root>
                 <Field.HelperText>
-                  {scopeIds.length} channel{scopeIds.length === 1 ? '' : 's'} · up
-                  to 1,000 messages total. Progress appears on the connection
-                  card while the sync runs.
+                  One channel · up to 1,000 messages total. Progress appears on
+                  the connection card while the sync runs.
                 </Field.HelperText>
               </Field.Root>
             ) : null}
@@ -314,12 +328,14 @@ export function ProviderSyncDialog(props: {
                 {drive || slack ? (
                   <Field.Root required>
                     <Field.Label>
-                      {slack ? 'Slack channel IDs' : 'Root folder IDs'}
+                      {slack ? 'Slack channel ID' : 'Root folder IDs'}
                     </Field.Label>
                     <Input
                       value={manualScopes}
                       onChange={(event) => setManualScopes(event.target.value)}
-                      placeholder="Separate IDs with commas"
+                      placeholder={
+                        slack ? 'Enter one channel ID' : 'Separate IDs with commas'
+                      }
                     />
                   </Field.Root>
                 ) : null}

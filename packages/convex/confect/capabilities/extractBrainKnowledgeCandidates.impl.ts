@@ -19,7 +19,7 @@ import {
 } from "./_kit/workspaceAccess";
 import { Forbidden, ValidationFailed } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
-import { loadLlmGatewayEnvConfig } from "../shared/env";
+import { killSwitchOn, loadLlmGatewayEnvConfig } from "../shared/env";
 import { createAssistantLanguageModel } from "../agents/assistantModel";
 import {
   BRAIN_EXTRACTION_POLICY_VERSION,
@@ -35,10 +35,22 @@ const RUNNING_CAP = 2;
 const RUNNING_LEASE_MS = 5 * 60 * 1_000;
 const MAX_QUEUE_LIMIT = 25;
 const EXTRACTION_SCHEDULE_SPACING_MS = 35_000;
+const DEFAULT_ESTIMATED_COST_PER_MILLION_TOKENS_CENTS = 500;
+const MAX_WORKSPACE_DAILY_CANDIDATES = 25;
 const withClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 const invalid = (field: string, message: string) =>
   new ValidationFailed({ field, message });
+const utcDayStart = (timestamp: number): number => {
+  const date = new Date(timestamp);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+};
+const rolloutBucket = (input: string): number => {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1)
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
+  return hash % 100;
+};
 
 const currentEntry = (
   workspaceId: Parameters<typeof requireWorkspaceAccess>[0],
@@ -98,6 +110,20 @@ const beginExtraction = FunctionImpl.make(
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const now = yield* withClock(Clock.currentTimeMillis);
+      if (args.killSwitchEnabled)
+        return yield* new Forbidden({
+          reason: "brain-extraction-kill-switch",
+        });
+      if (
+        !Number.isSafeInteger(args.dailySpendLimitCents) ||
+        args.dailySpendLimitCents < 0 ||
+        !Number.isSafeInteger(args.estimatedCostPerMillionTokensCents) ||
+        args.estimatedCostPerMillionTokensCents < 0
+      )
+        return yield* invalid(
+          "dailySpendLimitCents",
+          "Extraction spend limits must be non-negative integer cents.",
+        );
       const running = yield* reader
         .table("brainRetrievalEntries")
         .index("by_workspace_and_semantic_status", (q) =>
@@ -116,11 +142,36 @@ const beginExtraction = FunctionImpl.make(
           activeRunning.push(entry);
           continue;
         }
+        const usageDay = utcDayStart(now);
+        const sameUsageDay = entry.semanticUsageDay === usageDay;
+        const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
+        const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
         yield* writer
           .table("brainRetrievalEntries")
           .patch(entry._id, {
             semanticStatus: "failed",
             semanticFailureCode: "extraction_lease_expired",
+            semanticUsageDay: usageDay,
+            semanticDailyConsumedTokens:
+              (sameUsageDay ? (entry.semanticDailyConsumedTokens ?? 0) : 0) +
+              reservedRunTokens,
+            semanticDailyReservedTokens: sameUsageDay
+              ? Math.max(
+                  0,
+                  (entry.semanticDailyReservedTokens ?? 0) - reservedRunTokens,
+                )
+              : 0,
+            semanticDailyConsumedSpendCents:
+              (sameUsageDay
+                ? (entry.semanticDailyConsumedSpendCents ?? 0)
+                : 0) + reservedRunSpendCents,
+            semanticDailyReservedSpendCents: sameUsageDay
+              ? Math.max(
+                  0,
+                  (entry.semanticDailyReservedSpendCents ?? 0) -
+                    reservedRunSpendCents,
+                )
+              : 0,
             semanticProjectedAt: now,
             updatedAt: now,
           })
@@ -138,19 +189,22 @@ const beginExtraction = FunctionImpl.make(
           "workspaceId",
           "Extraction accounting capacity was exceeded.",
         );
-      const currentDate = new Date(now);
-      const today = Date.UTC(
-        currentDate.getUTCFullYear(),
-        currentDate.getUTCMonth(),
-        currentDate.getUTCDate(),
-      );
+      const today = utcDayStart(now);
       const tokens = entries.reduce(
         (sum, entry) =>
-          entry.semanticProjectedAt !== undefined &&
-          entry.semanticProjectedAt >= today
+          entry.semanticUsageDay === today
             ? sum +
-              (entry.semanticInputTokens ?? 0) +
-              (entry.semanticOutputTokens ?? 0)
+              (entry.semanticDailyConsumedTokens ?? 0) +
+              (entry.semanticDailyReservedTokens ?? 0)
+            : sum,
+        0,
+      );
+      const estimatedSpendCents = entries.reduce(
+        (sum, entry) =>
+          entry.semanticUsageDay === today
+            ? sum +
+              (entry.semanticDailyConsumedSpendCents ?? 0) +
+              (entry.semanticDailyReservedSpendCents ?? 0)
             : sum,
         0,
       );
@@ -179,6 +233,7 @@ const beginExtraction = FunctionImpl.make(
           existingCandidateCount: entry.semanticCandidateCount ?? 0,
           existingGroundingFailureCount:
             entry.semanticGroundingFailureCount ?? 0,
+          existingEstimatedSpendCents: entry.semanticEstimatedSpendCents ?? 0,
           existingProjectedAt: entry.semanticProjectedAt ?? entry.updatedAt,
         };
       if (
@@ -188,38 +243,86 @@ const beginExtraction = FunctionImpl.make(
         return yield* new Forbidden({
           reason: "brain-extraction-source-already-running",
         });
-      const tags = yield* reader
-        .table("brainKnowledgeCandidates")
-        .index("by_workspace_and_current_state_and_updated_at", (q) =>
-          q.eq("workspaceId", args.workspaceId).eq("currentState", "accepted"),
+      const claims = yield* reader
+        .table("claims")
+        .index("by_workspace_status", (q) =>
+          q.eq("workspaceId", args.workspaceId).eq("status", "supported"),
         )
         .take(50)
         .pipe(Effect.orDie);
-      const flag = yield* reader
+      const flags = yield* reader
         .table("featureFlagPolicies")
         .index("by_workspace_key", (q) =>
           q
             .eq("workspaceId", args.workspaceId)
             .eq("key", "template.ai.liveGeneration"),
         )
-        .first()
+        .take(2)
         .pipe(Effect.orDie);
+      const [flag] = flags;
       if (
         args.requireLiveGeneration &&
         !(
-          flag._tag === "Some" &&
-          flag.value.enabled &&
-          flag.value.rolloutPercent > 0
+          flags.length === 1 &&
+          flag !== undefined &&
+          flag.enabled &&
+          rolloutBucket(`${flag.key}:${args.workspaceId}`) <
+            Math.max(0, Math.min(100, Math.trunc(flag.rolloutPercent)))
         )
       )
         return yield* new Forbidden({
           reason: "brain-extraction-live-generation-disabled",
         });
-      const recentSemantic = entries.filter(
-        (candidate) =>
-          candidate.semanticProjectedAt !== undefined &&
-          candidate.semanticProjectedAt >= now - 7 * 24 * 60 * 60 * 1_000,
-      );
+      const source = yield* reader
+        .table("brainEvidenceSources")
+        .index("by_workspace_and_source_key", (q) =>
+          q
+            .eq("workspaceId", args.workspaceId)
+            .eq("sourceKey", entry.sourceKey),
+        )
+        .first()
+        .pipe(Effect.orDie);
+      if (source._tag !== "Some")
+        return yield* invalid(
+          "sourceKey",
+          "Evidence source metadata was not found.",
+        );
+      const scopedSources = yield* reader
+        .table("brainEvidenceSources")
+        .index("by_workspace_and_scope_key_and_status", (q) =>
+          q
+            .eq("workspaceId", args.workspaceId)
+            .eq("scopeKey", source.value.scopeKey)
+            .eq("status", "active"),
+        )
+        .take(101)
+        .pipe(Effect.orDie);
+      if (scopedSources.length > 100)
+        return yield* invalid(
+          "sourceKey",
+          "Extraction circuit-breaker scope exceeded its source bound.",
+        );
+      const recentSemantic = [];
+      for (const scopedSource of scopedSources) {
+        const scopedEntries = yield* reader
+          .table("brainRetrievalEntries")
+          .index("by_workspace_and_source_key_and_status", (q) =>
+            q
+              .eq("workspaceId", args.workspaceId)
+              .eq("sourceKey", scopedSource.sourceKey)
+              .eq("status", "current"),
+          )
+          .take(2)
+          .pipe(Effect.orDie);
+        const [scopedEntry] = scopedEntries;
+        if (
+          scopedEntries.length === 1 &&
+          scopedEntry !== undefined &&
+          scopedEntry.semanticPolicyVersion === args.extractionPolicyVersion &&
+          scopedEntry.semanticProjectedAt !== undefined
+        )
+          recentSemantic.push(scopedEntry);
+      }
       const recentProposed = recentSemantic.reduce(
         (sum, candidate) => sum + (candidate.semanticProposedCount ?? 0),
         0,
@@ -230,8 +333,8 @@ const beginExtraction = FunctionImpl.make(
         0,
       );
       if (
-        recentProposed >= 20 &&
-        recentGroundingFailures / recentProposed >= 0.6
+        recentProposed >= 10 &&
+        recentGroundingFailures / recentProposed > 0.3
       )
         return yield* new Forbidden({
           reason: "brain-extraction-grounding-circuit-open",
@@ -242,6 +345,41 @@ const beginExtraction = FunctionImpl.make(
         return yield* new Forbidden({
           reason: "brain-extraction-daily-token-cap",
         });
+      const estimatedRunSpendCents = Math.ceil(
+        (estimatedRunTokens * args.estimatedCostPerMillionTokensCents) /
+          1_000_000,
+      );
+      if (
+        estimatedSpendCents + estimatedRunSpendCents >
+        args.dailySpendLimitCents
+      )
+        return yield* new Forbidden({
+          reason: "brain-extraction-daily-spend-cap",
+        });
+      const dailyCandidates = yield* reader
+        .table("brainKnowledgeCandidates")
+        .index("by_workspace_and_created_at", (q) =>
+          q.eq("workspaceId", args.workspaceId).gte("createdAt", today),
+        )
+        .take(MAX_WORKSPACE_DAILY_CANDIDATES)
+        .pipe(Effect.orDie);
+      if (dailyCandidates.length >= MAX_WORKSPACE_DAILY_CANDIDATES)
+        return yield* new Forbidden({
+          reason: "brain-extraction-daily-candidate-cap",
+        });
+      const sameUsageDay = entry.semanticUsageDay === today;
+      const consumedTokens = sameUsageDay
+        ? (entry.semanticDailyConsumedTokens ?? 0)
+        : 0;
+      const reservedTokens = sameUsageDay
+        ? (entry.semanticDailyReservedTokens ?? 0)
+        : 0;
+      const consumedSpendCents = sameUsageDay
+        ? (entry.semanticDailyConsumedSpendCents ?? 0)
+        : 0;
+      const reservedSpendCents = sameUsageDay
+        ? (entry.semanticDailyReservedSpendCents ?? 0)
+        : 0;
       yield* writer
         .table("brainRetrievalEntries")
         .patch(entry._id, {
@@ -249,6 +387,14 @@ const beginExtraction = FunctionImpl.make(
           semanticStatus: "running",
           semanticRunKey: args.idempotencyKey,
           semanticStartedAt: now,
+          semanticUsageDay: today,
+          semanticDailyConsumedTokens: consumedTokens,
+          semanticDailyReservedTokens: reservedTokens + estimatedRunTokens,
+          semanticDailyConsumedSpendCents: consumedSpendCents,
+          semanticDailyReservedSpendCents:
+            reservedSpendCents + estimatedRunSpendCents,
+          semanticEstimatedRunTokens: estimatedRunTokens,
+          semanticEstimatedSpendCents: estimatedRunSpendCents,
           semanticFailureCode: undefined,
           updatedAt: yield* withClock(Clock.currentTimeMillis),
         })
@@ -260,13 +406,14 @@ const beginExtraction = FunctionImpl.make(
         ...(entry.locator === undefined ? {} : { locator: entry.locator }),
         acceptedTags: [
           ...new Set(
-            tags.flatMap((candidate) => [...candidate.tags] as string[]),
+            claims.flatMap((claim) => [...(claim.tags ?? [])] as string[]),
           ),
         ].slice(0, 50),
         alreadyCompleted: false,
         existingProposedCount: 0,
         existingCandidateCount: 0,
         existingGroundingFailureCount: 0,
+        existingEstimatedSpendCents: 0,
         existingProjectedAt: 0,
       };
     }),
@@ -304,6 +451,15 @@ const commitExtraction = FunctionImpl.make(
       });
       const writer = yield* DatabaseWriter;
       const reader = yield* DatabaseReader;
+      const dayStart = utcDayStart(args.projectedAt);
+      const dailyCandidates = yield* reader
+        .table("brainKnowledgeCandidates")
+        .index("by_workspace_and_created_at", (q) =>
+          q.eq("workspaceId", args.workspaceId).gte("createdAt", dayStart),
+        )
+        .take(MAX_WORKSPACE_DAILY_CANDIDATES)
+        .pipe(Effect.orDie);
+      const existingByReceipt = new Map<string, boolean>();
       for (const candidate of grounded.candidates) {
         const existing = yield* reader
           .table("brainKnowledgeCandidates")
@@ -313,11 +469,25 @@ const commitExtraction = FunctionImpl.make(
               .eq("candidateReceiptKey", candidate.candidateReceiptKey),
           )
           .first()
-          .pipe(
-            Effect.map((o) => (o._tag === "Some" ? o.value : null)),
-            Effect.orDie,
-          );
-        if (existing === null)
+          .pipe(Effect.orDie);
+        existingByReceipt.set(
+          candidate.candidateReceiptKey,
+          existing._tag === "Some",
+        );
+      }
+      const newCandidateCount = grounded.candidates.filter(
+        ({ candidateReceiptKey }) =>
+          !existingByReceipt.get(candidateReceiptKey),
+      ).length;
+      if (
+        dailyCandidates.length + newCandidateCount >
+        MAX_WORKSPACE_DAILY_CANDIDATES
+      )
+        return yield* new Forbidden({
+          reason: "brain-extraction-daily-candidate-cap",
+        });
+      for (const candidate of grounded.candidates) {
+        if (!existingByReceipt.get(candidate.candidateReceiptKey))
           yield* writer
             .table("brainKnowledgeCandidates")
             .insert({
@@ -337,6 +507,11 @@ const commitExtraction = FunctionImpl.make(
             })
             .pipe(Effect.orDie);
       }
+      const usageDay = utcDayStart(args.projectedAt);
+      const sameUsageDay = entry.semanticUsageDay === usageDay;
+      const actualTokens = args.inputTokens + args.outputTokens;
+      const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
+      const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
       yield* writer
         .table("brainRetrievalEntries")
         .patch(entry._id, {
@@ -347,6 +522,26 @@ const commitExtraction = FunctionImpl.make(
           semanticFailureCode: undefined,
           semanticInputTokens: args.inputTokens,
           semanticOutputTokens: args.outputTokens,
+          semanticUsageDay: usageDay,
+          semanticDailyConsumedTokens:
+            (sameUsageDay ? (entry.semanticDailyConsumedTokens ?? 0) : 0) +
+            actualTokens,
+          semanticDailyReservedTokens: sameUsageDay
+            ? Math.max(
+                0,
+                (entry.semanticDailyReservedTokens ?? 0) - reservedRunTokens,
+              )
+            : 0,
+          semanticDailyConsumedSpendCents:
+            (sameUsageDay ? (entry.semanticDailyConsumedSpendCents ?? 0) : 0) +
+            reservedRunSpendCents,
+          semanticDailyReservedSpendCents: sameUsageDay
+            ? Math.max(
+                0,
+                (entry.semanticDailyReservedSpendCents ?? 0) -
+                  reservedRunSpendCents,
+              )
+            : 0,
           semanticProjectedAt: args.projectedAt,
           updatedAt: args.projectedAt,
         })
@@ -356,6 +551,7 @@ const commitExtraction = FunctionImpl.make(
         proposedCount: args.proposals.length,
         candidateCount: grounded.candidates.length,
         groundingFailureCount: grounded.failureCount,
+        estimatedSpendCents: entry.semanticEstimatedSpendCents ?? 0,
         extractionPolicyVersion: args.extractionPolicyVersion,
         projectedAt: args.projectedAt,
       };
@@ -374,16 +570,42 @@ const failExtraction = FunctionImpl.make(
         entry.semanticStatus === "running" &&
         entry.semanticRunKey === args.idempotencyKey &&
         entry.semanticPolicyVersion === args.extractionPolicyVersion
-      )
+      ) {
+        const usageDay = utcDayStart(args.failedAt);
+        const sameUsageDay = entry.semanticUsageDay === usageDay;
+        const reservedRunTokens = entry.semanticEstimatedRunTokens ?? 0;
+        const reservedRunSpendCents = entry.semanticEstimatedSpendCents ?? 0;
         yield* (yield* DatabaseWriter)
           .table("brainRetrievalEntries")
           .patch(entry._id, {
             semanticStatus: "failed",
             semanticFailureCode: args.failureCode,
+            semanticUsageDay: usageDay,
+            semanticDailyConsumedTokens:
+              (sameUsageDay ? (entry.semanticDailyConsumedTokens ?? 0) : 0) +
+              reservedRunTokens,
+            semanticDailyReservedTokens: sameUsageDay
+              ? Math.max(
+                  0,
+                  (entry.semanticDailyReservedTokens ?? 0) - reservedRunTokens,
+                )
+              : 0,
+            semanticDailyConsumedSpendCents:
+              (sameUsageDay
+                ? (entry.semanticDailyConsumedSpendCents ?? 0)
+                : 0) + reservedRunSpendCents,
+            semanticDailyReservedSpendCents: sameUsageDay
+              ? Math.max(
+                  0,
+                  (entry.semanticDailyReservedSpendCents ?? 0) -
+                    reservedRunSpendCents,
+                )
+              : 0,
             semanticProjectedAt: args.failedAt,
             updatedAt: args.failedAt,
           })
           .pipe(Effect.orDie);
+      }
       return null;
     }),
 );
@@ -404,6 +626,19 @@ const runExtraction = (
   Effect.gen(function* () {
     const mutation = yield* MutationRunner;
     const mode = yield* RuntimeModeConfig.pipe(Effect.orDie);
+    const env = yield* loadLlmGatewayEnvConfig.pipe(Effect.orDie);
+    const configuredSpendLimit = Number.parseInt(
+      env.LLM_DAILY_SPEND_LIMIT_CENTS?.trim() ?? "",
+      10,
+    );
+    if (
+      mode === "live" &&
+      (!Number.isSafeInteger(configuredSpendLimit) || configuredSpendLimit < 0)
+    )
+      return yield* invalid(
+        "provider",
+        "Live extraction requires LLM_DAILY_SPEND_LIMIT_CENTS.",
+      );
     const prepared = yield* mutation(
       refs.internal.capabilities.extractBrainKnowledgeCandidates
         .beginExtraction,
@@ -411,6 +646,11 @@ const runExtraction = (
         ...args,
         ...(userId === undefined ? {} : { userId }),
         requireLiveGeneration: mode === "live",
+        killSwitchEnabled: mode === "live" && killSwitchOn(env),
+        dailySpendLimitCents:
+          mode === "live" ? configuredSpendLimit : Number.MAX_SAFE_INTEGER,
+        estimatedCostPerMillionTokensCents:
+          mode === "live" ? DEFAULT_ESTIMATED_COST_PER_MILLION_TOKENS_CENTS : 0,
       },
     );
     if (prepared.alreadyCompleted)
@@ -419,11 +659,11 @@ const runExtraction = (
         proposedCount: prepared.existingProposedCount,
         candidateCount: prepared.existingCandidateCount,
         groundingFailureCount: prepared.existingGroundingFailureCount,
+        estimatedSpendCents: prepared.existingEstimatedSpendCents,
         extractionPolicyVersion: args.extractionPolicyVersion,
         projectedAt: prepared.existingProjectedAt,
       };
     const postBegin = Effect.gen(function* () {
-      const env = yield* loadLlmGatewayEnvConfig.pipe(Effect.orDie);
       let proposals: readonly CandidateProposal[] = [];
       let inputTokens = 0;
       let outputTokens = 0;
@@ -461,10 +701,6 @@ const runExtraction = (
           outputTokens,
           projectedAt,
         },
-      ).pipe(
-        Effect.mapError(() =>
-          invalid("revisionKey", "Extraction could not be committed."),
-        ),
       );
     });
     return yield* postBegin.pipe(

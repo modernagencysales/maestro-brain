@@ -147,7 +147,7 @@ describe("feature flag Confect contracts", () => {
     ]);
     expect(
       result.evaluated.decisions.filter((decision) => decision.enabled),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(
       result.evaluated.decisions
         .filter((decision) =>
@@ -155,6 +155,7 @@ describe("feature flag Confect contracts", () => {
             "template.billing.liveCheckout",
             "template.notifications.center",
             "template.ai.liveGeneration",
+            "template.brain.contextV4",
           ].includes(decision.key),
         )
         .every((decision) => decision.reason === "definition-disabled"),

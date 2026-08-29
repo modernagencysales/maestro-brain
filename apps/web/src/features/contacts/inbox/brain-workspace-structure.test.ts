@@ -29,6 +29,14 @@ describe('Brain workspace visual structure', () => {
     expect(pages).toContain('Synced sources')
   })
 
+  it('fills an empty Brain detail pane with actionable onboarding', () => {
+    const onboarding = source('./brain-onboarding-empty-state.tsx')
+    expect(onboarding).toContain('Connect Slack')
+    expect(onboarding).toContain('Connect Drive')
+    expect(onboarding).toContain('Create Brain page')
+    expect(onboarding).toContain('Connect Terminal &amp; MCP')
+  })
+
   it('keeps Tiptap central and moves page context into a rail and drawer', () => {
     const page = source('./brain-inbox-view-page.tsx')
     expect(page).toContain('<Editor')

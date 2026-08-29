@@ -41,7 +41,7 @@ Setup and diagnostics
   maestro-brain update
 
 Use company context
-  maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example]
+  maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example] [--json]
   maestro-brain evidence search <query> [--limit <1-10>]
   maestro-brain evidence open <source-key> --revision <revision-key>
   maestro-brain evidence source-get <source-key> <revision-key>
@@ -74,11 +74,12 @@ not want to modify the current shell environment.`,
   run: `Usage: maestro-brain run -- <command> [args...]
 
 Runs one child process with MAESTRO_BRAIN_API_KEY injected.`,
-  ask: `Usage: maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example]
+  ask: `Usage: maestro-brain ask <question> [--mode recent_evidence|company_truth|mixed] [--high-risk] [--save-example] [--json]
 
 --save-example explicitly stores this question and its immutable citation
 references in the shared rolling evaluation set. --high-risk abstains when
-reviewed support is stale or possibly conflicting.`,
+reviewed support is stale or possibly conflicting. --json preserves the exact
+API response for scripts and agent runtimes (JSON remains the default output).`,
   evidence: `Usage: maestro-brain evidence search <query> [--limit <1-10>]
        maestro-brain evidence open <source-key> --revision <revision-key>
        maestro-brain evidence source-get <source-key> <revision-key>
@@ -254,7 +255,12 @@ const commandHandlers = (
     const questionParts: string[] = [];
     for (let index = 1; index < argv.length; index += 1) {
       const argument = argv[index];
-      if (argument === "--save-example" || argument === "--high-risk") continue;
+      if (
+        argument === "--save-example" ||
+        argument === "--high-risk" ||
+        argument === "--json"
+      )
+        continue;
       if (argument === "--mode") {
         index += 1;
         continue;

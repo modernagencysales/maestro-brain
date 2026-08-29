@@ -3,6 +3,7 @@ import {
   aggregateFreshness,
   canonicalContextPackHash,
   claimFreshness,
+  effectiveRiskLevel,
   normalizedEvidenceBody,
   probableEvidenceConflict,
   sourceAuthorityWeight,
@@ -13,6 +14,16 @@ describe("Ask Company Brain V4 domain", () => {
   it("ranks literal company terminology deterministically", () => {
     expect(lexicalScore("pilot price", "The pilot price is $5,000")).toBe(2);
     expect(lexicalScore("pilot price", "Unrelated staffing note")).toBe(0);
+  });
+
+  it("classifies current-state questions consistently across callers", () => {
+    expect(effectiveRiskLevel("What is our current pilot price?")).toBe("high");
+    expect(effectiveRiskLevel("What did the team discuss yesterday?")).toBe(
+      "ordinary",
+    );
+    expect(effectiveRiskLevel("What is the price?", "ordinary")).toBe(
+      "ordinary",
+    );
   });
 
   it("normalizes duplicate bodies and detects only narrow contradictions", () => {

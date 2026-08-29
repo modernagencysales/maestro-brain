@@ -20,13 +20,13 @@ import { LuCheck, LuCopy, LuLaptop, LuX } from 'react-icons/lu'
 import { LinkButton } from '@workspace/ui/button'
 import { SettingsPage } from '@workspace/ui/settings-page'
 
+import { brainCliSetupCommand } from '#config/brain-cli-release'
 import { useCurrentWorkspace } from '#features/common/hooks/use-current-workspace'
 import { isFixtureAuthRuntime } from '#lib/auth/route-auth'
 
 import { SettingsCard } from '../common/settings-card'
 
-export const setupCommand =
-  'npx --yes https://github.com/modernagencysales/maestro-brain/releases/latest/download/maestro-brain.tgz setup'
+export const setupCommand = brainCliSetupCommand
 
 const listLinkedKeysRef = getFunctionReference(
   templateConfectRefs.public.headless.apiKeys.listLinkedKeys,

@@ -924,6 +924,11 @@ const runSlackSync = (
   rows: readonly ProviderConnectionsDoc[],
 ) =>
   Effect.gen(function* () {
+    if (channelIds.length !== 1)
+      return yield* new ValidationFailed({
+        field: "channelIds",
+        message: "Slack sync requires exactly one approved channel.",
+      });
     const boundedLookbackDays = lookbackDays ?? 30;
     if (
       !Number.isInteger(boundedLookbackDays) ||

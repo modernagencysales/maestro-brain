@@ -1,7 +1,7 @@
 'use client'
 
 import { Box, HStack, Heading, Text, VStack } from '@chakra-ui/react'
-import { IconButton, Tooltip } from '@saas-ui/react'
+import { Button, IconButton, Tooltip } from '@saas-ui/react'
 import { FaFile, FaFileLines, FaLink } from 'react-icons/fa6'
 import {
   LuChevronRight,
@@ -70,6 +70,8 @@ const brainSplitPageLayout = `
 export function BrainPagesPanel({
   activePageId,
   evidence: evidenceOverride,
+  onConnectDrive,
+  onConnectSlack,
   onCreate,
   onReview,
   onSelect,
@@ -77,6 +79,8 @@ export function BrainPagesPanel({
 }: {
   activePageId?: string
   evidence?: readonly BrainEvidenceSummary[]
+  onConnectDrive?: () => void
+  onConnectSlack?: () => void
   onCreate: () => void
   onReview?: () => void
   onSelect: (pageId: string) => void
@@ -200,8 +204,25 @@ export function BrainPagesPanel({
               No synced sources yet
             </Text>
             <Text color="fg.muted" textStyle="xs">
-              Connect Slack, Drive, or HubSpot and sync an approved scope.
+              Connect one Slack channel or Drive folder to start the shared
+              corpus.
             </Text>
+            <HStack gap="2" pt="2" wrap="wrap">
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={onConnectSlack}
+              >
+                Connect Slack
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={onConnectDrive}
+              >
+                Connect Drive
+              </Button>
+            </HStack>
           </VStack>
         ) : (
           <GridList.Root interactive pb="0">

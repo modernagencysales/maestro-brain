@@ -203,6 +203,46 @@ describe("standalone teammate CLI", () => {
     );
   });
 
+  it("keeps --json out of the question and preserves the full API response", async () => {
+    const root = temp();
+    const response = {
+      ok: true,
+      result: {
+        status: "answered",
+        answerMarkdown: "Agency ICP [1]",
+        contextPack: {
+          schemaVersion: "4",
+          packHash: "sha256:pack",
+          citations: [
+            {
+              citationKey: "citation:1",
+              sourceKey: "slack:channel:thread",
+              revisionKey: "revision:1",
+            },
+          ],
+        },
+      },
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(response)));
+    const result = await runCli(["ask", "What is our ICP?", "--json"], {
+      ...configured(root),
+      fetch,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.test/api/brain.ask",
+      expect.objectContaining({
+        body: JSON.stringify({
+          workspaceSlug: "apero",
+          input: { question: "What is our ICP?" },
+        }),
+      }),
+    );
+    expect(JSON.parse(result.stdout)).toEqual(response);
+  });
+
   it("queues bounded knowledge extraction through the headless API", async () => {
     const root = temp();
     const fetch = vi

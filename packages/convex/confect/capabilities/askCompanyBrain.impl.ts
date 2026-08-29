@@ -16,6 +16,7 @@ import {
   canonicalContextPackHash,
   claimFreshness,
   CONTEXT_PACK_POLICY_VERSION,
+  effectiveRiskLevel,
   freshnessWeight,
   lexicalScore,
   MAX_CONTEXT_CITATIONS,
@@ -59,7 +60,7 @@ const contextV4Enabled = (workspaceId: GenericId<"workspaces">) =>
       )
       .take(2)
       .pipe(Effect.orDie);
-    if (override.length === 0) return true;
+    if (override.length === 0) return false;
     if (override.length !== 1) return false;
     const [policy] = override;
     if (policy === undefined) return false;
@@ -158,6 +159,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     if (!Number.isFinite(asOf) || asOf < 0)
       return yield* invalid("asOf", "asOf must be a non-negative timestamp.");
     const requestedEvidenceMode = input.evidenceMode ?? "mixed";
+    const riskLevel = effectiveRiskLevel(question, input.riskLevel);
     const v4Enabled = yield* contextV4Enabled(input.workspaceId);
     const evidenceMode = v4Enabled
       ? requestedEvidenceMode
@@ -225,52 +227,67 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
         const stored = yield* reader
           .table("citations")
           .index("by_claim", (q) => q.eq("claimId", String(claim._id)))
-          .take(3)
+          .take(5)
           .pipe(Effect.orDie);
-        const [citation] = stored;
-        if (stored.length !== 1 || citation === undefined) {
+        if (stored.length === 0 || stored.length > 4) {
           omit("citation-inaccessible");
           continue;
         }
-        if (
-          citation.sourceKey === undefined ||
-          citation.revisionKey === undefined ||
-          citation.contentHash === undefined
-        ) {
-          omit("citation-inaccessible");
+        const eligibleCitations = [];
+        for (const citation of stored) {
+          if (
+            citation.sourceKey === undefined ||
+            citation.revisionKey === undefined ||
+            citation.contentHash === undefined
+          ) {
+            omit("citation-inaccessible");
+            continue;
+          }
+          const reopened = yield* reopenCitationRevision({
+            workspaceId: input.workspaceId,
+            sourceKey: citation.sourceKey,
+            revisionKey: citation.revisionKey,
+            contentHash: citation.contentHash,
+          });
+          if (
+            reopened.status !== "eligible" ||
+            !Number.isInteger(citation.startOffset) ||
+            !Number.isInteger(citation.endOffset) ||
+            citation.startOffset < 0 ||
+            citation.endOffset <= citation.startOffset ||
+            (reopened.status === "eligible" &&
+              reopened.revision.markdown.slice(
+                citation.startOffset,
+                citation.endOffset,
+              )) !== citation.quotedText
+          ) {
+            omit(
+              reopened.status === "withdrawn"
+                ? "archived"
+                : "citation-inaccessible",
+            );
+            continue;
+          }
+          eligibleCitations.push({ citation, reopened });
+        }
+        if (eligibleCitations.length === 0) continue;
+        const remainingCitationBudget = maxCitations - citations.length;
+        if (remainingCitationBudget <= 0) {
+          omit("capacity", eligibleCitations.length);
           continue;
         }
-        const reopened = yield* reopenCitationRevision({
-          workspaceId: input.workspaceId,
-          sourceKey: citation.sourceKey,
-          revisionKey: citation.revisionKey,
-          contentHash: citation.contentHash,
-        });
-        if (
-          reopened.status !== "eligible" ||
-          !Number.isInteger(citation.startOffset) ||
-          !Number.isInteger(citation.endOffset) ||
-          citation.startOffset < 0 ||
-          citation.endOffset <= citation.startOffset ||
-          (reopened.status === "eligible" &&
-            reopened.revision.markdown.slice(
-              citation.startOffset,
-              citation.endOffset,
-            )) !== citation.quotedText
-        ) {
-          omit(
-            reopened.status === "withdrawn"
-              ? "archived"
-              : "citation-inaccessible",
-          );
-          continue;
-        }
+        const selectedCitations = eligibleCitations.slice(
+          0,
+          remainingCitationBudget,
+        );
+        if (selectedCitations.length < eligibleCitations.length)
+          omit("capacity", eligibleCitations.length - selectedCitations.length);
         const horizonFreshness = claimFreshness(claim.nextReviewAt, asOf);
         const freshness =
-          !reopened.isCurrent && horizonFreshness === "current"
+          !selectedCitations.some(({ reopened }) => reopened.isCurrent) &&
+          horizonFreshness === "current"
             ? ("review-due" as const)
             : horizonFreshness;
-        const citationKey = citation.citationId;
         const claimTags = [...(claim.tags ?? [])];
         const claimRelevance = lexicalScore(
           question,
@@ -286,43 +303,61 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
           nextReviewAt: claim.nextReviewAt,
           freshness,
           propositionFingerprint: claim.propositionFingerprint,
-          citationKeys: [citationKey],
+          citationKeys: selectedCitations.map(
+            ({ citation }) => citation.citationId,
+          ),
         });
-        citations.push({
-          citationKey,
-          supportKind: "claim" as const,
-          claimId: claim._id,
-          sourceKey: citation.sourceKey,
-          revisionKey: citation.revisionKey,
-          provider: reopened.revision.provider,
-          title: citation.sourceTitle,
-          excerpt: citation.quotedText,
-          startOffset: citation.startOffset,
-          endOffset: citation.endOffset,
-          contentHash: citation.contentHash,
-          ...(citation.locator === undefined
-            ? reopened.revision.locator === undefined
-              ? {}
-              : { locator: reopened.revision.locator }
-            : { locator: citation.locator }),
-          sourceModifiedAt: reopened.revision.sourceModifiedAt,
-          observedAt: reopened.revision.observedAt,
-          freshness: freshness === "unknown" ? ("stale" as const) : freshness,
-          ranking: {
-            relevance: claimRelevance,
-            reviewState: 3,
-            sourceAuthority: sourceAuthorityWeight(reopened.revision.provider),
-            freshness: freshnessWeight(freshness),
-            tagMatch: claimTagMatch,
-            corroboration: 0,
-            total:
-              claimRelevance * 10 +
-              3 * 3 +
-              sourceAuthorityWeight(reopened.revision.provider) * 2 +
-              freshnessWeight(freshness) * 2 +
-              claimTagMatch * 2,
-          },
-        });
+        const independentSourceCount = new Set(
+          selectedCitations.map(({ citation }) => citation.sourceKey),
+        ).size;
+        for (const { citation, reopened } of selectedCitations) {
+          const corroboration = Math.max(0, independentSourceCount - 1);
+          const citationFreshness =
+            !reopened.isCurrent && horizonFreshness === "current"
+              ? ("review-due" as const)
+              : horizonFreshness;
+          citations.push({
+            citationKey: citation.citationId,
+            supportKind: "claim" as const,
+            claimId: claim._id,
+            sourceKey: citation.sourceKey as string,
+            revisionKey: citation.revisionKey as string,
+            provider: reopened.revision.provider,
+            title: citation.sourceTitle,
+            excerpt: citation.quotedText,
+            startOffset: citation.startOffset,
+            endOffset: citation.endOffset,
+            contentHash: citation.contentHash as string,
+            ...(citation.locator === undefined
+              ? reopened.revision.locator === undefined
+                ? {}
+                : { locator: reopened.revision.locator }
+              : { locator: citation.locator }),
+            sourceModifiedAt: reopened.revision.sourceModifiedAt,
+            observedAt: reopened.revision.observedAt,
+            freshness:
+              citationFreshness === "unknown"
+                ? ("stale" as const)
+                : citationFreshness,
+            ranking: {
+              relevance: claimRelevance,
+              reviewState: 3,
+              sourceAuthority: sourceAuthorityWeight(
+                reopened.revision.provider,
+              ),
+              freshness: freshnessWeight(citationFreshness),
+              tagMatch: claimTagMatch,
+              corroboration,
+              total:
+                claimRelevance * 10 +
+                3 * 3 +
+                sourceAuthorityWeight(reopened.revision.provider) * 2 +
+                freshnessWeight(citationFreshness) * 2 +
+                claimTagMatch * 2 +
+                corroboration,
+            },
+          });
+        }
       }
     }
 
@@ -503,11 +538,11 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
       packHash: canonicalContextPackHash(withoutHash),
     };
     const highRiskStale =
-      input.riskLevel === "high" &&
+      riskLevel === "high" &&
       (sortedClaims.some(({ freshness }) => freshness === "stale") ||
         sortedCitations.some(({ freshness }) => freshness === "stale"));
     const blockedReason =
-      input.riskLevel === "high" && sortedConflicts.length > 0
+      riskLevel === "high" && sortedConflicts.length > 0
         ? ("possible-conflict" as const)
         : highRiskStale
           ? ("stale-high-risk" as const)

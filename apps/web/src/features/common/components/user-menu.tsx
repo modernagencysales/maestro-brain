@@ -79,6 +79,14 @@ export const UserMenu = () => {
                 Settings
               </Link>
             </Menu.Item>
+            <Menu.Item value="terminal-mcp" asChild>
+              <Link
+                to="/$workspace/settings/account/api"
+                params={{ workspace }}
+              >
+                Terminal &amp; MCP
+              </Link>
+            </Menu.Item>
           </Has>
         </Menu.ItemGroup>
         <Menu.Separator />

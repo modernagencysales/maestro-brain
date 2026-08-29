@@ -706,41 +706,54 @@ product language such as:
 ```ts
 type ContextPackV4 = {
   schemaVersion: "4";
+  policyVersion: string;
   packHash: string;
-  purpose: string;
+  workspaceId: string;
+  requestedEvidenceMode: "recent_evidence" | "company_truth" | "mixed";
   evidenceMode: "recent_evidence" | "company_truth" | "mixed";
+  fallbackReason?: "context-v4-disabled";
   question: string;
   asOf: number;
   freshness: "current" | "review-due" | "stale" | "unknown";
-  reviewedClaims: Array<{
+  claims: Array<{
     claimId: string;
     body: string;
+    epistemics: "factual" | "subjective";
+    tags: string[];
+    verifiedAt: number;
+    nextReviewAt: number;
     freshness: string;
     citationKeys: string[];
   }>;
-  evidence: Array<{
+  citations: Array<{
     citationKey: string;
+    supportKind: "claim" | "evidence";
     provider: string;
     sourceKey: string;
     revisionKey: string;
     contentHash: string;
     title: string;
-    quote: string;
+    excerpt: string;
     startOffset: number;
     endOffset: number;
     locator?: string;
     freshness: string;
-    reviewState: "reviewed" | "unreviewed";
+    ranking: Record<string, number>;
   }>;
   conflicts: Array<{
-    reviewedClaimId: string;
-    evidenceCitationKey: string;
-    explanation: string;
+    propositionFingerprint: string;
+    claimIds: string[];
+    citationKeys: string[];
+    reason: "possible-contradiction";
   }>;
   omissions: Array<{ reason: string; count: number }>;
-  retrievalPolicyVersion: string;
 };
 ```
+
+`brain.ask` fixes the purpose to a company question at the operation boundary;
+it is not repeated inside the pack. `requestedEvidenceMode` records caller
+intent while `evidenceMode` records the mode actually used after rollout
+fallback.
 
 `packHash` covers canonical selected content and policy, not surface or
 invocation. The pack remains query-returned and ephemeral in V1.

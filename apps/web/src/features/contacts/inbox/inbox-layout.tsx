@@ -105,6 +105,12 @@ function BrainWorkspaceLayout({ params, children }: InboxLayoutProps) {
             <BrainPagesPanel
               activePageId={params.id}
               rows={rows}
+              onConnectDrive={() =>
+                navigate({ to: '/$workspace', params: { workspace: params.workspace } })
+              }
+              onConnectSlack={() =>
+                navigate({ to: '/$workspace', params: { workspace: params.workspace } })
+              }
               onCreate={createPage}
               onReview={() =>
                 modals.open(BrainKnowledgeReviewDialog, {

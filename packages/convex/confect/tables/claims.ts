@@ -33,4 +33,9 @@ export default Table.make(() => ClaimRow)
   .index("by_workspace_and_candidate_receipt_key", [
     "workspaceId",
     "candidateReceiptKey",
+  ])
+  .index("by_workspace_and_proposition_fingerprint_and_status", [
+    "workspaceId",
+    "propositionFingerprint",
+    "status",
   ]);

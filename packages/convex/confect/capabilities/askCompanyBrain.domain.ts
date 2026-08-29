@@ -24,6 +24,30 @@ export const lexicalScore = (question: string, text: string): number => {
   );
 };
 
+const HIGH_RISK_TERMS = new Set([
+  "price",
+  "pricing",
+  "cost",
+  "offer",
+  "policy",
+  "contract",
+  "terms",
+  "responsible",
+  "responsibility",
+  "staff",
+  "deal",
+  "stage",
+]);
+
+export const effectiveRiskLevel = (
+  question: string,
+  requested?: "ordinary" | "high" | undefined,
+): "ordinary" | "high" =>
+  requested ??
+  (tokens(question).some((token) => HIGH_RISK_TERMS.has(token))
+    ? "high"
+    : "ordinary");
+
 export const normalizedEvidenceBody = (value: string): string =>
   value
     .normalize("NFKC")
