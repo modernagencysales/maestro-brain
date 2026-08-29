@@ -3,6 +3,7 @@ import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader } from "../_generated/services";
 import { searchEvidence } from "../brain/evidence.impl";
@@ -25,7 +26,10 @@ import {
   sourceAuthorityWeight,
   type BrainPackFreshness,
 } from "./askCompanyBrain.domain";
-import group from "./askCompanyBrain.spec";
+import group, {
+  BrainPackCitationV4,
+  ContextPackV4,
+} from "./askCompanyBrain.spec";
 
 const MAX_SUPPORTED_CLAIMS = 500;
 const invalid = (field: string, message: string) =>
@@ -137,6 +141,17 @@ const reopenCitationRevision = (input: {
       : { status: "withdrawn" as const };
   });
 
+type EligibleReopenedCitation = Extract<
+  Effect.Success<ReturnType<typeof reopenCitationRevision>>,
+  { readonly status: "eligible" }
+>;
+type ContextPackV4Value = Schema.Schema.Type<typeof ContextPackV4>;
+type PackedClaim = ContextPackV4Value["claims"][number];
+type InternalPackedClaim = PackedClaim & {
+  readonly propositionFingerprint: string;
+};
+type PackedCitation = Schema.Schema.Type<typeof BrainPackCitationV4>;
+
 export const assembleCompanyBrainContext = (input: AskInput) =>
   Effect.gen(function* () {
     const question = input.question.trim();
@@ -182,8 +197,8 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
     const omissions = new Map<OmissionReason, number>();
     const omit = (reason: OmissionReason, count = 1) =>
       omissions.set(reason, (omissions.get(reason) ?? 0) + count);
-    const claims = [];
-    const citations = [];
+    const claims: InternalPackedClaim[] = [];
+    const citations: PackedCitation[] = [];
 
     if (includeTruth) {
       const supported = yield* reader
@@ -233,7 +248,10 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
           omit("citation-inaccessible");
           continue;
         }
-        const eligibleCitations = [];
+        const eligibleCitations: Array<{
+          readonly citation: (typeof stored)[number];
+          readonly reopened: EligibleReopenedCitation;
+        }> = [];
         for (const citation of stored) {
           if (
             citation.sourceKey === undefined ||
@@ -361,7 +379,7 @@ export const assembleCompanyBrainContext = (input: AskInput) =>
       }
     }
 
-    const recentCitations = [];
+    const recentCitations: PackedCitation[] = [];
     if (includeRecent || includeTruth) {
       const recent = yield* searchEvidence({
         workspaceId: input.workspaceId,

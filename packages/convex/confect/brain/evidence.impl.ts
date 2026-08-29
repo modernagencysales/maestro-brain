@@ -37,6 +37,23 @@ const EVIDENCE_PROVIDERS = [
   "transcript",
 ] as const;
 
+type EvidenceSearchCitation = {
+  readonly entryKey: string;
+  readonly sourceKey: string;
+  readonly revisionKey: string;
+  readonly provider: (typeof EVIDENCE_PROVIDERS)[number];
+  readonly title: string;
+  readonly excerpt: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+  readonly contentHash: string;
+  readonly bodyIdentity: string;
+  readonly locator?: string | undefined;
+  readonly sourceModifiedAt: number;
+  readonly observedAt: number;
+  readonly freshness: "current" | "review-due" | "stale";
+};
+
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 
@@ -152,7 +169,7 @@ const searchEvidence = (input: {
       evidenceTokens("", input.query).map(({ token }) => token),
       relevanceMode,
     ).slice(0, 12);
-    if (queryTokens.length === 0) return [];
+    if (queryTokens.length === 0) return [] as EvidenceSearchCitation[];
     const reader = yield* DatabaseReader;
     const candidates = new Map<
       string,
@@ -203,7 +220,7 @@ const searchEvidence = (input: {
       Math.max(Math.floor(input.limit ?? 3), 1),
       10,
     );
-    const citations = [];
+    const citations: EvidenceSearchCitation[] = [];
     const citedEntries = new Set<string>();
     const coveredTokens = new Set<string>();
     for (const [, candidate] of ranked) {
@@ -271,7 +288,7 @@ const searchEvidence = (input: {
       coveredTokens.size,
     )
       ? citations
-      : [];
+      : ([] as EvidenceSearchCitation[]);
   });
 
 const search = FunctionImpl.make(
