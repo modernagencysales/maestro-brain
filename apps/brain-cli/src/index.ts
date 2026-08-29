@@ -47,10 +47,11 @@ Use company context
   maestro-brain evidence source-get <source-key> <revision-key>
   maestro-brain evidence health
   maestro-brain knowledge extract [--limit <1-25>]
-  maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
+  maestro-brain knowledge candidates [--state <state>] [--limit <n>]
   maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n>
   maestro-brain page list [--include-archived]
   maestro-brain page get <page-id>
+  maestro-brain page history <page-id> [--limit <1-100>] [--full]
   maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
   maestro-brain page update <page-id> <file.md> --expected-updated-at <ms>
   maestro-brain import <folder> [--adopt-existing]
@@ -88,16 +89,18 @@ API response for scripts and agent runtimes; human-readable output is the defaul
        maestro-brain knowledge candidates [--state <state>] [--limit <1-50>]
        maestro-brain knowledge review <candidate-key> --accept|--reject --expected-revision <n> [--body <text>] [--reason <text>] [--idempotency-key <key>]
 
-Queues grounded candidate extraction for current evidence. Review candidates in
-the Brain review queue before they become company truth. Review commands create
-a deterministic idempotency key when one is not supplied.`,
+Queues grounded candidate extraction for current evidence. The active or
+unreviewed queue accepts --limit 1-5; reviewed states accept --limit 1-50.
+Review candidates before they become company truth. Review commands create a
+deterministic idempotency key when one is not supplied.`,
   page: `Usage: maestro-brain page list [--include-archived] [--full]
        maestro-brain page get <page-id>
+       maestro-brain page history <page-id> [--limit <1-100>] [--full]
        maestro-brain page create <file.md> [--slug <slug>] [--title <title>]
        maestro-brain page update <page-id> <file.md> --expected-updated-at <ms>
 
-page list omits Markdown bodies by default to keep agent context small. Pass
---full to return the complete API response.`,
+page list and page history omit Markdown bodies by default to keep agent context
+small. Pass --full to return the complete API response.`,
   import: `Usage: maestro-brain import <folder> [--adopt-existing]
 
 Recursively creates or safely updates Markdown-backed Brain pages.`,

@@ -146,6 +146,6 @@ export const knowledgeCommand = async (
   if (argv[1] === "candidates") return await candidates(argv, dependencies);
   if (argv[1] === "review") return await review(argv, dependencies);
   return failure(
-    "Usage: maestro-brain knowledge extract [--limit <1-25>] | knowledge candidates [--state <state>] [--limit <1-50>] | knowledge review <candidate-key> --accept|--reject --expected-revision <n>",
+    "Usage: maestro-brain knowledge extract [--limit <1-25>] | knowledge candidates [--state <state>] [--limit <n>] (1-5 active, 1-50 reviewed) | knowledge review <candidate-key> --accept|--reject --expected-revision <n>",
   );
 };

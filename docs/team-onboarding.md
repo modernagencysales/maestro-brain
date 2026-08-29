@@ -13,7 +13,7 @@ invitation, and then links a terminal.
 Requires Node 22. Run these commands from the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.6/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.7/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -23,7 +23,7 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.6/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.7/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app, asks the teammate to choose **Apero Company
@@ -49,6 +49,7 @@ maestro-brain ask "What is our ICP?"
 maestro-brain evidence search "What is our ICP?"
 maestro-brain evidence health
 maestro-brain page list
+maestro-brain page history <page-id>
 ```
 
 For evidence-sensitive work, reopen a search result before citing it:
@@ -65,6 +66,9 @@ Codex, Claude Code, and Cowork. Search results are candidates; the exact source
 revision is the citation authority. Health reports bounded facts about provider
 evidence and connector runs; it does not claim that the available company
 context is complete or ready.
+
+Page lists and history are compact by default so agents do not load every
+Markdown body. Add `--full` only when the bodies are needed.
 
 Claude Cowork users can add the generated `.cowork/maestro-brain.json`
 descriptor through Cowork's connector UI if it is not discovered automatically.

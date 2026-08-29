@@ -19,6 +19,13 @@ type Artifact = {
 };
 
 const MANAGED_ASK_APERO_SKILL_MANIFESTS = new Set([
+  [
+    "SKILL.md:10e9cfc71c467728f5970744b5d13556fbef8bc06663f091fd3c83d53e03ba2b",
+    "references/agent-guidance.md:d6ef63473cf462d10a39e044e25a4e639464feb11248f1db7b89c6f43aa13af6",
+    "references/context-pack-v3.md:6a40fbd41df87a47af252fd6de607466473a7f2e0345d50060a8c8fb6fb7cf46",
+    "references/glossary.md:d0be9d876579ca1ab16b5e21567cbcd634e5c3394419bbe05fb2039f1dc7c8cc",
+    "references/source-map.v1.json:c1f063a31521355343ce7d762cc2cde336a3b57698b7a6476e6ffb3fbff82f0c",
+  ].join("\n"),
   "SKILL.md:f1fa5886d77ab97f70b5827ebe19a3c7f3a44bfc390ed2b29093b97e59cdef18",
   [
     "SKILL.md:37b4607a826d61de1c2f0bf84aa7e43ff67a23861406e2d773557abfcb96aa62",
@@ -28,6 +35,38 @@ const MANAGED_ASK_APERO_SKILL_MANIFESTS = new Set([
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
+
+const mergeCodexMcpBlock = (
+  current: string,
+  expectedBlock: string,
+): { readonly content: string; readonly changed: boolean } => {
+  const managedHeader =
+    /^[ \t]*\[mcp_servers\.maestro_brain\][ \t]*(?:#.*)?$/mu.exec(current);
+  if (managedHeader === null)
+    return {
+      content: `${current.trimEnd()}\n\n${expectedBlock}`,
+      changed: true,
+    };
+  const start = managedHeader.index;
+  const afterHeader = start + managedHeader[0].length;
+  const nextHeaderMatch =
+    /^[ \t]*\[{1,2}[^\r\n]+?\]{1,2}[ \t]*(?:#.*)?$/mu.exec(
+      current.slice(afterHeader),
+    );
+  const end =
+    nextHeaderMatch === null
+      ? current.length
+      : afterHeader + nextHeaderMatch.index;
+  const installedBlock = current.slice(start, end).trim();
+  const expected = expectedBlock.trim();
+  if (installedBlock === expected) return { content: current, changed: false };
+  return {
+    content: `${current.slice(0, start)}${expected}${
+      end === current.length ? "\n" : `\n\n${current.slice(end).trimStart()}`
+    }`,
+    changed: true,
+  };
+};
 
 const directoryManifest = (root: string, prefix = ""): string | undefined => {
   const records: string[] = [];
@@ -67,13 +106,11 @@ const writeGenerated = (
   if (!stat.isFile()) return { path, status: "conflict" };
   const current = readFileSync(destination, "utf8");
   if (current === content) return { path, status: "unchanged" };
-  if (
-    path === ".codex/config.toml" &&
-    !current.includes("[mcp_servers.maestro_brain]")
-  ) {
-    if (commit)
-      writeFileSync(destination, `${current.trimEnd()}\n\n${content}`, "utf8");
-    return { path, status: "updated" };
+  if (path === ".codex/config.toml") {
+    const merged = mergeCodexMcpBlock(current, content);
+    if (commit && merged.changed)
+      writeFileSync(destination, merged.content, "utf8");
+    return { path, status: merged.changed ? "updated" : "unchanged" };
   }
   if (path === ".mcp.json") {
     try {

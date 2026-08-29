@@ -19,7 +19,7 @@ export const slugFor = (value: string): string =>
 
 type MarkdownFile = { readonly path: string; readonly markdown: string };
 
-const compactPageList = (result: CliResult): CliResult => {
+const compactMarkdownRows = (result: CliResult): CliResult => {
   if (result.exitCode !== 0) return result;
   try {
     const body = JSON.parse(result.stdout) as { result?: unknown };
@@ -107,6 +107,28 @@ const getPage = async (
     : result;
 };
 
+const history = async (
+  argv: readonly string[],
+  dependencies: CliDependencies,
+): Promise<CliResult> => {
+  const pageId = argv[2]?.trim();
+  if (!pageId) return failure("page history requires a page id.");
+  const rawLimit = option(argv, "--limit");
+  if (argv.includes("--limit") && rawLimit === undefined)
+    return failure("--limit requires a value between 1 and 100.");
+  const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+  if (
+    limit !== undefined &&
+    (!Number.isInteger(limit) || limit < 1 || limit > 100)
+  )
+    return failure("--limit must be an integer between 1 and 100.");
+  const result = await request(dependencies, {
+    operationId: "brain.pages.history",
+    input: { pageId, ...(limit === undefined ? {} : { limit }) },
+  });
+  return argv.includes("--full") ? result : compactMarkdownRows(result);
+};
+
 export const pageCommand = async (
   argv: readonly string[],
   dependencies: CliDependencies,
@@ -117,17 +139,18 @@ export const pageCommand = async (
         operationId: "brain.pages.list",
         input: { includeArchived: argv.includes("--include-archived") },
       });
-      return argv.includes("--full") ? result : compactPageList(result);
+      return argv.includes("--full") ? result : compactMarkdownRows(result);
     },
     get: async () =>
       argv[2]
         ? await getPage(argv[2], dependencies)
         : failure("page get requires a page id."),
+    history: async () => await history(argv, dependencies),
     create: async () => await createPage(argv, dependencies),
     update: async () => await updatePage(argv, dependencies),
   };
   const handler = handlers[argv[1] ?? ""];
   return handler
     ? await handler()
-    : failure("Usage: maestro-brain page <list|get|create|update> ...");
+    : failure("Usage: maestro-brain page <list|get|history|create|update> ...");
 };
