@@ -27,4 +27,13 @@ describe("grounded evidence relevance", () => {
       false,
     );
   });
+
+  it("removes low-information meta wording before measuring coverage", () => {
+    const selected = selectEvidenceQueryTokens(
+      ["apero", "company", "context", "based"],
+      "grounded",
+    );
+
+    expect(selected).toEqual(["apero"]);
+  });
 });

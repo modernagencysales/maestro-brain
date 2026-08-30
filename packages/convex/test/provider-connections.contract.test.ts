@@ -246,7 +246,7 @@ describe("provider connections Confect contract", () => {
           connectionGeneration: begun.generation,
           syncAttemptKey: "slack-attempt-1",
           status: "syncing",
-          channelIds: ["C02", "C01", "C02"],
+          channelIds: ["C01"],
           lookbackDays: 30,
         },
       );
@@ -328,8 +328,8 @@ describe("provider connections Confect contract", () => {
     );
 
     expect(result.staging).toMatchObject({
-      scheduledSyncEnabled: false,
-      slackChannelIds: ["C01", "C02"],
+      scheduledSyncEnabled: true,
+      slackChannelIds: ["C01"],
       slackLookbackDays: 30,
       evidenceScopeKey: "slack:conn_redacted_1",
       pendingEvidenceScopeKey: "slack:conn_redacted_1:channel:C01:lookback:30",
@@ -341,13 +341,13 @@ describe("provider connections Confect contract", () => {
       pendingEvidenceScopeKey: "slack:conn_redacted_1:channel:C01:lookback:30",
     });
     expect(result.configured).toMatchObject({
-      scheduledSyncEnabled: false,
-      slackChannelIds: ["C01", "C02"],
+      scheduledSyncEnabled: true,
+      slackChannelIds: ["C01"],
       slackLookbackDays: 30,
       evidenceScopeKey: "slack:conn_redacted_1:channel:C01:lookback:30",
     });
     expect(result.configured).not.toHaveProperty("pendingEvidenceScopeKey");
-    expect(result.dispatch).toEqual({ scheduledCount: 0, skippedCount: 1 });
+    expect(result.dispatch).toEqual({ scheduledCount: 1, skippedCount: 0 });
     expect(result.reauthorizing).not.toHaveProperty("scheduledSyncEnabled");
     expect(result.reauthorizing).not.toHaveProperty("slackChannelIds");
     expect(result.reauthorizing).not.toHaveProperty("slackLookbackDays");
@@ -751,7 +751,7 @@ describe("provider connections Confect contract", () => {
     expect(result.ready).not.toHaveProperty("pendingSyncAttemptKey");
   });
 
-  it("rejects scheduled Drive and HubSpot jobs from an older authorization generation", async () => {
+  it("rejects scheduled provider jobs from an older authorization generation", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
       const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
@@ -760,7 +760,7 @@ describe("provider connections Confect contract", () => {
         email: "member@example.com",
       });
       const failures = [];
-      for (const provider of ["google-drive", "hubspot"] as const) {
+      for (const provider of ["slack", "google-drive", "hubspot"] as const) {
         const first = yield* actor.mutation(
           refs.public.integrations.connections.begin,
           { workspaceId: seeded.workspaceId, provider },
@@ -782,29 +782,40 @@ describe("provider connections Confect contract", () => {
           completion: { status: "active", connectionRef: `${provider}-new` },
         });
         const failure =
-          provider === "google-drive"
+          provider === "slack"
             ? yield* confect
                 .action(
-                  refs.internal.integrations.connections
-                    .syncGoogleDriveScheduled,
+                  refs.internal.integrations.connections.syncSlackScheduled,
                   {
                     workspaceId: seeded.workspaceId,
-                    driveId: "drive-1",
-                    rootFolderIds: ["folder-1"],
+                    channelIds: ["C01"],
                     expectedConnectionGeneration: first.generation,
                   },
                 )
                 .pipe(Effect.flip)
-            : yield* confect
-                .action(
-                  refs.internal.integrations.connections.syncHubSpotScheduled,
-                  {
-                    workspaceId: seeded.workspaceId,
-                    portalId: "portal-1",
-                    expectedConnectionGeneration: first.generation,
-                  },
-                )
-                .pipe(Effect.flip);
+            : provider === "google-drive"
+              ? yield* confect
+                  .action(
+                    refs.internal.integrations.connections
+                      .syncGoogleDriveScheduled,
+                    {
+                      workspaceId: seeded.workspaceId,
+                      driveId: "drive-1",
+                      rootFolderIds: ["folder-1"],
+                      expectedConnectionGeneration: first.generation,
+                    },
+                  )
+                  .pipe(Effect.flip)
+              : yield* confect
+                  .action(
+                    refs.internal.integrations.connections.syncHubSpotScheduled,
+                    {
+                      workspaceId: seeded.workspaceId,
+                      portalId: "portal-1",
+                      expectedConnectionGeneration: first.generation,
+                    },
+                  )
+                  .pipe(Effect.flip);
         failures.push(failure);
       }
       return failures;
@@ -813,7 +824,7 @@ describe("provider connections Confect contract", () => {
     const failures = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
-    expect(failures).toHaveLength(2);
+    expect(failures).toHaveLength(3);
     for (const failure of failures) {
       expect(failure).toBeInstanceOf(ValidationFailed);
       expect(failure).toMatchObject({ field: "generation" });

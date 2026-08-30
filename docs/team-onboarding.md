@@ -10,10 +10,11 @@ invitation, and then links a terminal.
 
 ## Connect a terminal
 
-Requires Node 22. Run these commands from the project where the agent will work:
+Requires Node 22. For most teammates, these are the only commands. Run them from
+the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.8/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.9/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -23,18 +24,20 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.8/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.9/maestro-brain.tgz setup
 ```
 
-`setup` opens the staging app, asks the teammate to choose **Apero Company
-Brain**, and links an individual 90-day credential. It writes key-free project
-descriptors for Codex, Claude Code, Claude Cowork, HTTP MCP, and the Ask Apero
-skill. These descriptors are safe to review and share with that project; the
-credential itself stays outside Git in the user's local Maestro Brain config.
-Setup merges supported shared config files and upgrades older CLI-managed Ask
-Apero skills without overwriting an unrecognized custom skill. If no browser
-opens, copy the fallback URL printed in the terminal. Restart the agent after
-setup so it loads the new configuration.
+`setup` opens the staging app and asks the teammate to confirm **Apero Company
+Brain**. It prefers the exact `apero` workspace when available, defaults a lone
+membership, and requires an explicit choice when several non-Apero workspaces
+are available. It links an individual 90-day credential and writes key-free
+project descriptors for Codex, Claude Code, Claude Cowork, HTTP MCP, and the Ask
+Apero skill. These descriptors are safe to review and share with that project;
+the credential itself stays outside Git in the user's local Maestro Brain
+config. Setup merges supported shared config files and upgrades older
+CLI-managed Ask Apero skills without overwriting an unrecognized custom skill.
+If no browser opens, copy the fallback URL printed in the terminal. Restart the
+agent after setup so it loads the new configuration.
 
 The linked API key stays in the user's local Maestro Brain config; it is not
 committed to the repository. `maestro-brain run -- codex` (or `-- claude`)
@@ -45,6 +48,7 @@ agent normally can instead run `eval "$(maestro-brain env)"` once in that shell.
 
 ```bash
 maestro-brain status
+maestro-brain mcp doctor
 maestro-brain ask "What is our ICP?"
 maestro-brain evidence search "What is our ICP?"
 maestro-brain evidence health
@@ -66,6 +70,11 @@ Codex, Claude Code, and Cowork. Search results are candidates; the exact source
 revision is the citation authority. Health reports bounded facts about provider
 evidence and connector runs; it does not claim that the available company
 context is complete or ready.
+
+`mcp doctor` performs both the public protocol handshake and an authenticated,
+read-only evidence-health call. A successful handshake alone is not treated as a
+valid workspace credential. Top-level `doctor` also reports missing or stale
+project descriptors and tells the teammate to rerun setup from that project.
 
 Page lists and history are compact by default so agents do not load every
 Markdown body. Add `--full` only when the bodies are needed.
@@ -171,7 +180,7 @@ node scripts/maestro-bootstrap.mjs
 corepack pnpm@10.12.1 install --frozen-lockfile
 git switch -c fix/short-description
 git push -u origin fix/short-description
-gh pr create --base main
+gh pr create --draft --base main
 ```
 
 Teammates without write access should fork first:
@@ -184,6 +193,7 @@ corepack pnpm@10.12.1 install --frozen-lockfile
 git switch -c fix/short-description
 git push -u origin fix/short-description
 gh pr create \
+  --draft \
   --repo modernagencysales/maestro-brain \
   --base main \
   --head YOUR_GITHUB_LOGIN:fix/short-description

@@ -107,15 +107,6 @@ export const brainMcpToolConfigs = {
       ],
     ),
   },
-  "agents.assistant.answerQuestion": {
-    description:
-      "Legacy recent-evidence answer contract with ContextPack v3 citations.",
-    requiredScope: "workspace:read",
-    kind: "query",
-    ref: makeFunctionReference<"query">(
-      "agents/assistant:answerQuestionForActor",
-    ),
-  },
   "brain.ask": {
     description:
       "Answer from recent evidence, reviewed company truth, or both with a deterministic ContextPack v4 and exact citations.",

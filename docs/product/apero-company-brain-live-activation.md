@@ -2,7 +2,7 @@
 
 **Environment:** staging
 
-**Observed:** 2026-08-26
+**Observed through:** 2026-08-29
 
 **Purpose:** exact live-state receipt, not a provider or dogfood completion
 claim
@@ -109,7 +109,7 @@ revision audit reopening, stale-write rejection, invalid-key rejection, and
 agency/client workspace isolation. The temporary credentials were rotated or
 revoked. Synthetic content is not Apero activation evidence.
 
-## Provider state
+## Historical pre-Slack provider state
 
 The live `apero` health receipt is intentionally empty except for its manual
 page:
@@ -250,3 +250,25 @@ caller-envelope fields, while a missing example surfaced a declared
 `ValidationFailed` as HTTP 500. A focused follow-up fixes both with contract
 tests; that fix requires its own merge and guarded staging deployment before it
 becomes live evidence.
+
+## Evaluation HTTP correction and ContextPack V4 activation
+
+- Correction commit: `2b28cca37a8eddb70794ddf3c65bb0548a1ef860`
+- Merge commit: `ac018b9337f0597214f4c68f7a3069507e46ec72`
+- Pull request: `#83`
+- Required Woodpecker PR pipeline: `300` (success)
+- GitHub staging deployment: `6161749325`
+- Guarded Woodpecker deployment pipeline: `301` (success)
+
+The generated evaluation OpenAPI no longer asks callers for credential-derived
+workspace IDs, requires the correct operation envelopes, and maps the declared
+missing-example validation failure to HTTP 400. Live API and MCP negative tests
+also reject missing bearer credentials and caller-supplied workspace selectors.
+
+The live Apero workspace rollout for `template.brain.contextV4` was then enabled
+at 100 percent. A credential-bound `brain.ask` call requested `mixed`, returned
+effective mode `mixed`, schema version `4`, and no fallback reason. Its
+citations included the current Brain Page and Slack evidence lanes. The
+workspace still has zero reviewed claims, zero Drive sources, and zero
+structured-provider sources, so this is an active-contract receipt rather than a
+quality or pilot completion claim.

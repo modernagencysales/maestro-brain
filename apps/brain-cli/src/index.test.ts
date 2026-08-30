@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { runCli, type CliDependencies } from "./index.js";
+import { projectDescriptorCoverage } from "./diagnostics.js";
+import { setupProject } from "./setup.js";
 
 const temp = (): string => mkdtempSync(join(tmpdir(), "brain-cli-test-"));
 
@@ -106,6 +108,31 @@ const configured = (root: string): CliDependencies => {
       apiKey: "secret-key",
     }),
   );
+  return deps;
+};
+
+const configuredProject = (root: string): CliDependencies => {
+  const deps = configured(root);
+  mkdirSync(join(deps.assetDirectory, "references"), { recursive: true });
+  writeFileSync(join(deps.assetDirectory, "SKILL.md"), "# Ask Apero\n");
+  writeFileSync(
+    join(deps.assetDirectory, "references/evidence-reading.md"),
+    "# Evidence reading\n",
+  );
+  expect(
+    setupProject({
+      root,
+      configDirectory: deps.configDirectory,
+      assetDirectory: deps.assetDirectory,
+      config: {
+        schemaVersion: 1,
+        appUrl: "https://app.example.test",
+        apiUrl: "https://api.example.test",
+        workspaceSlug: "apero",
+        apiKey: "secret-key",
+      },
+    }).exitCode,
+  ).toBe(0);
   return deps;
 };
 
@@ -1260,10 +1287,11 @@ describe("standalone teammate CLI", () => {
     const deps = configured(root);
     const status = (await runCli(["status"], deps)).stdout;
     expect(status).not.toContain("secret-key");
-    expect(status).toContain('"cliVersion": "0.1.8"');
-    expect((await runCli(["version"], deps)).stdout).toBe("0.1.8\n");
+    expect(status).toContain('"cliVersion": "0.1.9"');
+    expect((await runCli(["version"], deps)).stdout).toBe("0.1.9\n");
+    expect((await runCli(["--version"], deps)).stdout).toBe("0.1.9\n");
     expect((await runCli(["update"], deps)).stdout).toContain(
-      "/releases/download/brain-cli-v0.1.8/maestro-brain.tgz",
+      "/releases/download/brain-cli-v0.1.9/maestro-brain.tgz",
     );
     const logout = await runCli(["logout"], deps);
     expect(logout.stdout).toContain('"revoked": false');
@@ -1315,10 +1343,13 @@ describe("standalone teammate CLI", () => {
               }),
             );
       });
-    const deps = { ...configured(root), fetch };
+    const deps = { ...configuredProject(root), fetch };
     expect((await runCli(["doctor"], deps)).exitCode).toBe(0);
     const compactTools = await runCli(["mcp", "tools"], deps);
     const fullTools = await runCli(["mcp", "tools", "--full"], deps);
+    const mcpDoctor = await runCli(["mcp", "doctor"], deps);
+    expect(mcpDoctor.exitCode).toBe(0);
+    expect(mcpDoctor.stdout).toContain('"credential": "valid"');
     expect(compactTools.exitCode).toBe(0);
     expect(compactTools.stdout).toContain("template.brain.evidence.search");
     expect(compactTools.stdout).not.toContain("inputSchema");
@@ -1340,6 +1371,99 @@ describe("standalone teammate CLI", () => {
         ),
     });
     expect(rejected.exitCode).toBe(1);
+  });
+
+  it("validates exact managed descriptor destinations and skill manifests", () => {
+    const root = temp();
+    const deps = configuredProject(root);
+    const mcpUrl = "https://api.example.test/mcp";
+    expect(
+      projectDescriptorCoverage(root, mcpUrl, deps.assetDirectory),
+    ).toEqual({ ok: true, missingOrStale: [] });
+
+    writeFileSync(
+      join(root, ".codex/config.toml"),
+      `[mcp_servers.maestro_brain]\nurl = "https://wrong.example.test/mcp"\nbearer_token_env_var = "MAESTRO_BRAIN_API_KEY"\n# ${mcpUrl}\n`,
+    );
+    writeFileSync(
+      join(root, ".mcp.json"),
+      JSON.stringify({
+        expectedUrlInUnrelatedField: mcpUrl,
+        mcpServers: {
+          "maestro-brain": {
+            type: "http",
+            url: "https://wrong.example.test/mcp",
+            headers: {
+              Authorization: "Bearer ${MAESTRO_BRAIN_API_KEY}",
+            },
+          },
+        },
+      }),
+    );
+    writeFileSync(
+      join(root, ".agents/skills/ask-apero/SKILL.md"),
+      "# Ask Apero\n\nUnmanaged local change.\n",
+    );
+
+    const result = projectDescriptorCoverage(root, mcpUrl, deps.assetDirectory);
+    expect(result.ok).toBe(false);
+    expect(result.missingOrStale).toEqual(
+      expect.arrayContaining([
+        ".codex/config.toml",
+        ".mcp.json",
+        ".agents/skills/ask-apero",
+      ]),
+    );
+  });
+
+  it("makes MCP doctor prove the credential and surfaces typed tool failures", async () => {
+    const root = temp();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementation(async (url, init) => {
+        if (!String(url).endsWith("/mcp"))
+          return new Response(JSON.stringify({ ok: true, result: [] }));
+        const request = JSON.parse(String(init?.body)) as { method: string };
+        if (request.method === "tools/call")
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      ok: false,
+                      error: { _tag: "Unauthorized", message: "Invalid key." },
+                    }),
+                  },
+                ],
+              },
+            }),
+          );
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result:
+              request.method === "initialize"
+                ? { protocolVersion: "2025-03-26" }
+                : { tools: [] },
+          }),
+        );
+      });
+    const deps = { ...configuredProject(root), fetch };
+
+    const mcpDoctor = await runCli(["mcp", "doctor"], deps);
+    const doctor = await runCli(["doctor"], deps);
+    const body = JSON.parse(doctor.stdout) as {
+      checks: { workspaceEvidence: { detail?: string } };
+    };
+
+    expect(mcpDoctor.exitCode).not.toBe(0);
+    expect(doctor.exitCode).toBe(1);
+    expect(body.checks.workspaceEvidence.detail).toContain("Unauthorized");
   });
 
   it("does not mistake empty evidence coverage for runtime readiness", async () => {
@@ -1391,7 +1515,7 @@ describe("standalone teammate CLI", () => {
       });
 
     const result = await runCli(["doctor"], {
-      ...configured(root),
+      ...configuredProject(root),
       fetch,
     });
     const body = JSON.parse(result.stdout);
@@ -1401,5 +1525,6 @@ describe("standalone teammate CLI", () => {
       "No provider currently has active evidence. Connectivity passed, but company context is empty.",
     );
     expect(body.notChecked).toContain("Claude Cowork connector import");
+    expect(body.checks.projectDescriptors.ok).toBe(true);
   });
 });

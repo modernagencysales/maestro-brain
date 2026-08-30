@@ -5,6 +5,7 @@ const GROUNDED_QUERY_STOP_WORDS = new Set([
   "also",
   "are",
   "authoritative",
+  "based",
   "before",
   "company",
   "context",
