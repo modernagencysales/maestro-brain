@@ -4,6 +4,7 @@ import {
   httpRouter,
   makeFunctionReference,
 } from "convex/server";
+import { ConvexError } from "convex/values";
 import { api } from "../convex/_generated/api";
 import { verifyEmailUnsubscribeToken } from "./email/unsubscribeToken";
 import { readEmailHttpEnv } from "./email/env";
@@ -1071,10 +1072,42 @@ const brainEvaluationApiResponse = async (
     userId: actor.userId,
   };
   const ref = brainEvaluationActorRefs[operationId];
-  const result = brainEvaluationWriteOperations.has(operationId)
-    ? await ctx.runMutation(ref, input)
-    : await ctx.runQuery(ref, input);
-  return jsonResponse({ ok: true, operationId, result });
+  try {
+    const result = brainEvaluationWriteOperations.has(operationId)
+      ? await ctx.runMutation(ref, input)
+      : await ctx.runQuery(ref, input);
+    return jsonResponse({ ok: true, operationId, result });
+  } catch (error) {
+    const response = brainEvaluationTypedFailure(error);
+    if (response !== undefined) return response;
+    throw error;
+  }
+};
+
+const brainEvaluationTypedFailure = (error: unknown): Response | undefined => {
+  if (!(error instanceof ConvexError)) return undefined;
+  const data = error.data;
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    Array.isArray(data) ||
+    data._tag !== "ValidationFailed" ||
+    typeof data.field !== "string" ||
+    typeof data.message !== "string"
+  )
+    return undefined;
+
+  return jsonResponse(
+    {
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        field: data.field,
+        message: data.message,
+      },
+    },
+    400,
+  );
 };
 
 const workspaceListApiResponse = async (

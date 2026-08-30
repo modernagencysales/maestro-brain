@@ -2,7 +2,7 @@
 
 **Status:** current-state audit; not a completion claim
 
-**Audited base:** `47a9243b2480ee5d4e89096ce323ac009ebef2fc`; live activation
+**Audited base:** `b8546396ad345387e4474341202fb3fdf7627696`; live activation
 evidence is recorded in `docs/product/apero-company-brain-live-activation.md`
 
 **Date:** 2026-08-29
@@ -22,7 +22,7 @@ the operational Start Here page, and low-value release receipts produced no
 durable candidates under v2; seven previously low-value proposals were rejected
 explicitly, nothing was auto-promoted, and the review queue is empty.
 
-The current release candidate closes the remaining engineering gap between
+The merged and guarded staging release closes the engineering gap between
 `--save-example` and an operable evaluation lifecycle. CLI `0.1.8` adds bounded
 status/list/show, exact-reference adjudication, deterministic redacted export,
 time- and source-separated freeze preview/apply, and reproducible reruns through
@@ -32,6 +32,12 @@ labels immutable. Every report includes exact denominators and explicitly marks
 citation entailment `not-assessed`; an empty or one-example real ledger remains
 `insufficient-sample`. This is engineering readiness, not a frozen real Apero
 set or completed replacement pilot.
+
+Merge `b8546396` passed required PR pipeline `297` and deployed through GitHub
+deployment `6161460093` and guarded Woodpecker pipeline `299`. Live CLI and HTTP
+MCP receipts are recorded in the activation document. The live ledger still has
+one pending development example and no adjudicated or holdout examples, so the
+real evaluation maturity remains `insufficient-sample`.
 
 ### Release hardening after cold review
 

@@ -16,11 +16,63 @@ const openApiRequestSchemaFor = (schemaName: string): unknown => {
   return schema;
 };
 
+const credentialDerivedEvaluationFields = new Set(["workspaceId", "userId"]);
+const credentialDerivedEvaluationOperations = new Set([
+  "brain.evaluations.adjudicate",
+  "brain.evaluations.export",
+  "brain.evaluations.freezeApply",
+  "brain.evaluations.freezePreview",
+  "brain.evaluations.get",
+  "brain.evaluations.list",
+]);
+const envelopeIdempotencyOverrides = new Set(["brain.evaluations.freezeApply"]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const callerInputSchemaFor = (
+  entry: (typeof confectManifest.functions)[number],
+): unknown => {
+  const schema = openApiRequestSchemaFor(entry.argsSchemaName);
+  if (
+    !credentialDerivedEvaluationOperations.has(entry.operationId) ||
+    !isRecord(schema)
+  )
+    return schema;
+
+  const properties = isRecord(schema.properties)
+    ? Object.fromEntries(
+        Object.entries(schema.properties).filter(
+          ([field]) => !credentialDerivedEvaluationFields.has(field),
+        ),
+      )
+    : undefined;
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter(
+        (field) =>
+          typeof field !== "string" ||
+          !credentialDerivedEvaluationFields.has(field),
+      )
+    : undefined;
+
+  return {
+    ...schema,
+    ...(properties === undefined ? {} : { properties }),
+    ...(required === undefined ? {} : { required }),
+  };
+};
+
 const envelopeSchemaFor = (
   entry: (typeof confectManifest.functions)[number],
 ) => {
   const required = ["input"];
-  if (!entry.idempotent) {
+  if (credentialDerivedEvaluationOperations.has(entry.operationId)) {
+    required.push("workspaceSlug");
+  }
+  if (
+    !entry.idempotent ||
+    envelopeIdempotencyOverrides.has(entry.operationId)
+  ) {
     required.push("idempotencyKey");
   }
 
@@ -29,8 +81,8 @@ const envelopeSchemaFor = (
     additionalProperties: false,
     required,
     properties: {
-      workspaceSlug: { type: "string" },
-      input: openApiRequestSchemaFor(entry.argsSchemaName),
+      workspaceSlug: { type: "string", minLength: 1 },
+      input: callerInputSchemaFor(entry),
       idempotencyKey: { type: "string" },
     },
   };
