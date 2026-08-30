@@ -1,4 +1,5 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
+import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import templateHttp from "../confect/http";
 import { createEmailUnsubscribeToken } from "../confect/email/unsubscribeToken";
@@ -303,6 +304,65 @@ describe("template HTTP docs routes", () => {
         (operationId) => body.paths[`/api/${operationId}`]?.post?.operationId,
       ),
     ).toEqual(brainEvaluationOperationIds);
+  });
+
+  it("documents the caller envelope rather than credential-derived evaluation fields", async () => {
+    const response = await handleTemplateHttpRequest(
+      noopCtx,
+      new Request("https://template.local/api/openapi.json"),
+    );
+    const body = (await readJson(response)) as {
+      readonly paths: Readonly<
+        Record<
+          string,
+          {
+            readonly post?: {
+              readonly requestBody?: {
+                readonly content?: Readonly<
+                  Record<
+                    string,
+                    {
+                      readonly schema?: {
+                        readonly required?: readonly string[];
+                        readonly properties?: Readonly<
+                          Record<
+                            string,
+                            {
+                              readonly required?: readonly string[];
+                              readonly properties?: Readonly<
+                                Record<string, unknown>
+                              >;
+                            }
+                          >
+                        >;
+                      };
+                    }
+                  >
+                >;
+              };
+            };
+          }
+        >
+      >;
+    };
+    const requestSchema = (operationId: string) =>
+      body.paths[`/api/${operationId}`]?.post?.requestBody?.content?.[
+        "application/json"
+      ]?.schema;
+    const listInput = requestSchema("brain.evaluations.list")?.properties
+      ?.input;
+    const listEnvelope = requestSchema("brain.evaluations.list");
+    const freezeApply = requestSchema("brain.evaluations.freezeApply");
+
+    expect(listInput?.required).not.toContain("workspaceId");
+    expect(listInput?.properties).not.toHaveProperty("workspaceId");
+    expect(listInput?.properties).not.toHaveProperty("userId");
+    expect(listEnvelope?.required).toEqual(["input", "workspaceSlug"]);
+    expect(freezeApply?.required).toEqual([
+      "input",
+      "workspaceSlug",
+      "idempotencyKey",
+    ]);
   });
 
   it("serves MCP tools with generated Effect JSON schemas", () => {
@@ -644,6 +704,50 @@ describe("template HTTP docs routes", () => {
     expect(await readJson(response)).toMatchObject({
       ok: false,
       error: { _tag: "ValidationFailed" },
+    });
+  });
+
+  it("preserves declared evaluation failures as typed HTTP responses", async () => {
+    const response = await handleTemplateHttpRequest(
+      {
+        ...noopCtx,
+        runQuery: async (_ref, input) => {
+          if ("keyHash" in input)
+            return {
+              ok: true,
+              keyId: "api_key_contracts",
+              workspaceId: "workspace_contracts",
+              userId: "user_contracts",
+            };
+          throw new ConvexError({
+            _tag: "ValidationFailed",
+            field: "exampleKey",
+            message:
+              "Evaluation example was not found uniquely in this workspace.",
+          });
+        },
+      },
+      new Request("https://template.local/api/brain.evaluations.get", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mtk_live_contracts",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceSlug: "contracts-primary",
+          input: { exampleKey: "missing-example" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await readJson(response)).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        field: "exampleKey",
+        message: "Evaluation example was not found uniquely in this workspace.",
+      },
     });
   });
 

@@ -214,3 +214,39 @@ Local commit `25bea20a` passed 710/710 Convex tests, 9/9 required runtime
 acceptance scenarios, typecheck, production build, generated-file/manifest and
 headless-contract checks, and lint with zero errors. It has not been pushed or
 deployed from this workspace.
+
+## CLI 0.1.8 progressive-evaluation deployment receipt
+
+- Evaluation feature commit: `671e17a079cd05b966e0ecbed9d8ed13bd1716bc`
+- Merge commit: `b8546396ad345387e4474341202fb3fdf7627696`
+- Pull request: `#82`
+- Required Woodpecker PR pipeline: `297` (success)
+- GitHub staging deployment: `6161460093`
+- Guarded Woodpecker deployment pipeline: `299` (success)
+- Release: `brain-cli-v0.1.8`
+- Artifact SHA-256:
+  `5e27a9e3b14af853979bc83aa01700dc6d0c6c8a1a1bd8daffd9c80884c1e2ad`
+
+The release asset passed its recorded checksum and installed globally as CLI
+`0.1.8`. The staging app, login route, and generated OpenAPI route returned
+HTTP 200. CLI doctor passed against the linked `apero` workspace. Evidence
+health reported one active/current Brain page and 101 active/current Slack
+sources; Google Drive, HubSpot, and transcript remained empty. HTTP MCP
+initialization negotiated protocol `2025-03-26`, advertised 16 tools, included
+read-only `template.brain.evaluations.list` and `.get`, and retained the
+`ask-company-brain` prompt.
+
+The real evaluation ledger contains one pending development example, zero
+adjudicated examples, and zero holdout examples. CLI status therefore reports
+`insufficient-sample`. Stable list/show, redacted export, and a query-only
+freeze preview passed live. The export contained one question hash and no
+question or excerpt; no adjudication or freeze apply was performed. This is a
+progressive evaluation data-flow receipt, not evidence that the real Apero
+question set, frozen holdout, or replacement pilot is complete.
+
+The live acceptance sweep also found two headless contract defects: generated
+evaluation OpenAPI exposed credential-derived `workspaceId` and omitted required
+caller-envelope fields, while a missing example surfaced a declared
+`ValidationFailed` as HTTP 500. A focused follow-up fixes both with contract
+tests; that fix requires its own merge and guarded staging deployment before it
+becomes live evidence.
