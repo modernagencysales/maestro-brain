@@ -16,6 +16,7 @@ export type BrainObservedCitation = {
   readonly contentHash: string;
   readonly reopenedContentHash: string;
   readonly accessible: boolean;
+  readonly entailed?: boolean | undefined;
 };
 
 export type BrainSurfaceObservation = {
@@ -29,6 +30,7 @@ export type BrainProgressiveCase = {
   readonly id: string;
   readonly fixtureClass: "synthetic-safety" | "external-real";
   readonly adjudicated: boolean;
+  readonly riskLevel: "ordinary" | "high";
   readonly expectedAnswerStatus: BrainAnswerStatus;
   readonly availableEvidence: readonly BrainEvidenceReference[];
   readonly observations: readonly BrainSurfaceObservation[];
@@ -79,6 +81,7 @@ export type BrainProgressiveReport = {
     readonly expectedAnswerStatus: BrainMetric;
     readonly supportingSourceRecallAt5: BrainMetric;
     readonly citationEntailment: BrainMetric;
+    readonly highRiskCitationEntailment: BrainMetric;
     readonly withdrawalExclusion: BrainMetric;
     readonly insufficientContext: BrainMetric;
     readonly surfaceParity: BrainMetric;
@@ -170,6 +173,10 @@ export const evaluateBrainProgressive = (
   const parity = metricAccumulator();
   const expectedStatus = metricAccumulator();
   const supportingSourceRecall = metricAccumulator();
+  const citationEntailment = metricAccumulator();
+  const highRiskCitationEntailment = metricAccumulator();
+  let assessableEntailmentCount = 0;
+  let assessableHighRiskEntailmentCount = 0;
 
   for (const testCase of sortedCases) {
     const evidenceByKey = new Map(
@@ -204,6 +211,21 @@ export const evaluateBrainProgressive = (
             citation.reopenedContentHash === evidence.contentHash,
           ),
         );
+        if (
+          testCase.fixtureClass === "external-real" &&
+          testCase.adjudicated &&
+          observation.answerStatus === "answered"
+        ) {
+          if (testCase.riskLevel === "high") {
+            assessableHighRiskEntailmentCount += 1;
+            if (citation.entailed !== undefined)
+              highRiskCitationEntailment.add(citation.entailed);
+          } else {
+            assessableEntailmentCount += 1;
+            if (citation.entailed !== undefined)
+              citationEntailment.add(citation.entailed);
+          }
+        }
       }
     }
 
@@ -234,30 +256,58 @@ export const evaluateBrainProgressive = (
     }
   }
 
+  const manifestMatchesInspectedCases =
+    manifest.realTaskCount === realCases.length &&
+    manifest.adjudicatedTaskCount === adjudicatedRealCases.length;
+  const citationEntailmentMetric = citationEntailment.metric();
+  const highRiskCitationEntailmentMetric = highRiskCitationEntailment.metric();
+  const casesPassingMetric = toMetric(
+    caseResults.filter(({ passed }) => passed).length,
+    caseResults.length,
+  );
+  const exactCitationReopeningMetric = reopening.metric();
+  const expectedAnswerStatusMetric = expectedStatus.metric();
+  const supportingSourceRecallAt5Metric = supportingSourceRecall.metric();
+  const withdrawalExclusionMetric = withdrawals.metric();
+  const insufficientContextMetric = insufficient.metric();
+  const surfaceParityMetric = parity.metric();
   return {
-    maturity: maturityFor(adjudicatedRealCases.length, 0),
+    maturity: maturityFor({
+      adjudicatedTaskCount: adjudicatedRealCases.length,
+      manifestMatchesInspectedCases,
+      assessedEntailmentCount: citationEntailmentMetric.denominator,
+      assessableEntailmentCount,
+      entailmentRate: citationEntailmentMetric.rate,
+      assessedHighRiskEntailmentCount:
+        highRiskCitationEntailmentMetric.denominator,
+      assessableHighRiskEntailmentCount,
+      highRiskEntailmentRate: highRiskCitationEntailmentMetric.rate,
+      casesPassing: casesPassingMetric,
+      exactCitationReopening: exactCitationReopeningMetric,
+      expectedAnswerStatus: expectedAnswerStatusMetric,
+      supportingSourceRecallAt5: supportingSourceRecallAt5Metric,
+      withdrawalExclusion: withdrawalExclusionMetric,
+      insufficientContext: insufficientContextMetric,
+      surfaceParity: surfaceParityMetric,
+    }),
     sample: {
       realTasks: realCases.length,
       adjudicatedRealTasks: adjudicatedRealCases.length,
       minimumExitSample: MINIMUM_EXIT_SAMPLE,
       manifestDeclaredRealTasks: manifest.realTaskCount,
       manifestDeclaredAdjudicatedTasks: manifest.adjudicatedTaskCount,
-      manifestMatchesInspectedCases:
-        manifest.realTaskCount === realCases.length &&
-        manifest.adjudicatedTaskCount === adjudicatedRealCases.length,
+      manifestMatchesInspectedCases,
     },
     metrics: {
-      casesPassing: toMetric(
-        caseResults.filter(({ passed }) => passed).length,
-        caseResults.length,
-      ),
-      exactCitationReopening: reopening.metric(),
-      expectedAnswerStatus: expectedStatus.metric(),
-      supportingSourceRecallAt5: supportingSourceRecall.metric(),
-      citationEntailment: toMetric(0, 0),
-      withdrawalExclusion: withdrawals.metric(),
-      insufficientContext: insufficient.metric(),
-      surfaceParity: parity.metric(),
+      casesPassing: casesPassingMetric,
+      exactCitationReopening: exactCitationReopeningMetric,
+      expectedAnswerStatus: expectedAnswerStatusMetric,
+      supportingSourceRecallAt5: supportingSourceRecallAt5Metric,
+      citationEntailment: citationEntailmentMetric,
+      highRiskCitationEntailment: highRiskCitationEntailmentMetric,
+      withdrawalExclusion: withdrawalExclusionMetric,
+      insufficientContext: insufficientContextMetric,
+      surfaceParity: surfaceParityMetric,
     },
     cases: caseResults,
   };
@@ -388,12 +438,61 @@ const referenceKey = (reference: {
   readonly revisionId: string;
 }): string => `${reference.sourceId}:${reference.revisionId}`;
 
-const maturityFor = (
-  adjudicatedTaskCount: number,
-  entailmentDenominator: number,
-): BrainEvaluationMaturity => {
+const maturityFor = (input: {
+  readonly adjudicatedTaskCount: number;
+  readonly manifestMatchesInspectedCases: boolean;
+  readonly assessedEntailmentCount: number;
+  readonly assessableEntailmentCount: number;
+  readonly entailmentRate: number | null;
+  readonly assessedHighRiskEntailmentCount: number;
+  readonly assessableHighRiskEntailmentCount: number;
+  readonly highRiskEntailmentRate: number | null;
+  readonly casesPassing: BrainMetric;
+  readonly exactCitationReopening: BrainMetric;
+  readonly expectedAnswerStatus: BrainMetric;
+  readonly supportingSourceRecallAt5: BrainMetric;
+  readonly withdrawalExclusion: BrainMetric;
+  readonly insufficientContext: BrainMetric;
+  readonly surfaceParity: BrainMetric;
+}): BrainEvaluationMaturity => {
+  const {
+    adjudicatedTaskCount,
+    manifestMatchesInspectedCases,
+    assessedEntailmentCount,
+    assessableEntailmentCount,
+    entailmentRate,
+    assessedHighRiskEntailmentCount,
+    assessableHighRiskEntailmentCount,
+    highRiskEntailmentRate,
+    casesPassing,
+    exactCitationReopening,
+    expectedAnswerStatus,
+    supportingSourceRecallAt5,
+    withdrawalExclusion,
+    insufficientContext,
+    surfaceParity,
+  } = input;
+  const meetsRequiredRate = (metric: BrainMetric, minimum: number) =>
+    metric.denominator > 0 && metric.rate !== null && metric.rate >= minimum;
   if (adjudicatedTaskCount === 0) return "insufficient-sample";
-  if (adjudicatedTaskCount < MINIMUM_EXIT_SAMPLE || entailmentDenominator === 0)
+  if (
+    adjudicatedTaskCount < MINIMUM_EXIT_SAMPLE ||
+    !manifestMatchesInspectedCases ||
+    assessableEntailmentCount === 0 ||
+    assessedEntailmentCount !== assessableEntailmentCount ||
+    entailmentRate === null ||
+    entailmentRate < 0.95 ||
+    assessableHighRiskEntailmentCount === 0 ||
+    assessedHighRiskEntailmentCount !== assessableHighRiskEntailmentCount ||
+    highRiskEntailmentRate !== 1 ||
+    !meetsRequiredRate(casesPassing, 1) ||
+    !meetsRequiredRate(exactCitationReopening, 1) ||
+    !meetsRequiredRate(expectedAnswerStatus, 0.95) ||
+    !meetsRequiredRate(supportingSourceRecallAt5, 0.9) ||
+    !meetsRequiredRate(withdrawalExclusion, 1) ||
+    !meetsRequiredRate(insufficientContext, 0.95) ||
+    !meetsRequiredRate(surfaceParity, 1)
+  )
     return "provisional";
   return "exit-eligible";
 };
@@ -423,10 +522,14 @@ const parseCase = (candidate: unknown): BrainProgressiveCase => {
     throw new Error("Brain eval fixtureClass is invalid.");
   }
   const expectedAnswerStatus = parseAnswerStatus(record.expectedAnswerStatus);
+  const riskLevel = record.riskLevel;
+  if (riskLevel !== "ordinary" && riskLevel !== "high")
+    throw new Error("Brain eval riskLevel is invalid.");
   return {
     id: expectString(record.id, "case id"),
     fixtureClass,
     adjudicated: expectBoolean(record.adjudicated, "adjudicated"),
+    riskLevel,
     expectedAnswerStatus,
     availableEvidence: expectArray(
       record.availableEvidence,
@@ -483,6 +586,14 @@ const parseObservation = (candidate: unknown): BrainSurfaceObservation => {
           citationRecord.accessible,
           "citation accessibility",
         ),
+        ...(citationRecord.entailed === undefined
+          ? {}
+          : {
+              entailed: expectBoolean(
+                citationRecord.entailed,
+                "citation entailment",
+              ),
+            }),
       };
     }),
   };

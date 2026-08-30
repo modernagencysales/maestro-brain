@@ -3,6 +3,7 @@
     "id": "exact-citation-reopening",
     "fixtureClass": "synthetic-safety",
     "adjudicated": true,
+    "riskLevel": "ordinary",
     "expectedAnswerStatus": "answered",
     "availableEvidence": [
       {
@@ -33,6 +34,7 @@
     "id": "ineligible-evidence-excluded",
     "fixtureClass": "synthetic-safety",
     "adjudicated": true,
+    "riskLevel": "ordinary",
     "expectedAnswerStatus": "answered",
     "availableEvidence": [
       {
@@ -69,6 +71,7 @@
     "id": "insufficient-context-abstention",
     "fixtureClass": "synthetic-safety",
     "adjudicated": true,
+    "riskLevel": "high",
     "expectedAnswerStatus": "insufficient_context",
     "availableEvidence": [],
     "observations": [
@@ -84,6 +87,7 @@
     "id": "cross-surface-context-pack-parity",
     "fixtureClass": "synthetic-safety",
     "adjudicated": true,
+    "riskLevel": "ordinary",
     "expectedAnswerStatus": "answered",
     "availableEvidence": [
       {

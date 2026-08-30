@@ -14,7 +14,7 @@ Requires Node 22. For most teammates, these are the only commands. Run them from
 the project where the agent will work:
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.9/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.10/maestro-brain.tgz
 maestro-brain setup
 maestro-brain doctor
 maestro-brain run -- codex
@@ -24,7 +24,7 @@ For setup without a global install, the web app's `Terminal & MCP` settings
 screen copies this equivalent one-command path:
 
 ```bash
-npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.9/maestro-brain.tgz setup
+npx --yes https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.10/maestro-brain.tgz setup
 ```
 
 `setup` opens the staging app and asks the teammate to confirm **Apero Company
@@ -177,8 +177,17 @@ Teammates with write access to the repository can use the direct path:
 gh repo clone modernagencysales/maestro-brain
 cd maestro-brain
 node scripts/maestro-bootstrap.mjs
-corepack pnpm@10.12.1 install --frozen-lockfile
+if command -v corepack >/dev/null 2>&1; then
+  corepack pnpm@10.12.1 install --frozen-lockfile
+else
+  npx --yes pnpm@10.12.1 install --frozen-lockfile
+fi
 git switch -c fix/short-description
+# Make the change and run its focused tests before continuing.
+pnpm acceptance:required
+git status --short
+git add path/to/changed-file path/to/regression-test
+git commit -m "fix: short description"
 git push -u origin fix/short-description
 gh pr create --draft --base main
 ```
@@ -189,8 +198,17 @@ Teammates without write access should fork first:
 gh repo fork modernagencysales/maestro-brain --clone
 cd maestro-brain
 node scripts/maestro-bootstrap.mjs
-corepack pnpm@10.12.1 install --frozen-lockfile
+if command -v corepack >/dev/null 2>&1; then
+  corepack pnpm@10.12.1 install --frozen-lockfile
+else
+  npx --yes pnpm@10.12.1 install --frozen-lockfile
+fi
 git switch -c fix/short-description
+# Make the change and run its focused tests before continuing.
+pnpm acceptance:required
+git status --short
+git add path/to/changed-file path/to/regression-test
+git commit -m "fix: short description"
 git push -u origin fix/short-description
 gh pr create \
   --draft \
@@ -200,9 +218,9 @@ gh pr create \
 ```
 
 The bug bundle is allowlisted and omits the API key. Attach it to an issue, or
-make the change and run the focused tests plus `pnpm acceptance:required` before
-pushing. Use a full clone; shallow clones do not contain the ancestry needed by
-the acceptance gate.
+replace the example paths in `git add` with only the files you reviewed. Use a
+full clone; shallow clones do not contain the ancestry needed by the acceptance
+gate.
 
 To open an issue directly from the terminal:
 

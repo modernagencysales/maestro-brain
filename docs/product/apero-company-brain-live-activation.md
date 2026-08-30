@@ -272,3 +272,43 @@ citations included the current Brain Page and Slack evidence lanes. The
 workspace still has zero reviewed claims, zero Drive sources, and zero
 structured-provider sources, so this is an active-contract receipt rather than a
 quality or pilot completion claim.
+
+## CLI 0.1.9 onboarding and scheduled-Slack deployment receipt
+
+- Merge commit: `1ab2c6f589db81eadba6c98d3fe813e43911df34`
+- Pull request: `#84`
+- Required Woodpecker PR pipeline: `302` (success)
+- GitHub staging deployment: `6162343742`
+- Guarded Woodpecker deployment pipeline: `304` (success)
+- Release: `brain-cli-v0.1.9`
+- Artifact SHA-256:
+  `d4ef6947afddb81e6f9db0580dc031d6ab7c4f2284fb810c917181c701922eb1`
+
+The public release asset installed as CLI `0.1.9` and returned the conventional
+version output. A clean project setup generated exact Codex, Claude Code,
+Cowork, HTTP MCP, and Ask Apero descriptors. Authenticated doctor passed the
+API, MCP protocol, MCP catalog, workspace evidence, and exact descriptor checks.
+Staging app, login, and Inbox returned HTTP 200. OpenAPI 3.1 exposes 20 paths.
+
+HTTP MCP now advertises 15 tools. Canonical `template.brain.ask` is present and
+the competing `template.agents.assistant.answerQuestion` tool is absent. A live
+question requested and received mixed ContextPack V4 with schema `4` and an
+exact Slack citation; a source-inventory meta-question correctly returned
+insufficient context instead of treating operational metadata as company
+evidence.
+
+The existing active Slack row has one approved channel and connection generation
+`1`. A bounded generation-fenced scheduled sync completed with one page and 99
+current messages. The connection remained active/ready with
+`scheduledSyncEnabled=true`; evidence health reports 99 active sources, 99
+current entries, current-index coverage, within-bounds capacity, and a complete
+latest run. The earlier 101 count is retained above as historical evidence; the
+fresh complete traversal is the current authority. Google Drive, HubSpot, and
+transcript remain empty.
+
+The real evaluation ledger still contains one development example, zero
+adjudicated examples, and zero holdout examples. Its maturity is therefore
+`insufficient-sample`. This release closes the engineering-owned onboarding,
+MCP-catalog, scheduled-Slack fencing, and Drive result-contract gaps; it does
+not close Drive OAuth/source selection, Claude/Cowork login, evaluation, or the
+elapsed replacement pilot.

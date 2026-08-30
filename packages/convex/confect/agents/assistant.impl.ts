@@ -34,6 +34,7 @@ import {
 } from "../errors";
 import { RuntimeModeConfig } from "../shared/config";
 import { loadLlmGatewayEnvConfig } from "../shared/env";
+import { loadEligibleEvidenceRevision } from "../brain/evidence.impl";
 import { assembleCompanyBrainContext } from "../capabilities/askCompanyBrain.impl";
 import assistant, {
   AssistantError,
@@ -355,24 +356,6 @@ const persistEvaluationExample = (
           message: "Evidence references must be unique.",
         });
       referenceKeys.add(referenceKey);
-      const revisions = yield* reader
-        .table("brainEvidenceRevisions")
-        .index("by_workspace_and_source_key_and_revision_key", (q) =>
-          q
-            .eq("workspaceId", args.workspaceId)
-            .eq("sourceKey", reference.sourceKey)
-            .eq("revisionKey", reference.revisionKey),
-        )
-        .take(2)
-        .pipe(Effect.orDie);
-      if (
-        revisions.length !== 1 ||
-        revisions[0]?.contentHash !== reference.contentHash
-      )
-        return yield* new AssistantError.ValidationFailed({
-          field: "evidenceReferences",
-          message: "An evidence reference could not be reopened exactly.",
-        });
     }
 
     const proposed = {
@@ -443,6 +426,18 @@ const persistEvaluationExample = (
         });
       return existing._id;
     }
+    for (const reference of args.evidenceReferences)
+      if (
+        (yield* loadEligibleEvidenceRevision({
+          workspaceId: args.workspaceId,
+          ...reference,
+        })) === null
+      )
+        return yield* new AssistantError.ValidationFailed({
+          field: "evidenceReferences",
+          message:
+            "An evidence reference is not active and exactly reopenable.",
+        });
     const capacity = yield* reader
       .table("brainEvaluationExamples")
       .index("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))

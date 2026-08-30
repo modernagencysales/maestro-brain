@@ -1,11 +1,13 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { MAX_EVALUATION_EXAMPLES } from "../confect/capabilities/manageBrainEvaluationExamples.domain";
+import { evidenceContentHash } from "../confect/brain/evidenceProjection";
 import { seedTenancy, SeededTenancy } from "./support/seedTenancy";
 import { testConfectLayer } from "./support/confect";
 
@@ -33,14 +35,8 @@ const insertExample = (
         captureKind: "test",
         usefulness: "unrated",
         adjudicationState: "adjudicated",
-        expectedAnswerStatus: "answered",
-        expectedEvidenceReferences: [
-          {
-            sourceKey: `source-${index}`,
-            revisionKey: "revision-1",
-            contentHash: `hash-${index}`,
-          },
-        ],
+        expectedAnswerStatus: "insufficient-context",
+        expectedEvidenceReferences: [],
         riskLevel: "ordinary",
         adjudicatedAt: now + index,
         adjudicatedByUserId: actorUserId,
@@ -362,6 +358,302 @@ describe("Brain evaluation management contract", () => {
     expect(
       await Effect.runPromise(program.pipe(Effect.provide(testConfectLayer()))),
     ).toEqual(["cursor-a", "cursor-b", "cursor-B"]);
+  });
+
+  it("rejects inaccessible or integrity-invalid evidence during adjudication", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(
+        Effect.gen(function* () {
+          yield* insertPendingExample(
+            seeded.workspaceId,
+            seeded.memberUserId,
+            "revoked-scope",
+            now,
+          );
+          yield* insertPendingExample(
+            seeded.workspaceId,
+            seeded.memberUserId,
+            "corrupt-content",
+            now + 1,
+          );
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("brainEvidenceSources")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              scopeKey: "slack:revoked",
+              sourceKey: "slack:revoked:message:1",
+              title: "Slack message",
+              status: "active",
+              generation: 1,
+              currentRevisionKey: "revision-1",
+              sourceModifiedAt: now,
+              observedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceRevisions")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "slack",
+              scopeKey: "slack:revoked",
+              sourceKey: "slack:revoked:message:1",
+              revisionKey: "revision-1",
+              title: "Slack message",
+              markdown: "Revoked provider content",
+              contentHash: "hash-revoked",
+              sourceModifiedAt: now,
+              observedAt: now,
+              tombstone: false,
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceSources")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey: "brain-page:corrupt",
+              title: "Corrupt page",
+              status: "active",
+              generation: 1,
+              currentRevisionKey: "revision-1",
+              sourceModifiedAt: now,
+              observedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceRevisions")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey: "brain-page:corrupt",
+              revisionKey: "revision-1",
+              title: "Corrupt page",
+              markdown: "Stored content does not match its claimed hash.",
+              contentHash: "claimed-hash",
+              sourceModifiedAt: now,
+              observedAt: now,
+              tombstone: false,
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+        }),
+      );
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const inaccessible = yield* Effect.result(
+        actor.mutation(
+          refs.public.capabilities.manageBrainEvaluationExamples
+            .adjudicateBrainEvaluationExample,
+          {
+            workspaceId: seeded.workspaceId,
+            exampleKey: "revoked-scope",
+            expectedUpdatedAt: now,
+            expectedAnswerStatus: "answered",
+            expectedEvidenceReferences: [
+              {
+                sourceKey: "slack:revoked:message:1",
+                revisionKey: "revision-1",
+                contentHash: "hash-revoked",
+              },
+            ],
+            riskLevel: "ordinary",
+          },
+        ),
+      );
+      const corrupt = yield* Effect.result(
+        actor.mutation(
+          refs.public.capabilities.manageBrainEvaluationExamples
+            .adjudicateBrainEvaluationExample,
+          {
+            workspaceId: seeded.workspaceId,
+            exampleKey: "corrupt-content",
+            expectedUpdatedAt: now + 1,
+            expectedAnswerStatus: "answered",
+            expectedEvidenceReferences: [
+              {
+                sourceKey: "brain-page:corrupt",
+                revisionKey: "revision-1",
+                contentHash: "claimed-hash",
+              },
+            ],
+            riskLevel: "ordinary",
+          },
+        ),
+      );
+      return { corrupt, inaccessible };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    for (const failure of [result.inaccessible, result.corrupt])
+      expect(failure).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          _tag: "ValidationFailed",
+          field: "expectedEvidenceReferences",
+        },
+      });
+  });
+
+  it("revalidates cited gold atomically when applying a freeze", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      for (let index = 0; index < 25; index += 1)
+        yield* confect.run(
+          insertExample(seeded.workspaceId, seeded.memberUserId, index),
+        );
+      const sourceKey = "brain-page:freeze-evidence";
+      const revisionKey = "revision-1";
+      const title = "Freeze evidence";
+      const markdown = "The approved pilot price is $5,000.";
+      const contentHash = evidenceContentHash(title, markdown);
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("brainEvidenceSources")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey,
+              title,
+              status: "active",
+              generation: 1,
+              currentRevisionKey: revisionKey,
+              sourceModifiedAt: now,
+              observedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceRevisions")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey,
+              revisionKey,
+              title,
+              markdown,
+              contentHash,
+              sourceModifiedAt: now,
+              observedAt: now,
+              tombstone: false,
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+          const examples = yield* (yield* DatabaseReader)
+            .table("brainEvaluationExamples")
+            .index("by_workspace_and_example_key", (q) =>
+              q
+                .eq("workspaceId", seeded.workspaceId)
+                .eq("exampleKey", "freeze-20"),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          const example = examples[0];
+          if (example === undefined)
+            return yield* Effect.die("missing example");
+          yield* writer
+            .table("brainEvaluationExamples")
+            .patch(example._id, {
+              expectedAnswerStatus: "answered",
+              expectedEvidenceReferences: [
+                { sourceKey, revisionKey, contentHash },
+              ],
+              updatedAt: now + 200,
+            })
+            .pipe(Effect.orDie);
+        }),
+      );
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const preview = yield* actor.query(
+        refs.public.capabilities.manageBrainEvaluationExamples
+          .previewBrainEvaluationFreeze,
+        { workspaceId: seeded.workspaceId, cutoffCreatedAt: now + 100 },
+      );
+      yield* confect.run(
+        Effect.gen(function* () {
+          const sources = yield* (yield* DatabaseReader)
+            .table("brainEvidenceSources")
+            .index("by_workspace_and_source_key", (q) =>
+              q
+                .eq("workspaceId", seeded.workspaceId)
+                .eq("sourceKey", sourceKey),
+            )
+            .take(2)
+            .pipe(Effect.orDie);
+          const source = sources[0];
+          if (source === undefined) return yield* Effect.die("missing source");
+          yield* (yield* DatabaseWriter)
+            .table("brainEvidenceSources")
+            .patch(source._id, { status: "removed", updatedAt: now + 300 })
+            .pipe(Effect.orDie);
+        }),
+      );
+      const applied = yield* Effect.result(
+        actor.mutation(
+          refs.public.capabilities.manageBrainEvaluationExamples
+            .applyBrainEvaluationFreeze,
+          {
+            workspaceId: seeded.workspaceId,
+            cutoffCreatedAt: now + 100,
+            expectedPreviewHash: preview.previewHash,
+            freezeKey: "withdrawn-freeze",
+          },
+        ),
+      );
+      const holdoutCount = yield* confect.run(
+        Effect.gen(function* () {
+          const examples = yield* (yield* DatabaseReader)
+            .table("brainEvaluationExamples")
+            .index("by_workspace", (q) =>
+              q.eq("workspaceId", seeded.workspaceId),
+            )
+            .take(30)
+            .pipe(Effect.orDie);
+          return examples.filter(({ split }) => split === "holdout").length;
+        }),
+        Schema.Number,
+      );
+      return { applied, holdoutCount, preview };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.preview).toMatchObject({
+      maturity: "ready",
+      selectedExampleKeys: expect.arrayContaining(["freeze-20"]),
+    });
+    expect(result.applied).toMatchObject({
+      _tag: "Failure",
+      failure: {
+        _tag: "ValidationFailed",
+        field: "expectedEvidenceReferences",
+      },
+    });
+    expect(result.holdoutCount).toBe(0);
   });
 
   it("admits the 500th distinct save, rejects the 501st, and replays at capacity", async () => {

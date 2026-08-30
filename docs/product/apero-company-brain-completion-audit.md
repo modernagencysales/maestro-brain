@@ -2,7 +2,7 @@
 
 **Status:** current-state audit; not a completion claim
 
-**Audited base:** `ac018b9337f0597214f4c68f7a3069507e46ec72`; live activation
+**Audited base:** `1ab2c6f589db81eadba6c98d3fe813e43911df34`; live activation
 evidence is recorded in `docs/product/apero-company-brain-live-activation.md`
 
 **Date:** 2026-08-29
@@ -88,9 +88,10 @@ contract, and lint with zero errors. Staging now exposes all 16 MCP tools,
 including `brain.ask`, knowledge review, exact evidence reopening, and page
 history.
 
-Read-only staging verification on 2026-08-29 also supersedes the earlier empty
-Slack status: Apero has 101 active Slack sources, 101 current entries, and a
-completed reconciliation. A Slack search result reopened the exact immutable
+Read-only staging verification originally found 101 active Slack sources. A
+fresh complete single-channel reconciliation after merge `1ab2c6f5` now reports
+99 active sources and 99 current entries, with current-index coverage and no
+capacity finding. A Slack search result reopened the exact immutable
 source/revision/content-hash tuple without exposing its body in this receipt. A
 real Codex process and the CLI returned the same ContextPack hash and ordered
 citation identities for the same Apero question; Claude Code reached its local
@@ -98,6 +99,31 @@ login boundary and remains an open human receipt. Google Drive remains empty.
 These live facts advance V1A but do not prove the required Slack edit/removal
 lifecycle, Drive vertical, cross-runtime V4 identity parity, or replacement
 pilot.
+
+### CLI 0.1.9 onboarding and connector-contract release
+
+Merge `1ab2c6f5` passed required pull-request pipeline `302` and deployed
+through GitHub staging deployment `6162343742` and guarded Woodpecker pipeline
+`304`. Release `brain-cli-v0.1.9` is bound to the merge SHA; its public
+`maestro-brain.tgz` asset has SHA-256
+`d4ef6947afddb81e6f9db0580dc031d6ab7c4f2284fb810c917181c701922eb1`.
+
+The public asset installed as CLI `0.1.9`. A clean project setup created exact
+Codex, Claude Code, Cowork, and Ask Apero descriptors, and authenticated doctor
+passed API, MCP protocol, MCP tools, workspace evidence, and descriptor checks.
+Live OpenAPI is 3.1.0 with 20 paths. HTTP MCP advertises 15 tools, contains
+`template.brain.ask`, and no longer advertises
+`template.agents.assistant.answerQuestion`. A mixed V4 question returned schema
+`4`, effective mode `mixed`, and an exact Slack citation.
+
+The bounded scheduled Slack action then completed against the stored approved
+single-channel scope and generation, indexing 99 current messages in one page.
+The connection remains active/ready with scheduled reconciliation enabled, and
+evidence health reports current-index coverage. The count change from 101 to 99
+is the result of a fresh complete provider traversal, not a forced historical
+count. Drive and HubSpot remain at zero active sources. The evaluation ledger
+still has one development example, zero adjudicated examples, and zero holdout
+examples, so its maturity remains `insufficient-sample`.
 
 ## Current engineering checkpoint
 
@@ -156,11 +182,11 @@ Status meanings:
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | One Apero company context plane, separate from systems of record and agent execution       | Workspace-scoped Pages and provider revisions plus a four-provider Page/Slack/Drive/HubSpot contract through canonical `brain.ask`; live Apero currently proves only Page plus Slack                                            | **Partial**    | Activate one real document source and, only if selected, one structured source in the same cited Ask path without transferring workflow ownership to Brain.   |
 | Shared agency workspace with separate client boundaries                                    | Live `apero` workspace; Tim owner plus an accepted test viewer; independent credential read; app-native invitation acceptance; controlled agency/client isolation; workspace-scoped page/Ask queries                            | **Proven**     | Invite the named real pilot cohort and record one human agency/client switching receipt.                                                                      |
-| Terminal-first Codex, Claude Code, and Cowork onboarding                                   | Public CLI `0.1.8`; live linked `apero` key; clean-install boundary and linked green `doctor`; key-free runtime descriptors; verified child-process key injection; `docs/team-onboarding.md`; real Codex Ask receipt            | **Proven**     | Each real pilot links, launches Codex/Claude with `maestro-brain run`, and records one Ask receipt. Cowork import may remain manual.                          |
-| One HTTP MCP context surface for every runtime                                             | Live `/mcp` has 16 tools; the current follow-up removes the competing legacy V3 Ask tool, leaving 15 tools with canonical V4 Ask, evidence/pages, knowledge review, and evaluation reads                                        | **Partial**    | Deploy the 15-tool catalog, then log Claude in and compare exact ContextPack V4 identities from Claude/Cowork.                                                |
+| Terminal-first Codex, Claude Code, and Cowork onboarding                                   | Public CLI `0.1.9`; live linked `apero` key; clean-install boundary and linked green `doctor`; exact key-free runtime descriptors; verified child-process key injection; `docs/team-onboarding.md`; real Codex Ask receipt      | **Proven**     | Each real pilot links, launches Codex/Claude with `maestro-brain run`, and records one Ask receipt. Cowork import may remain manual.                          |
+| One HTTP MCP context surface for every runtime                                             | Live `/mcp` has 15 tools with canonical V4 Ask, evidence/pages, knowledge review, and evaluation reads; the competing legacy V3 MCP Ask tool is absent                                                                          | **Partial**    | Log Claude in and compare exact ContextPack V4 identities from Claude/Cowork.                                                                                 |
 | Ask Apero returns grounded, scoped evidence and abstains when evidence is absent           | Live cited Ask receipt over bounded provider-neutral token postings, ContextPack V4 provider/revision/hash/range citations, exact source reopening, conflicts/omissions, and explicit no-evidence abstention                    | **Partial**    | Freeze and run the real E0 question set, measure misses, and add semantic candidates only if lexical recall is insufficient.                                  |
 | Human-maintained company context can enter and change safely                               | Web editor, immutable revisions, optimistic concurrency, backend-unique slugs/import identities, provenance-fenced recursive Markdown upsert, and a live CLI `0.1.2` repeat-import receipt                                      | **Partial**    | Pilot users import approved context; local file deletion intentionally does not archive a Brain page.                                                         |
-| Slack is a current Apero source through Nango                                              | Live Apero receipt: 101 active/current sources, completed reconciliation, successful cited V4 Ask, exact immutable reopening, and exact CLI/Codex pack/citation parity; bounded traversal and fail-closed scope remain intact   | **Partial**    | Record real edit/removal/reconciliation timing and verify the same identity from Claude/Cowork after human login.                                             |
+| Slack is a current Apero source through Nango                                              | Live Apero receipt: 99 active/current sources after a fresh complete reconciliation, scheduled sync enabled, successful cited V4 Ask, exact immutable reopening, and exact CLI/Codex pack/citation parity                       | **Partial**    | Record real edit/removal/reconciliation timing and verify the same identity from Claude/Cowork after human login.                                             |
 | Slack connection is activated in Apero                                                     | Live Nango-backed Slack scope and completed sync are present in the `apero` workspace                                                                                                                                           | **Proven**     | Keep the pilot to the approved channel scope and record the channel owner without storing secrets in Git.                                                     |
 | Shared Drive/Google Docs is the first high-signal document source                          | Nango OAuth, persisted Shared Drive/root scope, recursive pagination, Google Doc/text export, immutable revisions, hourly reconciliation, citations, and explicit metadata-only/oversized skip counts                           | **Partial**    | Activate a real selected root and record edit/move/unshare/delete receipts; add change cursors only if hourly freshness is insufficient.                      |
 | A structured CRM source provides account, opportunity, owner, stage, and economics context | HubSpot Nango OAuth, persisted portal scope, hourly reconciliation, and bounded company/contact/deal Markdown projections using a fixed property allowlist                                                                      | **Partial**    | Confirm HubSpot is Apero's CRM; then add property selection and owner resolution only if the approved pilot questions require CRM.                            |

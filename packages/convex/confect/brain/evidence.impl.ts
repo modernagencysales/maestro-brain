@@ -170,6 +170,39 @@ export const loadReadableEvidenceRevisions = (input: {
     return byProvider.flat();
   });
 
+export const loadEligibleEvidenceRevision = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly sourceKey: string;
+  readonly revisionKey: string;
+  readonly contentHash: string;
+}) =>
+  Effect.gen(function* () {
+    const revisions = (yield* loadReadableEvidenceRevisions(input)).filter(
+      (revision) =>
+        revision.contentHash === input.contentHash &&
+        revision.contentHash ===
+          evidenceContentHash(revision.title, revision.markdown) &&
+        !revision.tombstone,
+    );
+    if (revisions.length !== 1) return null;
+    const [revision] = revisions;
+    if (revision === undefined) return null;
+    const sources = yield* (yield* DatabaseReader)
+      .table("brainEvidenceSources")
+      .index("by_workspace_provider_scope_source", (q) =>
+        q
+          .eq("workspaceId", input.workspaceId)
+          .eq("provider", revision.provider)
+          .eq("scopeKey", revision.scopeKey)
+          .eq("sourceKey", input.sourceKey),
+      )
+      .take(2)
+      .pipe(Effect.orDie);
+    return sources.length === 1 && sources[0]?.status === "active"
+      ? revision
+      : null;
+  });
+
 const loadProviderTokenRows = (input: {
   readonly workspaceId: GenericId<"workspaces">;
   readonly provider: (typeof EVIDENCE_PROVIDERS)[number];

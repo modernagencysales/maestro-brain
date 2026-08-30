@@ -1354,12 +1354,12 @@ const recordSlackSync = FunctionImpl.make(
           ...(channelIds === undefined
             ? {}
             : {
-                scheduledSyncEnabled: true,
                 slackChannelIds: [...new Set(channelIds)].sort(),
                 ...(lookbackDays === undefined
                   ? {}
                   : { slackLookbackDays: lookbackDays }),
               }),
+          ...(status === "ready" ? { scheduledSyncEnabled: true } : {}),
           ...(syncedAt === undefined ? {} : { lastSyncedAt: syncedAt }),
           ...(messageCount === undefined
             ? {}

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  type BrainProgressiveCase,
   evaluateBrainProgressive,
   loadBrainExternalFixtureManifest,
   loadBrainProgressiveCases,
@@ -58,6 +59,11 @@ describe("progressive Brain evaluation", () => {
       expectedAnswerStatus: { numerator: 7, denominator: 7, rate: 1 },
       supportingSourceRecallAt5: { numerator: 6, denominator: 6, rate: 1 },
       citationEntailment: { numerator: 0, denominator: 0, rate: null },
+      highRiskCitationEntailment: {
+        numerator: 0,
+        denominator: 0,
+        rate: null,
+      },
       withdrawalExclusion: { numerator: 1, denominator: 1, rate: 1 },
       insufficientContext: { numerator: 1, denominator: 1, rate: 1 },
       surfaceParity: { numerator: 1, denominator: 1, rate: 1 },
@@ -141,6 +147,154 @@ describe("progressive Brain evaluation", () => {
     });
   });
 
+  it("parses explicit citation entailment adjudication", () => {
+    const [testCase] = loadBrainProgressiveCases(
+      JSON.stringify([
+        {
+          id: "real-entailed",
+          fixtureClass: "external-real",
+          adjudicated: true,
+          riskLevel: "ordinary",
+          expectedAnswerStatus: "answered",
+          availableEvidence: [
+            {
+              sourceId: "source-1",
+              revisionId: "revision-1",
+              contentHash: "hash-1",
+              eligible: true,
+            },
+          ],
+          observations: [
+            {
+              surface: "cli",
+              answerStatus: "answered",
+              packHash: "sha256:pack-1",
+              citations: [
+                {
+                  sourceId: "source-1",
+                  revisionId: "revision-1",
+                  contentHash: "hash-1",
+                  reopenedContentHash: "hash-1",
+                  accessible: true,
+                  entailed: true,
+                },
+              ],
+            },
+          ],
+        },
+      ]),
+    );
+
+    expect(testCase?.observations[0]?.citations[0]?.entailed).toBe(true);
+  });
+
+  it("requires complete citation entailment adjudication at or above 95 percent for exit eligibility", () => {
+    const casesFor = (entailments: readonly (boolean | undefined)[]) =>
+      entailments.map((entailed, index) => ({
+        id: `real-${index}`,
+        fixtureClass: "external-real" as const,
+        adjudicated: true,
+        riskLevel: index === 0 ? ("high" as const) : ("ordinary" as const),
+        expectedAnswerStatus: "answered" as const,
+        availableEvidence: [
+          {
+            sourceId: `source-${index}`,
+            revisionId: "revision-1",
+            contentHash: `hash-${index}`,
+            eligible: true,
+          },
+        ],
+        observations: [
+          {
+            surface: "cli" as const,
+            answerStatus: "answered" as const,
+            packHash: `sha256:pack-${index}`,
+            citations: [
+              {
+                sourceId: `source-${index}`,
+                revisionId: "revision-1",
+                contentHash: `hash-${index}`,
+                reopenedContentHash: `hash-${index}`,
+                accessible: true,
+                ...(entailed === undefined ? {} : { entailed }),
+              },
+            ],
+          },
+        ],
+      }));
+    const manifest = {
+      schemaVersion: 1 as const,
+      datasetId: "external",
+      payloadLocation: "external" as const,
+      realTaskCount: 25,
+      adjudicatedTaskCount: 25,
+      payloadHashes: [],
+    };
+    const safetyCases = loadBrainProgressiveCases(
+      readFileSync(fixturePath, "utf8"),
+    );
+    const evaluate = (cases: readonly BrainProgressiveCase[]) =>
+      evaluateBrainProgressive([...safetyCases, ...cases], manifest);
+
+    const unassessed = evaluate(
+      casesFor([...Array<boolean>(24).fill(true), undefined]),
+    );
+    const passing = evaluate(
+      casesFor([...Array<boolean>(24).fill(true), false]),
+    );
+    const belowThreshold = evaluate(
+      casesFor([...Array<boolean>(23).fill(true), false, false]),
+    );
+    const qualityFailureCases = casesFor(Array<boolean>(25).fill(true)).map(
+      (testCase, index) =>
+        index === 0
+          ? {
+              ...testCase,
+              observations: testCase.observations.map((observation) => ({
+                ...observation,
+                answerStatus: "insufficient_context" as const,
+              })),
+            }
+          : testCase,
+    );
+    const failedQualityGate = evaluate(qualityFailureCases);
+    const highRiskFailure = evaluate(
+      casesFor([false, ...Array<boolean>(24).fill(true)]),
+    );
+
+    expect(unassessed.metrics.citationEntailment).toEqual({
+      numerator: 23,
+      denominator: 23,
+      rate: 1,
+    });
+    expect(unassessed.maturity).toBe("provisional");
+    expect(passing.metrics.citationEntailment).toEqual({
+      numerator: 23,
+      denominator: 24,
+      rate: 23 / 24,
+    });
+    expect(passing.metrics.highRiskCitationEntailment).toEqual({
+      numerator: 1,
+      denominator: 1,
+      rate: 1,
+    });
+    expect(passing.maturity).toBe("exit-eligible");
+    expect(belowThreshold.metrics.citationEntailment).toEqual({
+      numerator: 22,
+      denominator: 24,
+      rate: 22 / 24,
+    });
+    expect(belowThreshold.maturity).toBe("provisional");
+    expect(failedQualityGate.metrics.expectedAnswerStatus.rate).toBeGreaterThan(
+      0.95,
+    );
+    expect(failedQualityGate.metrics.casesPassing.rate).toBeLessThan(1);
+    expect(failedQualityGate.maturity).toBe("provisional");
+    expect(highRiskFailure.metrics.citationEntailment.rate).toBe(1);
+    expect(highRiskFailure.metrics.highRiskCitationEntailment.rate).toBe(0);
+    expect(highRiskFailure.maturity).toBe("provisional");
+  });
+
   it("scores only adjudicated evidence as expected support", () => {
     const report = evaluateBrainProgressive(
       [
@@ -148,6 +302,7 @@ describe("progressive Brain evaluation", () => {
           id: "real-1",
           fixtureClass: "external-real",
           adjudicated: true,
+          riskLevel: "ordinary",
           expectedAnswerStatus: "answered",
           availableEvidence: [
             {
