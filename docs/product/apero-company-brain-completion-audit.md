@@ -2,10 +2,10 @@
 
 **Status:** current-state audit; not a completion claim
 
-**Audited base:** `1ab2c6f589db81eadba6c98d3fe813e43911df34`; live activation
+**Audited base:** `e67baad585f538b499357c85cb12cf8cc7bbb37d`; live activation
 evidence is recorded in `docs/product/apero-company-brain-live-activation.md`
 
-**Date:** 2026-08-29
+**Date:** 2026-08-30
 
 ## 2026-08-29 local readiness update
 
@@ -125,6 +125,43 @@ count. Drive and HubSpot remain at zero active sources. The evaluation ledger
 still has one development example, zero adjudicated examples, and zero holdout
 examples, so its maturity remains `insufficient-sample`.
 
+### CLI 0.1.10 evaluation and terminal-UX completion release
+
+PR `#85` merged as `e67baad585f538b499357c85cb12cf8cc7bbb37d` after required
+Woodpecker pull-request pipeline `305` passed firewall, core, coverage, and
+final aggregation. Two final cold reviews returned no findings. The hosted Qlty
+check retained nine blocking-severity structural-smell findings covered by the
+repository's launch-debt ledger; the repository's required local Qlty wrapper
+reported `No issues`. Both facts are retained rather than treating the hosted
+advisory result as green.
+
+Release `brain-cli-v0.1.10` is bound to the exact merge. Its public
+`maestro-brain.tgz` asset has SHA-256
+`69e66a66d43326eddf72e8f80853df740dace8d10593e95dacbeb2035cf6ba3b`. A clean
+public install returned version `0.1.10`; non-interactive setup created the
+Codex, Claude Code, Cowork, and Ask Apero descriptors; and authenticated doctor
+passed every checked API, MCP, evidence, and descriptor gate.
+
+GitHub staging deployment `6163051866` completed through guarded Woodpecker
+pipeline `307`. The deployed commit is the exact merge above, Convex remains
+`perfect-sparrow-808`, and the Cloudflare Worker version is
+`f9c67eef-f565-4b48-8977-ffb6a2c7d3cf`. Live OpenAPI remains 3.1.0 with 20
+paths. HTTP MCP advertises 15 tools, includes canonical `template.brain.ask`,
+and excludes the legacy assistant Ask tool. A credential-bound mixed request
+returned ContextPack schema `4` with one Slack citation; the cited 732-character
+thread segment reopened at the exact source, revision, and content hash without
+being a tombstone.
+
+The latest complete Slack run still reports 99 active/current sources with
+current-index coverage and within-bounds capacity. The real evaluation ledger
+still has one development example, zero adjudicated examples, and zero holdout
+examples, so maturity honestly remains `insufficient-sample`. CLI `0.1.10`
+closes engineering defects in withdrawn-evidence admission, freeze-time cited
+gold revalidation, replay idempotency, insufficient-context scoring, transient
+reopening classification, citation entailment, progressive exit gates, and
+scheduled Slack activation. It does not manufacture the real evaluation set or
+close the Drive, teammate, Claude/Cowork, or elapsed pilot gates.
+
 ## Current engineering checkpoint
 
 The deployed application uses a current-stack provider-neutral evidence
@@ -182,7 +219,7 @@ Status meanings:
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | One Apero company context plane, separate from systems of record and agent execution       | Workspace-scoped Pages and provider revisions plus a four-provider Page/Slack/Drive/HubSpot contract through canonical `brain.ask`; live Apero currently proves only Page plus Slack                                            | **Partial**    | Activate one real document source and, only if selected, one structured source in the same cited Ask path without transferring workflow ownership to Brain.   |
 | Shared agency workspace with separate client boundaries                                    | Live `apero` workspace; Tim owner plus an accepted test viewer; independent credential read; app-native invitation acceptance; controlled agency/client isolation; workspace-scoped page/Ask queries                            | **Proven**     | Invite the named real pilot cohort and record one human agency/client switching receipt.                                                                      |
-| Terminal-first Codex, Claude Code, and Cowork onboarding                                   | Public CLI `0.1.9`; live linked `apero` key; clean-install boundary and linked green `doctor`; exact key-free runtime descriptors; verified child-process key injection; `docs/team-onboarding.md`; real Codex Ask receipt      | **Proven**     | Each real pilot links, launches Codex/Claude with `maestro-brain run`, and records one Ask receipt. Cowork import may remain manual.                          |
+| Terminal-first Codex, Claude Code, and Cowork onboarding                                   | Public CLI `0.1.10`; live linked `apero` key; clean-install boundary and linked green `doctor`; exact key-free runtime descriptors; verified child-process key injection; `docs/team-onboarding.md`; real Codex Ask receipt     | **Proven**     | Each real pilot links, launches Codex/Claude with `maestro-brain run`, and records one Ask receipt. Cowork import may remain manual.                          |
 | One HTTP MCP context surface for every runtime                                             | Live `/mcp` has 15 tools with canonical V4 Ask, evidence/pages, knowledge review, and evaluation reads; the competing legacy V3 MCP Ask tool is absent                                                                          | **Partial**    | Log Claude in and compare exact ContextPack V4 identities from Claude/Cowork.                                                                                 |
 | Ask Apero returns grounded, scoped evidence and abstains when evidence is absent           | Live cited Ask receipt over bounded provider-neutral token postings, ContextPack V4 provider/revision/hash/range citations, exact source reopening, conflicts/omissions, and explicit no-evidence abstention                    | **Partial**    | Freeze and run the real E0 question set, measure misses, and add semantic candidates only if lexical recall is insufficient.                                  |
 | Human-maintained company context can enter and change safely                               | Web editor, immutable revisions, optimistic concurrency, backend-unique slugs/import identities, provenance-fenced recursive Markdown upsert, and a live CLI `0.1.2` repeat-import receipt                                      | **Partial**    | Pilot users import approved context; local file deletion intentionally does not archive a Brain page.                                                         |

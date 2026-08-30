@@ -3,7 +3,7 @@
 **Status:** core engineering deployed; Drive activation, evaluation, teammate
 receipts, and live pilot pending
 
-**Date:** 2026-08-29
+**Date:** 2026-08-30
 
 **Pilot:** Apero
 
@@ -46,23 +46,26 @@ open, and the local gaps listed below must stay visible until proven.
   exact evidence revision without leaving the terminal.
 - The real-data manifest remains intentionally empty. Quality/replacement gates
   accrue during the Apero pilot and do not block implementation.
-- Release `brain-cli-v0.1.9` and the matching application are live on staging.
+- Release `brain-cli-v0.1.10` and the matching application are live on staging.
   The CLI, Codex, and HTTP MCP reopen the same immutable ContextPack evidence;
   Claude/Cowork parity still requires a human Claude login.
 
 Merge `b8546396` shipped the progressive V4 application and CLI `0.1.8`;
-`ac018b93` corrected its generated HTTP contracts; and `1ab2c6f5` shipped CLI
+`ac018b93` corrected its generated HTTP contracts; `1ab2c6f5` shipped CLI
 `0.1.9`, exact project-descriptor diagnostics, safe Apero workspace selection,
 the 15-tool canonical MCP catalog, fenced scheduled Slack reconciliation, and
-Drive skip-count publication. The latest release passed 39/39 CLI tests, 9/9
-required runtime acceptance scenarios, and Woodpecker core, coverage, and final
-verification. Public install/setup/doctor, OpenAPI, MCP, cited mixed V4 Ask, and
-the scheduled Slack path were then exercised live. A real Codex runtime had
-already returned the same pack hash and ordered citation identities as the CLI
-for the same Apero Slack question. Open gates are selected Drive activation,
-real provider edit/removal timing, a real teammate and Claude/Cowork receipt,
-the frozen holdout, and the two-to-four-week Apero replacement pilot. None may
-be relabeled complete from fixtures.
+Drive skip-count publication; and `e67baad5` shipped CLI `0.1.10` plus the
+evaluation, withdrawal, replay, citation-entailment, and scheduled-activation
+corrections from that release; two final cold reviews returned no findings. The
+latest release passed 51/51 CLI tests, 9/9 required runtime acceptance
+scenarios, and Woodpecker core, coverage, firewall, and final verification.
+Public install/setup/doctor, OpenAPI, MCP, cited mixed V4 Ask, exact source
+reopening, and the scheduled Slack path were then exercised live. A real Codex
+runtime had already returned the same pack hash and ordered citation identities
+as the CLI for the same Apero Slack question. Open gates are selected Drive
+activation, real provider edit/removal timing, a real teammate and Claude/Cowork
+receipt, the frozen holdout, and the two-to-four-week Apero replacement pilot.
+None may be relabeled complete from fixtures.
 
 ## 1. Decision
 

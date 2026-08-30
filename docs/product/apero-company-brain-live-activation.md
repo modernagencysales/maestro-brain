@@ -2,7 +2,7 @@
 
 **Environment:** staging
 
-**Observed through:** 2026-08-29
+**Observed through:** 2026-08-30
 
 **Purpose:** exact live-state receipt, not a provider or dogfood completion
 claim
@@ -312,3 +312,43 @@ adjudicated examples, and zero holdout examples. Its maturity is therefore
 MCP-catalog, scheduled-Slack fencing, and Drive result-contract gaps; it does
 not close Drive OAuth/source selection, Claude/Cowork login, evaluation, or the
 elapsed replacement pilot.
+
+## CLI 0.1.10 and final engineering-correction deployment receipt
+
+- Pull request: `#85`
+- Reviewed head: `9fb334b4620b82746f29c11dc026f61f37d726dd`
+- Merge commit: `e67baad585f538b499357c85cb12cf8cc7bbb37d`
+- Required Woodpecker PR pipeline: `305` (success)
+- Release: `brain-cli-v0.1.10`
+- Artifact SHA-256:
+  `69e66a66d43326eddf72e8f80853df740dace8d10593e95dacbeb2035cf6ba3b`
+- GitHub staging deployment: `6163051866`
+- Guarded Woodpecker deployment pipeline: `307` (success)
+- Convex deployment: `perfect-sparrow-808`
+- Cloudflare Worker version: `f9c67eef-f565-4b48-8977-ffb6a2c7d3cf`
+
+The public version-pinned artifact installed cleanly and returned `0.1.10`.
+Non-interactive setup generated all five managed project surfaces, and linked
+doctor passed config, API, MCP protocol, the MCP catalog, workspace evidence,
+and exact descriptor checks. OpenAPI 3.1 still exposes 20 paths. HTTP MCP
+advertises 15 tools, contains `template.brain.ask`, excludes the legacy
+assistant Ask tool, and retains the `ask-company-brain` prompt.
+
+A live question requested and received mixed ContextPack V4 with schema `4` and
+one Slack thread-segment citation. Exact reopening returned the same source key,
+revision key, and content hash, a 732-character Markdown body, and
+`tombstone=false`. Evidence health reports 99 active Slack sources and 99
+current entries, current-index coverage, within-bounds capacity, and a complete
+latest single-channel reconciliation. Drive, HubSpot, and transcripts remain
+empty.
+
+The real evaluation ledger remains one development example, zero adjudicated
+examples, and zero holdout examples. `insufficient-sample` is therefore the
+correct live status. This release strengthens the progressive evaluator and
+withdrawal/replay contracts; it is not a dataset, frozen holdout, or pilot
+completion receipt.
+
+Hosted Qlty reported nine blocking-severity structural smells already tracked by
+the repository launch-debt ledger, while the repository's required local Qlty
+wrapper reported `No issues`. Required Woodpecker admission and deployment
+pipelines were green. This receipt preserves that distinction.
