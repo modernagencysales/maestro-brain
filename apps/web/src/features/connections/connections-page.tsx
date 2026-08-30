@@ -328,13 +328,18 @@ export const ConnectionsPage = () => {
                 channelIds: [...channelIds],
                 lookbackDays,
               })
-            else if (provider === 'google-drive')
-              await syncGoogleDrive({
+            else if (provider === 'google-drive') {
+              const result = await syncGoogleDrive({
                 workspaceId: workspace.id,
                 driveId: containerId,
                 rootFolderIds: [...rootFolderIds],
               })
-            else
+              toast.success({
+                title: 'Company Brain sync complete',
+                description: `${result.sourceCount} segments indexed; ${result.metadataOnlyCount} metadata-only files and ${result.capacityExceededCount} oversized files were skipped.`,
+              })
+              return
+            } else
               await syncHubSpot({
                 workspaceId: workspace.id,
                 portalId: containerId,

@@ -83,6 +83,10 @@ const SlackSyncArgs = Schema.Struct({
   channelIds: SlackChannelIds,
   lookbackDays: Schema.optional(Schema.Number),
 });
+const ScheduledSlackSyncArgs = Schema.Struct({
+  ...SlackSyncArgs.fields,
+  expectedConnectionGeneration: Schema.Number,
+});
 const GoogleDriveSyncArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   driveId: Schema.NonEmptyString,
@@ -335,6 +339,8 @@ const syncGoogleDrive = FunctionSpec.publicAction({
   returns: () =>
     Schema.Struct({
       sourceCount: Schema.Number,
+      metadataOnlyCount: Schema.Number,
+      capacityExceededCount: Schema.Number,
       syncedAt: Schema.Number,
     }),
   error: () => SyncError,
@@ -384,7 +390,7 @@ const recordSlackSync = FunctionSpec.internalMutation({
       syncedAt: Schema.optional(Schema.Number),
       messageCount: Schema.optional(Schema.Number),
       pageCount: Schema.optional(Schema.Number),
-      channelIds: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+      channelIds: Schema.optional(SlackChannelIds),
       lookbackDays: Schema.optional(Schema.Number),
       evidenceScopeKey: Schema.optional(Schema.NonEmptyString),
       errorCode: Schema.optional(Schema.NonEmptyString),
@@ -409,7 +415,7 @@ const connectionsForManualSync = FunctionSpec.internalQuery({
 
 const syncSlackScheduled = FunctionSpec.internalAction({
   name: "syncSlackScheduled",
-  args: () => SlackSyncArgs,
+  args: () => ScheduledSlackSyncArgs,
   returns: () =>
     Schema.Struct({
       pageCount: Schema.Number,
@@ -423,7 +429,12 @@ const syncGoogleDriveScheduled = FunctionSpec.internalAction({
   name: "syncGoogleDriveScheduled",
   args: () => ScheduledGoogleDriveSyncArgs,
   returns: () =>
-    Schema.Struct({ sourceCount: Schema.Number, syncedAt: Schema.Number }),
+    Schema.Struct({
+      sourceCount: Schema.Number,
+      metadataOnlyCount: Schema.Number,
+      capacityExceededCount: Schema.Number,
+      syncedAt: Schema.Number,
+    }),
   error: () => SyncError,
 });
 

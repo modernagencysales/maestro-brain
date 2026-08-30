@@ -81,6 +81,102 @@ describe("Company Brain evidence publication", () => {
     ).toHaveLength(1);
   });
 
+  it("assembles Page, Slack, Drive, and CRM evidence through one cited Ask path", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* actor.mutation(refs.public.brain.pages.createMarkdown, {
+        workspaceId: seeded.workspaceId,
+        slug: "shared-plane-page",
+        title: "Shared plane Page",
+        markdown: "pagefact is maintained in a Brain Page.",
+      });
+      const providers = [
+        ["slack", "slack", "slackfact"],
+        ["google_drive", "google-drive", "drivefact"],
+        ["hubspot", "hubspot", "crmfact"],
+      ] as const;
+      for (const [provider, connectionProvider, fact] of providers) {
+        const scopeKey = `${provider}:shared-plane`;
+        const runKey = `${provider}:shared-plane-run`;
+        yield* confect.run(
+          Effect.gen(function* () {
+            yield* (yield* DatabaseWriter)
+              .table("providerConnections")
+              .insert({
+                workspaceId: seeded.workspaceId,
+                provider: connectionProvider,
+                status: "active",
+                generation: 1,
+                connectionRef: `${connectionProvider}-shared-plane`,
+                evidenceScopeKey: scopeKey,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+          }),
+        );
+        yield* confect.mutation(refs.internal.brain.evidence.beginRun, {
+          workspaceId: seeded.workspaceId,
+          provider,
+          scopeKey,
+          connectionGeneration: 1,
+          runKey,
+          startedAt: now,
+        });
+        yield* confect.mutation(refs.internal.brain.evidence.publishRunItem, {
+          workspaceId: seeded.workspaceId,
+          provider,
+          scopeKey,
+          runKey,
+          sourceKey: `${provider}:shared-plane-source`,
+          revisionKey: "revision-1",
+          title: `${provider} shared plane source`,
+          markdown: `${fact} is current provider evidence.`,
+          sourceModifiedAt: now,
+          observedAt: now,
+        });
+        yield* confect.mutation(refs.internal.brain.evidence.completeRun, {
+          workspaceId: seeded.workspaceId,
+          runKey,
+          discoveredCount: 1,
+          completedAt: now,
+        });
+      }
+      yield* confect.mutation(refs.internal.ops.flags.upsertPolicyInternal, {
+        workspaceId: seeded.workspaceId,
+        key: "template.brain.contextV4",
+        description: "Enable the shared provider-plane contract.",
+        enabled: true,
+        rolloutPercent: 100,
+        audience: "workspace",
+      });
+      return yield* actor.query(
+        refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+        {
+          workspaceId: seeded.workspaceId,
+          question: "pagefact slackfact drivefact crmfact",
+          evidenceMode: "mixed",
+          maxCitations: 10,
+          asOf: now,
+        },
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.status).toBe("answered");
+    expect(result.contextPack.evidenceMode).toBe("mixed");
+    expect(
+      new Set(result.contextPack.citations.map(({ provider }) => provider)),
+    ).toEqual(new Set(["brain_page", "slack", "google_drive", "hubspot"]));
+  });
+
   it("examines a legacy entry once when invalid passage postings crowd valid evidence", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();

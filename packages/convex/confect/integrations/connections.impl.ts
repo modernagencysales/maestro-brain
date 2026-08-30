@@ -862,6 +862,8 @@ const runGoogleDriveSync = (
       }).pipe(Effect.ignore);
       return {
         sourceCount: evidence.items.length,
+        metadataOnlyCount: evidence.metadataOnlyCount,
+        capacityExceededCount: evidence.capacityStates.length,
         syncedAt: inventory.completedAt,
       };
     }).pipe(
@@ -1273,6 +1275,9 @@ const syncSlackScheduled = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const rows = yield* scheduledConnectionRows(args.workspaceId, "slack");
+      const connection = yield* requireActiveConnection(rows, "slack");
+      if (connection.generation !== args.expectedConnectionGeneration)
+        return yield* transitionFailure();
       return yield* runSlackSync(args, rows);
     }),
 );
@@ -1349,7 +1354,7 @@ const recordSlackSync = FunctionImpl.make(
           ...(channelIds === undefined
             ? {}
             : {
-                scheduledSyncEnabled: false,
+                scheduledSyncEnabled: true,
                 slackChannelIds: [...new Set(channelIds)].sort(),
                 ...(lookbackDays === undefined
                   ? {}
@@ -1498,8 +1503,26 @@ const dispatchScheduledSyncs = FunctionImpl.make(
           skippedCount += 1;
           continue;
         }
-        if (connection.provider === "slack") {
-          skippedCount += 1;
+        if (
+          connection.provider === "slack" &&
+          connection.slackChannelIds !== undefined &&
+          connection.slackChannelIds.length === 1
+        ) {
+          yield* scheduler
+            .runAfter(
+              Duration.zero,
+              refs.internal.integrations.connections.syncSlackScheduled,
+              {
+                workspaceId: connection.workspaceId,
+                channelIds: connection.slackChannelIds,
+                expectedConnectionGeneration: connection.generation,
+                ...(connection.slackLookbackDays === undefined
+                  ? {}
+                  : { lookbackDays: connection.slackLookbackDays }),
+              },
+            )
+            .pipe(Effect.orDie);
+          scheduledCount += 1;
           continue;
         }
         if (

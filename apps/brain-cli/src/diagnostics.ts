@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
   callApi,
@@ -9,6 +9,8 @@ import {
   type CliResult,
 } from "./api.js";
 import { apiKeySettingsUrl, readConfig } from "./config.js";
+import { mergeCodexMcpBlock } from "./setupCodexConfig.js";
+import { installedSkillMatches } from "./setupSkill.js";
 import {
   cliVersion,
   configFor,
@@ -67,6 +69,100 @@ const evidenceCoverage = (
   }
 };
 
+const failureDetail = (result: CliResult): string | undefined => {
+  if (result.exitCode === 0) return undefined;
+  return result.stderr.trim() || result.stdout.trim() || "Check failed.";
+};
+
+export const projectDescriptorCoverage = (
+  root: string,
+  mcpUrl: string,
+  assetDirectory: string,
+): { readonly ok: boolean; readonly missingOrStale: readonly string[] } => {
+  const bearerTemplate = "Bearer ${MAESTRO_BRAIN_API_KEY}";
+  const codexBlock = `[mcp_servers.maestro_brain]\nurl = ${JSON.stringify(mcpUrl)}\nbearer_token_env_var = "MAESTRO_BRAIN_API_KEY"\n`;
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const jsonAt = (
+    relativePath: string,
+  ): Record<string, unknown> | undefined => {
+    const path = resolve(root, relativePath);
+    if (!existsSync(path)) return undefined;
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+      return isRecord(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const textAt = (relativePath: string): string | undefined => {
+    try {
+      return readFileSync(resolve(root, relativePath), "utf8");
+    } catch {
+      return undefined;
+    }
+  };
+  const codexPath = resolve(root, ".codex/config.toml");
+  const codexContent = textAt(".codex/config.toml");
+  const codexMatches =
+    existsSync(codexPath) &&
+    codexContent !== undefined &&
+    !mergeCodexMcpBlock(codexContent, codexBlock).changed;
+  const claude = jsonAt(".mcp.json");
+  const claudeServers = isRecord(claude?.mcpServers)
+    ? claude.mcpServers
+    : undefined;
+  const claudeBrain = isRecord(claudeServers?.["maestro-brain"])
+    ? claudeServers["maestro-brain"]
+    : undefined;
+  const claudeHeaders = isRecord(claudeBrain?.headers)
+    ? claudeBrain.headers
+    : undefined;
+  const cowork = jsonAt(".cowork/maestro-brain.json");
+  const coworkTransport = isRecord(cowork?.transport)
+    ? cowork.transport
+    : undefined;
+  const coworkAuthentication = isRecord(cowork?.authentication)
+    ? cowork.authentication
+    : undefined;
+  const matches = new Map<string, boolean>([
+    [".codex/config.toml", codexMatches],
+    [
+      ".mcp.json",
+      claudeBrain?.type === "http" &&
+        claudeBrain.url === mcpUrl &&
+        claudeHeaders?.Authorization === bearerTemplate,
+    ],
+    [
+      ".cowork/maestro-brain.json",
+      cowork?.schemaVersion === 1 &&
+        cowork?.name === "maestro-brain" &&
+        coworkTransport?.type === "streamable-http" &&
+        coworkTransport.url === mcpUrl &&
+        coworkAuthentication?.scheme === "bearer" &&
+        coworkAuthentication.secretEnv === "MAESTRO_BRAIN_API_KEY",
+    ],
+    [
+      ".agents/skills/ask-apero",
+      installedSkillMatches(
+        resolve(root, ".agents/skills/ask-apero"),
+        assetDirectory,
+      ),
+    ],
+    [
+      ".claude/skills/ask-apero",
+      installedSkillMatches(
+        resolve(root, ".claude/skills/ask-apero"),
+        assetDirectory,
+      ),
+    ],
+  ]);
+  const missingOrStale = [...matches.entries()].flatMap(([path, matches]) =>
+    matches ? [] : [path],
+  );
+  return { ok: missingOrStale.length === 0, missingOrStale };
+};
+
 export const doctorCommand = async (
   dependencies: CliDependencies,
 ): Promise<CliResult> => {
@@ -86,23 +182,31 @@ export const doctorCommand = async (
     "template.brain.evidence.health",
     {},
   );
+  const projectDescriptors = projectDescriptorCoverage(
+    dependencies.cwd,
+    `${config.apiUrl}/mcp`,
+    dependencies.assetDirectory,
+  );
   const checks = {
     config: { ok: true },
-    api: { ok: api.exitCode === 0, detail: api.stderr.trim() || undefined },
+    api: { ok: api.exitCode === 0, detail: failureDetail(api) },
     mcpProtocol: {
       ok: mcp.exitCode === 0,
-      detail: mcp.stderr.trim() || undefined,
+      detail: failureDetail(mcp),
     },
     mcpTools: {
       ok: tools.exitCode === 0,
-      detail: tools.stderr.trim() || undefined,
+      detail: failureDetail(tools),
     },
     workspaceEvidence: {
       ok: evidence.exitCode === 0,
-      detail: evidence.stderr.trim() || undefined,
+      detail: failureDetail(evidence),
     },
+    projectDescriptors,
   };
-  const ok = Object.values(checks).every(({ ok }) => ok);
+  const ok =
+    projectDescriptors.ok &&
+    [api, mcp, tools, evidence].every(({ exitCode }) => exitCode === 0);
   const coverage = evidenceCoverage(evidence);
   return {
     ...success({
@@ -110,6 +214,14 @@ export const doctorCommand = async (
       checks,
       ...(coverage ? { evidenceCoverage: coverage.providers } : {}),
       warnings: coverage?.warnings ?? [],
+      ...(!projectDescriptors.ok
+        ? {
+            warnings: [
+              ...(coverage?.warnings ?? []),
+              `Project descriptors are missing or stale: ${projectDescriptors.missingOrStale.join(", ")}. Rerun maestro-brain setup from this project.`,
+            ],
+          }
+        : {}),
       notChecked: [
         "Codex or Claude project trust/approval",
         "Claude account login",
@@ -188,10 +300,21 @@ export const mcpCommand = async (
   const config = configFor(dependencies);
   if (isCliResult(config)) return config;
   const methods = {
-    doctor: "initialize",
     tools: "tools/list",
     prompts: "prompts/list",
   } as const;
+  if (argv[1] === "doctor") {
+    const protocol = await callMcp(config, dependencies.fetch, "initialize");
+    if (protocol.exitCode !== 0) return protocol;
+    const authenticated = await callMcpTool(
+      config,
+      dependencies.fetch,
+      "template.brain.evidence.health",
+      {},
+    );
+    if (authenticated.exitCode !== 0) return authenticated;
+    return success({ ok: true, protocol: "initialized", credential: "valid" });
+  }
   const method = methods[argv[1] as keyof typeof methods];
   if (!method)
     return failure("Usage: maestro-brain mcp doctor|tools [--full]|prompts");

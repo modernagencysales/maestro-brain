@@ -318,6 +318,7 @@ const commandHandlers = (
   help: () => helpFor(argv[1]),
   "--help": () => success(help.trimEnd()),
   "-h": () => success(help.trimEnd()),
+  "--version": () => success(cliVersion),
   setup: async () => await setupCommand(argv, dependencies),
   env: () => {
     const config = configFor(dependencies);

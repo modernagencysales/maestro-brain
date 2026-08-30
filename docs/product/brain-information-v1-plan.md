@@ -45,12 +45,13 @@ open, and the local gaps listed below must stay visible until proven.
   exact evidence revision without leaving the terminal.
 - The real-data manifest remains intentionally empty. Quality/replacement gates
   accrue during the Apero pilot and do not block implementation.
-- Release `brain-cli-v0.1.7` and the matching application are live on staging.
+- Release `brain-cli-v0.1.8` and the matching application are live on staging.
   The CLI, Codex, and HTTP MCP reopen the same immutable ContextPack evidence;
   Claude/Cowork parity still requires a human Claude login.
 
-Merge `5cb47dca` shipped the V4 application and CLI `0.1.7` to staging. The
-release passed 39/39 CLI tests, 141/141 web tests, 9/9 required runtime
+Merge `b8546396` shipped the progressive V4 application and CLI `0.1.8` to
+staging; merge `ac018b93` subsequently corrected its generated HTTP contracts.
+The release passed 39/39 CLI tests, 141/141 web tests, 9/9 required runtime
 acceptance scenarios, Woodpecker firewall/core/coverage/final checks, QLTY, and
 artifact secret scanning. A real Codex runtime returned the same pack hash and
 ordered citation identities as the CLI for the same Apero Slack question. Open
@@ -1002,7 +1003,9 @@ Deliver:
 - source withdrawal matrix and tests;
 - rate-limit, retry, capacity, connection-generation, and revoke-during-sync
   tests;
-- scheduled Slack sync remains disabled.
+- a successful bounded manual Slack sync persists the approved single-channel
+  scope and enables hourly bounded reconciliation through the same sync path;
+  failed traversals still cannot infer removals.
 
 Required updates:
 
@@ -1225,20 +1228,20 @@ does not silently truncate or delete.
 
 ## 15. Deferred-complexity triggers
 
-| Addition                                   | Required evidence                                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Semantic/vector candidate generation       | Holdout misses remain materially semantic after grouping, aliases, tags, and metadata fixes |
-| Topic objects                              | Stable tag clusters have a named UI or retrieval consumer                                   |
-| Specialized product/persona/segment tables | A shipped workflow reads/writes structured fields that generic references cannot support    |
-| Page-change suggestions                    | Candidate acceptance is accurate and reviewers request Page maintenance help                |
-| Brain Links graph                          | Page corpus and navigation questions demonstrate one-hop link value                         |
-| Dedicated review-event table               | Real candidates exceed the bounded inline history safely                                    |
-| Dedicated tag-count table                  | Accepted-tag vocabulary cannot be queried within declared bounds                            |
-| Persisted ContextPack receipts             | A named audit/replay consumer justifies retention, export, deletion, and privacy cost       |
-| Outcome-informed ranking                   | Attributed outcome volume beats the non-outcome baseline on holdout tasks                   |
-| Topic clustering for unthreaded Slack      | Unthreaded-message retrieval remains a measured material gap                                |
-| Graph database                             | Indexed shallow relations cannot meet a demonstrated traversal requirement                  |
-| Scheduled Slack synchronization            | Pilot observations justify and prove Events, overlap scans, or periodic reconciliation      |
+| Addition                                   | Required evidence                                                                               |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Semantic/vector candidate generation       | Holdout misses remain materially semantic after grouping, aliases, tags, and metadata fixes     |
+| Topic objects                              | Stable tag clusters have a named UI or retrieval consumer                                       |
+| Specialized product/persona/segment tables | A shipped workflow reads/writes structured fields that generic references cannot support        |
+| Page-change suggestions                    | Candidate acceptance is accurate and reviewers request Page maintenance help                    |
+| Brain Links graph                          | Page corpus and navigation questions demonstrate one-hop link value                             |
+| Dedicated review-event table               | Real candidates exceed the bounded inline history safely                                        |
+| Dedicated tag-count table                  | Accepted-tag vocabulary cannot be queried within declared bounds                                |
+| Persisted ContextPack receipts             | A named audit/replay consumer justifies retention, export, deletion, and privacy cost           |
+| Outcome-informed ranking                   | Attributed outcome volume beats the non-outcome baseline on holdout tasks                       |
+| Topic clustering for unthreaded Slack      | Unthreaded-message retrieval remains a measured material gap                                    |
+| Graph database                             | Indexed shallow relations cannot meet a demonstrated traversal requirement                      |
+| Faster-than-hourly Slack synchronization   | Measured edit/removal lag shows hourly bounded reconciliation misses the named freshness target |
 
 ## 16. Prior-art disposition
 

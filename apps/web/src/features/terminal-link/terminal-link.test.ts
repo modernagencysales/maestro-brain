@@ -3,10 +3,32 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTerminalCallbackUrl,
   parseLoopbackCallback,
+  selectTerminalWorkspaceId,
   terminalLinkSearchSchema,
 } from './terminal-link'
 
 describe('terminal link callback', () => {
+  it('prefers Apero but requires a choice for unrelated multi-workspace users', () => {
+    const multiple = [
+      { id: 'client-1', slug: 'client-one' },
+      { id: 'apero-1', slug: 'apero' },
+    ]
+    expect(selectTerminalWorkspaceId(multiple, '')).toBe('apero-1')
+    expect(selectTerminalWorkspaceId(multiple, 'client-1')).toBe('client-1')
+    expect(
+      selectTerminalWorkspaceId(
+        [
+          { id: 'client-1', slug: 'client-one' },
+          { id: 'client-2', slug: 'client-two' },
+        ],
+        '',
+      ),
+    ).toBe('')
+    expect(
+      selectTerminalWorkspaceId([{ id: 'only-1', slug: 'only' }], ''),
+    ).toBe('only-1')
+  })
+
   it('turns incomplete browser links into a renderable invalid request', () => {
     expect(terminalLinkSearchSchema.parse({})).toEqual({
       callback: '',

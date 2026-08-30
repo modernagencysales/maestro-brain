@@ -16,6 +16,15 @@ export const parseLoopbackCallback = (value: string): URL | null => {
   }
 }
 
+export const selectTerminalWorkspaceId = (
+  workspaces: readonly { readonly id: string; readonly slug: string }[],
+  selectedId: string,
+): string => {
+  if (workspaces.some(({ id }) => id === selectedId)) return selectedId
+  const apero = workspaces.find(({ slug }) => slug === 'apero')
+  return apero?.id ?? (workspaces.length === 1 ? (workspaces[0]?.id ?? '') : '')
+}
+
 export const buildTerminalCallbackUrl = (input: {
   readonly callback: string
   readonly state: string

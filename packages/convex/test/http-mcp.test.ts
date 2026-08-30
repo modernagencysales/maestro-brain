@@ -134,7 +134,6 @@ describe("hosted Brain MCP", () => {
       "template.brain.knowledge.extract",
       "template.brain.knowledge.candidates",
       "template.brain.knowledge.review",
-      "template.agents.assistant.answerQuestion",
       "template.brain.ask",
       "template.agents.assistant.saveEvaluationExample",
       "template.brain.evaluations.list",
@@ -244,7 +243,7 @@ describe("hosted Brain MCP", () => {
           status: "insufficient-context",
           reason: "no-eligible-evidence",
           answerMarkdown: null,
-          contextPack: { schemaVersion: "3" },
+          contextPack: { schemaVersion: "4" },
         };
       },
     };
@@ -254,7 +253,7 @@ describe("hosted Brain MCP", () => {
         mcpRequest(
           "tools/call",
           {
-            name: "template.agents.assistant.answerQuestion",
+            name: "template.brain.ask",
             arguments: { question: "What is our ICP?" },
           },
           "Bearer mtk_live_test",

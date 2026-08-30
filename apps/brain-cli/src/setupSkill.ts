@@ -57,6 +57,19 @@ const directoryManifest = (root: string, prefix = ""): string | undefined => {
   return records.join("\n");
 };
 
+export const installedSkillMatches = (
+  destination: string,
+  source: string,
+): boolean => {
+  try {
+    const installed = directoryManifest(destination);
+    const packaged = directoryManifest(source);
+    return installed !== undefined && installed === packaged;
+  } catch {
+    return false;
+  }
+};
+
 const replaceManagedSkill = (
   destination: string,
   path: string,

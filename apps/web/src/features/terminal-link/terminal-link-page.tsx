@@ -13,7 +13,11 @@ import { useMutation as useConvexMutation } from 'convex/react'
 import { useWorkspaces } from '#features/common/hooks/use-workspaces'
 import { configuredBrainApiOrigin } from '#lib/brain-proxy'
 
-import { buildTerminalCallbackUrl, parseLoopbackCallback } from './terminal-link'
+import {
+  buildTerminalCallbackUrl,
+  parseLoopbackCallback,
+  selectTerminalWorkspaceId,
+} from './terminal-link'
 
 const createLinkedKeyRef = getFunctionReference(
   templateConfectRefs.public.headless.apiKeys.createLinkedKey,
@@ -31,6 +35,13 @@ export function TerminalLinkPage(props: {
   const [linking, setLinking] = React.useState(false)
   const createLinkedKey = useConvexMutation(createLinkedKeyRef)
   const callbackIsValid = parseLoopbackCallback(props.callback) !== null
+  const selectedWorkspaceId = selectTerminalWorkspaceId(
+    workspaces,
+    workspaceId,
+  )
+  const selectedWorkspace = workspaces.find(
+    ({ id }) => id === selectedWorkspaceId,
+  )
   const workspaceCollection = createListCollection({
     items: workspaces.map((workspace) => ({
       value: workspace.id,
@@ -39,7 +50,7 @@ export function TerminalLinkPage(props: {
   })
 
   const link = async () => {
-    const workspace = workspaces.find(({ id }) => id === workspaceId)
+    const workspace = workspaces.find(({ id }) => id === selectedWorkspaceId)
     if (!workspace || !callbackIsValid) return
     setLinking(true)
     setError(undefined)
@@ -96,7 +107,7 @@ export function TerminalLinkPage(props: {
               <Select.Root
                 aria-label="Company workspace"
                 collection={workspaceCollection}
-                value={[workspaceId]}
+                value={[selectedWorkspaceId]}
                 onValueChange={({ value }) => setWorkspaceId(value[0] ?? '')}
               >
                 <Select.Trigger>
@@ -122,11 +133,13 @@ export function TerminalLinkPage(props: {
           ) : null}
           <Button
             alignSelf="start"
-            disabled={!callbackIsValid || !workspaceId || linking}
+            disabled={!callbackIsValid || !selectedWorkspaceId || linking}
             loading={linking}
             onClick={() => void link()}
           >
-            Connect terminal
+            {selectedWorkspace
+              ? `Connect terminal to ${selectedWorkspace.label}`
+              : 'Choose a workspace'}
           </Button>
         </Stack>
       </Card.Body>
