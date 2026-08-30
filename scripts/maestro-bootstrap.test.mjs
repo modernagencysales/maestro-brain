@@ -17,6 +17,19 @@ const ready = {
   gitEmail: "template@example.invalid",
 };
 
+const onboarding = readFileSync(
+  new URL("../docs/team-onboarding.md", import.meta.url),
+  "utf8",
+);
+
+const bugRecipe = (cloneCommand) => {
+  const block = [...onboarding.matchAll(/```bash\n([\s\S]*?)```/g)]
+    .map((match) => match[1])
+    .find((candidate) => candidate.includes(cloneCommand));
+  assert.ok(block, `missing onboarding recipe for ${cloneCommand}`);
+  return block;
+};
+
 test("recommends the pinned npx fallback when Corepack is unavailable", () => {
   const report = inspectBootstrap({ ...ready, corepack: "missing" });
   assert.equal(report.ok, true);
@@ -25,6 +38,49 @@ test("recommends the pinned npx fallback when Corepack is unavailable", () => {
     "npx --yes pnpm@10.12.1 install --frozen-lockfile",
   );
   assert.match(renderBootstrapHuman(report), /Corepack is unavailable/);
+});
+
+test("keeps the no-Corepack install fallback in every bug PR recipe", () => {
+  for (const recipe of [
+    bugRecipe("gh repo clone"),
+    bugRecipe("gh repo fork"),
+  ]) {
+    assert.match(recipe, /if command -v corepack/);
+    assert.match(recipe, /npx --yes pnpm@10\.12\.1 install --frozen-lockfile/);
+    assert.ok(
+      recipe.indexOf("npx --yes pnpm@10.12.1") <
+        recipe.indexOf("git switch -c"),
+      "dependency fallback must run before the contributor branches",
+    );
+  }
+});
+
+test("requires a tested commit before every bug PR push", () => {
+  for (const recipe of [
+    bugRecipe("gh repo clone"),
+    bugRecipe("gh repo fork"),
+  ]) {
+    const orderedSteps = [
+      "git switch -c",
+      "# Make the change",
+      "pnpm acceptance:required",
+      "git status --short",
+      "git add ",
+      "git commit ",
+      "git push ",
+      "gh pr create",
+    ];
+    const positions = orderedSteps.map((step) => recipe.indexOf(step));
+    assert.ok(
+      positions.every((position) => position >= 0),
+      `incomplete bug PR recipe: ${recipe}`,
+    );
+    assert.deepEqual(
+      positions,
+      [...positions].sort((left, right) => left - right),
+      "bug PR recipe must test and commit reviewed files before push and PR",
+    );
+  }
 });
 
 test("reports repository-local Git identity commands", () => {

@@ -7,6 +7,7 @@ import databaseSchema from "../_generated/schema";
 import type { BrainEvaluationExamplesDoc } from "../_generated/docs";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ValidationFailed } from "../errors";
+import { loadEligibleEvidenceRevision } from "../brain/evidence.impl";
 import {
   buildRedactedEvaluationExport,
   HOLDOUT_EXAMPLE_COUNT,
@@ -241,7 +242,6 @@ const validateReferences = (
         `At most ${MAX_EVIDENCE_REFERENCES} expected evidence references are allowed.`,
       );
     const seen = new Set<string>();
-    const reader = yield* DatabaseReader;
     for (const reference of references) {
       if (
         reference.sourceKey.length < 1 ||
@@ -262,23 +262,13 @@ const validateReferences = (
           "Expected evidence references must be unique.",
         );
       seen.add(identity);
-      const matches = yield* reader
-        .table("brainEvidenceRevisions")
-        .index("by_workspace_and_source_key_and_revision_key", (q) =>
-          q
-            .eq("workspaceId", workspaceId)
-            .eq("sourceKey", reference.sourceKey)
-            .eq("revisionKey", reference.revisionKey),
-        )
-        .take(2)
-        .pipe(Effect.orDie);
       if (
-        matches.length !== 1 ||
-        matches[0]?.contentHash !== reference.contentHash
+        (yield* loadEligibleEvidenceRevision({ workspaceId, ...reference })) ===
+        null
       )
         return yield* invalid(
           "expectedEvidenceReferences",
-          "An expected evidence reference could not be reopened exactly.",
+          "An expected evidence reference is not active and exactly reopenable.",
         );
     }
   });
@@ -472,6 +462,11 @@ const applyFreeze = (args: ApplyFreezeArgs, actorUserId?: GenericId<"users">) =>
       return yield* invalid(
         "expectedPreviewHash",
         "Freeze preview no longer resolves to five unique examples.",
+      );
+    for (const example of selectedRows)
+      yield* validateReferences(
+        args.workspaceId,
+        example.expectedEvidenceReferences ?? [],
       );
     const frozenAt = yield* withClock(Clock.currentTimeMillis);
     const writer = yield* DatabaseWriter;

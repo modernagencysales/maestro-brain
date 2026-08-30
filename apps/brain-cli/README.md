@@ -3,7 +3,7 @@
 Standalone terminal client for teammates and agents. Requires Node 22.
 
 ```bash
-npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.9/maestro-brain.tgz
+npm install --global https://github.com/modernagencysales/maestro-brain/releases/download/brain-cli-v0.1.10/maestro-brain.tgz
 maestro-brain setup
 eval "$(maestro-brain env)"
 maestro-brain doctor

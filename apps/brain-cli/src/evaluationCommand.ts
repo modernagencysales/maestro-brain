@@ -547,6 +547,8 @@ const run = async (
   let exactCitationIdentities = 0;
   let reopeningDenominator = 0;
   let reopeningAvailable = 0;
+  let reopeningUnavailable = 0;
+  let reopeningErrors = 0;
   let packDriftDenominator = 0;
   let unchangedPacks = 0;
 
@@ -579,9 +581,7 @@ const run = async (
         : undefined;
     const contextPack = record(answer?.contextPack);
     const citations = Array.isArray(contextPack?.citations)
-      ? contextPack.citations
-          .map(citationRecord)
-          .filter((row) => row !== undefined)
+      ? contextPack.citations.map((citation) => citationRecord(citation) ?? {})
       : [];
     const expectedReferences = example.expectedEvidenceReferences;
     const expectedSources = [
@@ -601,7 +601,8 @@ const run = async (
     if (actualStatus === example.expectedStatus) expectedStatusMatches += 1;
     if (example.expectedStatus === "insufficient-context") {
       abstentionDenominator += 1;
-      if (actualStatus === "insufficient-context") correctAbstentions += 1;
+      if (actualStatus === "insufficient-context" && citations.length === 0)
+        correctAbstentions += 1;
     }
     const observedCitationIdentities = new Set(
       citations.slice(0, 5).flatMap((citation) => {
@@ -628,26 +629,39 @@ const run = async (
       const sourceKey = text(citation.sourceKey);
       const revisionKey = text(citation.revisionKey);
       const contentHash = text(citation.contentHash);
-      if (sourceKey !== undefined && revisionKey !== undefined) {
+      if (
+        sourceKey === undefined ||
+        revisionKey === undefined ||
+        contentHash === undefined
+      ) {
         reopeningDenominator += 1;
-        const reopened = apiResult(
-          await request(dependencies, {
-            operationId: "brain.evidence.sourceGet",
-            input: { sourceKey, revisionKey },
-          }),
-        );
-        if (!isCliResult(reopened)) {
-          const exact = record(reopened);
-          if (
-            text(exact?.sourceKey) === sourceKey &&
-            text(exact?.revisionKey) === revisionKey &&
-            contentHash !== undefined &&
-            text(exact?.contentHash) === contentHash &&
-            exact?.tombstone !== true
-          )
-            reopeningAvailable += 1;
-        }
+        continue;
       }
+      const reopened = apiResult(
+        await request(dependencies, {
+          operationId: "brain.evidence.sourceGet",
+          input: { sourceKey, revisionKey },
+        }),
+      );
+      if (isCliResult(reopened)) {
+        const transient =
+          reopened.exitCode === 5 ||
+          reopened.stderr.includes("network error or timeout");
+        if (transient) {
+          reopeningUnavailable += 1;
+          reopeningErrors += 1;
+        } else reopeningDenominator += 1;
+        continue;
+      }
+      reopeningDenominator += 1;
+      const exact = record(reopened);
+      if (
+        text(exact?.sourceKey) === sourceKey &&
+        text(exact?.revisionKey) === revisionKey &&
+        text(exact?.contentHash) === contentHash &&
+        exact?.tombstone !== true
+      )
+        reopeningAvailable += 1;
     }
     const actualPackHash = text(contextPack?.packHash);
     if (example.packHash !== undefined && actualPackHash !== undefined) {
@@ -722,7 +736,16 @@ const run = async (
         numerator: reopeningAvailable,
         denominator: reopeningDenominator,
         rate: reopeningRate,
-        availability: reopeningDenominator === 0 ? "unavailable" : "reported",
+        unavailable: reopeningUnavailable,
+        errors: reopeningErrors,
+        availability:
+          reopeningDenominator === 0 && reopeningErrors > 0
+            ? "error"
+            : reopeningUnavailable > 0
+              ? "partial"
+              : reopeningDenominator === 0
+                ? "unavailable"
+                : "reported",
       },
       citationEntailment: {
         numerator: 0,
@@ -743,7 +766,7 @@ const run = async (
   const metric = (numerator: number, denominator: number): string =>
     `${numerator}/${denominator}`;
   return success(
-    `Evaluation run: ${maturity}\nSplit: ${selectedSplit}; as of: ${new Date(asOf).toISOString()}\nExamples: ${evaluated}/${examples.length} evaluated (${requestFailures} request failures)\nExpected status: ${metric(expectedStatusMatches, evaluated)}\nCorrect abstention: ${metric(correctAbstentions, abstentionDenominator)}\nSupporting-source recall@5: ${metric(recalledSources, expectedSourceDenominator)}\nExact citation identity: ${metric(exactCitationIdentities, citationIdentityDenominator)}\nCitation reopening: ${reopeningDenominator === 0 ? "unavailable" : metric(reopeningAvailable, reopeningDenominator)}\nCitation entailment: not assessed\nPack drift: ${packDriftDenominator - unchangedPacks}/${packDriftDenominator} changed`,
+    `Evaluation run: ${maturity}\nSplit: ${selectedSplit}; as of: ${new Date(asOf).toISOString()}\nExamples: ${evaluated}/${examples.length} evaluated (${requestFailures} request failures)\nExpected status: ${metric(expectedStatusMatches, evaluated)}\nCorrect abstention: ${metric(correctAbstentions, abstentionDenominator)}\nSupporting-source recall@5: ${metric(recalledSources, expectedSourceDenominator)}\nExact citation identity: ${metric(exactCitationIdentities, citationIdentityDenominator)}\nCitation reopening: ${reopeningDenominator === 0 ? "unavailable" : metric(reopeningAvailable, reopeningDenominator)} (${reopeningUnavailable} unavailable; ${reopeningErrors} errors)\nCitation entailment: not assessed\nPack drift: ${packDriftDenominator - unchangedPacks}/${packDriftDenominator} changed`,
   );
 };
 

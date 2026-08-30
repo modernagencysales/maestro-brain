@@ -328,12 +328,12 @@ describe("provider connections Confect contract", () => {
     );
 
     expect(result.staging).toMatchObject({
-      scheduledSyncEnabled: true,
       slackChannelIds: ["C01"],
       slackLookbackDays: 30,
       evidenceScopeKey: "slack:conn_redacted_1",
       pendingEvidenceScopeKey: "slack:conn_redacted_1:channel:C01:lookback:30",
     });
+    expect(result.staging).not.toHaveProperty("scheduledSyncEnabled");
     expect(result.omittedScopeError).toBeInstanceOf(ValidationFailed);
     expect(result.staleScopeError).toBeInstanceOf(ValidationFailed);
     expect(result.afterRejectedErrors).toMatchObject({

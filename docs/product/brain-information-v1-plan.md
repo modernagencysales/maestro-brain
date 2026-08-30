@@ -25,7 +25,8 @@ open, and the local gaps listed below must stay visible until proven.
 - WP3 review is implemented with exact evidence reopening, optimistic revision,
   idempotency, atomic claim/citation creation, and bounded web/MCP queues.
 - WP4 ships as the versioned `brain.ask` V4 operation across web, CLI, API, and
-  HTTP MCP. The existing assistant operation retains ContextPack V3 during the
+  HTTP MCP. The MCP catalog exposes only canonical `template.brain.ask`; the
+  existing non-MCP assistant operation retains ContextPack V3 during its
   compatibility window.
 - Provider-backed claims reopen their immutable cited revision. Ordinary source
   edits make the claim review-due; source removal or connection withdrawal makes
@@ -45,19 +46,23 @@ open, and the local gaps listed below must stay visible until proven.
   exact evidence revision without leaving the terminal.
 - The real-data manifest remains intentionally empty. Quality/replacement gates
   accrue during the Apero pilot and do not block implementation.
-- Release `brain-cli-v0.1.8` and the matching application are live on staging.
+- Release `brain-cli-v0.1.9` and the matching application are live on staging.
   The CLI, Codex, and HTTP MCP reopen the same immutable ContextPack evidence;
   Claude/Cowork parity still requires a human Claude login.
 
-Merge `b8546396` shipped the progressive V4 application and CLI `0.1.8` to
-staging; merge `ac018b93` subsequently corrected its generated HTTP contracts.
-The release passed 39/39 CLI tests, 141/141 web tests, 9/9 required runtime
-acceptance scenarios, Woodpecker firewall/core/coverage/final checks, QLTY, and
-artifact secret scanning. A real Codex runtime returned the same pack hash and
-ordered citation identities as the CLI for the same Apero Slack question. Open
-gates are selected Drive activation, real provider edit/removal timing, a real
-teammate and Claude/Cowork receipt, the frozen holdout, and the two-to-four-week
-Apero replacement pilot. None may be relabeled complete from fixtures.
+Merge `b8546396` shipped the progressive V4 application and CLI `0.1.8`;
+`ac018b93` corrected its generated HTTP contracts; and `1ab2c6f5` shipped CLI
+`0.1.9`, exact project-descriptor diagnostics, safe Apero workspace selection,
+the 15-tool canonical MCP catalog, fenced scheduled Slack reconciliation, and
+Drive skip-count publication. The latest release passed 39/39 CLI tests, 9/9
+required runtime acceptance scenarios, and Woodpecker core, coverage, and final
+verification. Public install/setup/doctor, OpenAPI, MCP, cited mixed V4 Ask, and
+the scheduled Slack path were then exercised live. A real Codex runtime had
+already returned the same pack hash and ordered citation identities as the CLI
+for the same Apero Slack question. Open gates are selected Drive activation,
+real provider edit/removal timing, a real teammate and Claude/Cowork receipt,
+the frozen holdout, and the two-to-four-week Apero replacement pilot. None may
+be relabeled complete from fixtures.
 
 ## 1. Decision
 

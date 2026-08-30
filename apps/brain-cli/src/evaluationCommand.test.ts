@@ -373,6 +373,188 @@ describe("evaluation CLI", () => {
     });
   });
 
+  it("does not count cited insufficient-context output as a correct abstention", async () => {
+    const citation = {
+      sourceKey: "slack:C1:message:1",
+      revisionKey: "revision-1",
+      contentHash: "hash-1",
+    };
+    const example = {
+      evaluationExampleId: "example-1",
+      exampleKey: "example-1",
+      question: "What do we not know?",
+      evidenceMode: "recent_evidence",
+      riskLevel: "high",
+      expectedAnswerStatus: "insufficient-context",
+      expectedEvidenceReferences: [],
+      evidenceReferences: [],
+      split: "holdout",
+      createdAt: 1,
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(apiResponse([example]))
+      .mockResolvedValueOnce(
+        apiResponse({
+          status: "insufficient-context",
+          contextPack: {
+            packHash: "sha256:new",
+            citations: [citation],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(apiResponse({ ...citation, tombstone: false }));
+
+    const result = await runCli(
+      ["eval", "run", "--as-of", "1787961600000", "--json"],
+      configured(fetch),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      metrics: {
+        expectedStatus: { numerator: 1, denominator: 1, rate: 1 },
+        correctAbstention: { numerator: 0, denominator: 1, rate: 0 },
+      },
+    });
+  });
+
+  it("excludes source reopening request failures from the quality denominator", async () => {
+    const citation = {
+      sourceKey: "slack:C1:message:1",
+      revisionKey: "revision-1",
+      contentHash: "hash-1",
+    };
+    const example = {
+      evaluationExampleId: "example-1",
+      exampleKey: "example-1",
+      question: "What is our ICP?",
+      evidenceMode: "mixed",
+      riskLevel: "ordinary",
+      expectedAnswerStatus: "answered",
+      expectedEvidenceReferences: [citation],
+      evidenceReferences: [citation],
+      split: "holdout",
+      createdAt: 1,
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(apiResponse([example]))
+      .mockResolvedValueOnce(
+        apiResponse({
+          status: "answered",
+          contextPack: {
+            packHash: "sha256:new",
+            citations: [citation],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { _tag: "ProviderUnavailable", message: "Try later." },
+          }),
+          { status: 503 },
+        ),
+      );
+
+    const result = await runCli(
+      ["eval", "run", "--as-of", "1787961600000", "--json"],
+      configured(fetch),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      metrics: {
+        citationReopening: {
+          numerator: 0,
+          denominator: 0,
+          rate: null,
+          unavailable: 1,
+          errors: 1,
+          availability: "error",
+        },
+      },
+    });
+  });
+
+  it("counts malformed and deterministically missing citations as reopening failures", async () => {
+    const missingCitation = {
+      sourceKey: "slack:C1:message:missing",
+      revisionKey: "revision-missing",
+      contentHash: "hash-missing",
+    };
+    const corruptCitation = {
+      sourceKey: "brain-page:corrupt",
+      revisionKey: "revision-corrupt",
+      contentHash: "hash-corrupt",
+    };
+    const example = {
+      evaluationExampleId: "example-1",
+      exampleKey: "example-1",
+      question: "What is our ICP?",
+      evidenceMode: "mixed",
+      riskLevel: "ordinary",
+      expectedAnswerStatus: "answered",
+      expectedEvidenceReferences: [missingCitation],
+      evidenceReferences: [missingCitation],
+      split: "holdout",
+      createdAt: 1,
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(apiResponse([example]))
+      .mockResolvedValueOnce(
+        apiResponse({
+          status: "answered",
+          contextPack: {
+            citations: [missingCitation, "malformed-citation", corruptCitation],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { _tag: "NotFound", resource: "evidence" },
+          }),
+          { status: 404 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: {
+              _tag: "ValidationFailed",
+              field: "contentHash",
+            },
+          }),
+          { status: 400 },
+        ),
+      );
+
+    const result = await runCli(
+      ["eval", "run", "--as-of", "1787961600000", "--json"],
+      configured(fetch),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      metrics: {
+        citationReopening: {
+          numerator: 0,
+          denominator: 3,
+          rate: 0,
+          unavailable: 0,
+          errors: 0,
+          availability: "reported",
+        },
+      },
+    });
+  });
+
   it("paginates reruns and does not mistake a different revision for gold", async () => {
     const expectedReference = {
       sourceKey: "slack:C1:message:1",

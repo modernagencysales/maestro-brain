@@ -103,6 +103,116 @@ describe("grounded assistant Confect contract", () => {
     expect(result.answerMarkdown).not.toContain(NOISY_APERO_EVIDENCE);
   });
 
+  it("abstains from a high-risk answer when supported claims conflict", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      for (const [slug, amount] of [
+        ["pilot-price-five", "5,000"],
+        ["pilot-price-six", "6,000"],
+      ] as const) {
+        const markdown = `The advisory pilot price is $${amount} per month.`;
+        const pageId = yield* actor.mutation(
+          refs.public.brain.pages.createMarkdown,
+          {
+            workspaceId: seeded.workspaceId,
+            slug,
+            title: `Pilot price ${amount}`,
+            markdown,
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const revisions = yield* reader
+              .table("brainEvidenceRevisions")
+              .index("by_workspace_and_source_key", (q) =>
+                q
+                  .eq("workspaceId", seeded.workspaceId)
+                  .eq("sourceKey", `brain-page:${pageId}`),
+              )
+              .take(2)
+              .pipe(Effect.orDie);
+            const revision = revisions[0];
+            if (revision === undefined)
+              return yield* Effect.die("missing revision");
+            const writer = yield* DatabaseWriter;
+            const claimId = yield* writer
+              .table("claims")
+              .insert({
+                workspaceId: seeded.workspaceId,
+                claimId: `claim-${slug}`,
+                conceptIds: [],
+                body: markdown,
+                status: "supported",
+                citationIds: [`citation-${slug}`],
+                propositionFingerprint: "sha256:pilot-price",
+                epistemics: "factual",
+                tags: ["pilot", "pricing"],
+                verifiedAt: now,
+                nextReviewAt: now + 86_400_000,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("citations")
+              .insert({
+                workspaceId: seeded.workspaceId,
+                citationId: `citation-${slug}`,
+                claimId: String(claimId),
+                sourceId: revision.sourceKey,
+                sourceKind: "markdown",
+                sourceTitle: revision.title,
+                quotedText: markdown,
+                startOffset: 0,
+                endOffset: markdown.length,
+                revisionKey: revision.revisionKey,
+                sourceKey: revision.sourceKey,
+                contentHash: revision.contentHash,
+                provider: "brain_page",
+                createdAt: now,
+              })
+              .pipe(Effect.orDie);
+          }),
+        );
+      }
+      yield* confect.mutation(refs.internal.ops.flags.upsertPolicyInternal, {
+        workspaceId: seeded.workspaceId,
+        key: "template.brain.contextV4",
+        description: "Enable conflict-abstention contract coverage.",
+        enabled: true,
+        rolloutPercent: 100,
+        audience: "workspace",
+      });
+      return yield* actor.query(
+        refs.public.capabilities.askCompanyBrain.askCompanyBrain,
+        {
+          workspaceId: seeded.workspaceId,
+          question: "What is the current advisory pilot price?",
+          evidenceMode: "company_truth",
+          riskLevel: "high",
+          maxCitations: 5,
+          asOf: now,
+        },
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toMatchObject({
+      status: "insufficient-context",
+      reason: "possible-conflict",
+      answerMarkdown: null,
+      contextPack: { conflicts: [expect.any(Object)] },
+    });
+  });
+
   it("captures only explicit, exactly reopenable evaluation examples", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
@@ -244,6 +354,84 @@ describe("grounded assistant Confect contract", () => {
       program.pipe(Effect.provide(testConfectLayer())),
     );
     expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "ValidationFailed", field: "evidenceReferences" },
+    });
+  });
+
+  it("rejects tombstoned evidence when saving an evaluation example", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* TestConfect.TestConfect<typeof databaseSchema>();
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          yield* writer
+            .table("brainEvidenceSources")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey: "brain-page:tombstoned",
+              title: "Withdrawn page",
+              status: "removed",
+              generation: 1,
+              currentRevisionKey: "revision-1",
+              sourceModifiedAt: now,
+              observedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("brainEvidenceRevisions")
+            .insert({
+              workspaceId: seeded.workspaceId,
+              provider: "brain_page",
+              scopeKey: "brain-pages",
+              sourceKey: "brain-page:tombstoned",
+              revisionKey: "revision-1",
+              title: "Withdrawn page",
+              markdown: "Withdrawn content",
+              contentHash: "hash-withdrawn",
+              sourceModifiedAt: now,
+              observedAt: now,
+              tombstone: true,
+              createdAt: now,
+            })
+            .pipe(Effect.orDie);
+        }),
+      );
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      return yield* Effect.result(
+        actor.mutation(refs.public.agents.assistant.saveEvaluationExample, {
+          workspaceId: seeded.workspaceId,
+          exampleKey: "tombstoned-example",
+          question: "What was withdrawn?",
+          purpose: "company-question",
+          evidenceMode: "company_truth",
+          surface: "cli",
+          answerStatus: "answered",
+          packHash: `sha256:${"a".repeat(64)}`,
+          evidenceReferences: [
+            {
+              sourceKey: "brain-page:tombstoned",
+              revisionKey: "revision-1",
+              contentHash: "hash-withdrawn",
+            },
+          ],
+          captureKind: "test",
+          usefulness: "unrated",
+        }),
+      );
+    });
+
+    expect(
+      await Effect.runPromise(program.pipe(Effect.provide(testConfectLayer()))),
+    ).toMatchObject({
       _tag: "Failure",
       failure: { _tag: "ValidationFailed", field: "evidenceReferences" },
     });
